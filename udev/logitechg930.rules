@@ -1,0 +1,1 @@
+SUBSYSTEM=="usb", ENV{ID_MODEL}=="Logitech_G930_Headset", MODE="0666"

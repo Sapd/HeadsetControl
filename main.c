@@ -129,9 +129,10 @@ static libusb_device* find_logitech_g930()
 
 void send_sidetone(unsigned char num)
 {
+    int i;
     unsigned char data[64] = {0xFF, 0x0A, 0, 0xFF, 0xF4, 0x10, 0x05, 0xDA, 0x8F, 0xF2, 0x01, num, 0, 0, 0, 0};
 
-    for (int i = 16; i < 64; i++)
+    for (i = 16; i < 64; i++)
         data[i] = 0;
 
     int size = libusb_control_transfer(handle, LIBUSB_DT_HID, LIBUSB_REQUEST_SET_CONFIGURATION, 0x03ff, 0x0003, data, 64, 1000);
@@ -190,4 +191,3 @@ int main(int argc, char *argv[])
     printf("Usage: %s 0-128\n\t(0 silent, 128 very loud)\n", argv[0]);
     return 0;
 }
-
