@@ -4,3 +4,4 @@ clean:
 	rm G930Sidetone
 install:
 	cp udev/logitechg930.rules /etc/udev/rules.d/
+	cp udev/corsairvoid.rules /etc/udev/rules.d/
