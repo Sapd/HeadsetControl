@@ -1,4 +1,4 @@
-## Synopsis
+## Summary
 
 Want to use your Headset under Linux, but you shout while talking because there is no support for sidetone? With sidetone, sometimes also called loopback, you can hear your own voice while
 talking. This differs from a simple loopback via PulseAudio as you won't have any disturbing latency.
