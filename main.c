@@ -1,20 +1,20 @@
 /***
     Copyright (C) 2016 Denis Arnst (Sapd) <https://github.com/Sapd>
 
-    This file is part of G930Sidetone.
+    This file is part of headsetcontrol.
 
-    G930Sidetone is free software: you can redistribute it and/or modify
+    Headsetcontrol is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
     (at your option) any later version.
 
-    G930Sidetone is distributed in the hope that it will be useful,
+    Headsetcontrol is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 
     You should have received a copy of the GNU General Public License
-    along with G930Sidetone.  If not, see <http://www.gnu.org/licenses/>.
+    along with headsetcontrol.  If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 
@@ -199,7 +199,7 @@ void send_sidetone(unsigned char num)
 
 int main(int argc, char *argv[])
 {
-    printf("G930Sidetone written by Sapd (Denis Arnst)\n\thttps://github.com/Sapd\n");
+    printf("Headsetcontrol written by Sapd (Denis Arnst)\n\thttps://github.com/Sapd\n");
 
     if (argc != 2)
     {
