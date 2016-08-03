@@ -20,82 +20,55 @@
 
 #include <libusb-1.0/libusb.h>
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 
+enum devices
+{
+    DEVICE_G930,
+    DEVICE_VOID
+} device_found;
+
 #define VENDOR_LOGITECH 0x046d
 #define PRODUCT_G930    0x0a1f
 
+#define VENDOR_CORSAIR  0x1b1c
+#define PRODUCT_VOID    0x1b27
+
 static libusb_device **devices = NULL;
-static libusb_context *ctx = NULL;
-static struct libusb_device_handle *handle = NULL;
+static libusb_context *usb_context = NULL;
+static struct libusb_device_handle *device_handle = NULL;
+
+int map(int x, int in_min, int in_max, int out_min, int out_max)
+{
+    return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
 
 static int init_libusb()
 {
     int errno;
 
-    errno = libusb_init(&ctx);
+    errno = libusb_init(&usb_context);
 
     if (errno < 0)
     {
-        fprintf(stderr, "Failed initializing libusb %s", libusb_error_name(errno));
+        printf("Failed initializing libusb %s", libusb_error_name(errno));
         return errno;
     }
 
-    libusb_set_debug(ctx, 3);
+    libusb_set_debug(usb_context, 3);
 
     return 0;
 }
 
 static void free_libusb()
 {
-    if (devices)
-        libusb_free_device_list(devices, 1);
-
-    libusb_exit(ctx);
+    libusb_exit(usb_context);
 }
 
-static int open_device(libusb_device* device)
-{
-    int errno;
-    errno = libusb_open(device, &handle);
-
-    if (errno < 0)
-    {
-        fprintf(stderr, "Failed to open USB device %s\n", libusb_error_name(errno));
-        return 1;
-    }
-
-    printf("Opened USB handle\n");
-
-    libusb_set_auto_detach_kernel_driver(handle, 1);
-    if (errno < 0)
-    {
-        fprintf(stderr, "Failed to call auto detach USB device %s\n", libusb_error_name(errno));
-        return 1;
-    }
-
-    errno = libusb_claim_interface(handle, 3);
-
-    if (errno < 0)
-    {
-        fprintf(stderr, "Failed to claim USB interface %s\n", libusb_error_name(errno));
-        return 1;
-    }
-
-    printf("Detached and claimed device\n");
-
-    return 0;
-}
-
-static void close_device()
-{
-    libusb_release_interface(handle, 3);
-    libusb_close(handle);
-}
-
-static libusb_device* find_logitech_g930()
+static libusb_device* find_device()
 {
     // return value
     libusb_device* r = NULL;
@@ -105,7 +78,7 @@ static libusb_device* find_logitech_g930()
     // number of devices found
     ssize_t cnt;
 
-    cnt = libusb_get_device_list(ctx, &devices);
+    cnt = libusb_get_device_list(usb_context, &devices);
 
     for (ssize_t i = 0; i < cnt; i++)
     {
@@ -113,13 +86,21 @@ static libusb_device* find_logitech_g930()
         errno = libusb_get_device_descriptor(devices[i], &desc);
         if (errno < 0)
         {
-            fprintf(stderr, "Failed getting device descriptor of device %zd %s\n", i, libusb_error_name(errno));
+            printf("Failed getting device descriptor of device %zd %s\n", i, libusb_error_name(errno));
         }
 
         if (desc.idVendor == VENDOR_LOGITECH && desc.idProduct == PRODUCT_G930)
         {
             r = devices[i];
             printf("Found Logitech G930!\n");
+            device_found = DEVICE_G930;
+            break;
+        }
+        else if (desc.idVendor == VENDOR_CORSAIR && desc.idProduct == PRODUCT_VOID)
+        {
+            r = devices[i];
+            printf("Found Corsair VOID!\n");
+            device_found = DEVICE_VOID;
             break;
         }
     }
@@ -127,7 +108,44 @@ static libusb_device* find_logitech_g930()
     return r;
 }
 
-void send_sidetone(unsigned char num)
+static int open_device(libusb_device* device)
+{
+    int errno;
+    errno = libusb_open(device, &device_handle);
+
+    if (errno < 0)
+    {
+        fprintf(stderr, "Failed to open USB device %s\n", libusb_error_name(errno));
+        return 1;
+    }
+
+    errno = libusb_set_auto_detach_kernel_driver(device_handle, 1);
+    if (errno < 0)
+    {
+        printf("Failed to call auto detach USB device %s\n", libusb_error_name(errno));
+        return 1;
+    }
+
+    errno = libusb_claim_interface(device_handle, 3);
+
+    if (errno < 0)
+    {
+        printf("Failed to claim USB interface %s\n", libusb_error_name(errno));
+        return 1;
+    }
+
+    return 0;
+}
+
+static void close_device()
+{
+    if (libusb_release_interface(device_handle, 3) != 0)
+        printf("Failed releasing interface\n");
+
+    libusb_close(device_handle);
+}
+
+void send_sidetone_g930(unsigned char num)
 {
     int i;
     unsigned char data[64] = {0xFF, 0x0A, 0, 0xFF, 0xF4, 0x10, 0x05, 0xDA, 0x8F, 0xF2, 0x01, num, 0, 0, 0, 0};
@@ -135,7 +153,7 @@ void send_sidetone(unsigned char num)
     for (i = 16; i < 64; i++)
         data[i] = 0;
 
-    int size = libusb_control_transfer(handle, LIBUSB_DT_HID, LIBUSB_REQUEST_SET_CONFIGURATION, 0x03ff, 0x0003, data, 64, 1000);
+    int size = libusb_control_transfer(device_handle, LIBUSB_DT_HID, LIBUSB_REQUEST_SET_CONFIGURATION, 0x03ff, 0x0003, data, 64, 1000);
 
     if (size > 0)
     {
@@ -145,6 +163,38 @@ void send_sidetone(unsigned char num)
     {
         printf("Error in transfering data :(\n");
     }
+}
+
+void send_sidetone_void(unsigned char num)
+{
+    // the range of the void seems to be from 200 to 255
+    num = map(num, 0, 128, 200, 255);
+
+    unsigned char data[64] = {0xFF, 0x0B, 0, 0xFF, 0x04, 0x0E, 0xFF, 0x05, 0x01, 0x04, 0x00, num, 0, 0, 0, 0};
+
+    for (int i = 16; i < 64; i++)
+        data[i] = 0;
+
+    int size = libusb_control_transfer(device_handle, LIBUSB_DT_HID, LIBUSB_REQUEST_SET_CONFIGURATION, 0x03ff, 0x0003, data, 64, 1000);
+
+    if (size > 0)
+    {
+        printf("Set Sidetone successfully! (%d bytes transferred)\n", size);
+    }
+    else
+    {
+        printf("Error in transfering data :(\n");
+    }
+}
+
+void send_sidetone(unsigned char num)
+{
+    if (device_found == DEVICE_G930)
+        return send_sidetone_g930(num);
+    else if (device_found == DEVICE_VOID)
+        return send_sidetone_void(num);
+
+    assert(0);
 }
 
 int main(int argc, char *argv[])
@@ -164,17 +214,17 @@ int main(int argc, char *argv[])
     if (init_libusb())
         return 1;
 
-    libusb_device* device = find_logitech_g930();
+    libusb_device* device = find_device();
     if (!device)
     {
-        fprintf(stderr, "Couldn't find Headset");
+        printf("Couldn't find device");
         free_libusb();
         return 1;
     }
 
     if (open_device(device))
     {
-        fprintf(stderr, "Couldn't claim Device");
+        printf("Couldn't claim Device");
         close_device();
         free_libusb();
         return 1;
