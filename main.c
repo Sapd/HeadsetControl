@@ -119,6 +119,7 @@ static int open_device(libusb_device* device)
         return 1;
     }
 
+    #ifndef __APPLE__
     errno = libusb_set_auto_detach_kernel_driver(device_handle, 1);
     if (errno < 0)
     {
@@ -127,20 +128,22 @@ static int open_device(libusb_device* device)
     }
 
     errno = libusb_claim_interface(device_handle, 3);
-
     if (errno < 0)
     {
         printf("Failed to claim USB interface %s\n", libusb_error_name(errno));
         return 1;
     }
+    #endif
 
     return 0;
 }
 
 static void close_device()
 {
+    #ifndef __APPLE__
     if (libusb_release_interface(device_handle, 3) != 0)
         printf("Failed releasing interface\n");
+    #endif
 
     libusb_close(device_handle);
 }
