@@ -7,7 +7,7 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
 
 - Corsair Void
 - Logitech G930
-- Logitech G430 (only supports volume 0 and 100 currently)
+- Logitech G430
 
 The wired versions of the wireless headsets should also be supported, but need testing and maybe the product id's need to be adjusted (make an issue for that).
 
