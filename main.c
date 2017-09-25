@@ -28,11 +28,13 @@
 enum devices
 {
     DEVICE_G930,
+    DEVICE_G430,    
     DEVICE_VOID
 } device_found;
 
 #define VENDOR_LOGITECH 0x046d
 #define PRODUCT_G930    0x0a1f
+#define PRODUCT_G430    0x0a4d
 
 #define VENDOR_CORSAIR  0x1b1c
 #define PRODUCT_VOID    0x1b27
@@ -94,6 +96,13 @@ static libusb_device* find_device()
             r = devices[i];
             printf("Found Logitech G930!\n");
             device_found = DEVICE_G930;
+            break;
+        }
+        else if (desc.idVendor == VENDOR_LOGITECH && desc.idProduct == PRODUCT_G430)
+        {
+            r = devices[i];
+            printf("Found Logitech G430!\n");
+            device_found = DEVICE_G430;
             break;
         }
         else if (desc.idVendor == VENDOR_CORSAIR && desc.idProduct == PRODUCT_VOID)
@@ -168,6 +177,23 @@ void send_sidetone_g930(unsigned char num)
     }
 }
 
+void send_sidetone_g430(unsigned char num)
+{
+    int i;
+    unsigned char data[2] = {0x00, 0x1D};  // volume 100
+    if (num == 0) { data[1] = 0xF2; } // volume 0
+    int size = libusb_control_transfer(device_handle, LIBUSB_DT_HID, LIBUSB_REQUEST_CLEAR_FEATURE, 0x0201, 0x0600, data, 0x2, 1000);
+
+    if (size > 0)
+    {
+        printf("Set Sidetone successfully! (%d bytes transferred)\n", size);
+    }
+    else
+    {
+        printf("Error in transfering data :(\n");
+    }
+}
+
 void send_sidetone_void(unsigned char num)
 {
     // the range of the void seems to be from 200 to 255
@@ -194,6 +220,8 @@ void send_sidetone(unsigned char num)
 {
     if (device_found == DEVICE_G930)
         return send_sidetone_g930(num);
+    else if (device_found == DEVICE_G430)
+        return send_sidetone_g430(num);
     else if (device_found == DEVICE_VOID)
         return send_sidetone_void(num);
 
