@@ -7,8 +7,9 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
 
 - Corsair Void
 - Logitech G930
+- Logitech G430 (Working on macOS but not Linux)
 
-The wired versions should also be supported, but need testing and maybe the product id's need to be adjusted (make an issue for that).
+The wired versions of the wireless headsets should also be supported, but need testing and maybe the product id's need to be adjusted (make an issue for that).
 
 ## Other Features
 
