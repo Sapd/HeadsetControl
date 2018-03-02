@@ -109,10 +109,10 @@ static libusb_device* find_device()
         }
         else if (desc.idVendor == VENDOR_LOGITECH && desc.idProduct == PRODUCT_G533)
         {
-          r = devices[i];
-          printf("Found Logitech G533!\n");
-          device_found = DEVICE_G533;
-          break;
+            r = devices[i];
+            printf("Found Logitech G533!\n");
+            device_found = DEVICE_G533;
+            break;
         }
         else if (desc.idVendor == VENDOR_CORSAIR && desc.idProduct == PRODUCT_VOID)
         {
