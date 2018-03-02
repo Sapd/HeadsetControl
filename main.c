@@ -29,12 +29,14 @@ enum devices
 {
     DEVICE_G930,
     DEVICE_G430,    
+    DEVICE_G533,
     DEVICE_VOID
 } device_found;
 
 #define VENDOR_LOGITECH 0x046d
 #define PRODUCT_G930    0x0a1f
 #define PRODUCT_G430    0x0a4d
+#define PRODUCT_G533	0x0a66
 
 #define VENDOR_CORSAIR  0x1b1c
 #define PRODUCT_VOID    0x1b27
@@ -103,6 +105,13 @@ static libusb_device* find_device()
             r = devices[i];
             printf("Found Logitech G430!\n");
             device_found = DEVICE_G430;
+            break;
+        }
+        else if (desc.idVendor == VENDOR_LOGITECH && desc.idProduct == PRODUCT_G533)
+        {
+            r = devices[i];
+            printf("Found Logitech G533!\n");
+            device_found = DEVICE_G533;
             break;
         }
         else if (desc.idVendor == VENDOR_CORSAIR && desc.idProduct == PRODUCT_VOID)
@@ -233,7 +242,7 @@ void send_sidetone(unsigned char num)
         return send_sidetone_g930(num);
     else if (device_found == DEVICE_G430)
         return send_sidetone_g430(num);
-    else if (device_found == DEVICE_VOID)
+    else if (device_found == DEVICE_VOID || DEVICE_G533)
         return send_sidetone_void(num);
 
     assert(0);
