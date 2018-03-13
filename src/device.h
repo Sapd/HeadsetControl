@@ -1,6 +1,6 @@
 #pragma once
 
-#include <libusb.h>
+#include <hidapi.h>
 #include <stdint.h>
 
 #define VENDOR_CORSAIR  0x1b1c
@@ -38,6 +38,6 @@ struct device
      *                       device as defined here (same ids)
      *  @param num           Level of the sidetone, between 0 - 128
      */
-    int (*send_sidetone)(libusb_device_handle *device_handle, uint8_t num);
+    int (*send_sidetone)(hid_device *hid_device, uint8_t num);
 };
 

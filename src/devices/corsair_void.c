@@ -1,12 +1,13 @@
 #include "../device.h"
 #include "../utility.h"
 
+#include <hidapi.h>
 #include <string.h>
 
 
 static struct device device_void;
 
-static int void_send_sidetone(libusb_device_handle *device_handle, uint8_t num);
+static int void_send_sidetone(hid_device *device_handle, uint8_t num);
 
 void void_init(struct device** device)
 {
@@ -21,17 +22,12 @@ void void_init(struct device** device)
     *device = &device_void;
 }
 
-static int void_send_sidetone(libusb_device_handle *device_handle, uint8_t num)
+static int void_send_sidetone(hid_device *device_handle, uint8_t num)
 {
     // the range of the void seems to be from 200 to 255
     num = map(num, 0, 128, 200, 255);
-    
-    unsigned char data[64] = {0xFF, 0x0B, 0, 0xFF, 0x04, 0x0E, 0xFF, 0x05, 0x01, 0x04, 0x00, num, 0, 0, 0, 0};
-    
-    for (int i = 16; i < 64; i++)
-        data[i] = 0;
-    
-    int size = libusb_control_transfer(device_handle, LIBUSB_DT_HID, LIBUSB_REQUEST_SET_CONFIGURATION, 0x03ff, 0x0003, data, 64, 1000);
-    
-    return size;
+
+    unsigned char data[12] = {0xFF, 0x0B, 0, 0xFF, 0x04, 0x0E, 0xFF, 0x05, 0x01, 0x04, 0x00, num};
+
+    return hid_send_feature_report(device_handle, data, 12);
 }

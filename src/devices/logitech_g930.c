@@ -4,7 +4,7 @@
 
 static struct device device_g930;
 
-static int g930_send_sidetone(libusb_device_handle *device_handle, uint8_t num);
+static int g930_send_sidetone(hid_device *device_handle, uint8_t num);
 
 void g930_init(struct device** device)
 {
@@ -19,16 +19,11 @@ void g930_init(struct device** device)
     *device = &device_g930;
 }
 
-static int g930_send_sidetone(libusb_device_handle *device_handle, uint8_t num)
+static int g930_send_sidetone(hid_device *device_handle, uint8_t num)
 {
-    unsigned char data[64] = {0xFF, 0x0A, 0, 0xFF, 0xF4, 0x10, 0x05, 0xDA, 0x8F, 0xF2, 0x01, num, 0, 0, 0, 0};
+    unsigned char data[12] = {0xFF, 0x0A, 0, 0xFF, 0xF4, 0x10, 0x05, 0xDA, 0x8F, 0xF2, 0x01, num};
     
-    for (int i = 16; i < 64; i++)
-        data[i] = 0;
-    
-    int size = libusb_control_transfer(device_handle, LIBUSB_DT_HID, LIBUSB_REQUEST_SET_CONFIGURATION, 0x03ff, 0x0003, data, 64, 1000);
-    
-    return size;
+    return hid_send_feature_report(device_handle, data, 12);
 }
 
 

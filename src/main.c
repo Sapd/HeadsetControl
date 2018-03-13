@@ -19,7 +19,7 @@
 
 #include "device_registry.h"
 
-#include <libusb.h>
+#include <hidapi.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -29,112 +29,32 @@
 // describes the device, when a headset was found
 static struct device device_found;
 
-// libusb handlers
-static libusb_device **devices = NULL;
-static libusb_context *usb_context = NULL;
-static struct libusb_device_handle *device_handle = NULL;
-
-static int init_libusb()
-{
-    int errno;
-
-    errno = libusb_init(&usb_context);
-
-    if (errno < 0)
-    {
-        printf("Failed initializing libusb %s", libusb_error_name(errno));
-        return errno;
-    }
-
-    libusb_set_debug(usb_context, 3);
-
-    return 0;
-}
-
-static void free_libusb()
-{
-    libusb_exit(usb_context);
-}
-
 /**
- *  This function iterates through all USB devices.
- *  When a supported device is found device_found is set
+ *  This function iterates through all HID devices.
+ *
+ *  @return 0 when a supported device is found
  */
-static libusb_device* find_device()
+int find_device()
 {
-    // return value
-    libusb_device* r = NULL;
-
-    int errno;
-
-    // number of devices found
-    ssize_t cnt;
-
-    cnt = libusb_get_device_list(usb_context, &devices);
-
-    for (ssize_t i = 0; i < cnt; i++)
-    {
-        struct libusb_device_descriptor desc;
-        errno = libusb_get_device_descriptor(devices[i], &desc);
-        if (errno < 0)
-        {
-            printf("Failed getting device descriptor of device %zd %s\n", i, libusb_error_name(errno));
-        }
+    struct hid_device_info *devs, *cur_dev;
+    int found;
+    devs = hid_enumerate(0x0, 0x0);
+    cur_dev = devs;
+    while (cur_dev) {
+        found = get_device(&device_found, cur_dev->vendor_id, cur_dev->product_id);
         
-        errno = get_device(&device_found, desc.idVendor, desc.idProduct);
-        
-        if (errno == 0)
+        if (found == 0)
         {
             printf("Found %s!\n", device_found.device_name);
-            r = devices[i];
-            return r;
+            break;
         }
+        
+        cur_dev = cur_dev->next;
     }
-
-    return r;
-}
-
-static int open_device(libusb_device* device)
-{
-    int errno;
-    errno = libusb_open(device, &device_handle);
-
-    if (errno < 0)
-    {
-        fprintf(stderr, "Failed to open USB device %s\n", libusb_error_name(errno));
-        return 1;
-    }
-
-    // The headsets are usally already claimed by the HID drivers
-    // As these are drivers shipped with the OS, we can't override it
-    // Luckily, Darwin doesn't require it (But Linux does!)
-    #ifndef __APPLE__
-    errno = libusb_set_auto_detach_kernel_driver(device_handle, 1);
-    if (errno < 0)
-    {
-        printf("Failed to call auto detach USB device %s\n", libusb_error_name(errno));
-        return 1;
-    }
-
-    errno = libusb_claim_interface(device_handle, 3);
-    if (errno < 0)
-    {
-        printf("Failed to claim USB interface %s\n", libusb_error_name(errno));
-        return 1;
-    }
-    #endif
-
-    return 0;
-}
-
-static void close_device()
-{
-    #ifndef __APPLE__
-    if (libusb_release_interface(device_handle, 3) != 0)
-        printf("Failed releasing interface\n");
-    #endif
-
-    libusb_close(device_handle);
+    hid_free_enumeration(devs);
+    
+    
+    return found;
 }
 
 int main(int argc, char *argv[])
@@ -175,60 +95,55 @@ int main(int argc, char *argv[])
 
     // Init all information of supported devices
     init_devices();
-    
-    if (init_libusb())
-        return 1;
+
 
     // Look for a supported device
-    libusb_device* device = find_device();
-    if (!device)
+    int headset_available = find_device();
+    if (headset_available != 0)
     {
         printf("No supported headset found\n");
-        free_libusb();
         return 1;
     }
     printf("\n");
-
-    // Check wether we support the feature the user wants to set for this device
-    if (sidetone_loudness != -1 && (device_found.capabilities & CAP_SIDETONE) == 0)
-    {
-        printf("Error: This headset doesn't support sidetone\n");
-        return 1;
-    }
     
+    hid_device *device_handle;
+    device_handle = hid_open(device_found.idVendor, device_found.idProduct, NULL);
     // Open libusb device
-    if (open_device(device))
+    if (device_handle == NULL)
     {
-        printf("Couldn't claim device\n");
-        close_device();
-        free_libusb();
+        printf("Couldn't open device.\n");
         return 1;
     }
 
-    int error;
+    int error = 0;
     // Set all features the user wants us to set
     if (sidetone_loudness != -1)
     {
+        if ((device_found.capabilities & CAP_SIDETONE) == 0)
+        {
+            printf("Error: This headset doesn't support sidetone\n");
+            return 1;
+        }
+        
         error = device_found.send_sidetone(device_handle, sidetone_loudness);
         
         if (error < 0)
         {
-            printf("Failed to set sidetone. Error: %d: %s\n", error, libusb_error_name(error));
+            printf("Failed to set sidetone. Error: %d: %ls\n", error, hid_error(device_handle));
             return 1;
         }
-        else
-        {
-            printf("Set Sidetone successfully!\n");
-        }
     }
-    else
+    
+    
+    if (argc <= 1)
     {
         printf("You didn't set any arguments, so nothing happend.\nType %s -h for help.\n", argv[0]);
     }
-    
-    // cleanup
-    close_device();
-    free_libusb();
+    else if (error == 0)
+    {
+        printf("Success!\n");
+    }
+
 
     return 0;
 }

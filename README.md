@@ -5,12 +5,11 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
 
 ## Supported Headsets
 
+Sidetone:
 - Corsair Void
 - Logitech G930
 - Logitech G533
-- Logitech G430 (Working on macOS but not Linux)
-
-The wired versions of the wireless headsets should also be supported, but need testing and maybe the product id's need to be adjusted (make an issue for that).
+- Logitech G430 (Last working on macOS in commit 41be99379f)
 
 ## Other Features
 
@@ -18,9 +17,11 @@ Currently only setting sidetone is supported, but other features could be implem
 
 ## Building
 
-Building is really simple, you will only need libusb-1.0, c-compilers and cmake.  All usually installable via the systems package manager.
-Debian based: `apt-get install build-essential cmake libusb-1.0-0-dev`
-RedHat based: `yum groupinstall "Development tools"` `yum install cmake libusb1-devel`
+Building is really simple, you will need hidapi, c-compilers and cmake.  All usually installable via the systems package manager.\
+Debian/Ubuntu: `apt-get install build-essential cmake libhidapi-dev`
+
+RHEL and CentOS also require the epel-repository: `yum install epel-release`. Please inform yourself on the consequences of activating epel-repository.\
+RedHat based: `yum groupinstall "Development tools"` `yum install cmake hidapi-devel`
 
 Compiling steps:
 ```
@@ -40,20 +41,20 @@ Also in Linux, you need udev rules if you don't want to start the application wi
 
 ### Building on Mac OSX
 
-You need to install libusb first. I recommend using homebrew.
+You need to install libusb first. I recommend using homebrew.\
 With homebrew you can simply install it by typing `brew install libusb`. Then you can procceed with the steps above.
 
 ## Usage
 
-Type `headsetcontrol -h` to get all available options.
+Type `headsetcontrol -h` to get all available options.\
 (Don't forget to prefix it with `./` when the application is in the current folder)
 
 `headsetcontrol -s 128` sets the sidetone to 128 (REAL looud). You can silence it with `0`. I recommend a loudness of 16.
 
 ## Notice
-Headsetcontrol is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+Headsetcontrol is distributed in the hope that it will be useful,\
+but WITHOUT ANY WARRANTY; without even the implied warranty of\
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\
 GNU General Public License for more details.
 
 ## License

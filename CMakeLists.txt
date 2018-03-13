@@ -1,9 +1,9 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 2.6.2)
 project(HeadsetControl)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules/")
 
-find_package(libusb-1.0 REQUIRED)
+find_package(hidapi REQUIRED)
 
 macro(use_c99)
     if (CMAKE_VERSION VERSION_LESS "3.1")
@@ -19,13 +19,13 @@ use_c99()
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
 
-include_directories(${LIBUSB1_INCLUDE_DIRS})
+include_directories(${HIDAPI_INCLUDE_DIRS})
 
 add_subdirectory(src)
 add_subdirectory(src/devices)
 
 add_executable(HeadsetControl ${SOURCE_FILES})
-target_link_libraries(HeadsetControl ${LIBUSB1_LIBRARIES})
+target_link_libraries(HeadsetControl ${HIDAPI_LIBRARIES})
 
 install(TARGETS HeadsetControl DESTINATION bin)
 
