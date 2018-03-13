@@ -18,16 +18,43 @@ Currently only setting sidetone is supported, but other features could be implem
 
 ## Building
 
-Building is really simple, you will only need libusb-1.0 (which is already installed on most systems). Just type make to build the C program.
-You also need a udev rule if you don't want to start it via root, type make install to install the udev rule which comes with this repository. Installing will also place the application in /usr/bin
+Building is really simple, you will only need libusb-1.0, c-compilers and cmake.  All usually installable via the systems package manager.
+Debian based: `apt-get install build-essential cmake libusb-1.0-0-dev`
+RedHat based: `yum groupinstall "Development tools"` `yum install cmake libusb1-devel`
+
+Compiling steps:
+```
+mkdir build
+cd build
+cmake ..
+make
+```
+
+If you want to be able to call HeadsetControl from every folder type:
+```
+make install
+```
+This whille copy the binary to a local folder globally accessable via path. You may need to run it with sudo/root on Linux.
+
+Also in Linux, you need udev rules if you don't want to start the application with root. Those rules reside in the udev folder of this repository. Typing make install on Linux copies them automatically to /etc/udev/rules.d/.
 
 ### Building on Mac OSX
 
-Don't use the makefile for now, instead type something like this after installing libusb (brew install libusb): `gcc main.c -L"/usr/local/Cellar/libusb/1.0.20/lib" -lusb-1.0 -I"/usr/local/Cellar/libusb/1.0.20/include" -std=gnu99 -o headsetcontrol`
+You need to install libusb first. I recommend using homebrew.
+With homebrew you can simply install it by typing `brew install libusb`. Then you can procceed with the steps above.
 
 ## Usage
 
-Just type headsetcontrol 128 if you want REAL loud sidetone (it's normally louder than with the native software on windows), or headsetcontrol 0 if you want to silence it completely. I recommend a loudness of 16.
+Type `headsetcontrol -h` to get all available options.
+(Don't forget to prefix it with `./` when the application is in the current folder)
+
+`headsetcontrol -s 128` sets the sidetone to 128 (REAL looud). You can silence it with `0`. I recommend a loudness of 16.
+
+## Notice
+Headsetcontrol is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
 
 ## License
 
