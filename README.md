@@ -41,8 +41,8 @@ Also in Linux, you need udev rules if you don't want to start the application wi
 
 ### Building on Mac OSX
 
-You need to install libusb first. I recommend using homebrew.\
-With homebrew you can simply install it by typing `brew install libusb`. Then you can procceed with the steps above.
+You need to install hidapi first. I recommend using homebrew.\
+With homebrew you can simply install it by typing `brew install hidapi`. Then you can procceed with the steps above.
 
 ## Usage
 
