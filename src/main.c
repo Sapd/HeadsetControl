@@ -64,10 +64,14 @@ int main(int argc, char *argv[])
     int c;
     
     int sidetone_loudness = -1;
+    int request_battery = 0;
     
-    while ((c = getopt(argc, argv, "hs:")) != -1)
+    while ((c = getopt(argc, argv, "nbhs:")) != -1)
     {
         switch(c) {
+            case 'b':
+                request_battery = 1;
+                break;
             case 's':
                 sidetone_loudness = strtol(optarg, NULL, 10);
                 
@@ -115,7 +119,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    int error = 0;
+    int ret = 0;
     // Set all features the user wants us to set
     if (sidetone_loudness != -1)
     {
@@ -125,23 +129,44 @@ int main(int argc, char *argv[])
             return 1;
         }
         
-        error = device_found.send_sidetone(device_handle, sidetone_loudness);
+        ret = device_found.send_sidetone(device_handle, sidetone_loudness);
         
-        if (error < 0)
+        if (ret < 0)
         {
-            printf("Failed to set sidetone. Error: %d: %ls\n", error, hid_error(device_handle));
+            printf("Failed to set sidetone. Error: %d: %ls\n", ret, hid_error(device_handle));
             return 1;
+        }
+        else
+        {
+            printf("Success!\n");
         }
     }
     
+    if (request_battery == 1)
+    {
+        if ((device_found.capabilities & CAP_BATTERY_STATUS) == 0)
+        {
+            printf("Error: This headset doesn't support battery status\n");
+            return 1;
+        }
+        
+        ret = device_found.request_battery(device_handle);
+        
+        if (ret < 0)
+        {
+            printf("Failed to request battery. Error: %d: %ls\n", ret, hid_error(device_handle));
+            return 1;
+        }
+        
+        if (ret == BATTERY_LOADING)
+            printf("Battery: Loading\n");
+        else
+            printf("Battery: %d%%\n", ret);
+    }
     
     if (argc <= 1)
     {
         printf("You didn't set any arguments, so nothing happend.\nType %s -h for help.\n", argv[0]);
-    }
-    else if (error == 0)
-    {
-        printf("Success!\n");
     }
 
 

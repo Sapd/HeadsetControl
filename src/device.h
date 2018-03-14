@@ -10,7 +10,14 @@
  *         for headsets
  */
 enum capabilities {
-    CAP_SIDETONE            = 1
+    CAP_SIDETONE            = 1,
+    CAP_BATTERY_STATUS      = 2
+};
+
+/** @brief Flags for battery status
+ */
+enum battery_status {
+    BATTERY_LOADING         = 65535
 };
 
 /** @brief Defines the basic data of a device
@@ -39,5 +46,7 @@ struct device
      *  @param num           Level of the sidetone, between 0 - 128
      */
     int (*send_sidetone)(hid_device *hid_device, uint8_t num);
+    
+    int (*request_battery)(hid_device *hid_device);
 };
 

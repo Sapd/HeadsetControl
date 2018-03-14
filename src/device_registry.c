@@ -32,6 +32,7 @@ int get_device(struct device* device_found, uint16_t idVendor, uint16_t idProduc
             device_found->idProduct = devicelist[i]->idProduct;
             device_found->idVendor = devicelist[i]->idVendor;
             device_found->send_sidetone = devicelist[i]->send_sidetone;
+            device_found->request_battery = devicelist[i]->request_battery;
             return 0;
         }
     }
