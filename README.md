@@ -13,7 +13,8 @@ Sidetone:
 
 ## Other Features
 
-Currently only setting sidetone is supported, but other features could be implemented as well (like getting battery percentage, or settings LEDs etc.). However for this to be implemented, the protocol of the headsets need to be analyzed further. This could be done by capturing the usb traffic and analyzing it logically (like I did for the sidetone support).
+Corsair void also supports checking of battery.\
+Other features could be implemented as well (like getting battery percentage of other devices, or settings LEDs etc.). However for this to be implemented, the protocol of the headsets need to be analyzed further. This could be done by capturing the usb traffic and analyzing it logically (like I did for the sidetone support).
 
 ## Building
 

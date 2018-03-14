@@ -84,6 +84,7 @@ int main(int argc, char *argv[])
             case 'h':
                 printf("Parameters\n");
                 printf("  -s level\tSets sidetone, level must be between 0 and 128\n");
+                printf("  -b\t\tChecks the battery level\n");
                 
                 printf("\n");
                 return 0;
