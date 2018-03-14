@@ -26,14 +26,8 @@ int get_device(struct device* device_found, uint16_t idVendor, uint16_t idProduc
     {
         if (devicelist[i]->idVendor == idVendor && devicelist[i]->idProduct == idProduct)
         {
-            // copy struct, compiler won't do it for us
-            device_found->capabilities = devicelist[i]->capabilities;
-            strcpy(device_found->device_name, devicelist[i]->device_name);
-            device_found->idProduct = devicelist[i]->idProduct;
-            device_found->idVendor = devicelist[i]->idVendor;
-            device_found->send_sidetone = devicelist[i]->send_sidetone;
-            device_found->request_battery = devicelist[i]->request_battery;
-            device_found->notifcation_sound = devicelist[i]->notifcation_sound;
+            // copy struct to the destination in device_found
+            memcpy(device_found, devicelist[i], sizeof(struct device));
             return 0;
         }
     }
