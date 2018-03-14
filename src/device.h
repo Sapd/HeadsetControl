@@ -11,7 +11,8 @@
  */
 enum capabilities {
     CAP_SIDETONE            = 1,
-    CAP_BATTERY_STATUS      = 2
+    CAP_BATTERY_STATUS      = 2,
+    CAP_NOTIFICATION_SOUND  = 3
 };
 
 /** @brief Flags for battery status
@@ -48,5 +49,7 @@ struct device
     int (*send_sidetone)(hid_device *hid_device, uint8_t num);
     
     int (*request_battery)(hid_device *hid_device);
+    
+    int (*notifcation_sound)(hid_device *hid_device, uint8_t soundid);
 };
 

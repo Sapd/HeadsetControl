@@ -65,8 +65,9 @@ int main(int argc, char *argv[])
     
     int sidetone_loudness = -1;
     int request_battery = 0;
+    int notification_sound = -1;
     
-    while ((c = getopt(argc, argv, "nbhs:")) != -1)
+    while ((c = getopt(argc, argv, "bhs:n:")) != -1)
     {
         switch(c) {
             case 'b':
@@ -81,10 +82,20 @@ int main(int argc, char *argv[])
                     return 1;
                 }
                 break;
+            case 'n':
+                notification_sound = strtol(optarg, NULL, 10);
+                
+                if (notification_sound < 0 || notification_sound > 1)
+                {
+                    printf("Usage: %s -n 0|1\n", argv[0]);
+                    return 1;
+                }
+                break;
             case 'h':
                 printf("Parameters\n");
                 printf("  -s level\tSets sidetone, level must be between 0 and 128\n");
                 printf("  -b\t\tChecks the battery level\n");
+                printf("  -n soundid\tMakes the headset play a notifiation\n");
                 
                 printf("\n");
                 return 0;
@@ -135,6 +146,27 @@ int main(int argc, char *argv[])
         if (ret < 0)
         {
             printf("Failed to set sidetone. Error: %d: %ls\n", ret, hid_error(device_handle));
+            return 1;
+        }
+        else
+        {
+            printf("Success!\n");
+        }
+    }
+    
+    if (notification_sound != -1)
+    {
+        if ((device_found.capabilities & CAP_NOTIFICATION_SOUND) == 0)
+        {
+            printf("Error: This headset doesn't support notification sound\n");
+            return 1;
+        }
+        
+        ret = device_found.notifcation_sound(device_handle, notification_sound);
+        
+        if (ret < 0)
+        {
+            printf("Failed to send notification sound. Error: %d: %ls\n", ret, hid_error(device_handle));
             return 1;
         }
         else

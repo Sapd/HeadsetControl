@@ -9,6 +9,7 @@ static struct device device_void;
 
 static int void_send_sidetone(hid_device *device_handle, uint8_t num);
 static int void_request_battery(hid_device *device_handle);
+static int void_notification_sound(hid_device *hid_device, uint8_t soundid);
 
 void void_init(struct device** device)
 {
@@ -17,9 +18,10 @@ void void_init(struct device** device)
     
     strcpy(device_void.device_name, "Corsair Void");
     
-    device_void.capabilities = CAP_SIDETONE | CAP_BATTERY_STATUS;
+    device_void.capabilities = CAP_SIDETONE | CAP_BATTERY_STATUS | CAP_NOTIFICATION_SOUND;
     device_void.send_sidetone = &void_send_sidetone;
     device_void.request_battery = &void_request_battery;
+    device_void.notifcation_sound = &void_notification_sound;
     
     *device = &device_void;
 }
@@ -64,4 +66,12 @@ static int void_request_battery(hid_device *device_handle)
         return (int)data_read[2]; // battery status from 0 - 100
     else
         return -100;
+}
+
+static int void_notification_sound(hid_device* device_handle, uint8_t soundid)
+{
+    // soundid can be 0 or 1
+    unsigned char data[5] = {0xCA, 0x02, soundid};
+    
+    return hid_write(device_handle, data, 3);
 }
