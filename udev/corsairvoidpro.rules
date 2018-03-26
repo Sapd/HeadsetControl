@@ -1,0 +1,1 @@
+SUBSYSTEM=="usb", ENV{ID_MODEL}=="Corsair_VOID_PRO_Wireless_Gaming_Headset", MODE="0666"
