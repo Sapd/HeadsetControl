@@ -69,9 +69,9 @@ static int voidpro_request_battery(hid_device *device_handle)
     else if (data_read[4] == 1)
     {
         // workaround for battery reading https://github.com/Sapd/HeadsetControl/issues/13
-        if (data_read[2] % VOIDPRO_BATTERY_MICUP)
+        if (data_read[2] & VOIDPRO_BATTERY_MICUP)
         {
-            return data_read[2] % VOIDPRO_BATTERY_MICUP;
+            return data_read[2] &~ VOIDPRO_BATTERY_MICUP;
         }
         return (int)data_read[2]; // battery status from 0 - 100
     }
