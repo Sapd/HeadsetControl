@@ -63,8 +63,8 @@ static int voidpro_request_battery(hid_device *device_handle)
     r = hid_read(device_handle, data_read, 5);
  
     if (r < 0) return r;
-    
-    if (data_read[4] == 5)
+
+    if (data_read[4] == 0 || data_read[4] == 4 || data_read[4] == 5)
         return BATTERY_LOADING;
     else if (data_read[4] == 1)
     {
