@@ -7,13 +7,14 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
 
 Sidetone:
 - Corsair Void
+- Corsair Void Pro
 - Logitech G930
 - Logitech G533
 - Logitech G430 (Last working on macOS in commit 41be99379f)
 
 ## Other Features
 
-Corsair void also supports checking of battery.\
+Corsair Void (Pro) also supports checking of battery.\
 Other features could be implemented as well (like getting battery percentage of other devices, or settings LEDs etc.). However for this to be implemented, the protocol of the headsets need to be analyzed further. This could be done by capturing the usb traffic and analyzing it logically (like I did for the sidetone support).
 
 ## Building
@@ -51,6 +52,12 @@ Type `headsetcontrol -h` to get all available options.\
 (Don't forget to prefix it with `./` when the application is in the current folder)
 
 `headsetcontrol -s 128` sets the sidetone to 128 (REAL looud). You can silence it with `0`. I recommend a loudness of 16.
+
+Following options don't work on all devices yet:
+
+`headsetcontrol -b` check battery level. Returns a value from 0 to 100 or loading.
+
+`headsetcontrol -n 0|1` sends a notification sound, made by the headset. 0 or 1 are currently supported as values. 
 
 ## Notice
 Headsetcontrol is distributed in the hope that it will be useful,\
