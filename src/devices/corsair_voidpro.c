@@ -4,6 +4,10 @@
 #include <hidapi.h>
 #include <string.h>
 
+// workaround for battery reading https://github.com/Sapd/HeadsetControl/issues/13
+enum voidpro_battery_flags {
+     VOIDPRO_BATTERY_MICUP = 128
+};
 
 static struct device device_voidpro;
 
@@ -59,11 +63,18 @@ static int voidpro_request_battery(hid_device *device_handle)
     r = hid_read(device_handle, data_read, 5);
  
     if (r < 0) return r;
-    
-    if (data_read[4] == 5)
+
+    if (data_read[4] == 0 || data_read[4] == 4 || data_read[4] == 5)
         return BATTERY_LOADING;
     else if (data_read[4] == 1)
+    {
+        // workaround for battery reading https://github.com/Sapd/HeadsetControl/issues/13
+        if (data_read[2] & VOIDPRO_BATTERY_MICUP)
+        {
+            return data_read[2] &~ VOIDPRO_BATTERY_MICUP;
+        }
         return (int)data_read[2]; // battery status from 0 - 100
+    }
     else
         return -100;
 }
