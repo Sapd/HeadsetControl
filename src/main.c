@@ -78,7 +78,7 @@ int main(int argc, char *argv[])
                 
                 if (sidetone_loudness > 128 || sidetone_loudness < 0)
                 {
-                    printf("Usage: %s -s 0-100\n", argv[0]);
+                    printf("Usage: %s -s 0-128\n", argv[0]);
                     return 1;
                 }
                 break;
