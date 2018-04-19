@@ -5,6 +5,7 @@
 
 #define VENDOR_CORSAIR  0x1b1c
 #define VENDOR_LOGITECH 0x046d
+#define VENDOR_STEELSERIES 0x1038
 
 /** @brief A list of all features settable/queryable
  *         for headsets
