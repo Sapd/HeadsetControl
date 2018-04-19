@@ -31,6 +31,8 @@ struct device
     uint16_t idVendor;
     /// USB Product id
     uint16_t idProduct;
+    /// Interface ID - zero means first enumerated interface!
+    int idInterface;
  
     /// Name of device, used as information for the user
     char device_name[32];
