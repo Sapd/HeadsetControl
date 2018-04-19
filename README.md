@@ -11,6 +11,8 @@ Sidetone:
 - Logitech G930
 - Logitech G533
 - Logitech G430 (Last working on macOS in commit 41be99379f)
+- SteelSeries Arctis 7
+
 
 ## Other Features
 
