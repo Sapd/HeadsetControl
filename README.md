@@ -37,7 +37,7 @@ If you want to be able to call HeadsetControl from every folder type:
 ```
 make install
 ```
-This whille copy the binary to a local folder globally accessable via path. You may need to run it with sudo/root on Linux.
+This will copy the binary to a local folder globally accessable via path. You may need to run it with sudo/root on Linux.
 
 Also in Linux, you need udev rules if you don't want to start the application with root. Those rules reside in the udev folder of this repository. Typing make install on Linux copies them automatically to /etc/udev/rules.d/.
 
