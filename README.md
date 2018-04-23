@@ -11,6 +11,8 @@ Sidetone:
 - Logitech G930
 - Logitech G533
 - Logitech G430 (Last working on macOS in commit 41be99379f)
+- SteelSeries Arctis 7
+
 
 ## Other Features
 
@@ -37,7 +39,7 @@ If you want to be able to call HeadsetControl from every folder type:
 ```
 make install
 ```
-This whille copy the binary to a local folder globally accessable via path. You may need to run it with sudo/root on Linux.
+This will copy the binary to a local folder globally accessable via path. You may need to run it with sudo/root on Linux.
 
 Also in Linux, you need udev rules if you don't want to start the application with root. Those rules reside in the udev folder of this repository. Typing make install on Linux copies them automatically to /etc/udev/rules.d/.
 

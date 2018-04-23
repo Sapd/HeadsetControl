@@ -5,6 +5,7 @@
 
 #define VENDOR_CORSAIR  0x1b1c
 #define VENDOR_LOGITECH 0x046d
+#define VENDOR_STEELSERIES 0x1038
 
 /** @brief A list of all features settable/queryable
  *         for headsets
@@ -31,6 +32,8 @@ struct device
     uint16_t idVendor;
     /// USB Product id
     uint16_t idProduct;
+    /// Interface ID - zero means first enumerated interface!
+    int idInterface;
  
     /// Name of device, used as information for the user
     char device_name[32];

@@ -9,4 +9,6 @@ set(SOURCE_FILES ${SOURCE_FILES}
     ${CMAKE_CURRENT_SOURCE_DIR}/logitech_g430.h
     ${CMAKE_CURRENT_SOURCE_DIR}/logitech_g533.c
     ${CMAKE_CURRENT_SOURCE_DIR}/logitech_g533.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/steelseries_arctis7.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/steelseries_arctis7.h
     PARENT_SCOPE)
