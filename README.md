@@ -9,6 +9,7 @@ Sidetone:
 - Corsair Void
 - Corsair Void Pro
 - Logitech G930
+- Logitech G633
 - Logitech G533
 - Logitech G430 (Last working on macOS in commit 41be99379f)
 - SteelSeries Arctis 7

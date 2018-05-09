@@ -4,13 +4,14 @@
 #include "devices/corsair_voidpro.h"
 #include "devices/logitech_g430.h"
 #include "devices/logitech_g533.h"
+#include "devices/logitech_g633.h"
 #include "devices/logitech_g930.h"
 #include "devices/steelseries_arctis7.h"
 
 #include <string.h>
 
 
-#define NUMDEVICES 6
+#define NUMDEVICES 7
 // array of pointers to device
 static struct device *(devicelist[NUMDEVICES]);
 
@@ -20,8 +21,9 @@ void init_devices()
     voidpro_init(&devicelist[1]);
     g430_init(&devicelist[2]);
     g533_init(&devicelist[3]);
-    g930_init(&devicelist[4]);
-    arctis7_init(&devicelist[5]);
+    g633_init(&devicelist[4]);
+    g930_init(&devicelist[5]);
+    arctis7_init(&devicelist[6]);
 }
 
 int get_device(struct device* device_found, uint16_t idVendor, uint16_t idProduct)
