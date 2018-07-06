@@ -24,7 +24,7 @@
 # http://www.boost.org/LICENSE_1_0.txt)
 
 find_library(HIDAPI_LIBRARY
-	NAMES hidapi hidapi-libusb)
+	NAMES hidapi-hidraw hidapi)
 
 find_path(HIDAPI_INCLUDE_DIR
 	NAMES hidapi.h
