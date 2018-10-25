@@ -1,11 +1,12 @@
 ## Summary
 
-Want to use your Headset under Linux or Mac OSX, but you shout while talking because there is no support for sidetone? With sidetone, sometimes also called loopback, you can hear your own voice while
+Want to use your Headset under Linux or Mac OS X, but you shout while talking because there is no support for sidetone? With sidetone, sometimes also called loopback, you can hear your own voice while
 talking. This differs from a simple loopback via PulseAudio as you won't have any disturbing latency.
 
 ## Supported Headsets
 
-Sidetone:
+### Sidetone
+
 - Corsair Void (Wireless & Wired)
 - Corsair Void Pro (Wireless & Wired)
 - Logitech G930
@@ -15,55 +16,69 @@ Sidetone:
 - SteelSeries Arctis 7
 
 
-## Other Features
+### Other Features
 
-Corsair Void (Pro) also supports checking of battery.\
-Other features could be implemented as well (like getting battery percentage of other devices, or settings LEDs etc.). However for this to be implemented, the protocol of the headsets need to be analyzed further. This could be done by capturing the usb traffic and analyzing it logically (like I did for the sidetone support).
+Corsair Void (Pro) also supports checking of the battery.
+
+For more features (like getting battery percentage of other devices, or settings LEDs etc. of specific devices), the protocol of the respective headset must be analyzed further. This can be done by capturing the USB traffic and analyzing it with WireShark or USBlyzer.
 
 ## Building
 
-Building is really simple, you will need hidapi, c-compilers and cmake.  All usually installable via the systems package manager.\
-Debian/Ubuntu: `apt-get install build-essential cmake libhidapi-dev`
+### Prerequisites
 
-RHEL and CentOS also require the epel-repository: `yum install epel-release`. Please inform yourself on the consequences of activating epel-repository.\
-RedHat based: `yum groupinstall "Development tools"` `yum install cmake hidapi-devel`
+You will need hidapi, c compilers and cmake. All usually installable via package managers.
 
-Compiling steps:
+#### Debian / Ubuntu
+
+`apt-get install build-essential git cmake libhidapi-dev`
+
+#### CentOS / RHEL (RedHat based)
+
+RHEL and CentOS also require the epel-repository: `yum install epel-release`. Please inform yourself about the consequences of activating the epel-repository.
+
+`yum groupinstall "Development tools"`   
+`yum install git cmake hidapi-devel`
+
+#### Mac OS X
+
+I recommend using [Homebrew](https://brew.sh) for the dependencies.\
+With homebrew you can simply install them by typing `brew install hidapi cmake`.
+
+Also you will have to download Xcode via the Mac App Store for the compilers.
+
+### Compiling
+
 ```
-mkdir build
-cd build
+git clone https://github.com/Sapd/HeadsetControl && cd HeadsetControl
+mkdir build && cd build
 cmake ..
 make
 ```
 
 If you want to be able to call HeadsetControl from every folder type:
-```
+```bash
 make install
 ```
-This will copy the binary to a local folder globally accessable via path. You may need to run it with sudo/root on Linux.
+This will copy the binary to a folder globally accessable via path.
 
 Also in Linux, you need udev rules if you don't want to start the application with root. Those rules reside in the udev folder of this repository. Typing make install on Linux copies them automatically to /etc/udev/rules.d/.
 
-### Building on Mac OSX
-
-You need to install hidapi first. I recommend using homebrew.\
-With homebrew you can simply install it by typing `brew install hidapi`. Then you can procceed with the steps above.
-
 ## Usage
 
-Type `headsetcontrol -h` to get all available options.\
-(Don't forget to prefix it with `./` when the application is in the current folder)
+Type `HeadsetControl -h` to get all available options.\
+(Don't forget to prefix it with `./` when the application resides in the current folder)
 
-`headsetcontrol -s 128` sets the sidetone to 128 (REAL looud). You can silence it with `0`. I recommend a loudness of 16.
+`HeadsetControl -s 128` sets the sidetone to 128 (REAL loud). You can silence it with `0`. I recommend a loudness of 16.
 
 Following options don't work on all devices yet:
 
-`headsetcontrol -b` check battery level. Returns a value from 0 to 100 or loading.
+`HeadsetControl -b` check battery level. Returns a value from 0 to 100 or loading.
 
-`headsetcontrol -n 0|1` sends a notification sound, made by the headset. 0 or 1 are currently supported as values. 
+`HeadsetControl -n 0|1` sends a notification sound, made by the headset. 0 or 1 are currently supported as values.
 
 ## Notice
-Headsetcontrol is distributed in the hope that it will be useful,\
+
+HeadsetControl is distributed in the hope that it will be useful,\
 but WITHOUT ANY WARRANTY; without even the implied warranty of\
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\
 GNU General Public License for more details.
