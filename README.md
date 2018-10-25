@@ -6,8 +6,8 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
 ## Supported Headsets
 
 Sidetone:
-- Corsair Void
-- Corsair Void Pro
+- Corsair Void (Wireless & Wired)
+- Corsair Void Pro (Wireless & Wired)
 - Logitech G930
 - Logitech G633
 - Logitech G533
