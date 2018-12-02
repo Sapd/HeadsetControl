@@ -1,1 +1,0 @@
-SUBSYSTEM=="usb", ENV{ID_MODEL}=="Corsair_VOID_Wireless_Gaming_Dongle", MODE="0666"

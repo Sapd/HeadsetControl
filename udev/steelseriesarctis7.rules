@@ -1,1 +1,0 @@
-SUBSYSTEM=="usb", ENV{ID_MODEL}=="SteelSeries_Arctis_7", MODE="0666"
