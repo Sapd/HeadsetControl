@@ -1,1 +1,1 @@
-SUBSYSTEM=="usb", ENV{ID_MODEL}=="Corsair_VOID_Wireless_Gaming_Dongle", MODE="0666"
+SUBSYSTEM=="hidraw", SUBSYSTEMS=="usb", ATTRS{idVendor}=="1b1c", ATTRS{idProduct}=="1b27", MODE="0666"

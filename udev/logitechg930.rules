@@ -1,1 +1,1 @@
-SUBSYSTEM=="usb", ENV{ID_MODEL}=="Logitech_G930_Headset", MODE="0666"
+SUBSYSTEM=="hidraw", SUBSYSTEMS=="usb", ATTR{idVendor}=="046d", ATTR{idProduct}=="0a1f", MODE="0666"

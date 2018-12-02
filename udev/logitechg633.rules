@@ -1,1 +1,1 @@
-SUBSYSTEM=="usb", ENV{ID_MODEL}=="Logitech_G633_Gaming_Headset", MODE="0666"
+SUBSYSTEM=="hidraw", SUBSYSTEMS=="usb", ATTR{idVendor}=="046d", ATTR{idProduct}=="0a5c", MODE="0666"

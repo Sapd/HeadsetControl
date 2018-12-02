@@ -1,1 +1,1 @@
-SUBSYSTEM=="usb", ENV{ID_MODEL}=="SteelSeries_Arctis_7", MODE="0666"
+SUBSYSTEM=="hidraw", SUBSYSTEMS=="usb", ATTR{idVendor}=="1038", ATTR{idProduct}=="1260", MODE="0666"
