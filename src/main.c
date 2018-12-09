@@ -33,8 +33,8 @@ static struct device device_found;
 // 0=false; 1=true
 static int short_output = 0;
 
-#define PRINT(command) { if (!short_output) \
-    {command;}}
+#define PRINT(...) { if (!short_output) \
+    {printf(__VA_ARGS__);}}
 
 /**
  *  This function iterates through all HID devices.
@@ -52,7 +52,7 @@ int find_device()
 
         if (found == 0)
         {
-            PRINT(printf("Found %s!\n", device_found.device_name));
+            PRINT("Found %s!\n", device_found.device_name);
             break;
         }
 
@@ -110,7 +110,7 @@ static char* get_hid_path(uint16_t vid, uint16_t pid, int iid)
 
     if (!devs)
     {
-        PRINT(printf("HID enumeration failure.\n"));
+        PRINT("HID enumeration failure.\n");
         return ret;
     }
 
@@ -123,7 +123,7 @@ static char* get_hid_path(uint16_t vid, uint16_t pid, int iid)
 
             if (!ret)
             {
-                PRINT(printf("Unable to copy HID path.\n"));
+                PRINT("Unable to copy HID path.\n");
                 hid_free_enumeration(devs);
                 devs = NULL;
                 return ret;
@@ -199,10 +199,11 @@ int main(int argc, char *argv[])
 
     }
 
-    PRINT({
+    if (!short_output)
+    {
         for (int index = optind; index < argc; index++)
-            printf ("Non-option argument %s\n", argv[index]);
-    });
+            printf("Non-option argument %s\n", argv[index]);
+    }
     // Init all information of supported devices
     init_devices();
 
@@ -211,17 +212,17 @@ int main(int argc, char *argv[])
     int headset_available = find_device();
     if (headset_available != 0)
     {
-        PRINT(printf("No supported headset found\n"));
+        PRINT("No supported headset found\n");
         return 1;
     }
-    PRINT(printf("\n"));
+    PRINT("\n");
 
     hid_device *device_handle = NULL;
     char *hid_path = get_hid_path(device_found.idVendor, device_found.idProduct, device_found.idInterface);
 
     if (!hid_path)
     {
-        PRINT(printf("Requested/supported HID device not found or system error.\n"));
+        PRINT("Requested/supported HID device not found or system error.\n");
         terminate_hid(&device_handle, &hid_path);
         return 1;
     }
@@ -231,7 +232,7 @@ int main(int argc, char *argv[])
     // Open libusb device
     if (device_handle == NULL)
     {
-        PRINT(printf("Couldn't open device.\n"));
+        PRINT("Couldn't open device.\n");
         terminate_hid(&device_handle, &hid_path);
         return 1;
     }
@@ -242,7 +243,7 @@ int main(int argc, char *argv[])
     {
         if ((device_found.capabilities & CAP_SIDETONE) == 0)
         {
-            PRINT(printf("Error: This headset doesn't support sidetone\n"));
+            PRINT("Error: This headset doesn't support sidetone\n");
             terminate_hid(&device_handle, &hid_path);
             return 1;
         }
@@ -251,13 +252,13 @@ int main(int argc, char *argv[])
 
         if (ret < 0)
         {
-            PRINT(printf("Failed to set sidetone. Error: %d: %ls\n", ret, hid_error(device_handle)));
+            PRINT("Failed to set sidetone. Error: %d: %ls\n", ret, hid_error(device_handle));
             terminate_hid(&device_handle, &hid_path);
             return 1;
         }
         else
         {
-            PRINT(printf("Success!\n"));
+            PRINT("Success!\n");
         }
     }
 
@@ -265,7 +266,7 @@ int main(int argc, char *argv[])
     {
         if ((device_found.capabilities & CAP_NOTIFICATION_SOUND) == 0)
         {
-            PRINT(printf("Error: This headset doesn't support notification sound\n"));
+            PRINT("Error: This headset doesn't support notification sound\n");
             terminate_hid(&device_handle, &hid_path);
             return 1;
         }
@@ -274,13 +275,13 @@ int main(int argc, char *argv[])
 
         if (ret < 0)
         {
-            PRINT(printf("Failed to send notification sound. Error: %d: %ls\n", ret, hid_error(device_handle)));
+            PRINT("Failed to send notification sound. Error: %d: %ls\n", ret, hid_error(device_handle));
             terminate_hid(&device_handle, &hid_path);
             return 1;
         }
         else
         {
-            PRINT(printf("Success!\n"));
+            PRINT("Success!\n");
         }
     }
 
@@ -288,7 +289,7 @@ int main(int argc, char *argv[])
     {
         if ((device_found.capabilities & CAP_BATTERY_STATUS) == 0)
         {
-            PRINT(printf("Error: This headset doesn't support battery status\n"));
+            PRINT("Error: This headset doesn't support battery status\n");
             terminate_hid(&device_handle, &hid_path);
             return 1;
         }
@@ -297,7 +298,7 @@ int main(int argc, char *argv[])
 
         if (ret < 0)
         {
-            PRINT(printf("Failed to request battery. Error: %d: %ls\n", ret, hid_error(device_handle)));
+            PRINT("Failed to request battery. Error: %d: %ls\n", ret, hid_error(device_handle));
             terminate_hid(&device_handle, &hid_path);
             return 1;
         }
