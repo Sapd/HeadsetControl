@@ -15,4 +15,6 @@ set(SOURCE_FILES ${SOURCE_FILES}
     ${CMAKE_CURRENT_SOURCE_DIR}/logitech_g633.h
     ${CMAKE_CURRENT_SOURCE_DIR}/steelseries_arctis7.c
     ${CMAKE_CURRENT_SOURCE_DIR}/steelseries_arctis7.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/steelseries_arctispro_2019.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/steelseries_arctispro_2019.h
     PARENT_SCOPE)
