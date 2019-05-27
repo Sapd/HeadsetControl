@@ -39,6 +39,10 @@ RHEL and CentOS also require the epel-repository: `yum install epel-release`. Pl
 `yum groupinstall "Development tools"`   
 `yum install git cmake hidapi-devel`
 
+#### Sabayon
+
+`equo i hidapi cmake`   
+
 #### Arch Linux
 
 `pacman -S git cmake hidapi`
