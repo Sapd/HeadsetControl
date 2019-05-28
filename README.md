@@ -14,7 +14,7 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
 - Logitech G533
 - Logitech G430 (Last working on macOS in commit 41be99379f)
 - SteelSeries Arctis 7
-
+- SteelSeries Arctis Pro 2019 Edition
 
 ### Other Features
 
