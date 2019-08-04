@@ -4,10 +4,12 @@
 #include <hidapi.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 static struct device device_arctis7;
 
 static int arctis7_send_sidetone(hid_device *device_handle, uint8_t num);
+static int arctis7_request_battery(hid_device *device_handle);
 
 void arctis7_init(struct device** device)
 {
@@ -17,8 +19,9 @@ void arctis7_init(struct device** device)
 
     strcpy(device_arctis7.device_name, "SteelSeries Arctis 7");
 
-    device_arctis7.capabilities = CAP_SIDETONE;
+    device_arctis7.capabilities = CAP_SIDETONE | CAP_BATTERY_STATUS;
     device_arctis7.send_sidetone = &arctis7_send_sidetone;
+    device_arctis7.request_battery = &arctis7_request_battery;
 
     *device = &device_arctis7;
 }
@@ -54,4 +57,26 @@ static int arctis7_send_sidetone(hid_device *device_handle, uint8_t num)
     SAFE_FREE(buf);
 
     return ret;
+}
+
+static int arctis7_request_battery(hid_device *device_handle)
+{
+
+    int r = 0;
+
+    // request battery status
+    unsigned char data_request[2] = {0x06, 0x18};
+  
+    r = hid_write(device_handle, data_request, 2);
+    
+    if (r < 0) return r;
+    
+    // read battery status
+    unsigned char data_read[8];
+    
+    r = hid_read(device_handle, data_read, 8);
+ 
+    if (r < 0) return r;
+
+    return data_read[2];
 }
