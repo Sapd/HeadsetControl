@@ -8,12 +8,13 @@
 #include "devices/logitech_g633.h"
 #include "devices/logitech_g930.h"
 #include "devices/steelseries_arctis7.h"
+#include "devices/steelseries_arctis7_2019.h"
 #include "devices/steelseries_arctispro_2019.h"
 
 #include <string.h>
 
 
-#define NUMDEVICES 9
+#define NUMDEVICES 10
 // array of pointers to device
 static struct device *(devicelist[NUMDEVICES]);
 
@@ -27,7 +28,8 @@ void init_devices()
     g633_init(&devicelist[5]);
     g930_init(&devicelist[6]);
     arctis7_init(&devicelist[7]);
-    arctispro_2019_init(&devicelist[8]);
+    arctis7_2019_init(&devicelist[8]);
+    arctispro_2019_init(&devicelist[9]);
 }
 
 int get_device(struct device* device_found, uint16_t idVendor, uint16_t idProduct)
