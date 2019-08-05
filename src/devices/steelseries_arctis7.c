@@ -4,7 +4,6 @@
 #include <hidapi.h>
 #include <string.h>
 #include <stdlib.h>
-#include <stdio.h>
 
 static struct device device_arctis7;
 
