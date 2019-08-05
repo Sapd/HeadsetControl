@@ -13,6 +13,7 @@ static struct device device_voidpro_wireless;
 static int voidpro_wireless_send_sidetone(hid_device *device_handle, uint8_t num);
 static int voidpro_wireless_request_battery(hid_device *device_handle);
 static int voidpro_wireless_notification_sound(hid_device *hid_device, uint8_t soundid);
+static int voidpro_wireless_lights(hid_device* device_handle, uint8_t on);
 
 void voidpro_wireless_init(struct device** device)
 {
@@ -21,10 +22,11 @@ void voidpro_wireless_init(struct device** device)
 
     strcpy(device_voidpro_wireless.device_name, "Corsair Void Pro Wireless");
 
-    device_voidpro_wireless.capabilities = CAP_SIDETONE | CAP_BATTERY_STATUS | CAP_NOTIFICATION_SOUND;
+    device_voidpro_wireless.capabilities = CAP_SIDETONE | CAP_BATTERY_STATUS | CAP_NOTIFICATION_SOUND | CAP_LIGHTS;
     device_voidpro_wireless.send_sidetone = &voidpro_wireless_send_sidetone;
     device_voidpro_wireless.request_battery = &voidpro_wireless_request_battery;
     device_voidpro_wireless.notifcation_sound = &voidpro_wireless_notification_sound;
+    device_voidpro_wireless.switch_lights = &voidpro_wireless_lights;
 
     *device = &device_voidpro_wireless;
 }
@@ -88,5 +90,11 @@ static int voidpro_wireless_notification_sound(hid_device* device_handle, uint8_
     // soundid can be 0 or 1
     unsigned char data[5] = {0xCA, 0x02, soundid};
 
+    return hid_write(device_handle, data, 3);
+}
+
+static int voidpro_wireless_lights(hid_device* device_handle, uint8_t on)
+{
+    unsigned char data[3] = {0xC8, on ? 0x00 : 0x01, 0x00};
     return hid_write(device_handle, data, 3);
 }

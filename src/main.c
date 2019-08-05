@@ -153,9 +153,10 @@ int main(int argc, char *argv[])
     int sidetone_loudness = -1;
     int request_battery = 0;
     int notification_sound = -1;
+    int lights = -1;
 
 
-    while ((c = getopt(argc, argv, "bchs:n:")) != -1)
+    while ((c = getopt(argc, argv, "bchs:n:l:")) != -1)
     {
         switch(c) {
             case 'b':
@@ -182,12 +183,21 @@ int main(int argc, char *argv[])
             case 'c':
                 short_output = 1;
                 break;
+            case 'l':
+                lights = strtol(optarg, NULL, 10);
+                if (lights < 0 || lights > 1)
+                {
+                    printf("Usage: %s -l 0|1\n", argv[0]);
+                    return 1;
+                }
+                break;
             case 'h':
                 printf("Headsetcontrol written by Sapd (Denis Arnst)\n\thttps://github.com/Sapd\n\n");
                 printf("Parameters\n");
                 printf("  -s level\tSets sidetone, level must be between 0 and 128\n");
                 printf("  -b\t\tChecks the battery level\n");
                 printf("  -n soundid\tMakes the headset play a notifiation\n");
+                printf("  -l 0|1\tSwitch lights (0 = off, 1 = on)\n");
                 printf("  -c\t\tCut unnecessary output \n");
 
                 printf("\n");
@@ -253,6 +263,28 @@ int main(int argc, char *argv[])
         if (ret < 0)
         {
             PRINT("Failed to set sidetone. Error: %d: %ls\n", ret, hid_error(device_handle));
+            terminate_hid(&device_handle, &hid_path);
+            return 1;
+        }
+        else
+        {
+            PRINT("Success!\n");
+        }
+    }
+
+    if (lights != -1)
+    {
+        if ((device_found.capabilities & CAP_LIGHTS) == 0)
+        {
+            PRINT("Error: This headset doesn't support light switching\n");
+            terminate_hid(&device_handle, &hid_path);
+            return 1;
+        }
+        ret = device_found.switch_lights(device_handle, lights);
+
+        if (ret < 0)
+        {
+            PRINT("Failed to switch lights. Error: %d: %ls\n", ret, hid_error(device_handle));
             terminate_hid(&device_handle, &hid_path);
             return 1;
         }
