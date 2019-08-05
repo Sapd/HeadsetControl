@@ -14,11 +14,12 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
 - Logitech G533
 - Logitech G430 (Last working on macOS in commit 41be99379f)
 - SteelSeries Arctis 7
+- SteelSeries Arctis 7 (2019 Revision)
 - SteelSeries Arctis Pro 2019 Edition
 
 ### Other Features
 
-Corsair Void (Pro) also supports checking of the battery.
+Corsair Void (Pro) and both versions of SteelSeries Arctis 7 also support checking of the battery.
 
 For more features (like getting battery percentage of other devices, or settings LEDs etc. of specific devices), the protocol of the respective headset must be analyzed further. This can be done by capturing the USB traffic and analyzing it with WireShark or USBlyzer.
 
