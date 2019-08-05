@@ -18,7 +18,7 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
 
 ### Other Features
 
-Corsair Void (Pro) also supports checking of the battery.
+Corsair Void (Pro) also supports checking of the battery and switching LED off/on
 
 For more features (like getting battery percentage of other devices, or settings LEDs etc. of specific devices), the protocol of the respective headset must be analyzed further. This can be done by capturing the USB traffic and analyzing it with WireShark or USBlyzer.
 
@@ -83,6 +83,8 @@ Following options don't work on all devices yet:
 `HeadsetControl -b` check battery level. Returns a value from 0 to 100 or loading.
 
 `HeadsetControl -n 0|1` sends a notification sound, made by the headset. 0 or 1 are currently supported as values.
+
+`HeadsetControl -l 0|1` switches LED off/on (off almost doubles battery lifetime!).
 
 ## Notice
 

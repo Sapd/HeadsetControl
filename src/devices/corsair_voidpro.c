@@ -13,6 +13,7 @@ static struct device device_voidpro;
 static int voidpro_send_sidetone(hid_device *device_handle, uint8_t num);
 static int voidpro_request_battery(hid_device *device_handle);
 static int voidpro_notification_sound(hid_device *hid_device, uint8_t soundid);
+static int voidpro_lights(hid_device* device_handle, uint8_t on);
 
 void voidpro_init(struct device** device)
 {
@@ -21,10 +22,11 @@ void voidpro_init(struct device** device)
     
     strcpy(device_voidpro.device_name, "Corsair Void Pro");
     
-    device_voidpro.capabilities = CAP_SIDETONE | CAP_BATTERY_STATUS | CAP_NOTIFICATION_SOUND;
+    device_voidpro.capabilities = CAP_SIDETONE | CAP_BATTERY_STATUS | CAP_NOTIFICATION_SOUND | CAP_LIGHTS;
     device_voidpro.send_sidetone = &voidpro_send_sidetone;
     device_voidpro.request_battery = &voidpro_request_battery;
     device_voidpro.notifcation_sound = &voidpro_notification_sound;
+    device_voidpro.switch_lights = &voidpro_lights;
     
     *device = &device_voidpro;
 }
@@ -88,5 +90,11 @@ static int voidpro_notification_sound(hid_device* device_handle, uint8_t soundid
     // soundid can be 0 or 1
     unsigned char data[5] = {0xCA, 0x02, soundid};
     
+    return hid_write(device_handle, data, 3);
+}
+
+static int voidpro_lights(hid_device* device_handle, uint8_t on)
+{
+    unsigned char data[3] = {0xC8, on ? 0x00 : 0x01, 0x00};
     return hid_write(device_handle, data, 3);
 }
