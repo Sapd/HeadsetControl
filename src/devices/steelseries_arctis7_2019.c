@@ -77,5 +77,9 @@ static int arctis7_2019_request_battery(hid_device *device_handle)
  
     if (r < 0) return r;
 
-    return data_read[2];
+    int bat = data_read[2];
+
+    if (bat > 100) return 100;
+
+    return bat;
 }
