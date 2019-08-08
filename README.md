@@ -53,10 +53,14 @@ RHEL and CentOS also require the epel-repository: `yum install epel-release`. Pl
 
 #### Mac OS X
 
-I recommend using [Homebrew](https://brew.sh) for the dependencies.\
-With homebrew you can simply install them by typing `brew install hidapi cmake`.
+I recommend using [Homebrew](https://brew.sh).
 
-Also you will have to download Xcode via the Mac App Store for the compilers.
+You can automatically compile and install the latest version of the software, by using  
+`brew install sapd/headsetcontrol/headsetcontrol --HEAD`.
+
+If you wish to compile it manually, you can install the dependencies with  `brew install hidapi cmake`.
+
+Also you have to download Xcode via the Mac App Store for the compilers.
 
 ### Compiling
 
