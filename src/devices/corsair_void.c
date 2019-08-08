@@ -7,7 +7,16 @@
 
 static struct device device_void;
 
-static const uint16_t PRODUCT_ID = 0x1b27;
+enum void_wireless_battery_flags {
+    VOID_BATTERY_MICUP = 128
+};
+
+#define ID_CORSAIR_VOID_WIRELESS        0x1b27
+#define ID_CORSAIR_VOID_PRO             0x0a14
+#define ID_CORSAIR_VOID_PRO_R2          0x0a16
+#define ID_CORSAIR_VOID_PRO_WIRELESS    0x0a1a
+
+static const uint16_t PRODUCT_IDS[] = {ID_CORSAIR_VOID_WIRELESS, ID_CORSAIR_VOID_PRO, ID_CORSAIR_VOID_PRO_R2, ID_CORSAIR_VOID_PRO_WIRELESS};
 
 static int void_send_sidetone(hid_device *device_handle, uint8_t num);
 static int void_request_battery(hid_device *device_handle);
@@ -17,10 +26,10 @@ static int void_lights(hid_device *device_handle, uint8_t on);
 void void_init(struct device** device)
 {
     device_void.idVendor = VENDOR_CORSAIR;
-    device_void.idProductsSupported = &PRODUCT_ID;
-    device_void.numIdProducts = 1;
+    device_void.idProductsSupported = PRODUCT_IDS;
+    device_void.numIdProducts = sizeof(PRODUCT_IDS)/sizeof(PRODUCT_IDS[0]);
     
-    strcpy(device_void.device_name, "Corsair Void");
+    strcpy(device_void.device_name, "Corsair Void (Pro)");
     
     device_void.capabilities = CAP_SIDETONE | CAP_BATTERY_STATUS | CAP_NOTIFICATION_SOUND | CAP_LIGHTS;
     device_void.send_sidetone = &void_send_sidetone;
@@ -65,12 +74,27 @@ static int void_request_battery(hid_device *device_handle)
  
     if (r < 0) return r;
     
-    if (data_read[4] == 5)
+    if (data_read[4] == 0 || data_read[4] == 4 || data_read[4] == 5)
+    {
         return BATTERY_LOADING;
+    }
     else if (data_read[4] == 1)
-        return (int)data_read[2]; // battery status from 0 - 100
+    {
+        // Discard VOIDPRO_BATTERY_MICUP when it's set
+        // see https://github.com/Sapd/HeadsetControl/issues/13
+        if (data_read[2] & VOID_BATTERY_MICUP)
+        {
+            return data_read[2] &~ VOID_BATTERY_MICUP;
+        }
+        else
+        {
+            return (int)data_read[2]; // battery status from 0 - 100
+        }
+    }
     else
+    {
         return -100;
+    }
 }
 
 static int void_notification_sound(hid_device* device_handle, uint8_t soundid)

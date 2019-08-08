@@ -5,30 +5,34 @@
 #include <string.h>
 #include <stdlib.h>
 
-static struct device device_arctis7;
+static struct device device_arctis;
 
-static const uint16_t PRODUCT_ID = 0x1260;
+#define ID_ARCTIS_7             0x1260
+#define ID_ARCTIS_7_2019        0x12ad
+#define ID_ARCTIS_PRO_2019      0x1252
 
-static int arctis7_send_sidetone(hid_device *device_handle, uint8_t num);
-static int arctis7_request_battery(hid_device *device_handle);
+static const uint16_t PRODUCT_IDS[] = {ID_ARCTIS_7, ID_ARCTIS_7_2019, ID_ARCTIS_PRO_2019};
 
-void arctis7_init(struct device** device)
+static int arctis_send_sidetone(hid_device *device_handle, uint8_t num);
+static int arctis_request_battery(hid_device *device_handle);
+
+void arctis_init(struct device** device)
 {
-    device_arctis7.idVendor = VENDOR_STEELSERIES;
-    device_arctis7.idProductsSupported = &PRODUCT_ID;
-    device_arctis7.numIdProducts = 1;
-    device_arctis7.idInterface = 0x05;
+    device_arctis.idVendor = VENDOR_STEELSERIES;
+    device_arctis.idProductsSupported = PRODUCT_IDS;
+    device_arctis.numIdProducts = sizeof(PRODUCT_IDS)/sizeof(PRODUCT_IDS[0]);
+    device_arctis.idInterface = 0x05;
 
-    strcpy(device_arctis7.device_name, "SteelSeries Arctis 7");
+    strcpy(device_arctis.device_name, "SteelSeries Arctis (7/Pro)");
 
-    device_arctis7.capabilities = CAP_SIDETONE | CAP_BATTERY_STATUS;
-    device_arctis7.send_sidetone = &arctis7_send_sidetone;
-    device_arctis7.request_battery = &arctis7_request_battery;
+    device_arctis.capabilities = CAP_SIDETONE | CAP_BATTERY_STATUS;
+    device_arctis.send_sidetone = &arctis_send_sidetone;
+    device_arctis.request_battery = &arctis_request_battery;
 
-    *device = &device_arctis7;
+    *device = &device_arctis;
 }
 
-static int arctis7_send_sidetone(hid_device *device_handle, uint8_t num)
+static int arctis_send_sidetone(hid_device *device_handle, uint8_t num)
 {
     int ret = -1;
 
@@ -61,7 +65,7 @@ static int arctis7_send_sidetone(hid_device *device_handle, uint8_t num)
     return ret;
 }
 
-static int arctis7_request_battery(hid_device *device_handle)
+static int arctis_request_battery(hid_device *device_handle)
 {
 
     int r = 0;

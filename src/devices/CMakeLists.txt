@@ -1,10 +1,6 @@
 set(SOURCE_FILES ${SOURCE_FILES}
     ${CMAKE_CURRENT_SOURCE_DIR}/corsair_void.c
     ${CMAKE_CURRENT_SOURCE_DIR}/corsair_void.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/corsair_voidpro.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/corsair_voidpro.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/corsair_voidpro_wireless.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/corsair_voidpro_wireless.h
     ${CMAKE_CURRENT_SOURCE_DIR}/logitech_g930.c
     ${CMAKE_CURRENT_SOURCE_DIR}/logitech_g930.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/logitech_g430.c
@@ -13,10 +9,6 @@ set(SOURCE_FILES ${SOURCE_FILES}
     ${CMAKE_CURRENT_SOURCE_DIR}/logitech_g533.h
     ${CMAKE_CURRENT_SOURCE_DIR}/logitech_g633.c
     ${CMAKE_CURRENT_SOURCE_DIR}/logitech_g633.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/steelseries_arctis7.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/steelseries_arctis7.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/steelseries_arctis7_2019.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/steelseries_arctis7_2019.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/steelseries_arctispro_2019.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/steelseries_arctispro_2019.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/steelseries_arctis.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/steelseries_arctis.h
     PARENT_SCOPE)
