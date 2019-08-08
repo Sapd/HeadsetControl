@@ -5,27 +5,27 @@
 #include <string.h>
 #include <stdlib.h>
 
-static struct device device_arctis7;
+static struct device device_arctis7_2019;
 
-static int arctis7_send_sidetone(hid_device *device_handle, uint8_t num);
-static int arctis7_request_battery(hid_device *device_handle);
+static int arctis7_2019_send_sidetone(hid_device *device_handle, uint8_t num);
+static int arctis7_2019_request_battery(hid_device *device_handle);
 
-void arctis7_init(struct device** device)
+void arctis7_2019_init(struct device** device)
 {
-    device_arctis7.idVendor = VENDOR_STEELSERIES;
-    device_arctis7.idProduct = 0x1260;
-    device_arctis7.idInterface = 0x05;
+    device_arctis7_2019.idVendor = VENDOR_STEELSERIES;
+    device_arctis7_2019.idProduct = 0x12ad;
+    device_arctis7_2019.idInterface = 0x05;
 
-    strcpy(device_arctis7.device_name, "SteelSeries Arctis 7");
+    strcpy(device_arctis7_2019.device_name, "SteelSeries Arctis 7");
 
-    device_arctis7.capabilities = CAP_SIDETONE | CAP_BATTERY_STATUS;
-    device_arctis7.send_sidetone = &arctis7_send_sidetone;
-    device_arctis7.request_battery = &arctis7_request_battery;
+    device_arctis7_2019.capabilities = CAP_SIDETONE | CAP_BATTERY_STATUS;
+    device_arctis7_2019.send_sidetone = &arctis7_2019_send_sidetone;
+    device_arctis7_2019.request_battery = &arctis7_2019_request_battery;
 
-    *device = &device_arctis7;
+    *device = &device_arctis7_2019;
 }
 
-static int arctis7_send_sidetone(hid_device *device_handle, uint8_t num)
+static int arctis7_2019_send_sidetone(hid_device *device_handle, uint8_t num)
 {
     int ret = -1;
 
@@ -58,7 +58,7 @@ static int arctis7_send_sidetone(hid_device *device_handle, uint8_t num)
     return ret;
 }
 
-static int arctis7_request_battery(hid_device *device_handle)
+static int arctis7_2019_request_battery(hid_device *device_handle)
 {
 
     int r = 0;
@@ -78,8 +78,8 @@ static int arctis7_request_battery(hid_device *device_handle)
     if (r < 0) return r;
 
     int bat = data_read[2];
-    
+
     if (bat > 100) return 100;
-    
+
     return bat;
 }
