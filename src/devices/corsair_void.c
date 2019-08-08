@@ -93,7 +93,7 @@ static int void_request_battery(hid_device *device_handle)
     }
     else
     {
-        return -100;
+        return HSC_ERROR;
     }
 }
 

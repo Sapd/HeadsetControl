@@ -23,6 +23,10 @@ enum battery_status {
     BATTERY_LOADING         = 65535
 };
 
+enum headsetcontrol_errors {
+    HSC_ERROR               = -100
+};
+
 /** @brief Defines the basic data of a device
  *
  *  Also defines function pointers for using supported features
@@ -50,16 +54,54 @@ struct device
      *
      *  Forwards the request to the device specific implementation
      *
-     *  @param device_handle The libUSB handle. Must be the same
-     *                       device as defined here (same ids)
-     *  @param num           Level of the sidetone, between 0 - 128
+     *  @param  device_handle   The hidapi handle. Must be the same
+     *                          device as defined here (same ids)
+     *  @param  num             Level of the sidetone, between 0 - 128
+     *
+     *  @returns    > 0         on success
+     *              HSC_ERROR   on error specific to this software
+     *              -1          HIDAPI error
      */
     int (*send_sidetone)(hid_device *hid_device, uint8_t num);
     
+    /** @brief Function pointer for retrieving the headsets battery status
+     *
+     *  Forwards the request to the device specific implementation
+     *
+     *  @param  device_handle   The hidapi handle. Must be the same
+     *                          device as defined here (same ids)
+     *
+     *  @returns    >= 0            battery level (in %)
+     *              BATTERY_LOADING when the battery is currently being loaded
+     *              -1              HIDAPI error
+     */
     int (*request_battery)(hid_device *hid_device);
     
+        
+    /** @brief Function pointer for sending a notification sound to the headset
+     *
+     *  Forwards the request to the device specific implementation
+     *
+     *  @param  device_handle   The hidapi handle. Must be the same
+     *                          device as defined here (same ids)
+     *  @param  soundid         The soundid which should be used
+     *
+     *  @returns    > 0         success
+     *              -1          HIDAPI error
+     */
     int (*notifcation_sound)(hid_device *hid_device, uint8_t soundid);
 
+    /** @brief Function pointer for turning light on or off of the headset
+     *
+     *  Forwards the request to the device specific implementation
+     *
+     *  @param  device_handle   The hidapi handle. Must be the same
+     *                          device as defined here (same ids)
+     *  @param  on              1 if it should be turned on; 0 otherwise
+     *
+     *  @returns    > 0         success
+     *              -1          HIDAPI error
+     */
     int (*switch_lights)(hid_device *hid_device, uint8_t on);
 };
 
