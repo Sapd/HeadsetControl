@@ -31,8 +31,12 @@ struct device
 {
     /// USB Vendor id
     uint16_t idVendor;
-    /// USB Product id
+    /// USB Product id used (and found as connected), set by device_registry.c
     uint16_t idProduct;
+    /// The USB Product ids this instance of "struct device" supports
+    const uint16_t* idProductsSupported;
+    /// Size of idProducts
+    int numIdProducts;
     /// Interface ID - zero means first enumerated interface!
     int idInterface;
  

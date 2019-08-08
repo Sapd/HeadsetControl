@@ -10,6 +10,8 @@ enum voidpro_battery_flags {
 
 static struct device device_voidpro;
 
+static const uint16_t PRODUCT_ID = 0x0a14;
+
 static int voidpro_send_sidetone(hid_device *device_handle, uint8_t num);
 static int voidpro_request_battery(hid_device *device_handle);
 static int voidpro_notification_sound(hid_device *hid_device, uint8_t soundid);
@@ -18,7 +20,8 @@ static int voidpro_lights(hid_device* device_handle, uint8_t on);
 void voidpro_init(struct device** device)
 {
     device_voidpro.idVendor = VENDOR_CORSAIR;
-    device_voidpro.idProduct = 0x0a14;
+    device_voidpro.idProductsSupported = &PRODUCT_ID;
+    device_voidpro.numIdProducts = 1;
     
     strcpy(device_voidpro.device_name, "Corsair Void Pro");
     

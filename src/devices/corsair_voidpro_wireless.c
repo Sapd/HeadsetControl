@@ -10,6 +10,8 @@ enum voidpro_wireless_battery_flags {
 
 static struct device device_voidpro_wireless;
 
+static const uint16_t PRODUCT_ID = 0x0a1a;
+
 static int voidpro_wireless_send_sidetone(hid_device *device_handle, uint8_t num);
 static int voidpro_wireless_request_battery(hid_device *device_handle);
 static int voidpro_wireless_notification_sound(hid_device *hid_device, uint8_t soundid);
@@ -18,7 +20,8 @@ static int voidpro_wireless_lights(hid_device* device_handle, uint8_t on);
 void voidpro_wireless_init(struct device** device)
 {
     device_voidpro_wireless.idVendor = VENDOR_CORSAIR;
-    device_voidpro_wireless.idProduct = 0x0a1a;
+    device_voidpro_wireless.idProductsSupported = &PRODUCT_ID;
+    device_voidpro_wireless.numIdProducts = 1;
 
     strcpy(device_voidpro_wireless.device_name, "Corsair Void Pro Wireless");
 

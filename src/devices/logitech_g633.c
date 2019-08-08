@@ -4,12 +4,15 @@
 
 static struct device device_g633;
 
+static const uint16_t PRODUCT_ID = 0x0a5c;
+
 static int g633_send_sidetone(hid_device *device_handle, uint8_t num);
 
 void g633_init(struct device** device)
 {
     device_g633.idVendor = VENDOR_LOGITECH;
-    device_g633.idProduct = 0x0a5c;
+    device_g633.idProductsSupported = &PRODUCT_ID;
+    device_g633.numIdProducts = 1;
     
     strcpy(device_g633.device_name, "Logitech G633 Gaming Headset");
     

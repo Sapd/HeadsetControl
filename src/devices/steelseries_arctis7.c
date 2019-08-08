@@ -7,13 +7,16 @@
 
 static struct device device_arctis7;
 
+static const uint16_t PRODUCT_ID = 0x1260;
+
 static int arctis7_send_sidetone(hid_device *device_handle, uint8_t num);
 static int arctis7_request_battery(hid_device *device_handle);
 
 void arctis7_init(struct device** device)
 {
     device_arctis7.idVendor = VENDOR_STEELSERIES;
-    device_arctis7.idProduct = 0x1260;
+    device_arctis7.idProductsSupported = &PRODUCT_ID;
+    device_arctis7.numIdProducts = 1;
     device_arctis7.idInterface = 0x05;
 
     strcpy(device_arctis7.device_name, "SteelSeries Arctis 7");

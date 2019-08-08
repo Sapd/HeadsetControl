@@ -6,12 +6,15 @@
 
 static struct device device_g533;
 
+static const uint16_t PRODUCT_ID = 0x0a66;
+
 static int g533_send_sidetone(hid_device *device_handle, uint8_t num);
 
 void g533_init(struct device** device)
 {
     device_g533.idVendor = VENDOR_LOGITECH;
-    device_g533.idProduct = 0x0a66;
+    device_g533.idProductsSupported = &PRODUCT_ID;
+    device_g533.numIdProducts = 1;
     
     strcpy(device_g533.device_name, "Logitech G533");
     

@@ -7,12 +7,15 @@
 
 static struct device device_arctispro_2019;
 
+static const uint16_t PRODUCT_ID = 0x1252;
+
 static int arctispro_2019_send_sidetone(hid_device *device_handle, uint8_t num);
 
 void arctispro_2019_init(struct device** device)
 {
     device_arctispro_2019.idVendor = VENDOR_STEELSERIES;
-    device_arctispro_2019.idProduct = 0x1252;
+    device_arctispro_2019.idProductsSupported = &PRODUCT_ID;
+    device_arctispro_2019.numIdProducts = 1;
     device_arctispro_2019.idInterface = 0x05;
 
     strcpy(device_arctispro_2019.device_name, "Steel Series Arctis Pro 2019");

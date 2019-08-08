@@ -34,13 +34,23 @@ void init_devices()
 
 int get_device(struct device* device_found, uint16_t idVendor, uint16_t idProduct)
 {
+    // search for an implementation supporting one of the vendor+productid combination
     for (int i = 0; i < NUMDEVICES; i++)
     {
-        if (devicelist[i]->idVendor == idVendor && devicelist[i]->idProduct == idProduct)
+        if (devicelist[i]->idVendor == idVendor)
         {
-            // copy struct to the destination in device_found
-            memcpy(device_found, devicelist[i], sizeof(struct device));
-            return 0;
+            // one device file can contain multiple product ids, iterate them
+            for (int y = 0; y < devicelist[i]->numIdProducts; y++)
+            {
+                if (devicelist[i]->idProductsSupported[y] == idProduct)
+                {
+                    // Set the actual found productid (of the set of available ones for this device file/struct)
+                    devicelist[i]->idProduct = idProduct;
+                    // copy struct to the destination in device_found
+                    memcpy(device_found, devicelist[i], sizeof(struct device));
+                    return 0;
+                }
+            }
         }
     }
     return 1;

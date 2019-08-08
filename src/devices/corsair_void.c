@@ -7,6 +7,8 @@
 
 static struct device device_void;
 
+static const uint16_t PRODUCT_ID = 0x1b27;
+
 static int void_send_sidetone(hid_device *device_handle, uint8_t num);
 static int void_request_battery(hid_device *device_handle);
 static int void_notification_sound(hid_device *hid_device, uint8_t soundid);
@@ -15,7 +17,8 @@ static int void_lights(hid_device *device_handle, uint8_t on);
 void void_init(struct device** device)
 {
     device_void.idVendor = VENDOR_CORSAIR;
-    device_void.idProduct = 0x1b27;
+    device_void.idProductsSupported = &PRODUCT_ID;
+    device_void.numIdProducts = 1;
     
     strcpy(device_void.device_name, "Corsair Void");
     
