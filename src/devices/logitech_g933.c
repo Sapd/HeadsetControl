@@ -2,6 +2,7 @@
 
 #include <string.h>
 #include <math.h>
+#include <stdlib.h>
 #include <hidapi.h>
 //#define DEBUG
 
@@ -16,6 +17,8 @@ static const float voltage_map[NUMBER_OF_VMAP_LINES][2] = {{4057,100.00}, {4050,
 
 static int g933_request_battery(hid_device *device_handle);
 
+static int g933_send_sidetone(hid_device *device_hadle, uint8_t num);
+
 void g933_init(struct device ** device)
 { 
   device_g933.idVendor = VENDOR_LOGITECH;
@@ -24,9 +27,10 @@ void g933_init(struct device ** device)
 
   strcpy(device_g933.device_name, "Logitech G933 Wireless");
 
-  device_g933.capabilities = CAP_BATTERY_STATUS;
+  device_g933.capabilities = CAP_BATTERY_STATUS | CAP_SIDETONE;
 
   device_g933.request_battery = &g933_request_battery;
+  device_g933.send_sidetone = &g933_send_sidetone;
 
   *device = &device_g933;
 }
@@ -86,4 +90,15 @@ static int g933_request_battery(hid_device *device_handle)
   #endif
   return round(closestBatteryLevel);
 
+}
+
+static int g933_send_sidetone(hid_device *device_handle, uint8_t num)
+{
+  if (num > 0x64) num = 0x64;
+  unsigned char data_send[5] = {0x11, 0xff, 0x07, 0x1a, num};
+
+  #ifdef DEBUG
+  printf("setting to: %2x", num);
+  #endif
+  return hid_write(device_handle, data_send, 5);
 }
