@@ -15,8 +15,9 @@ enum void_wireless_battery_flags {
 #define ID_CORSAIR_VOID_PRO             0x0a14
 #define ID_CORSAIR_VOID_PRO_R2          0x0a16
 #define ID_CORSAIR_VOID_PRO_WIRELESS    0x0a1a
+#define ID_CORSAIR_VOID_RGB_USB         0x1b2a
 
-static const uint16_t PRODUCT_IDS[] = {ID_CORSAIR_VOID_WIRELESS, ID_CORSAIR_VOID_PRO, ID_CORSAIR_VOID_PRO_R2, ID_CORSAIR_VOID_PRO_WIRELESS};
+static const uint16_t PRODUCT_IDS[] = {ID_CORSAIR_VOID_WIRELESS, ID_CORSAIR_VOID_PRO, ID_CORSAIR_VOID_PRO_R2, ID_CORSAIR_VOID_PRO_WIRELESS, ID_CORSAIR_VOID_RGB_USB};
 
 static int void_send_sidetone(hid_device *device_handle, uint8_t num);
 static int void_request_battery(hid_device *device_handle);
