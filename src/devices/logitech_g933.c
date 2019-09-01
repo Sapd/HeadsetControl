@@ -13,6 +13,8 @@ static const uint16_t PRODUCT_ID = 0x0a5b;
 static int g933_request_battery(hid_device *device_handle);
 
 static int g933_send_sidetone(hid_device *device_hadle, uint8_t num);
+static int g933_lights(hid_device *device_handle, uint8_t on);
+
 
 void g933_init(struct device ** device)
 { 
@@ -22,10 +24,11 @@ void g933_init(struct device ** device)
 
   strcpy(device_g933.device_name, "Logitech G933 Wireless");
 
-  device_g933.capabilities = CAP_BATTERY_STATUS | CAP_SIDETONE;
+  device_g933.capabilities = CAP_BATTERY_STATUS | CAP_SIDETONE | CAP_LIGHTS;
 
   device_g933.request_battery = &g933_request_battery;
   device_g933.send_sidetone = &g933_send_sidetone;
+  device_g933.switch_lights = &g933_lights;
 
   *device = &device_g933;
 }
@@ -86,4 +89,21 @@ static int g933_send_sidetone(hid_device *device_handle, uint8_t num)
   printf("setting to: %2x", num);
   #endif
   return hid_write(device_handle, data_send, 5);
+}
+
+static g933_lights(hid_device *device_handle, uint8_t on)
+{
+  //on, breathing   11 ff 04 3c 01 02 00 b6 ff 0f a0 00 64 00 00 00
+  // off            11 ff 04 3c 01 00 
+  if (on) 
+  {
+    unsigned char data[16] = {0x11, 0xff, 0x04, 0x3c, 0x01, 0x02, 0x00, 0xb6, 0xff, 0x0f, 0xa0, 0x00, 0x64, 0x00, 0x00, 0x00};
+    return hid_write(device_handle, data, 16);
+  }
+  else
+  {
+    unsigned char data[6] = {0x11, 0xff, 0x04, 0x3c, 0x01, 0x00};
+    return hid_write(device_handle, data, 6);
+
+  }
 }
