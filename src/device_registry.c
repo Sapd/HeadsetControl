@@ -22,8 +22,8 @@ void init_devices()
     g533_init(&devicelist[2]);
     g633_init(&devicelist[3]);
     g930_init(&devicelist[4]);
-    arctis_init(&devicelist[5]);
     g933_init(&devicelist[6]);
+    arctis_init(&devicelist[5]);
 }
 
 int get_device(struct device* device_found, uint16_t idVendor, uint16_t idProduct)
