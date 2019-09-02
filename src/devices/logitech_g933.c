@@ -4,7 +4,6 @@
 #include <math.h>
 #include <stdlib.h>
 #include <hidapi.h>
-//#define DEBUG
 
 static struct device device_g933;
 
@@ -75,13 +74,11 @@ static int g933_request_battery(hid_device *device_handle)
     #ifdef DEBUG
     printf("Reported Voltage: %2f\n", (float)voltage);
     #endif
-
     return round(estimate_battery_level(voltage));
+}
 
-    }
-
-    static int g933_send_sidetone(hid_device *device_handle, uint8_t num)
-    {
+static int g933_send_sidetone(hid_device *device_handle, uint8_t num)
+{
     if (num > 0x64) num = 0x64;
     unsigned char data_send[5] = {0x11, 0xff, 0x07, 0x1a, num};
 
