@@ -9,6 +9,7 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
 
 - Corsair Void (Wireless & Wired)
 - Corsair Void Pro (Wireless & Wired)
+- Logitech G933
 - Logitech G930
 - Logitech G633
 - Logitech G533
@@ -20,7 +21,7 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
 ### Other Features
 
 
-Corsair Void (Pro) also supports checking of the battery and switching LED off/on
+Corsair Void (Pro) and G933 also supports checking of the battery and switching LED off/on  
 SteelSeries Arctis 7 (including 2019 revision) support checking of the battery.
 
 
