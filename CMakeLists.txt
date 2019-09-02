@@ -25,7 +25,7 @@ add_subdirectory(src)
 add_subdirectory(src/devices)
 
 add_executable(HeadsetControl ${SOURCE_FILES})
-target_link_libraries(HeadsetControl ${HIDAPI_LIBRARIES})
+target_link_libraries(HeadsetControl m ${HIDAPI_LIBRARIES})
 
 install(TARGETS HeadsetControl DESTINATION bin)
 
