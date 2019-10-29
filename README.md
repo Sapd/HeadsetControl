@@ -52,6 +52,10 @@ RHEL and CentOS also require the epel-repository: `yum install epel-release`. Pl
 
 `pacman -S git cmake hidapi`
 
+#### FreeBSD
+
+`pkg install hidapi cmake`
+
 #### Mac OS X
 
 I recommend using [Homebrew](https://brew.sh).
