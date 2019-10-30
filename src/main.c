@@ -335,10 +335,10 @@ int main(int argc, char *argv[])
             return 1;
         }
 
-        if (ret == BATTERY_LOADING)
+        if (ret == BATTERY_CHARGING)
         {
             if (!short_output)
-                printf("Battery: Loading\n");
+                printf("Battery: Charging\n");
             else
                 printf("-1");
         }
