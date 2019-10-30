@@ -78,7 +78,7 @@ static int void_request_battery(hid_device *device_handle)
     
     if (data_read[4] == 0 || data_read[4] == 4 || data_read[4] == 5)
     {
-        return BATTERY_LOADING;
+        return BATTERY_CHARGING;
     }
     else if (data_read[4] == 1)
     {

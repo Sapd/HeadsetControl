@@ -20,7 +20,7 @@ enum capabilities {
 /** @brief Flags for battery status
  */
 enum battery_status {
-    BATTERY_LOADING         = 65535
+    BATTERY_CHARGING         = 65535
 };
 
 enum headsetcontrol_errors {
