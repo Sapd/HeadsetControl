@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <hidapi.h>
 
-static struct device device_void;
+static struct device device_g933_935;
 
 
 
@@ -14,25 +14,25 @@ static struct device device_void;
 
 static const uint16_t PRODUCT_IDS[] = {ID_LOGITECH_G933,ID_LOGITECH_G935};
 
-static int void_send_sidetone(hid_device *device_handle, uint8_t num);
-static int void_request_battery(hid_device *device_handle);
-static int void_lights(hid_device *device_handle, uint8_t on);
+static int g933_935_send_sidetone(hid_device *device_handle, uint8_t num);
+static int g933_935_request_battery(hid_device *device_handle);
+static int g933_935_lights(hid_device *device_handle, uint8_t on);
 
 
 
 void g933_935_init(struct device** device)
 {
-    device_void.idVendor = VENDOR_LOGITECH;
-    device_void.idProductsSupported = PRODUCT_IDS;
-    device_void.numIdProducts = sizeof(PRODUCT_IDS)/sizeof(PRODUCT_IDS[0]);
-    strcpy(device_void.device_name, "Logitech g933-935 Wireless");
+    device_g933_935.idVendor = VENDOR_LOGITECH;
+    device_g933_935.idProductsSupported = PRODUCT_IDS;
+    device_g933_935.numIdProducts = sizeof(PRODUCT_IDS)/sizeof(PRODUCT_IDS[0]);
+    strcpy(device_g933_935.device_name, "Logitech g933-935 Wireless");
 
-    device_void.capabilities = CAP_SIDETONE | CAP_BATTERY_STATUS |  CAP_LIGHTS;
-    device_void.send_sidetone = &void_send_sidetone;
-    device_void.request_battery = &void_request_battery;
-    device_void.switch_lights = &void_lights;
+    device_g933_935.capabilities = CAP_SIDETONE | CAP_BATTERY_STATUS |  CAP_LIGHTS;
+    device_g933_935.send_sidetone = &g933_935_send_sidetone;
+    device_g933_935.request_battery = &g933_935_request_battery;
+    device_g933_935.switch_lights = &g933_935_lights;
 
-    *device = &device_void;
+    *device = &device_g933_935;
 
 }
 
@@ -45,7 +45,7 @@ static float estimate_battery_level(uint16_t voltage)
         * pow(voltage, 3) + 0.3156051902814949 * pow(voltage, 2) - 788.0937250298629 * voltage + 736315.3077118985;
 }
 
-static int void_request_battery(hid_device *device_handle)
+static int g933_935_request_battery(hid_device *device_handle)
 {
     /*
         CREDIT GOES TO https://github.com/ashkitten/ for the project
@@ -82,7 +82,7 @@ static int void_request_battery(hid_device *device_handle)
     return round(estimate_battery_level(voltage));
 }
 
-static int void_send_sidetone(hid_device *device_handle, uint8_t num)
+static int g933_935_send_sidetone(hid_device *device_handle, uint8_t num)
 {
     if (num > 0x64) num = 0x64;
     uint8_t data_send[5] = {0x11, 0xff, 0x07, 0x1a, num};
@@ -94,7 +94,7 @@ static int void_send_sidetone(hid_device *device_handle, uint8_t num)
     return hid_write(device_handle, data_send, 5);
 }
 
-static int void_lights(hid_device *device_handle, uint8_t on)
+static int g933_935_lights(hid_device *device_handle, uint8_t on)
 {
     //on, breathing   11 ff 04 3c 01 02 00 b6 ff 0f a0 00 64 00 00 00
     // off            11 ff 04 3c 01 00
