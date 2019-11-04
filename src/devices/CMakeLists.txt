@@ -13,7 +13,4 @@ set(SOURCE_FILES ${SOURCE_FILES}
     ${CMAKE_CURRENT_SOURCE_DIR}/steelseries_arctis.h
     ${CMAKE_CURRENT_SOURCE_DIR}/logitech_g933_935.c
     ${CMAKE_CURRENT_SOURCE_DIR}/logitech_g933_935.h
-
-
-     
     PARENT_SCOPE)
