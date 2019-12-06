@@ -2,25 +2,27 @@
 #include "../utility.h"
 
 #include <string.h>
-
+#include <math.h>
 
 static struct device device_g533;
 
 static const uint16_t PRODUCT_ID = 0x0a66;
 
 static int g533_send_sidetone(hid_device *device_handle, uint8_t num);
+static int g533_request_battery(hid_device *device_handle);
 
 void g533_init(struct device** device)
 {
     device_g533.idVendor = VENDOR_LOGITECH;
     device_g533.idProductsSupported = &PRODUCT_ID;
     device_g533.numIdProducts = 1;
-    
+
     strcpy(device_g533.device_name, "Logitech G533");
-    
-    device_g533.capabilities = CAP_SIDETONE;
+
+    device_g533.capabilities = CAP_SIDETONE | CAP_BATTERY_STATUS;
+    device_g533.request_battery = &g533_request_battery;
     device_g533.send_sidetone = &g533_send_sidetone;
-    
+
     *device = &device_g533;
 }
 
@@ -29,7 +31,56 @@ static int g533_send_sidetone(hid_device *device_handle, uint8_t num)
     num = map(num, 0, 128, 200, 255);
 
     unsigned char data[12] = {0xFF, 0x0B, 0, 0xFF, 0x04, 0x0E, 0xFF, 0x05, 0x01, 0x04, 0x00, num};
-    
+
     return hid_send_feature_report(device_handle, data, 12);
 }
 
+// mostly copied from logitech_g933_935.c
+static float estimate_battery_level(uint16_t voltage)
+{
+    if (voltage <= 3382) return (0.03 * voltage) - 101;
+    if (voltage > 4011) return 100.0;
+    //Interpolated from https://github.com/ashkitten/g933-utils/blob/master/libg933/src/maps/0A66/discharging.csv
+    //Do better map?
+    return -0.0000010876 * pow(voltage, 3) + 0.0122392434
+        * pow(voltage, 2) -45.6420832787 * voltage + 56445.8517589238;
+}
+
+static int g533_request_battery(hid_device *device_handle)
+{
+    /*
+        CREDIT GOES TO https://github.com/ashkitten/ for the project
+        https://github.com/ashkitten/g933-utils/
+        I've simply ported that implementation to this project!
+    */
+
+    int r = 0;
+    // request battery voltage
+    uint8_t data_request[] = {0x11, 0xFF, 0x07, 0x1};
+    r = hid_write(device_handle, data_request, sizeof(data_request)/sizeof(data_request[0]));
+    if (r < 0) return r;
+
+    uint8_t data_read[7];
+    r = hid_read(device_handle, data_read, 7);
+    if (r < 0) return r;
+
+    //Headset offline
+    if (data_read[2] == 0xFF) return HSC_ERROR;
+
+    //6th byte is state; 0x1 for idle, 0x3 for charging
+    uint8_t state = data_read[6];
+    if (state == 0x03) return BATTERY_CHARGING;
+
+#ifdef DEBUG
+    printf("G33 - g533_request_battery - b1: 0x%08x b2: 0x%08x\n", data_read[4], data_read[5]);
+#endif
+
+    // actual voltage is byte 4 and byte 5 combined together
+    const uint16_t voltage = (data_read[4] << 8) | data_read[5];
+
+#ifdef DEBUG
+    printf("G33 - g533_request_battery - Reported Voltage: %2d\n", voltage);
+#endif
+
+    return round(estimate_battery_level(voltage));
+}
