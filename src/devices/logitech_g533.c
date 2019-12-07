@@ -36,14 +36,14 @@ static int g533_send_sidetone(hid_device *device_handle, uint8_t num)
 }
 
 // mostly copied from logitech_g933_935.c
-static float estimate_battery_level(uint16_t voltage)
+static int estimate_battery_level(uint16_t voltage)
 {
-    if (voltage <= 3382) return (0.03 * voltage) - 101;
+    if (voltage <= 3618) return (0.017547 * voltage) - 53.258578;
     if (voltage > 4011) return 100.0;
     //Interpolated from https://github.com/ashkitten/g933-utils/blob/master/libg933/src/maps/0A66/discharging.csv
-    //Do better map?
-    return -0.0000010876 * pow(voltage, 3) + 0.0122392434
-        * pow(voltage, 2) -45.6420832787 * voltage + 56445.8517589238;
+    //Errors: Min 0.0 Max 14.56	AVG: 3.9485493530204
+    return map(round(-0.0000010876 * pow(voltage, 3) + 0.0122392434
+        * pow(voltage, 2) -45.6420832787 * voltage + 56445.8517589238), 25, 100, 20, 100);
 }
 
 static int g533_request_battery(hid_device *device_handle)
@@ -82,5 +82,5 @@ static int g533_request_battery(hid_device *device_handle)
     printf("G33 - g533_request_battery - Reported Voltage: %2d\n", voltage);
 #endif
 
-    return round(estimate_battery_level(voltage));
+    return estimate_battery_level(voltage);
 }
