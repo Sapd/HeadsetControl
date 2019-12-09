@@ -5,27 +5,26 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
 
 ## Supported Headsets
 
-### Sidetone
-
-- Corsair Void (Wireless & Wired)
-- Corsair Void Pro (Wireless & Wired)
-- Logitech G933
-- Logitech G930
-- Logitech G633
+- Corsair Void (Every version*, regardless wether Pro or Wired)
+  - Sidetone, Battery (for Wireless), LED on/off, Notification Sound
+- Logitech G430
+  - No support in current version (Last working on macOS in commit 41be99379f)
 - Logitech G533
-- Logitech G430 (Last working on macOS in commit 41be99379f)
-- SteelSeries Arctis 7
-- SteelSeries Arctis 7 (2019 Revision)
-- SteelSeries Arctis Pro 2019 Edition
+  - Sidetone, Battery (for Wireless)
+- Logitech G633
+  - Sidetone
+- Logitech G930
+  - Sidetone
+- Logitech G933 / G935
+  - Sidetone, Battery (for Wireless), LED on/off
+- SteelSeries Arctis (7 and Pro)
+  - Sidetone, Battery
 
-### Other Features
+For non-supported headsets on Linux: There is a chance that you can set the sidetone via AlsaMixer
 
+&ast; *If your Corsair headset is not recognized, see [Adding a corsair device](https://github.com/Sapd/HeadsetControl/wiki/Adding-a-Corsair-device)*
 
-Corsair Void (Pro) and G933 also supports checking of the battery and switching LED off/on  
-SteelSeries Arctis 7 (including 2019 revision) support checking of the battery.
-
-
-For more features (like getting battery percentage of other devices, or settings LEDs etc. of specific devices), the protocol of the respective headset must be analyzed further. This can be done by capturing the USB traffic and analyzing it with WireShark or USBlyzer.
+For more features or other headsets, the protocol of the respective headset must be analyzed further. This can be done by capturing the USB traffic and analyzing it with WireShark or USBlyzer. Basically in few sentences: You can set up an Windows Virtual Machine, passthrough your headset, install the Windows drivers. Then capture traffic with USBlyzer or other software, while you are changing things in the driver control interface. You will have then look for packets which could correspond the feature you are looking for.
 
 ## Building
 
