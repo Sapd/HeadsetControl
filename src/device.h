@@ -72,7 +72,7 @@ struct device
      *                          device as defined here (same ids)
      *
      *  @returns    >= 0            battery level (in %)
-     *              BATTERY_LOADING when the battery is currently being loaded
+     *              BATTERY_CHARGING when the battery is currently being loaded
      *              -1              HIDAPI error
      */
     int (*request_battery)(hid_device *hid_device);
