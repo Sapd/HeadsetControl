@@ -4,21 +4,21 @@
 #include <hidapi.h>
 #include <string.h>
 
-
 static struct device device_void;
 
-enum void_wireless_battery_flags {
+enum void_wireless_battery_flags
+{
     VOID_BATTERY_MICUP = 128
 };
 
-#define ID_CORSAIR_VOID_WIRELESS        0x1b27
-#define ID_CORSAIR_VOID_PRO             0x0a14
-#define ID_CORSAIR_VOID_PRO_R2          0x0a16
-#define ID_CORSAIR_VOID_PRO_USB         0x0a17
-#define ID_CORSAIR_VOID_PRO_WIRELESS    0x0a1a
-#define ID_CORSAIR_VOID_RGB_USB         0x1b2a
-#define ID_CORSAIR_VOID_RGB_USB_2       0x1b23
-#define ID_CORSAIR_VOID_RGB_WIRED       0x1b1c
+#define ID_CORSAIR_VOID_WIRELESS 0x1b27
+#define ID_CORSAIR_VOID_PRO 0x0a14
+#define ID_CORSAIR_VOID_PRO_R2 0x0a16
+#define ID_CORSAIR_VOID_PRO_USB 0x0a17
+#define ID_CORSAIR_VOID_PRO_WIRELESS 0x0a1a
+#define ID_CORSAIR_VOID_RGB_USB 0x1b2a
+#define ID_CORSAIR_VOID_RGB_USB_2 0x1b23
+#define ID_CORSAIR_VOID_RGB_WIRED 0x1b1c
 
 static const uint16_t PRODUCT_IDS[] = {ID_CORSAIR_VOID_RGB_WIRED, ID_CORSAIR_VOID_WIRELESS, ID_CORSAIR_VOID_PRO,
                                        ID_CORSAIR_VOID_PRO_R2, ID_CORSAIR_VOID_PRO_USB, ID_CORSAIR_VOID_PRO_WIRELESS,
@@ -29,20 +29,20 @@ static int void_request_battery(hid_device *device_handle);
 static int void_notification_sound(hid_device *hid_device, uint8_t soundid);
 static int void_lights(hid_device *device_handle, uint8_t on);
 
-void void_init(struct device** device)
+void void_init(struct device **device)
 {
     device_void.idVendor = VENDOR_CORSAIR;
     device_void.idProductsSupported = PRODUCT_IDS;
-    device_void.numIdProducts = sizeof(PRODUCT_IDS)/sizeof(PRODUCT_IDS[0]);
-    
+    device_void.numIdProducts = sizeof(PRODUCT_IDS) / sizeof(PRODUCT_IDS[0]);
+
     strcpy(device_void.device_name, "Corsair Void (Pro)");
-    
+
     device_void.capabilities = CAP_SIDETONE | CAP_BATTERY_STATUS | CAP_NOTIFICATION_SOUND | CAP_LIGHTS;
     device_void.send_sidetone = &void_send_sidetone;
     device_void.request_battery = &void_request_battery;
     device_void.notifcation_sound = &void_notification_sound;
     device_void.switch_lights = &void_lights;
-    
+
     *device = &device_void;
 }
 
@@ -58,39 +58,59 @@ static int void_send_sidetone(hid_device *device_handle, uint8_t num)
 
 static int void_request_battery(hid_device *device_handle)
 {
-    // Packet Description
-    // Answer of battery status
-    // Index    0   1   2       3       4
-    // Data     100 0   Loaded% 177     5 when loading, 1 otherwise
-    
-    
+
+    // +---------------------------------------------------------------------+
+    // | Index | 0           | 1           | 2       | 3           | 4       |
+    // | Data  | <unknown_0> | <unknown_1> | <level> | <unknown_2> | <state> |
+    // +---------------------------------------------------------------------+
+
+    // unknown_0: Seems to always be 0x64 (100)
+    // unknown_1: Seems to always be 0x00 (0)
+    // level: 0x00 - 0x64 (mic down), 0x80 - 0xe4 (mic up)
+    //           0 - 100               128 - 228
+    // unknown_2: Seems to always be 0x33, 0x34 or 0xb1
+    // state:
+    // 0x00 - disconnected
+    // 0x01 - connected, discharging
+    // 0x04, 0x05 - connected, charging
+
     int r = 0;
-    
+
     // request battery status
     unsigned char data_request[2] = {0xC9, 0x64};
-    
+
     r = hid_write(device_handle, data_request, 2);
-    
-    if (r < 0) return r;
-    
+
+    if (r < 0)
+    {
+        return r;
+    }
+
     // read battery status
     unsigned char data_read[5];
-    
+
     r = hid_read(device_handle, data_read, 5);
- 
-    if (r < 0) return r;
-    
-    if (data_read[4] == 0 || data_read[4] == 4 || data_read[4] == 5)
+
+    if (r < 0)
+    {
+        return r;
+    }
+
+    if (data_read[4] == 0) // state 0 == disconnected
+    {
+        return HSC_ERROR;
+    }
+    else if (data_read[4] == 4 || data_read[4] == 5) // charging
     {
         return BATTERY_CHARGING;
     }
-    else if (data_read[4] == 1)
+    else if (data_read[4] == 1) // discharging
     {
         // Discard VOIDPRO_BATTERY_MICUP when it's set
         // see https://github.com/Sapd/HeadsetControl/issues/13
         if (data_read[2] & VOID_BATTERY_MICUP)
         {
-            return data_read[2] &~ VOID_BATTERY_MICUP;
+            return data_read[2] & ~VOID_BATTERY_MICUP;
         }
         else
         {
@@ -103,15 +123,15 @@ static int void_request_battery(hid_device *device_handle)
     }
 }
 
-static int void_notification_sound(hid_device* device_handle, uint8_t soundid)
+static int void_notification_sound(hid_device *device_handle, uint8_t soundid)
 {
     // soundid can be 0 or 1
     unsigned char data[5] = {0xCA, 0x02, soundid};
-    
+
     return hid_write(device_handle, data, 3);
 }
 
-static int void_lights(hid_device* device_handle, uint8_t on)
+static int void_lights(hid_device *device_handle, uint8_t on)
 {
     unsigned char data[3] = {0xC8, on ? 0x00 : 0x01, 0x00};
     return hid_write(device_handle, data, 3);
