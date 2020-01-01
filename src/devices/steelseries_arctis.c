@@ -23,7 +23,7 @@ void arctis_init(struct device** device)
     device_arctis.numIdProducts = sizeof(PRODUCT_IDS) / sizeof(PRODUCT_IDS[0]);
     device_arctis.idInterface = 0x05;
 
-    strcpy(device_arctis.device_name, "SteelSeries Arctis (7/Pro)");
+    strncpy(device_arctis.device_name, "SteelSeries Arctis (7/Pro)", sizeof(device_arctis.device_name));
 
     device_arctis.capabilities = CAP_SIDETONE | CAP_BATTERY_STATUS;
     device_arctis.send_sidetone = &arctis_send_sidetone;

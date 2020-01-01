@@ -17,7 +17,7 @@ void g533_init(struct device** device)
     device_g533.idProductsSupported = &PRODUCT_ID;
     device_g533.numIdProducts = 1;
 
-    strcpy(device_g533.device_name, "Logitech G533");
+    strncpy(device_g533.device_name, "Logitech G533", sizeof(device_g533.device_name));
 
     device_g533.capabilities = CAP_SIDETONE | CAP_BATTERY_STATUS;
     device_g533.request_battery = &g533_request_battery;

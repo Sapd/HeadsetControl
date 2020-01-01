@@ -14,7 +14,7 @@ void g930_init(struct device** device)
     device_g930.idProductsSupported = &PRODUCT_ID;
     device_g930.numIdProducts = 1;
 
-    strcpy(device_g930.device_name, "Logitech G930");
+    strncpy(device_g930.device_name, "Logitech G930", sizeof(device_g930.device_name));
 
     device_g930.capabilities = CAP_SIDETONE;
     device_g930.send_sidetone = &g930_send_sidetone;

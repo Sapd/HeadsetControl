@@ -64,9 +64,9 @@ matrix:
           - ubuntu-toolchain-r-test
         packages:
           - gcc-6
-          - g++-6
+          - libhidapi-dev
     script:
-      - cmake -DENABLE_CLANG_FORMAT=ON -DCMAKE_C_COMPILER="g++-6" ..
+      - cmake -DENABLE_CLANG_FORMAT=ON -DCMAKE_C_COMPILER="gcc-6" ..
       - make
       - make format
       - |
@@ -87,14 +87,14 @@ matrix:
       apt:
         sources:
           - ubuntu-toolchain-r-test
-          - llvm-toolchain-trusty-4.0
+          - llvm-toolchain-xenial-4.0
         packages:
           - clang-4.0
           - clang-tidy-4.0
           - gcc-6
-          - g++-6
+          - libhidapi-dev
     script:
-      - cmake -DENABLE_CLANG_TIDY=ON -DCMAKE_C_COMPILER="g++-6" ..
+      - cmake -DENABLE_CLANG_TIDY=ON -DCMAKE_C_COMPILER="gcc-6" ..
       - make
       - make tidy > output.txt
       - |
@@ -119,6 +119,7 @@ matrix:
           - ubuntu-toolchain-r-test
         packages:
           - gcc-8
+          - libhidapi-dev
     script:
       - cmake -DCMAKE_C_COMPILER="gcc-8" ..
       - make
@@ -136,6 +137,7 @@ matrix:
           - ubuntu-toolchain-r-test
         packages:
           - gcc-8
+          - libhidapi-dev
     script:
       - cmake -DCMAKE_C_COMPILER="gcc-8" ..
       - make
@@ -153,26 +155,9 @@ matrix:
           - ubuntu-toolchain-r-test
         packages:
           - gcc-9
+          - libhidapi-dev
     script:
       - cmake -DCMAKE_C_COMPILER="gcc-9" ..
-      - make
-      - make test
-
-  #
-  # Clang 6
-  #
-  - os: linux
-    env:
-      - TEST="Clang 6"
-    addons:
-      apt:
-        sources:
-          - ubuntu-toolchain-r-test
-          - llvm-toolchain-xenial-6.0
-        packages:
-          - clang-7
-    script:
-      - cmake -DCMAKE_C_COMPILER=clang-6 ..
       - make
       - make test
 
@@ -186,9 +171,10 @@ matrix:
       apt:
         sources:
           - ubuntu-toolchain-r-test
-          - llvm-toolchain-xenial-7.0
+          - llvm-toolchain-xenial-7
         packages:
           - clang-7
+          - libhidapi-dev
     script:
       - cmake -DCMAKE_C_COMPILER=clang-7 ..
       - make
@@ -207,17 +193,18 @@ matrix:
           - llvm-toolchain-xenial-8
         packages:
           - clang-8
+          - libhidapi-dev
     script:
       - cmake -DCMAKE_C_COMPILER=clang-8 ..
       - make
       - make test
 
   #
-  # Clang 9.0
+  # Clang 9
   #
   - os: linux
     env:
-      - TEST="Clang 9.0"
+      - TEST="Clang 9"
     addons:
       apt:
         sources:
@@ -226,6 +213,7 @@ matrix:
             key_url: 'https://apt.llvm.org/llvm-snapshot.gpg.key'
         packages:
           - clang-9
+          - libhidapi-dev
     script:
       - cmake -DCMAKE_C_COMPILER=clang-9 ..
       - make
@@ -242,6 +230,10 @@ matrix:
       - cmake ..
       - make
       - make test
+    addons:
+      homebrew:
+        packages:
+        - hidapi
 
   #
   # XCode 10.3
@@ -254,6 +246,10 @@ matrix:
       - cmake ..
       - make
       - make test
+    addons:
+      homebrew:
+        packages:
+        - hidapi
 
   #
   # XCode 11.3
@@ -266,3 +262,7 @@ matrix:
       - cmake ..
       - make
       - make test
+    addons:
+      homebrew:
+        packages:
+        - hidapi
