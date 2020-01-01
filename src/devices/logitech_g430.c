@@ -1,5 +1,6 @@
 #include "../device.h"
 
+#include <stdio.h>
 #include <string.h>
 
 static struct device device_g430;
@@ -14,7 +15,7 @@ void g430_init(struct device** device)
     device_g430.idProductsSupported = &PRODUCT_ID;
     device_g430.numIdProducts = 1;
 
-    strcpy(device_g430.device_name, "Logitech G430");
+    strncpy(device_g430.device_name, "Logitech G430", sizeof(device_g430.device_name));
 
     device_g430.capabilities = /*CAP_SIDETONE*/ 0;
     device_g430.send_sidetone = &g430_send_sidetone;

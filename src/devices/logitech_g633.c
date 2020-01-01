@@ -14,7 +14,7 @@ void g633_init(struct device** device)
     device_g633.idProductsSupported = &PRODUCT_ID;
     device_g633.numIdProducts = 1;
 
-    strcpy(device_g633.device_name, "Logitech G633 Gaming Headset");
+    strncpy(device_g633.device_name, "Logitech G633 Gaming Headset", sizeof(device_g633.device_name));
 
     device_g633.capabilities = CAP_SIDETONE;
     device_g633.send_sidetone = &g633_send_sidetone;

@@ -21,7 +21,7 @@ void g933_935_init(struct device** device)
     device_g933_935.idVendor = VENDOR_LOGITECH;
     device_g933_935.idProductsSupported = PRODUCT_IDS;
     device_g933_935.numIdProducts = sizeof(PRODUCT_IDS) / sizeof(PRODUCT_IDS[0]);
-    strcpy(device_g933_935.device_name, "Logitech g933-935 Wireless");
+    strncpy(device_g933_935.device_name, "Logitech g933-935 Wireless", sizeof(device_g933_935.device_name));
 
     device_g933_935.capabilities = CAP_SIDETONE | CAP_BATTERY_STATUS | CAP_LIGHTS;
     device_g933_935.send_sidetone = &g933_935_send_sidetone;

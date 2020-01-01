@@ -34,7 +34,7 @@ void void_init(struct device** device)
     device_void.idProductsSupported = PRODUCT_IDS;
     device_void.numIdProducts = sizeof(PRODUCT_IDS) / sizeof(PRODUCT_IDS[0]);
 
-    strcpy(device_void.device_name, "Corsair Void (Pro)");
+    strncpy(device_void.device_name, "Corsair Void (Pro)", sizeof(device_void.device_name));
 
     device_void.capabilities = CAP_SIDETONE | CAP_BATTERY_STATUS | CAP_NOTIFICATION_SOUND | CAP_LIGHTS;
     device_void.send_sidetone = &void_send_sidetone;

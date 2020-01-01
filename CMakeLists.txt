@@ -31,7 +31,7 @@ endmacro(use_c99)
 
 use_c99()
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror")
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # ------------------------------------------------------------------------------
@@ -80,8 +80,8 @@ endif()
 
 if(ENABLE_CLANG_TIDY)
 
-    find_program(CLANG_TIDY_BIN clang-tidy)
-    find_program(RUN_CLANG_TIDY_BIN run-clang-tidy.py)
+    find_program(CLANG_TIDY_BIN NAMES clang-tidy-4.0 clang-tidy)
+    find_program(RUN_CLANG_TIDY_BIN NAMES run-clang-tidy-4.0.py run-clang-tidy.py)
 
     if(CLANG_TIDY_BIN STREQUAL "CLANG_TIDY_BIN-NOTFOUND")
         message(FATAL_ERROR "unable to locate clang-tidy")
@@ -94,7 +94,6 @@ if(ENABLE_CLANG_TIDY)
     list(APPEND RUN_CLANG_TIDY_BIN_ARGS
         -clang-tidy-binary ${CLANG_TIDY_BIN}
         -header-filter=.*
-        -quiet
     )
 
     add_custom_target(
