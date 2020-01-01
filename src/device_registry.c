@@ -5,15 +5,14 @@
 #include "devices/logitech_g533.h"
 #include "devices/logitech_g633.h"
 #include "devices/logitech_g930.h"
-#include "devices/steelseries_arctis.h"
 #include "devices/logitech_g933_935.h"
+#include "devices/steelseries_arctis.h"
 
 #include <string.h>
 
-
 #define NUMDEVICES 7
 // array of pointers to device
-static struct device *(devicelist[NUMDEVICES]);
+static struct device*(devicelist[NUMDEVICES]);
 
 void init_devices()
 {
@@ -29,15 +28,11 @@ void init_devices()
 int get_device(struct device* device_found, uint16_t idVendor, uint16_t idProduct)
 {
     // search for an implementation supporting one of the vendor+productid combination
-    for (int i = 0; i < NUMDEVICES; i++)
-    {
-        if (devicelist[i]->idVendor == idVendor)
-        {
+    for (int i = 0; i < NUMDEVICES; i++) {
+        if (devicelist[i]->idVendor == idVendor) {
             // one device file can contain multiple product ids, iterate them
-            for (int y = 0; y < devicelist[i]->numIdProducts; y++)
-            {
-                if (devicelist[i]->idProductsSupported[y] == idProduct)
-                {
+            for (int y = 0; y < devicelist[i]->numIdProducts; y++) {
+                if (devicelist[i]->idProductsSupported[y] == idProduct) {
                     // Set the actual found productid (of the set of available ones for this device file/struct)
                     devicelist[i]->idProduct = idProduct;
                     // copy struct to the destination in device_found
