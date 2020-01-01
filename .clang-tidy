@@ -1,0 +1,4 @@
+Checks:          'bugprone*,clan*,cert*,misc*,modernize*,perf*,cppc*,read*,mode*,llvm*,-cppcoreguidelines-avoid-magic-numbers,-readability-magic-numbers,-llvm-header-guard'
+CheckOptions:
+  - key:             readability-braces-around-statements.ShortStatementLines
+    value:           '3'
