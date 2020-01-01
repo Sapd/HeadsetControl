@@ -2,8 +2,18 @@ cmake_minimum_required(VERSION 2.6.2)
 project(HeadsetControl)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules/")
+set(CLANG_FORMAT_EXCLUDE_PATTERNS  "build/")
 
 find_package(hidapi REQUIRED)
+
+# ------------------------------------------------------------------------------
+# Includes
+# ------------------------------------------------------------------------------
+
+include_directories(${HIDAPI_INCLUDE_DIRS})
+
+add_subdirectory(src)
+add_subdirectory(src/devices)
 
 # ------------------------------------------------------------------------------
 # C Flags
@@ -23,6 +33,46 @@ use_c99()
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+# ------------------------------------------------------------------------------
+# Clang format
+# ------------------------------------------------------------------------------
+
+if(ENABLE_CLANG_FORMAT)
+
+    find_program(CLANG_FORMAT_BIN clang-format)
+
+    if(CLANG_FORMAT_BIN STREQUAL "CLANG_FORMAT_BIN-NOTFOUND")
+        message(FATAL_ERROR "unable to locate clang-format")
+    endif()
+
+    file(GLOB_RECURSE ALL_SOURCE_FILES *.c *.cpp *.h *.cxx *.hxx *.hpp *.cc *.ipp)
+
+    # Don't include some common build folders
+    set(CLANG_FORMAT_EXCLUDE_PATTERNS ${CLANG_FORMAT_EXCLUDE_PATTERNS} "/CMakeFiles/" "cmake")
+
+    # get all project files file
+    foreach (SOURCE_FILE ${ALL_SOURCE_FILES})
+        foreach (EXCLUDE_PATTERN ${CLANG_FORMAT_EXCLUDE_PATTERNS})
+            string(FIND ${SOURCE_FILE} ${EXCLUDE_PATTERN} EXCLUDE_FOUND)
+            if (NOT ${EXCLUDE_FOUND} EQUAL -1)
+                list(REMOVE_ITEM ALL_SOURCE_FILES ${SOURCE_FILE})
+            endif ()
+        endforeach ()
+    endforeach ()
+
+    list(APPEND CLANG_FORMAT_BIN_ARGS
+        -i
+        ${ALL_SOURCE_FILES}
+    )
+
+    add_custom_target(
+        format
+        COMMAND ${CLANG_FORMAT_BIN} ${CLANG_FORMAT_BIN_ARGS}
+        COMMENT "formatting code by running clang format"
+    )
+
+endif()
 
 # ------------------------------------------------------------------------------
 # Clang Tidy
@@ -56,13 +106,8 @@ if(ENABLE_CLANG_TIDY)
 endif()
 
 # ------------------------------------------------------------------------------
-# Includes and Executables
+# Executables
 # ------------------------------------------------------------------------------
-
-include_directories(${HIDAPI_INCLUDE_DIRS})
-
-add_subdirectory(src)
-add_subdirectory(src/devices)
 
 add_executable(HeadsetControl ${SOURCE_FILES})
 target_link_libraries(HeadsetControl m ${HIDAPI_LIBRARIES})

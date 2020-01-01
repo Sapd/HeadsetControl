@@ -1,5 +1,5 @@
 ---
-Language:        Cpp
-BasedOnStyle:  WebKit
+Language: Cpp
+BasedOnStyle: WebKit
 AlignConsecutiveMacros: true
 ...
