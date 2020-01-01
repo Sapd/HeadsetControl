@@ -124,6 +124,8 @@ endif()
 # Testing
 # ------------------------------------------------------------------------------
 
+include (CTest)
+
 ## Simple test wether we can run the application (should basic hidapi functions, like enumerate, work)
 enable_testing()
 add_test(run_test HeadsetControl)
