@@ -42,6 +42,10 @@ struct device {
     int numIdProducts;
     /// Interface ID - zero means first enumerated interface!
     int idInterface;
+    /// Usage page, only used when idUsage is not 0; HID Protocol specific
+    uint16_t idUsagePage;
+    /// Used instead of idInterface when not 0, and only used on Windows currently; HID Protocol specific
+    uint16_t idUsage;
 
     /// Name of device, used as information for the user
     char device_name[32];
