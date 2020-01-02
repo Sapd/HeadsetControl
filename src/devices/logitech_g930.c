@@ -24,7 +24,11 @@ void g930_init(struct device** device)
 
 static int g930_send_sidetone(hid_device* device_handle, uint8_t num)
 {
-    unsigned char data[12] = { 0xFF, 0x0A, 0, 0xFF, 0xF4, 0x10, 0x05, 0xDA, 0x8F, 0xF2, 0x01, num };
+    const size_t message_size = 64;
+    uint8_t data[message_size] = { 0xFF, 0x0A, 0, 0xFF, 0xF4, 0x10, 0x05, 0xDA, 0x8F, 0xF2, 0x01, num, 0, 0, 0, 0 };
 
-    return hid_send_feature_report(device_handle, data, 12);
+    for (int i = 16; i < message_size; i++)
+        data[i] = 0;
+
+    return hid_send_feature_report(device_handle, data, message_size);
 }
