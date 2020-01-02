@@ -1,4 +1,5 @@
 #include "../device.h"
+#include "logitech.h"
 
 #include <hidapi.h>
 #include <math.h>
@@ -51,7 +52,7 @@ static int g933_935_request_battery(hid_device* device_handle)
 
     int r = 0;
     // request battery voltage
-    uint8_t data_request[20] = { 0x11, 0xFF, 0x08, 0x0a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+    uint8_t data_request[HIDPP_LONG_MESSAGE_LENGTH] = { HIDPP_LONG_MESSAGE, HIDPP_DEVICE_RECEIVER, 0x08, 0x0a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
     r = hid_write(device_handle, data_request, sizeof(data_request) / sizeof(data_request[0]));
     if (r < 0)
@@ -85,13 +86,14 @@ static int g933_935_send_sidetone(hid_device* device_handle, uint8_t num)
 {
     if (num > 0x64)
         num = 0x64;
-    uint8_t data_send[5] = { 0x11, 0xff, 0x07, 0x1a, num };
+
+    uint8_t data_send[HIDPP_LONG_MESSAGE_LENGTH] = { HIDPP_LONG_MESSAGE, HIDPP_DEVICE_RECEIVER, 0x07, 0x1a, num, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
 #ifdef DEBUG
     printf("G33 - setting sidetone to: %2x", num);
 #endif
 
-    return hid_write(device_handle, data_send, 5);
+    return hid_write(device_handle, data_send, sizeof(data_send) / sizeof(data_send[0]));
 }
 
 static int g933_935_lights(hid_device* device_handle, uint8_t on)
@@ -99,8 +101,8 @@ static int g933_935_lights(hid_device* device_handle, uint8_t on)
     // on, breathing  11 ff 04 3c 01 02 00 b6 ff 0f a0 00 64 00 00 00
     // off            11 ff 04 3c 01 00
 
-    uint8_t data_on[16] = { 0x11, 0xff, 0x04, 0x3c, 0x01, 0x02, 0x00, 0xb6, 0xff, 0x0f, 0xa0, 0x00, 0x64, 0x00, 0x00, 0x00 };
-    uint8_t data_off[16] = { 0x11, 0xff, 0x04, 0x3c, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+    uint8_t data_on[HIDPP_LONG_MESSAGE_LENGTH] = { HIDPP_LONG_MESSAGE, HIDPP_DEVICE_RECEIVER, 0x04, 0x3c, 0x01, 0x02, 0x00, 0xb6, 0xff, 0x0f, 0xa0, 0x00, 0x64, 0x00, 0x00, 0x00 };
+    uint8_t data_off[HIDPP_LONG_MESSAGE_LENGTH] = { HIDPP_LONG_MESSAGE, HIDPP_DEVICE_RECEIVER, 0x04, 0x3c, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
-    return hid_write(device_handle, on ? data_on : data_off, 16);
+    return hid_write(device_handle, on ? data_on : data_off, HIDPP_LONG_MESSAGE_LENGTH);
 }
