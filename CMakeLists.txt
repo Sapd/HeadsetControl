@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.6.2)
-project(HeadsetControl)
+project(headsetcontrol)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules/")
 set(CLANG_FORMAT_EXCLUDE_PATTERNS  "build/")
@@ -108,10 +108,10 @@ endif()
 # Executables
 # ------------------------------------------------------------------------------
 
-add_executable(HeadsetControl ${SOURCE_FILES})
-target_link_libraries(HeadsetControl m ${HIDAPI_LIBRARIES})
+add_executable(headsetcontrol ${SOURCE_FILES})
+target_link_libraries(headsetcontrol m ${HIDAPI_LIBRARIES})
 
-install(TARGETS HeadsetControl DESTINATION bin)
+install(TARGETS headsetcontrol DESTINATION bin)
 
 # install udev files on linux
 if(UNIX AND NOT APPLE)
@@ -127,5 +127,5 @@ include (CTest)
 
 ## Simple test wether we can run the application (should basic hidapi functions, like enumerate, work)
 enable_testing()
-add_test(run_test HeadsetControl)
+add_test(run_test headsetcontrol)
 set_tests_properties(run_test PROPERTIES PASS_REGULAR_EXPRESSION "No supported headset found")
