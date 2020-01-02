@@ -23,8 +23,13 @@
 # (See accompanying file LICENSE_1_0.txt or copy at
 # http://www.boost.org/LICENSE_1_0.txt)
 
-find_library(HIDAPI_LIBRARY
-	NAMES hidapi-hidraw hidapi)
+IF (WIN32)
+	find_library(HIDAPI_LIBRARY
+		NAMES hidapi)
+ELSE()
+	find_library(HIDAPI_LIBRARY
+		NAMES hidapi-hidraw hidapi)
+ENDIF()
 
 find_path(HIDAPI_INCLUDE_DIR
 	NAMES hidapi.h

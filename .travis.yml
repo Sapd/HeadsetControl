@@ -27,9 +27,51 @@ before_script:
       ./cmake-*-Linux-x86_64.sh --exclude-subdir --skip-license
       export PATH="${PWD}/bin:$PATH"
       popd
-    else
+    fi
+    if [[ "${TRAVIS_OS_NAME}" == "osx" ]]; then
       if ! brew ls --version cmake &>/dev/null; then brew update; brew install cmake; fi
     fi
+
+#
+# Before Install for Windows builds
+#
+before_install:
+- |-
+    case $TRAVIS_OS_NAME in
+      windows)
+        [[ ! -f C:/tools/msys64/msys2_shell.cmd ]] && rm -rf C:/tools/msys64
+        choco uninstall -y mingw
+        choco upgrade --no-progress -y msys2
+        export msys2='cmd //C RefreshEnv.cmd '
+        export msys2+='& set MSYS=winsymlinks:nativestrict '
+        export msys2+='& C:\\tools\\msys64\\msys2_shell.cmd -defterm -no-start'
+        export mingw64="$msys2 -mingw64 -full-path -here -c "\"\$@"\" --"
+        export msys2+=" -msys2 -c "\"\$@"\" --"
+        $msys2 pacman --sync --noconfirm --needed mingw-w64-x86_64-toolchain
+        ## Install more MSYS2 packages from https://packages.msys2.org/base here
+        $msys2 pacman --sync --noconfirm --needed mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-hidapi make git
+        taskkill //IM gpg-agent.exe //F  # https://travis-ci.community/t/4967
+        export PATH=/C/tools/msys64/mingw64/bin:$PATH
+        ;;
+    esac
+
+before_cache:
+- |-
+    case $TRAVIS_OS_NAME in
+      windows)
+        # https://unix.stackexchange.com/a/137322/107554
+        $msys2 pacman --sync --clean --noconfirm
+        ;;
+      osx)
+        brew cleanup
+        ;;
+    esac
+
+cache:
+    directories:
+    - $HOME/AppData/Local/Temp/chocolatey
+    - /C/tools/msys64
+    - $HOME/Library/Caches/Homebrew
 
 #
 # Build Matrix
@@ -266,3 +308,14 @@ matrix:
       homebrew:
         packages:
         - hidapi
+
+  #
+  # Windows via msys2 (mingw 64-bit)
+  #
+  - os: windows
+    env:
+      - TEST="Windows (msys2, mingw64)"
+    script:
+      - $mingw64 cmake -G"MSYS Makefiles" ..
+      - $mingw64 make
+      - $mingw64 make test
