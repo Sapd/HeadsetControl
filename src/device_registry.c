@@ -3,8 +3,8 @@
 #include "devices/corsair_void.h"
 #include "devices/logitech_g430.h"
 #include "devices/logitech_g533.h"
-#include "devices/logitech_g930.h"
 #include "devices/logitech_g633_g933_935.h"
+#include "devices/logitech_g930.h"
 #include "devices/steelseries_arctis.h"
 
 #include <string.h>
