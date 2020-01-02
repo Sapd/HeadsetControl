@@ -28,16 +28,16 @@ void g533_init(struct device** device)
 
 static int g533_send_sidetone(hid_device* device_handle, uint8_t num)
 {
-    const size_t message_size = 64;
+#define MSG_SIZE 64
 
     num = map(num, 0, 128, 200, 255);
 
-    uint8_t data[message_size] = { 0xFF, 0x0B, 0, 0xFF, 0x04, 0x0E, 0xFF, 0x05, 0x01, 0x04, 0x00, num, 0, 0, 0, 0 };
+    uint8_t data[MSG_SIZE] = { 0xFF, 0x0B, 0, 0xFF, 0x04, 0x0E, 0xFF, 0x05, 0x01, 0x04, 0x00, num, 0, 0, 0, 0 };
 
-    for (int i = 16; i < message_size; i++)
+    for (int i = 16; i < MSG_SIZE; i++)
         data[i] = 0;
 
-    return hid_send_feature_report(device_handle, data, message_size);
+    return hid_send_feature_report(device_handle, data, MSG_SIZE);
 }
 
 // mostly copied from logitech_g933_935.c
