@@ -3,14 +3,13 @@
 #include "devices/corsair_void.h"
 #include "devices/logitech_g430.h"
 #include "devices/logitech_g533.h"
-#include "devices/logitech_g633.h"
 #include "devices/logitech_g930.h"
 #include "devices/logitech_g933_935.h"
 #include "devices/steelseries_arctis.h"
 
 #include <string.h>
 
-#define NUMDEVICES 7
+#define NUMDEVICES 6
 // array of pointers to device
 static struct device*(devicelist[NUMDEVICES]);
 
@@ -19,7 +18,6 @@ void init_devices()
     void_init(&devicelist[0]);
     g430_init(&devicelist[1]);
     g533_init(&devicelist[2]);
-    g633_init(&devicelist[3]);
     g930_init(&devicelist[4]);
     g933_935_init(&devicelist[5]);
     arctis_init(&devicelist[6]);
