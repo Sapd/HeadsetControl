@@ -80,8 +80,8 @@ endif()
 
 if(ENABLE_CLANG_TIDY)
 
-    find_program(CLANG_TIDY_BIN NAMES clang-tidy-4.0 clang-tidy)
-    find_program(RUN_CLANG_TIDY_BIN NAMES run-clang-tidy-4.0.py run-clang-tidy.py)
+    find_program(CLANG_TIDY_BIN NAMES clang-tidy-9 clang-tidy)
+    find_program(RUN_CLANG_TIDY_BIN NAMES run-clang-tidy-9.py run-clang-tidy.py)
 
     if(CLANG_TIDY_BIN STREQUAL "CLANG_TIDY_BIN-NOTFOUND")
         message(FATAL_ERROR "unable to locate clang-tidy")
