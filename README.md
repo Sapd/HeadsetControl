@@ -11,11 +11,9 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
   - No support in current version (Last working on macOS in commit 41be99379f)
 - Logitech G533
   - Sidetone, Battery (for Wireless)
-- Logitech G633
-  - Sidetone
 - Logitech G930
   - Sidetone
-- Logitech G933 / G935
+- Logitech G633 / G933 / G935
   - Sidetone, Battery (for Wireless), LED on/off
 - SteelSeries Arctis (7 and Pro)
   - Sidetone, Battery
