@@ -22,4 +22,3 @@
 
 // Device index
 #define HIDPP_DEVICE_RECEIVER 0xff
-

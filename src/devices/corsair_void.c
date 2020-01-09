@@ -33,6 +33,8 @@ void void_init(struct device** device)
     device_void.idVendor = VENDOR_CORSAIR;
     device_void.idProductsSupported = PRODUCT_IDS;
     device_void.numIdProducts = sizeof(PRODUCT_IDS) / sizeof(PRODUCT_IDS[0]);
+    device_void.idUsagePage = 0xff00;
+    device_void.idUsage = 0x1;
 
     strncpy(device_void.device_name, "Corsair Void (Pro)", sizeof(device_void.device_name));
 
@@ -47,16 +49,22 @@ void void_init(struct device** device)
 
 static int void_send_sidetone(hid_device* device_handle, uint8_t num)
 {
+#define MSG_SIZE 64
     // the range of the void seems to be from 200 to 255
     num = map(num, 0, 128, 200, 255);
 
-    unsigned char data[12] = { 0xFF, 0x0B, 0, 0xFF, 0x04, 0x0E, 0xFF, 0x05, 0x01, 0x04, 0x00, num };
+    unsigned char data[MSG_SIZE] = { 0xFF, 0x0B, 0, 0xFF, 0x04, 0x0E, 0xFF, 0x05, 0x01, 0x04, 0x00, num, 0, 0, 0, 0 };
 
-    return hid_send_feature_report(device_handle, data, 12);
+    for (int i = 16; i < MSG_SIZE; i++)
+        data[i] = 0;
+
+    return hid_send_feature_report(device_handle, data, MSG_SIZE);
 }
 
 static int void_request_battery(hid_device* device_handle)
 {
+    // Notice: For Windows it has a different usage page (0xffc5), multiple usage pages are not supported currently by headsetcontrol
+
     // Packet Description
     // Answer of battery status
     // Index    0   1   2       3       4
