@@ -85,18 +85,18 @@ Also in Linux, you need udev rules if you don't want to start the application wi
 
 ## Usage
 
-Type `HeadsetControl -h` to get all available options.\
+Type `headsetcontrol -h` to get all available options.\
 (Don't forget to prefix it with `./` when the application resides in the current folder)
 
-`HeadsetControl -s 128` sets the sidetone to 128 (REAL loud). You can silence it with `0`. I recommend a loudness of 16.
+`headsetcontrol -s 128` sets the sidetone to 128 (REAL loud). You can silence it with `0`. I recommend a loudness of 16.
 
 Following options don't work on all devices yet:
 
-`HeadsetControl -b` check battery level. Returns a value from 0 to 100 or loading.
+` -b` check battery level. Returns a value from 0 to 100 or loading.
 
-`HeadsetControl -n 0|1` sends a notification sound, made by the headset. 0 or 1 are currently supported as values.
+`headsetcontrol -n 0|1` sends a notification sound, made by the headset. 0 or 1 are currently supported as values.
 
-`HeadsetControl -l 0|1` switches LED off/on (off almost doubles battery lifetime!).
+`headsetcontrol -l 0|1` switches LED off/on (off almost doubles battery lifetime!).
 
 ## Notice
 
