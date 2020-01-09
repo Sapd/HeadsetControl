@@ -66,6 +66,10 @@ If you wish to compile it manually, you can install the dependencies with  `brew
 
 Also you have to download Xcode via the Mac App Store for the compilers.
 
+#### Windows
+
+Windows support is a bit experimental and might not work in all cases. You can find binaries in the [releases](https://github.com/Sapd/HeadsetControl/releases) page, or compile instructions via MSYS2/MinGW in the [wiki](https://github.com/Sapd/HeadsetControl/wiki/Development#windows).
+
 ### Compiling
 
 ```
@@ -92,11 +96,17 @@ Type `headsetcontrol -h` to get all available options.\
 
 Following options don't work on all devices yet:
 
-` -b` check battery level. Returns a value from 0 to 100 or loading.
+`headsetcontrol -b` check battery level. Returns a value from 0 to 100 or loading.
 
 `headsetcontrol -n 0|1` sends a notification sound, made by the headset. 0 or 1 are currently supported as values.
 
 `headsetcontrol -l 0|1` switches LED off/on (off almost doubles battery lifetime!).
+
+`headsetcontrol -c` cut unnecessary output, for reading by other scripts or applications.
+
+## Development
+
+Look at the [wiki](https://github.com/Sapd/HeadsetControl/wiki/Development) if you want to contribute and implement another device or improve the software.
 
 ## Notice
 
