@@ -1,5 +1,6 @@
 #include "../device.h"
 #include "../utility.h"
+#include "logitech.h"
 
 #include <math.h>
 #include <string.h>
@@ -65,8 +66,8 @@ static int g533_request_battery(hid_device* device_handle)
 
     int r = 0;
     // request battery voltage
-    uint8_t data_request[MSG_SIZE] = { 0x11, 0xFF, 0x07, 0x1 };
-    r = hid_write(device_handle, data_request, MSG_SIZE);
+    uint8_t data_request[HIDPP_LONG_MESSAGE_LENGTH] = { HIDPP_LONG_MESSAGE, HIDPP_DEVICE_RECEIVER, 0x07, 0x01 };
+    r = hid_write(device_handle, data_request, HIDPP_LONG_MESSAGE_LENGTH);
     if (r < 0)
         return r;
 
