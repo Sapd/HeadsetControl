@@ -4,6 +4,8 @@
 #include <math.h>
 #include <string.h>
 
+#define MSG_SIZE 64
+
 static struct device device_g533;
 
 static const uint16_t PRODUCT_ID = 0x0a66;
@@ -28,7 +30,6 @@ void g533_init(struct device** device)
 
 static int g533_send_sidetone(hid_device* device_handle, uint8_t num)
 {
-#define MSG_SIZE 64
 
     num = map(num, 0, 128, 200, 255);
 
@@ -64,8 +65,8 @@ static int g533_request_battery(hid_device* device_handle)
 
     int r = 0;
     // request battery voltage
-    uint8_t data_request[] = { 0x11, 0xFF, 0x07, 0x1 };
-    r = hid_write(device_handle, data_request, sizeof(data_request) / sizeof(data_request[0]));
+    uint8_t data_request[MSG_SIZE] = { 0x11, 0xFF, 0x07, 0x1 };
+    r = hid_write(device_handle, data_request, MSG_SIZE);
     if (r < 0)
         return r;
 
