@@ -22,10 +22,14 @@
 
 #include <hidapi.h>
 
+#include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+
+int debug_info = 0;
+long sidetone_loudness = -1;
 
 // describes the device, when a headset was found
 static struct device device_found;
@@ -179,15 +183,23 @@ int main(int argc, char* argv[])
 {
     int c;
 
-    long sidetone_loudness = -1;
+    long daemonize = 0;
     long request_battery = 0;
     long notification_sound = -1;
     long lights = -1;
 
-    while ((c = getopt(argc, argv, "bchs:n:l:")) != -1) {
+    static struct option long_opts[] = {
+        { "debug", no_argument, &debug_info, 1 },
+        { NULL, 0, NULL, 0 }
+    };
+
+    while ((c = getopt_long(argc, argv, "dbchs:n:l:", long_opts, NULL)) != -1) {
         switch (c) {
         case 'b':
             request_battery = 1;
+            break;
+        case 'd':
+            daemonize = 1;
             break;
         case 's':
             sidetone_loudness = strtol(optarg, NULL, 10);
@@ -226,6 +238,8 @@ int main(int argc, char* argv[])
 
             printf("\n");
             return 0;
+        case 0: // long option
+            break;
         default:
             printf("Invalid argument %c\n", c);
             return 1;
@@ -268,7 +282,7 @@ int main(int argc, char* argv[])
 
     int ret = 0;
     // Set all features the user wants us to set
-    if (sidetone_loudness != -1) {
+    if (sidetone_loudness != -1 && !daemonize) {
         if ((device_found.capabilities & CAP_SIDETONE) == 0) {
             fprintf(stderr, "Error: This headset doesn't support sidetone\n");
             terminate_hid(&device_handle, &hid_path);
@@ -346,6 +360,22 @@ int main(int argc, char* argv[])
                 printf("Battery: %d%%\n", ret);
             else
                 printf("%d", ret);
+        }
+    }
+
+    if (daemonize == 1) {
+        if ((device_found.capabilities & CAP_DAEMONIZE) == 0) {
+            fprintf(stderr, "Error: This headset doesn't support daemon functionality\n");
+            terminate_hid(&device_handle, &hid_path);
+            return 1;
+        }
+
+        ret = device_found.daemonize(device_handle);
+
+        if (ret < 0) {
+            fprintf(stderr, "Error in daemon Error: %d: %ls\n", ret, hid_error(device_handle));
+            terminate_hid(&device_handle, &hid_path);
+            return 1;
         }
     }
 
