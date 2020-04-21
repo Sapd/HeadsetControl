@@ -12,7 +12,7 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
 - Logitech G533
   - Sidetone, Battery (for Wireless)
 - Logitech G930
-  - Sidetone
+  - Sidetone, Battery
 - Logitech G633 / G933 / G935
   - Sidetone, Battery (for Wireless), LED on/off
 - SteelSeries Arctis (7 and Pro)
