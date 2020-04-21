@@ -1,4 +1,5 @@
 #include "../device.h"
+#include "../utility.h"
 #include "logitech.h"
 
 #include <stdio.h>
@@ -7,8 +8,6 @@
 
 #include <hidapi.h>
 #include <string.h>
-
-#include <errno.h>
 
 #define BATTERY_MAX 91
 #define BATTERY_MIN 44
@@ -56,32 +55,26 @@ static int g930_request_battery(hid_device* device_handle)
         I've simply ported that implementation to this project!
     */
 
-    int i;
-    int res;
-
     unsigned char buf[MSG_SIZE] = { 0xFF, 0x09, 0x00, 0xFD, 0xF4, 0x10, 0x05, 0xB1, 0xBF, 0xA0, 0x04 };
-    for (i = 11; i < MSG_SIZE; i++)
+    for (int i = 11; i < MSG_SIZE; i++)
         buf[i] = 0;
 
-    res = hid_send_feature_report(device_handle, buf, MSG_SIZE);
+    int res = hid_send_feature_report(device_handle, buf, MSG_SIZE);
     if (res < 0) {
-        fprintf(stderr, "Failed to send feature report: %ls\n", hid_error(device_handle));
-        return -1;
+        return res;
     }
 
-    for (i = 0; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         res = hid_get_feature_report(device_handle, buf, MSG_SIZE);
 
         if (res < 0) {
-            fprintf(stderr, "Failed to get feature report %d: %ls\n", i, hid_error(device_handle));
-            return -1;
+            return res;
         }
 
         if (i < 2) {
             usleep(100000);
         }
     }
-    unsigned int batteryPercent = (buf[13] - BATTERY_MIN) * 100 / (BATTERY_MAX - BATTERY_MIN);
-
-    return (int)(batteryPercent);
+    int batteryPercent = map((int)buf[13], BATTERY_MIN, BATTERY_MAX, 0, 100);
+    return batteryPercent;
 }
