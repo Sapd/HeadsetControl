@@ -1,4 +1,4 @@
-ACTION!="add|change", GOGO="headset_end"
+ACTION!="add|change", GOTO="headset_end"
 
 # Corair VOID ELITE
 KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1b1c", ATTRS{idProduct}=="0a55", TAG+="uaccess"
