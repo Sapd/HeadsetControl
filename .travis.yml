@@ -262,38 +262,6 @@ matrix:
       - make test
 
   #
-  # XCode 9.4
-  #
-  - os: osx
-    env:
-      - TEST="XCode 9.4"
-    osx_image: xcode9.4
-    script:
-      - cmake ..
-      - make
-      - make test
-    addons:
-      homebrew:
-        packages:
-        - hidapi
-
-  #
-  # XCode 10.3
-  #
-  - os: osx
-    env:
-      - TEST="XCode 10.3"
-    osx_image: xcode10.3
-    script:
-      - cmake ..
-      - make
-      - make test
-    addons:
-      homebrew:
-        packages:
-        - hidapi
-
-  #
   # XCode 11.3
   #
   - os: osx
