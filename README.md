@@ -85,7 +85,7 @@ This will copy the binary to a folder globally accessable via path.
 
 ### Access without root
 
-Also in Linux, you need udev rules if you don't want to start the application with root. Those rules reside in the udev folder of this repository. Typing `make install` on Linux copies them automatically to /etc/udev/rules.d/. 
+Also in Linux, you need udev rules if you don't want to start the application with root. Those rules reside in the udev folder of this repository. Typing `make install` on Linux copies them automatically to /etc/udev/rules.d/.
 
 You can reload udev configuration without reboot via `sudo udevadm control --reload-rules && sudo udevadm trigger`
 
