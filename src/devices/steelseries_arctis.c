@@ -15,6 +15,7 @@ static const uint16_t PRODUCT_IDS[] = { ID_ARCTIS_7, ID_ARCTIS_7_2019, ID_ARCTIS
 
 static int arctis_send_sidetone(hid_device* device_handle, uint8_t num);
 static int arctis_request_battery(hid_device* device_handle);
+static int arctis_send_inactive_time(hid_device* device_handle, uint8_t num);
 
 void arctis_init(struct device** device)
 {
@@ -25,9 +26,10 @@ void arctis_init(struct device** device)
 
     strncpy(device_arctis.device_name, "SteelSeries Arctis (7/Pro)", sizeof(device_arctis.device_name));
 
-    device_arctis.capabilities = CAP_SIDETONE | CAP_BATTERY_STATUS;
+    device_arctis.capabilities = CAP_SIDETONE | CAP_BATTERY_STATUS | CAP_INACTIVE_TIME;
     device_arctis.send_sidetone = &arctis_send_sidetone;
     device_arctis.request_battery = &arctis_request_battery;
+    device_arctis.send_inactive_time = &arctis_send_inactive_time;
 
     *device = &device_arctis;
 }
@@ -88,4 +90,29 @@ static int arctis_request_battery(hid_device* device_handle)
         return 100;
 
     return bat;
+}
+
+static int arctis_send_inactive_time(hid_device* device_handle, uint8_t num)
+{
+    int ret = -1;
+
+    // as the value is in minutes, mapping to a different range does not make too much sense here
+    // the range of the Arctis 7 seems to be from 0 to 0x5A (90)
+    // num = map(num, 0, 128, 0x00, 0x5A);
+
+    unsigned char* buf = calloc(31, 1);
+
+    if (!buf) {
+        return ret;
+    }
+
+    const unsigned char data[3] = { 0x06, 0x51, num };
+
+    memmove(buf, data, sizeof(data));
+
+    ret = hid_write(device_handle, buf, 31);
+
+    free(buf);
+
+    return ret;
 }

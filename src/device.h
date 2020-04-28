@@ -15,6 +15,7 @@ enum capabilities {
     CAP_BATTERY_STATUS = 2,
     CAP_NOTIFICATION_SOUND = 4,
     CAP_LIGHTS = 8,
+    CAP_INACTIVE_TIME = 16
 };
 
 /** @brief Flags for battery status
@@ -105,4 +106,20 @@ struct device {
      *              -1          HIDAPI error
      */
     int (*switch_lights)(hid_device* hid_device, uint8_t on);
+
+    /** @brief Function pointer for setting headset inactive time
+     *
+     *  Forwards the request to the device specific implementation
+     *
+     *  @param  device_handle   The hidapi handle. Must be the same
+     *                          device as defined here (same ids)
+     *  @param  num             Number of minutes after which the device
+     *                          is turned off, between 0 - 90,
+     *                          0 disables the automatic shutdown feature
+     *
+     *  @returns    > 0         on success
+     *              HSC_ERROR   on error specific to this software
+     *              -1          HIDAPI error
+     */
+    int (*send_inactive_time)(hid_device* hid_device, uint8_t num);
 };

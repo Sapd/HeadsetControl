@@ -183,8 +183,9 @@ int main(int argc, char* argv[])
     long request_battery = 0;
     long notification_sound = -1;
     long lights = -1;
+    long inactive_time = -1;
 
-    while ((c = getopt(argc, argv, "bchs:n:l:")) != -1) {
+    while ((c = getopt(argc, argv, "bchs:n:l:i:")) != -1) {
         switch (c) {
         case 'b':
             request_battery = 1;
@@ -215,6 +216,14 @@ int main(int argc, char* argv[])
                 return 1;
             }
             break;
+        case 'i':
+            inactive_time = strtol(optarg, NULL, 10);
+
+            if (inactive_time > 90 || inactive_time < 0) {
+                printf("Usage: %s -s 0-90, 0 is off\n", argv[0]);
+                return 1;
+            }
+            break;
         case 'h':
             printf("Headsetcontrol written by Sapd (Denis Arnst)\n\thttps://github.com/Sapd\n\n");
             printf("Parameters\n");
@@ -223,6 +232,7 @@ int main(int argc, char* argv[])
             printf("  -n soundid\tMakes the headset play a notifiation\n");
             printf("  -l 0|1\tSwitch lights (0 = off, 1 = on)\n");
             printf("  -c\t\tCut unnecessary output \n");
+            printf("  -i time\tSets inactive time in minutes, level must be between 0 and 90, 0 disables the feature.\n");
 
             printf("\n");
             return 0;
@@ -349,8 +359,26 @@ int main(int argc, char* argv[])
         }
     }
 
+    if (inactive_time != -1) {
+        if ((device_found.capabilities & CAP_INACTIVE_TIME) == 0) {
+            fprintf(stderr, "Error: This headset doesn't support setting inactive time\n");
+            terminate_hid(&device_handle, &hid_path);
+            return 1;
+        }
+
+        ret = device_found.send_inactive_time(device_handle, inactive_time);
+
+        if (ret < 0) {
+            fprintf(stderr, "Failed to set inactive time. Error: %d: %ls\n", ret, hid_error(device_handle));
+            terminate_hid(&device_handle, &hid_path);
+            return 1;
+        }
+
+        PRINT_INFO("Successfully set inactive time to %ld minutes!\n", inactive_time);
+    }
+
     if (argc <= 1) {
-        printf("You didn't set any arguments, so nothing happend.\nType %s -h for help.\n", argv[0]);
+        printf("You didn't set any arguments, so nothing happened.\nType %s -h for help.\n", argv[0]);
     }
 
     terminate_hid(&device_handle, &hid_path);
