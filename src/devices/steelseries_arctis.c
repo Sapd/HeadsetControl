@@ -17,6 +17,8 @@ static int arctis_send_sidetone(hid_device* device_handle, uint8_t num);
 static int arctis_request_battery(hid_device* device_handle);
 static int arctis_send_inactive_time(hid_device* device_handle, uint8_t num);
 
+static int arctis_save_state(hid_device* device_handle);
+
 void arctis_init(struct device** device)
 {
     device_arctis.idVendor = VENDOR_STEELSERIES;
@@ -59,6 +61,10 @@ static int arctis_send_sidetone(hid_device* device_handle, uint8_t num)
     ret = hid_write(device_handle, buf, 31);
 
     free(buf);
+
+    if(ret >= 0) {
+        ret = arctis_save_state(device_handle);
+    }
 
     return ret;
 }
@@ -107,6 +113,30 @@ static int arctis_send_inactive_time(hid_device* device_handle, uint8_t num)
     }
 
     const unsigned char data[3] = { 0x06, 0x51, num };
+
+    memmove(buf, data, sizeof(data));
+
+    ret = hid_write(device_handle, buf, 31);
+
+    free(buf);
+
+    if(ret >= 0) {
+        ret = arctis_save_state(device_handle);
+    }
+
+    return ret;
+}
+
+int arctis_save_state(hid_device* device_handle) {
+    int ret = -1;
+
+    unsigned char* buf = calloc(31, 1);
+
+    if (!buf) {
+        return ret;
+    }
+
+    const unsigned char data[2] = { 0x06, 0x09 };
 
     memmove(buf, data, sizeof(data));
 
