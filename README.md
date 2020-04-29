@@ -20,7 +20,7 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
 - Logitech G633 / G933 / G935
   - Sidetone, Battery (for Wireless), LED on/off
 - SteelSeries Arctis (7 and Pro)
-  - Sidetone, Battery, Inactive time, Chat-Mix level
+  - Sidetone, Battery, Inactive time, Chat-Mix level, LED on/off (allows to turn off the blinking LED on the base-station)
 - Logitech G PRO
   - Sidetone
 
