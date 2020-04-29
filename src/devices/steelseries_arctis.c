@@ -16,6 +16,7 @@ static const uint16_t PRODUCT_IDS[] = { ID_ARCTIS_7, ID_ARCTIS_7_2019, ID_ARCTIS
 static int arctis_send_sidetone(hid_device* device_handle, uint8_t num);
 static int arctis_request_battery(hid_device* device_handle);
 static int arctis_send_inactive_time(hid_device* device_handle, uint8_t num);
+static int arctis_request_chatmix(hid_device* device_handle);
 
 static int arctis_save_state(hid_device* device_handle);
 
@@ -28,10 +29,11 @@ void arctis_init(struct device** device)
 
     strncpy(device_arctis.device_name, "SteelSeries Arctis (7/Pro)", sizeof(device_arctis.device_name));
 
-    device_arctis.capabilities = CAP_SIDETONE | CAP_BATTERY_STATUS | CAP_INACTIVE_TIME;
+    device_arctis.capabilities = CAP_SIDETONE | CAP_BATTERY_STATUS | CAP_INACTIVE_TIME | CAP_CHATMIX_STATUS;
     device_arctis.send_sidetone = &arctis_send_sidetone;
     device_arctis.request_battery = &arctis_request_battery;
     device_arctis.send_inactive_time = &arctis_send_inactive_time;
+    device_arctis.request_chatmix = &arctis_request_chatmix;
 
     *device = &device_arctis;
 }
@@ -119,4 +121,43 @@ int arctis_save_state(hid_device* device_handle) {
     uint8_t data[31] = { 0x06, 0x09 };
 
     return hid_write(device_handle, data, 31);
+}
+
+static int arctis_request_chatmix(hid_device* device_handle)
+{
+    int r = 0;
+
+    // request chatmix level
+    unsigned char data_request[2] = { 0x06, 0x24 };
+
+    r = hid_write(device_handle, data_request, 2);
+
+    if (r < 0)
+        return r;
+
+    // read chatmix level
+    unsigned char data_read[8];
+
+    r = hid_read(device_handle, data_read, 8);
+
+    if (r < 0)
+        return r;
+
+    int game = data_read[2];
+    int chat = data_read[3];
+
+    // it's a slider, but setting for game and chat
+    // are reported as separate values, we combine
+    // them back into one setting of the slider
+
+    // the two values are between 255 and 191,
+    // we translate that to a value from 0 to 127
+    // with "64" being in the middle
+    if(game == 0 && chat == 0) {
+        return 64;
+    } else if(game == 0) {
+        return 64 + 255 - chat;
+    } else {
+        return 64 + (-1)*(255 - game);
+    }
 }

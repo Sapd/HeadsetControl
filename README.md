@@ -9,7 +9,7 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
 
 ## Supported Headsets
 
-- Corsair Void (Every version*, regardless wether Pro or Wired)
+- Corsair Void (Every version*, regardless whether Pro or Wired)
   - Sidetone, Battery (for Wireless), LED on/off, Notification Sound
 - Logitech G430
   - No support in current version (Last working on macOS in commit 41be99379f)
@@ -20,7 +20,7 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
 - Logitech G633 / G933 / G935
   - Sidetone, Battery (for Wireless), LED on/off
 - SteelSeries Arctis (7 and Pro)
-  - Sidetone, Battery, Inactive time
+  - Sidetone, Battery, Inactive time, Chat-Mix level
 - Logitech G PRO
   - Sidetone
 
@@ -91,7 +91,7 @@ If you want to be able to call HeadsetControl from every folder type:
 ```bash
 make install
 ```
-This will copy the binary to a folder globally accessable via path.
+This will copy the binary to a folder globally accessible via path.
 
 ### Access without root
 
