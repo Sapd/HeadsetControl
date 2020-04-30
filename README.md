@@ -38,12 +38,12 @@ You will need hidapi, c compilers and cmake. All usually installable via package
 
 RHEL and CentOS also require the epel-repository: `yum install epel-release`. Please inform yourself about the consequences of activating the epel-repository.
 
-`yum groupinstall "Development tools"`   
+`yum groupinstall "Development tools"`
 `yum install git cmake hidapi-devel`
 
 #### Sabayon
 
-`equo i hidapi cmake`   
+`equo i hidapi cmake`
 
 #### Arch Linux
 
@@ -57,7 +57,7 @@ RHEL and CentOS also require the epel-repository: `yum install epel-release`. Pl
 
 I recommend using [Homebrew](https://brew.sh).
 
-You can automatically compile and install the latest version of the software, by using  
+You can automatically compile and install the latest version of the software, by using
 `brew install sapd/headsetcontrol/headsetcontrol --HEAD`.
 
 If you wish to compile it manually, you can install the dependencies with  `brew install hidapi cmake`.
