@@ -53,6 +53,10 @@ RHEL and CentOS also require the epel-repository: `yum install epel-release`. Pl
 
 `pkg install hidapi cmake`
 
+#### Gentoo
+
+A [ebuild](https://github.com/Sapd/HeadsetControl/wiki/Gentoo-ebuild) is available in project wiki.
+
 #### Mac OS X
 
 I recommend using [Homebrew](https://brew.sh).
