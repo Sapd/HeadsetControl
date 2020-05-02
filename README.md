@@ -1,5 +1,9 @@
 ## Summary
 
+A tool to control certain aspects of USB-connected headsets on Linux. Currently, support is provided for adjusting sidetone, getting battery state, controlling LEDs, and setting the inactive time. See below for which headset supports which feature.
+
+### Sidetone
+
 Want to use your Headset under Linux or Mac OS X, but you shout while talking because there is no support for sidetone? With sidetone, sometimes also called loopback, you can hear your own voice while
 talking. This differs from a simple loopback via PulseAudio as you won't have any disturbing latency.
 
@@ -16,7 +20,7 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
 - Logitech G633 / G933 / G935
   - Sidetone, Battery (for Wireless), LED on/off
 - SteelSeries Arctis (7 and Pro)
-  - Sidetone, Battery
+  - Sidetone, Battery, Inactive time
 
 For non-supported headsets on Linux: There is a chance that you can set the sidetone via AlsaMixer
 
