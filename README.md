@@ -21,6 +21,8 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
   - Sidetone, Battery (for Wireless), LED on/off
 - SteelSeries Arctis (7 and Pro)
   - Sidetone, Battery, Inactive time
+- Logitech G PRO
+  - Sidetone
 
 For non-supported headsets on Linux: There is a chance that you can set the sidetone via AlsaMixer
 
