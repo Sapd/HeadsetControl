@@ -26,9 +26,7 @@ void gpro_init(struct device** device)
 
 static int gpro_send_sidetone(hid_device* device_handle, uint8_t num)
 {
-    // num = map(num, 0, 128, 0, 100);
-    if (num > 0x64)
-        num = 0x64;
+    num = map(num, 0, 128, 0, 100);
 
     uint8_t sidetone_data[HIDPP_LONG_MESSAGE_LENGTH] = { HIDPP_LONG_MESSAGE, HIDPP_DEVICE_RECEIVER, 0x05, 0x1a, num };
 
