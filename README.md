@@ -1,30 +1,34 @@
 ## Summary
 
+A tool to control certain aspects of USB-connected headsets on Linux. Currently, support is provided for adjusting sidetone, getting battery state, controlling LEDs, and setting the inactive time. See below for which headset supports which feature.
+
+### Sidetone
+
 Want to use your Headset under Linux or Mac OS X, but you shout while talking because there is no support for sidetone? With sidetone, sometimes also called loopback, you can hear your own voice while
 talking. This differs from a simple loopback via PulseAudio as you won't have any disturbing latency.
 
 ## Supported Headsets
 
-### Sidetone
-
-- Corsair Void (Wireless & Wired)
-- Corsair Void Pro (Wireless & Wired)
-- Logitech G930
-- Logitech G633
+- Corsair Void (Every version*, regardless wether Pro or Wired)
+  - Sidetone, Battery (for Wireless), LED on/off, Notification Sound
+- Logitech G430
+  - No support in current version (Last working on macOS in commit 41be99379f)
 - Logitech G533
-- Logitech G430 (Last working on macOS in commit 41be99379f)
-- SteelSeries Arctis 7
-- SteelSeries Arctis 7 (2019 Revision)
-- SteelSeries Arctis Pro 2019 Edition
+  - Sidetone, Battery (for Wireless)
+- Logitech G930
+  - Sidetone, Battery
+- Logitech G633 / G933 / G935
+  - Sidetone, Battery (for Wireless), LED on/off
+- SteelSeries Arctis (7 and Pro)
+  - Sidetone, Battery, Inactive time
+- Logitech G PRO
+  - Sidetone
 
-### Other Features
+For non-supported headsets on Linux: There is a chance that you can set the sidetone via AlsaMixer
 
+&ast; *If your Corsair headset is not recognized, see [Adding a corsair device](https://github.com/Sapd/HeadsetControl/wiki/Adding-a-Corsair-device)*
 
-Corsair Void (Pro) also supports checking of the battery and switching LED off/on
-SteelSeries Arctis 7 (including 2019 revision) support checking of the battery.
-
-
-For more features (like getting battery percentage of other devices, or settings LEDs etc. of specific devices), the protocol of the respective headset must be analyzed further. This can be done by capturing the USB traffic and analyzing it with WireShark or USBlyzer.
+For more features or other headsets, the protocol of the respective headset must be analyzed further. This can be done by capturing the USB traffic and analyzing it with WireShark or USBlyzer. Basically in few sentences: You can set up an Windows Virtual Machine, passthrough your headset, install the Windows drivers. Then capture traffic with USBlyzer or other software, while you are changing things in the driver control interface. You will have then look for packets which could correspond the feature you are looking for.
 
 ## Building
 
@@ -40,27 +44,39 @@ You will need hidapi, c compilers and cmake. All usually installable via package
 
 RHEL and CentOS also require the epel-repository: `yum install epel-release`. Please inform yourself about the consequences of activating the epel-repository.
 
-`yum groupinstall "Development tools"`   
+`yum groupinstall "Development tools"`
 `yum install git cmake hidapi-devel`
 
 #### Sabayon
 
-`equo i hidapi cmake`   
+`equo i hidapi cmake`
 
 #### Arch Linux
 
 `pacman -S git cmake hidapi`
 
+#### FreeBSD
+
+`pkg install hidapi cmake`
+
+#### Gentoo
+
+A [ebuild](https://github.com/Sapd/HeadsetControl/wiki/Gentoo-ebuild) is available in project wiki.
+
 #### Mac OS X
 
 I recommend using [Homebrew](https://brew.sh).
 
-You can automatically compile and install the latest version of the software, by using  
+You can automatically compile and install the latest version of the software, by using
 `brew install sapd/headsetcontrol/headsetcontrol --HEAD`.
 
 If you wish to compile it manually, you can install the dependencies with  `brew install hidapi cmake`.
 
 Also you have to download Xcode via the Mac App Store for the compilers.
+
+#### Windows
+
+Windows support is a bit experimental and might not work in all cases. You can find binaries in the [releases](https://github.com/Sapd/HeadsetControl/releases) page, or compile instructions via MSYS2/MinGW in the [wiki](https://github.com/Sapd/HeadsetControl/wiki/Development#windows).
 
 ### Compiling
 
@@ -77,22 +93,32 @@ make install
 ```
 This will copy the binary to a folder globally accessable via path.
 
-Also in Linux, you need udev rules if you don't want to start the application with root. Those rules reside in the udev folder of this repository. Typing make install on Linux copies them automatically to /etc/udev/rules.d/.
+### Access without root
+
+Also in Linux, you need udev rules if you don't want to start the application with root. Those rules reside in the udev folder of this repository. Typing `make install` on Linux copies them automatically to /etc/udev/rules.d/.
+
+You can reload udev configuration without reboot via `sudo udevadm control --reload-rules && sudo udevadm trigger`
 
 ## Usage
 
-Type `HeadsetControl -h` to get all available options.\
+Type `headsetcontrol -h` to get all available options.\
 (Don't forget to prefix it with `./` when the application resides in the current folder)
 
-`HeadsetControl -s 128` sets the sidetone to 128 (REAL loud). You can silence it with `0`. I recommend a loudness of 16.
+`headsetcontrol -s 128` sets the sidetone to 128 (REAL loud). You can silence it with `0`. I recommend a loudness of 16.
 
 Following options don't work on all devices yet:
 
-`HeadsetControl -b` check battery level. Returns a value from 0 to 100 or loading.
+`headsetcontrol -b` check battery level. Returns a value from 0 to 100 or loading.
 
-`HeadsetControl -n 0|1` sends a notification sound, made by the headset. 0 or 1 are currently supported as values.
+`headsetcontrol -n 0|1` sends a notification sound, made by the headset. 0 or 1 are currently supported as values.
 
-`HeadsetControl -l 0|1` switches LED off/on (off almost doubles battery lifetime!).
+`headsetcontrol -l 0|1` switches LED off/on (off almost doubles battery lifetime!).
+
+`headsetcontrol -c` cut unnecessary output, for reading by other scripts or applications.
+
+## Development
+
+Look at the [wiki](https://github.com/Sapd/HeadsetControl/wiki/Development) if you want to contribute and implement another device or improve the software.
 
 ## Notice
 
