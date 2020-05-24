@@ -116,6 +116,15 @@ Following options don't work on all devices yet:
 
 `headsetcontrol -c` cut unnecessary output, for reading by other scripts or applications.
 
+### Third Party
+The following additional software can be used to enable control via a GUI
+
+#### Linux
+[headsetcontrol-notifcationid](https://github.com/Manawyrm/headsetcontrol-notificationd) provides notifications on the battery status of connected headsets (PHP based)
+
+[headset-charge-indicator](https://github.com/centic9/headset-charge-indicator/) adds a system tray icon, displaying the current amount of battery. Also provides controls via the icon's menu (Python based)
+
+
 ## Development
 
 Look at the [wiki](https://github.com/Sapd/HeadsetControl/wiki/Development) if you want to contribute and implement another device or improve the software.
