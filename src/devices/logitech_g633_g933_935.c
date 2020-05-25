@@ -5,6 +5,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 static struct device device_g933_935;
 
@@ -102,11 +103,23 @@ static int g933_935_send_sidetone(hid_device* device_handle, uint8_t num)
 
 static int g933_935_lights(hid_device* device_handle, uint8_t on)
 {
-    // on, breathing  11 ff 04 3c 01 02 00 b6 ff 0f a0 00 64 00 00 00
-    // off            11 ff 04 3c 01 00
+    // on, breathing  11 ff 04 3c 01 (0 for logo) 02 00 b6 ff 0f a0 00 64 00 00 00
+    // off            11 ff 04 3c 01 (0 for logo) 00
+    // logo and strips can be controlled individually
 
     uint8_t data_on[HIDPP_LONG_MESSAGE_LENGTH] = { HIDPP_LONG_MESSAGE, HIDPP_DEVICE_RECEIVER, 0x04, 0x3c, 0x01, 0x02, 0x00, 0xb6, 0xff, 0x0f, 0xa0, 0x00, 0x64, 0x00, 0x00, 0x00 };
     uint8_t data_off[HIDPP_LONG_MESSAGE_LENGTH] = { HIDPP_LONG_MESSAGE, HIDPP_DEVICE_RECEIVER, 0x04, 0x3c, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+    int res;
+    res = hid_write(device_handle, on ? data_on : data_off, HIDPP_LONG_MESSAGE_LENGTH);
+    if (res < 0) return res;
 
-    return hid_write(device_handle, on ? data_on : data_off, HIDPP_LONG_MESSAGE_LENGTH);
+
+    // TODO Investigate further.
+    usleep(1*1000); // wait before next request, otherwise device ignores one of them, on windows at least.
+    // turn logo lights on/off
+    uint8_t data_logo_on[HIDPP_LONG_MESSAGE_LENGTH] = { HIDPP_LONG_MESSAGE, HIDPP_DEVICE_RECEIVER, 0x04, 0x3c, 0x00, 0x02, 0x00, 0xb6, 0xff, 0x0f, 0xa0, 0x00, 0x64, 0x00, 0x00, 0x00 };
+    uint8_t data_logo_off[HIDPP_LONG_MESSAGE_LENGTH] = { HIDPP_LONG_MESSAGE, HIDPP_DEVICE_RECEIVER, 0x04, 0x3c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+    res = hid_write(device_handle, on ? data_logo_on : data_logo_off, HIDPP_LONG_MESSAGE_LENGTH);
+
+    return res;
 }
