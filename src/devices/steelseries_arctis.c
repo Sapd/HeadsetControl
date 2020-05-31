@@ -155,7 +155,8 @@ static int arctis_request_chatmix(hid_device* device_handle)
     // with "64" being in the middle
     if(game == 0 && chat == 0) {
         return 64;
-    } else if(game == 0) {
+    }
+    if(game == 0) {
         return 64 + 255 - chat;
     } else {
         return 64 + (-1)*(255 - game);
