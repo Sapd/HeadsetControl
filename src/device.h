@@ -15,7 +15,8 @@ enum capabilities {
     CAP_BATTERY_STATUS = 2,
     CAP_NOTIFICATION_SOUND = 4,
     CAP_LIGHTS = 8,
-    CAP_INACTIVE_TIME = 16
+    CAP_INACTIVE_TIME = 16,
+    CAP_CHATMIX_STATUS = 32
 };
 
 /** @brief Flags for battery status
@@ -122,4 +123,16 @@ struct device {
      *              -1          HIDAPI error
      */
     int (*send_inactive_time)(hid_device* hid_device, uint8_t num);
+
+    /** @brief Function pointer for retrieving the headsets chatmix level
+     *
+     *  Forwards the request to the device specific implementation
+     *
+     *  @param  device_handle   The hidapi handle. Must be the same
+     *                          device as defined here (same ids)
+     *
+     *  @returns    >= 0            chatmix level
+     *              -1              HIDAPI error
+     */
+    int (*request_chatmix)(hid_device* hid_device);
 };

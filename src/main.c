@@ -184,11 +184,15 @@ int main(int argc, char* argv[])
     long notification_sound = -1;
     long lights = -1;
     long inactive_time = -1;
+    long request_chatmix = 0;
 
-    while ((c = getopt(argc, argv, "bchs:n:l:i:")) != -1) {
+    while ((c = getopt(argc, argv, "bchs:n:l:i:m")) != -1) {
         switch (c) {
         case 'b':
             request_battery = 1;
+            break;
+        case 'm':
+            request_chatmix = 1;
             break;
         case 's':
             sidetone_loudness = strtol(optarg, NULL, 10);
@@ -233,6 +237,7 @@ int main(int argc, char* argv[])
             printf("  -l 0|1\tSwitch lights (0 = off, 1 = on)\n");
             printf("  -c\t\tCut unnecessary output \n");
             printf("  -i time\tSets inactive time in minutes, level must be between 0 and 90, 0 disables the feature.\n");
+            printf("  -m\t\tRetrieves the current chat-mix-dial level setting\n");
 
             printf("\n");
             return 0;
@@ -375,6 +380,27 @@ int main(int argc, char* argv[])
         }
 
         PRINT_INFO("Successfully set inactive time to %ld minutes!\n", inactive_time);
+    }
+
+    if (request_chatmix == 1) {
+        if ((device_found.capabilities & CAP_CHATMIX_STATUS) == 0) {
+            fprintf(stderr, "Error: This headset doesn't support chat-mix level\n");
+            terminate_hid(&device_handle, &hid_path);
+            return 1;
+        }
+
+        ret = device_found.request_chatmix(device_handle);
+
+        if (ret < 0) {
+            fprintf(stderr, "Failed to request chat-mix. Error: %d: %ls\n", ret, hid_error(device_handle));
+            terminate_hid(&device_handle, &hid_path);
+            return 1;
+        }
+
+        if (!short_output)
+            printf("Chat-Mix: %d\n", ret);
+        else
+            printf("%d", ret);
     }
 
     if (argc <= 1) {
