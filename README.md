@@ -28,7 +28,7 @@ For non-supported headsets on Linux: There is a chance that you can set the side
 
 &ast; *If your Corsair headset is not recognized, see [Adding a corsair device](https://github.com/Sapd/HeadsetControl/wiki/Adding-a-Corsair-device)*
 
-For more features or other headsets, the protocol of the respective headset must be analyzed further. This can be done by capturing the USB traffic and analyzing it with WireShark or USBlyzer. Basically in few sentences: You can set up an Windows Virtual Machine, passthrough your headset, install the Windows drivers. Then capture traffic with USBlyzer or other software, while you are changing things in the driver control interface. You will have then look for packets which could correspond the feature you are looking for.
+For more features or other headsets, the protocol of the respective headset must be analyzed further. This can be done by capturing the USB traffic between the device and the original Windows software and analyzing it with WireShark or USBlyzer. For that, you can also use a virtual machine with USB passthrough. The [wiki](https://github.com/Sapd/HeadsetControl/wiki/Development) provides a tutorial.
 
 ## Building
 
@@ -120,7 +120,7 @@ Following options don't work on all devices yet:
 The following additional software can be used to enable control via a GUI
 
 #### Linux
-[headsetcontrol-notifcationid](https://github.com/Manawyrm/headsetcontrol-notificationd) provides notifications on the battery status of connected headsets (PHP based)
+[headsetcontrol-notifcationd](https://github.com/Manawyrm/headsetcontrol-notificationd) provides notifications on the battery status of connected headsets (PHP based)
 
 [headset-charge-indicator](https://github.com/centic9/headset-charge-indicator/) adds a system tray icon, displaying the current amount of battery. Also provides controls via the icon's menu (Python based)
 
