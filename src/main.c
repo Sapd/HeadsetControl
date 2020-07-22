@@ -17,7 +17,6 @@
     along with HeadsetControl.  If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#define DEBUG true
 #include "device_registry.h"
 #include "utility.h"
 
