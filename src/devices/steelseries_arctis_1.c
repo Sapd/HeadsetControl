@@ -28,9 +28,9 @@ void arctis_1_init(struct device** device)
 
     strncpy(device_arctis.device_name, "SteelSeries Arctis (1)", sizeof(device_arctis.device_name));
 
-    device_arctis.capabilities = CAP_SIDETONE | CAP_BATTERY_STATUS | CAP_INACTIVE_TIME;
+    device_arctis.capabilities = CAP_SIDETONE | CAP_INACTIVE_TIME;
     device_arctis.send_sidetone = &arctis_1_send_sidetone;
-    device_arctis.request_battery = &arctis_1_request_battery;
+    //device_arctis.request_battery = &arctis_1_request_battery;
     device_arctis.send_inactive_time = &arctis_1_send_inactive_time;
 
     *device = &device_arctis;
