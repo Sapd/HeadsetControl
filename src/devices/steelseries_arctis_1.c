@@ -69,7 +69,7 @@ static int arctis_1_send_sidetone(hid_device* device_handle, uint8_t num)
     return ret;
 }
 
-static int arctis_1_request_battery(hid_device* device_handle)
+/*static int arctis_1_request_battery(hid_device* device_handle)
 {
 
     int r = 0;
@@ -96,7 +96,7 @@ static int arctis_1_request_battery(hid_device* device_handle)
         return 100;
 
     return bat;
-}
+}*/
 
 static int arctis_1_send_inactive_time(hid_device* device_handle, uint8_t num)
 {
