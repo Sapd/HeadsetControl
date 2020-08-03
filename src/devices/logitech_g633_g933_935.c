@@ -111,11 +111,11 @@ static int g933_935_lights(hid_device* device_handle, uint8_t on)
     uint8_t data_off[HIDPP_LONG_MESSAGE_LENGTH] = { HIDPP_LONG_MESSAGE, HIDPP_DEVICE_RECEIVER, 0x04, 0x3c, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
     int res;
     res = hid_write(device_handle, on ? data_on : data_off, HIDPP_LONG_MESSAGE_LENGTH);
-    if (res < 0) return res;
-
+    if (res < 0)
+        return res;
 
     // TODO Investigate further.
-    usleep(1*1000); // wait before next request, otherwise device ignores one of them, on windows at least.
+    usleep(1 * 1000); // wait before next request, otherwise device ignores one of them, on windows at least.
     // turn logo lights on/off
     uint8_t data_logo_on[HIDPP_LONG_MESSAGE_LENGTH] = { HIDPP_LONG_MESSAGE, HIDPP_DEVICE_RECEIVER, 0x04, 0x3c, 0x00, 0x02, 0x00, 0xb6, 0xff, 0x0f, 0xa0, 0x00, 0x64, 0x00, 0x00, 0x00 };
     uint8_t data_logo_off[HIDPP_LONG_MESSAGE_LENGTH] = { HIDPP_LONG_MESSAGE, HIDPP_DEVICE_RECEIVER, 0x04, 0x3c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
