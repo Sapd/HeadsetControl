@@ -1,6 +1,6 @@
 ACTION!="add|change", GOTO="headset_end"
 
-# Corair VOID ELITE
+# Corsair VOID ELITE
 KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1b1c", ATTRS{idProduct}=="0a55", TAG+="uaccess"
 
 # Corsair VOID PRO
@@ -12,8 +12,11 @@ KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1b1c", ATTRS{idProduct
 # Corsair VOID RGB USB
 KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1b1c", ATTRS{idProduct}=="1b2a", TAG+="uaccess"
 
-# Corair VOID RGB ELITE
+# Corsair VOID RGB ELITE
 KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1b1c", ATTRS{idProduct}=="0a51", TAG+="uaccess"
+
+# Corsair VOID ELITE USB
+KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1b1c", ATTRS{idProduct}=="0a52", TAG+="uaccess"
 
 # Corsair VOID
 KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1b1c", ATTRS{idProduct}=="1b27", TAG+="uaccess"
