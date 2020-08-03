@@ -9,12 +9,12 @@
 
 static struct device device_arctis;
 
-#define ID_ARCTIS_1        0x12b3
+#define ID_ARCTIS_1 0x12b3
 
 static const uint16_t PRODUCT_IDS[] = { ID_ARCTIS_1 };
 
 static int arctis_1_send_sidetone(hid_device* device_handle, uint8_t num);
-static int arctis_1_request_battery(hid_device* device_handle);
+//static int arctis_1_request_battery(hid_device* device_handle);
 static int arctis_1_send_inactive_time(hid_device* device_handle, uint8_t num);
 
 static int arctis_1_save_state(hid_device* device_handle);
@@ -62,7 +62,7 @@ static int arctis_1_send_sidetone(hid_device* device_handle, uint8_t num)
 
     free(buf);
 
-    if(ret >= 0) {
+    if (ret >= 0) {
         ret = arctis_1_save_state(device_handle);
     }
 
@@ -108,14 +108,15 @@ static int arctis_1_send_inactive_time(hid_device* device_handle, uint8_t num)
 
     int ret = hid_write(device_handle, data, 31);
 
-    if(ret >= 0) {
+    if (ret >= 0) {
         ret = arctis_1_save_state(device_handle);
     }
 
     return ret;
 }
 
-int arctis_1_save_state(hid_device* device_handle) {
+int arctis_1_save_state(hid_device* device_handle)
+{
     uint8_t data[31] = { 0x06, 0x09 };
 
     return hid_write(device_handle, data, 31);
