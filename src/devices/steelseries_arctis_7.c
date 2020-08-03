@@ -66,7 +66,7 @@ static int arctis_7_send_sidetone(hid_device* device_handle, uint8_t num)
 
     free(buf);
 
-    if(ret >= 0) {
+    if (ret >= 0) {
         ret = arctis_7_save_state(device_handle);
     }
 
@@ -112,14 +112,15 @@ static int arctis_7_send_inactive_time(hid_device* device_handle, uint8_t num)
 
     int ret = hid_write(device_handle, data, 31);
 
-    if(ret >= 0) {
+    if (ret >= 0) {
         ret = arctis_7_save_state(device_handle);
     }
 
     return ret;
 }
 
-int arctis_7_save_state(hid_device* device_handle) {
+int arctis_7_save_state(hid_device* device_handle)
+{
     uint8_t data[31] = { 0x06, 0x09 };
 
     return hid_write(device_handle, data, 31);
@@ -155,15 +156,15 @@ static int arctis_7_request_chatmix(hid_device* device_handle)
     // the two values are between 255 and 191,
     // we translate that to a value from 0 to 127
     // with "64" being in the middle
-    if(game == 0 && chat == 0) {
+    if (game == 0 && chat == 0) {
         return 64;
     }
 
-    if(game == 0) {
+    if (game == 0) {
         return 64 + 255 - chat;
     }
 
-    return 64 + (-1)*(255 - game);
+    return 64 + (-1) * (255 - game);
 }
 
 static int arctis_7_switch_lights(hid_device* device_handle, uint8_t on)
@@ -171,7 +172,7 @@ static int arctis_7_switch_lights(hid_device* device_handle, uint8_t on)
     unsigned char data[8] = { 0x06, 0x55, 0x01, on ? 0x02 : 0x00 };
     int ret = hid_write(device_handle, data, 8);
 
-    if(ret >= 0) {
+    if (ret >= 0) {
         ret = arctis_7_save_state(device_handle);
     }
 
