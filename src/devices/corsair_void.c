@@ -3,7 +3,6 @@
 
 #include <hidapi.h>
 #include <string.h>
-#include <stdio.h>
 
 static struct device device_void;
 
