@@ -3,6 +3,7 @@
 
 #include <hidapi.h>
 #include <string.h>
+#include <stdio.h>
 
 static struct device device_void;
 
@@ -83,7 +84,7 @@ static int void_request_battery(hid_device* device_handle)
     // Packet Description
     // Answer of battery status
     // Index    0   1   2       3       4
-    // Data     100 0   Loaded% 177     5 when loading, 1 otherwise
+    // Data     100 0   Loaded% 177     5 when loading, 0 when headset is not connected, 1 otherwise
 
     int r = 0;
 
@@ -103,7 +104,10 @@ static int void_request_battery(hid_device* device_handle)
     if (r < 0)
         return r;
 
-    if (data_read[4] == 0 || data_read[4] == 4 || data_read[4] == 5) {
+    if (data_read[4] == 0) {
+        return BATTERY_UNAVAILABLE;
+    }
+    if (data_read[4] == 4 || data_read[4] == 5) {
         return BATTERY_CHARGING;
     }
 
