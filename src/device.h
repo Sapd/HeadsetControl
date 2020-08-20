@@ -22,6 +22,7 @@ enum capabilities {
 /** @brief Flags for battery status
  */
 enum battery_status {
+    BATTERY_UNAVAILABLE = 65534,
     BATTERY_CHARGING = 65535
 };
 
