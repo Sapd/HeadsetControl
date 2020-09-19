@@ -21,7 +21,9 @@ enum void_wireless_battery_flags {
 #define ID_CORSAIR_VOID_ELITE_WIRELESS     0x0a55
 #define ID_CORSAIR_VOID_RGB_ELITE_WIRELESS 0x0a51
 #define ID_CORSAIR_VOID_ELITE_USB          0x0a52
+#define ID_CORSAIR_HS70_WIRELESS           0x0a38
 #define ID_CORSAIR_HS70_PRO                0x0a4f
+
 
 static const uint16_t PRODUCT_IDS[] = {
     ID_CORSAIR_VOID_RGB_WIRED,
@@ -35,6 +37,7 @@ static const uint16_t PRODUCT_IDS[] = {
     ID_CORSAIR_VOID_ELITE_WIRELESS,
     ID_CORSAIR_VOID_RGB_ELITE_WIRELESS,
     ID_CORSAIR_VOID_ELITE_USB,
+    ID_CORSAIR_HS70_WIRELESS,
     ID_CORSAIR_HS70_PRO,
 };
 
@@ -51,7 +54,7 @@ void void_init(struct device** device)
     device_void.idUsagePage = 0xff00;
     device_void.idUsage = 0x1;
 
-    strncpy(device_void.device_name, "Corsair Void (Pro)", sizeof(device_void.device_name));
+    strncpy(device_void.device_name, "Corsair Headset Device", sizeof(device_void.device_name));
 
     device_void.capabilities = CAP_SIDETONE | CAP_BATTERY_STATUS | CAP_NOTIFICATION_SOUND | CAP_LIGHTS;
     device_void.send_sidetone = &void_send_sidetone;
