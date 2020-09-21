@@ -23,7 +23,7 @@ enum void_wireless_battery_flags {
 #define ID_CORSAIR_VOID_ELITE_USB          0x0a52
 #define ID_CORSAIR_HS70_WIRELESS           0x0a38
 #define ID_CORSAIR_HS70_PRO                0x0a4f
-#define ID_CORSAIR_VOID_RGB_WIRELESS       0x0a2b 
+#define ID_CORSAIR_VOID_RGB_WIRELESS       0x0a2b
 
 
 static const uint16_t PRODUCT_IDS[] = {
