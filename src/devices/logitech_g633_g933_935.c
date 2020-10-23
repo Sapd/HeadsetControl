@@ -28,7 +28,7 @@ void g933_935_init(struct device** device)
     device_g933_935.numIdProducts = sizeof(PRODUCT_IDS) / sizeof(PRODUCT_IDS[0]);
     device_g933_935.idUsagePage = 0xff43;
     device_g933_935.idUsage = 0x0202;
-    strncpy(device_g933_935.device_name, "Logitech G633/G635/G933/G935/G733", sizeof(device_g933_935.device_name));
+    strncpy(device_g933_935.device_name, "Logitech G633/G635/G933/G935", sizeof(device_g933_935.device_name));
 
     device_g933_935.capabilities = CAP_SIDETONE | CAP_BATTERY_STATUS | CAP_LIGHTS;
     device_g933_935.send_sidetone = &g933_935_send_sidetone;
