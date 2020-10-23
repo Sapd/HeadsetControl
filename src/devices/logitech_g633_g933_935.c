@@ -13,8 +13,9 @@ static struct device device_g933_935;
 #define ID_LOGITECH_G635 0x0a89
 #define ID_LOGITECH_G933 0x0a5b
 #define ID_LOGITECH_G935 0x0a87
+#define ID_LOGITECH_G733 0x0ab5
 
-static const uint16_t PRODUCT_IDS[] = { ID_LOGITECH_G633, ID_LOGITECH_G635, ID_LOGITECH_G933, ID_LOGITECH_G935 };
+static const uint16_t PRODUCT_IDS[] = { ID_LOGITECH_G633, ID_LOGITECH_G635, ID_LOGITECH_G933, ID_LOGITECH_G935, ID_LOGITECH_G733 };
 
 static int g933_935_send_sidetone(hid_device* device_handle, uint8_t num);
 static int g933_935_request_battery(hid_device* device_handle);
@@ -27,7 +28,7 @@ void g933_935_init(struct device** device)
     device_g933_935.numIdProducts = sizeof(PRODUCT_IDS) / sizeof(PRODUCT_IDS[0]);
     device_g933_935.idUsagePage = 0xff43;
     device_g933_935.idUsage = 0x0202;
-    strncpy(device_g933_935.device_name, "Logitech G633/G635/G933/G935", sizeof(device_g933_935.device_name));
+    strncpy(device_g933_935.device_name, "Logitech G633/G635/G933/G935/G733", sizeof(device_g933_935.device_name));
 
     device_g933_935.capabilities = CAP_SIDETONE | CAP_BATTERY_STATUS | CAP_LIGHTS;
     device_g933_935.send_sidetone = &g933_935_send_sidetone;
