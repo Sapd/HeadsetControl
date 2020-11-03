@@ -37,7 +37,7 @@ find_path(HIDAPI_INCLUDE_DIR
 	hidapi)
 
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(HIDAPI
+find_package_handle_standard_args(hidapi
 	DEFAULT_MSG
 	HIDAPI_LIBRARY
 	HIDAPI_INCLUDE_DIR)
