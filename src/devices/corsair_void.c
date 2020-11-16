@@ -115,7 +115,7 @@ static int void_request_battery(hid_device* device_handle)
         return BATTERY_CHARGING;
     }
 
-    if (data_read[4] == 1) {
+    if (data_read[4] == 1 || data_read[4] == 2) {
         // Discard VOIDPRO_BATTERY_MICUP when it's set
         // see https://github.com/Sapd/HeadsetControl/issues/13
         if (data_read[2] & VOID_BATTERY_MICUP) {
