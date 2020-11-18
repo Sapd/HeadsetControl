@@ -88,7 +88,7 @@ static int void_request_battery(hid_device* device_handle)
     // Packet Description
     // Answer of battery status
     // Index    0   1   2       3       4
-    // Data     100 0   Loaded% 177     5 when loading, 0 when headset is not connected, 1 otherwise
+    // Data     100 0   Loaded% 177     5 when loading, 0 when headset is not connected, 2 low battery, 1 otherwise
 
     int r = 0;
 
