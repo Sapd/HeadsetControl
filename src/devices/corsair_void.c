@@ -88,7 +88,7 @@ static int void_request_battery(hid_device* device_handle)
     // Packet Description
     // Answer of battery status
     // Index    0   1   2       3       4
-    // Data     100 0   Loaded% 177     5 when loading, 0 when headset is not connected, 1 otherwise
+    // Data     100 0   Loaded% 177     5 when loading, 0 when headset is not connected, 2 low battery, 1 otherwise
 
     int r = 0;
 
@@ -115,7 +115,7 @@ static int void_request_battery(hid_device* device_handle)
         return BATTERY_CHARGING;
     }
 
-    if (data_read[4] == 1) {
+    if (data_read[4] == 1 || data_read[4] == 2) {
         // Discard VOIDPRO_BATTERY_MICUP when it's set
         // see https://github.com/Sapd/HeadsetControl/issues/13
         if (data_read[2] & VOID_BATTERY_MICUP) {
