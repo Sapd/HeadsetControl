@@ -26,7 +26,7 @@ void arctis_1_init(struct device** device)
     device_arctis.numIdProducts = sizeof(PRODUCT_IDS) / sizeof(PRODUCT_IDS[0]);
     device_arctis.idInterface = 0x03;
 
-    strncpy(device_arctis.device_name, "SteelSeries Arctis (1)", sizeof(device_arctis.device_name));
+    strncpy(device_arctis.device_name, "SteelSeries Arctis (1) Wireless", sizeof(device_arctis.device_name));
 
     device_arctis.capabilities = CAP_SIDETONE | CAP_INACTIVE_TIME;
     device_arctis.send_sidetone = &arctis_1_send_sidetone;
