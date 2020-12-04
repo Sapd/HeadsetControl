@@ -124,7 +124,7 @@ The following additional software can be used to enable control via a GUI
 
 [headset-charge-indicator](https://github.com/centic9/headset-charge-indicator/) adds a system tray icon, displaying the current amount of battery. Also provides controls via the icon's menu (Python based)
 
-#### Windows 
+#### Windows
 [HeadsetControl-SystemTray](https://github.com/zampierilucas/HeadsetControl-SystemTray) adds a system tray icon, displaying the current amount of battery. (Python based)
 
 
