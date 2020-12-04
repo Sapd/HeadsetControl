@@ -51,7 +51,7 @@ struct device {
     uint16_t idUsage;
 
     /// Name of device, used as information for the user
-    char device_name[32];
+    char device_name[64];
 
     /// Bitmask of currently supported features the software can currently handle
     int capabilities;
