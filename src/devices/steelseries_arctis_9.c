@@ -11,6 +11,9 @@ static struct device device_arctis;
 
 #define ID_ARCTIS_9        0x12c2
 
+#define BATTERY_MAX 0x9A
+#define BATTERY_MIN 0x00
+
 static const uint16_t PRODUCT_IDS[] = { ID_ARCTIS_9 };
 
 static int arctis_9_send_sidetone(hid_device* device_handle, uint8_t num);
@@ -112,10 +115,10 @@ static int arctis_9_request_battery(hid_device* device_handle)
     printf("%02X\n", bat);
     printf("%d\n", bat);
 
-    if (bat > 255)
+    if (bat > BATTERY_MAX)
         return 100;
 
-    return 100.0 / 255 * bat;
+    return map(bat, BATTERY_MIN, BATTERY_MAX, 0, 100);
 }
 
 static int arctis_9_send_inactive_time(hid_device* device_handle, uint8_t num)
