@@ -12,15 +12,17 @@ static struct device device_arctis;
 #define ID_ARCTIS_9        0x12c2
 
 #define BATTERY_MAX 0x9A
-#define BATTERY_MIN 0x00
+#define BATTERY_MIN 0x68
 
 static const uint16_t PRODUCT_IDS[] = { ID_ARCTIS_9 };
 
 static int arctis_9_send_sidetone(hid_device* device_handle, uint8_t num);
 static int arctis_9_request_battery(hid_device* device_handle);
 static int arctis_9_send_inactive_time(hid_device* device_handle, uint8_t num);
+static int arctis_9_request_chatmix(hid_device* device_handle);
 
-static int arctis_9_save_state(hid_device* device_handle);
+int arctis_9_save_state(hid_device* device_handle);
+int arctis_9_read_device_status(hid_device* device_handle, unsigned char* data_read);
 
 void arctis_9_init(struct device** device)
 {
@@ -31,10 +33,11 @@ void arctis_9_init(struct device** device)
 
     strncpy(device_arctis.device_name, "SteelSeries Arctis 9", sizeof(device_arctis.device_name));
 
-    device_arctis.capabilities = CAP_SIDETONE | CAP_BATTERY_STATUS | CAP_INACTIVE_TIME;
+    device_arctis.capabilities = CAP_SIDETONE | CAP_BATTERY_STATUS | CAP_INACTIVE_TIME | CAP_CHATMIX_STATUS;
     device_arctis.send_sidetone = &arctis_9_send_sidetone;
     device_arctis.request_battery = &arctis_9_request_battery;
     device_arctis.send_inactive_time = &arctis_9_send_inactive_time;
+    device_arctis.request_chatmix = &arctis_9_request_chatmix;
 
     *device = &device_arctis;
 }
@@ -75,45 +78,17 @@ static int arctis_9_send_sidetone(hid_device* device_handle, uint8_t num)
 
 static int arctis_9_request_battery(hid_device* device_handle)
 {
-    int r = 0;
-
-    unsigned char* buf = calloc(31, 1);
-
-    if (!buf) {
-        return r;
-    }
-
-    // request battery status
-    unsigned char data_request[2] = { 0x20, 0x00 };
-
-    memmove(buf, data_request, sizeof(data_request));
-
-    r = hid_write(device_handle, buf, 31);
+    // read device info
+    unsigned char data_read[12];
+    int r = arctis_9_read_device_status(device_handle, data_read);
 
     if (r < 0)
         return r;
 
-    // read battery status
-    unsigned char data_read[64];
-
-    r = hid_read(device_handle, data_read, 64);
-
-    if (r < 0)
-        return r;
- 
-
-    int i;
-    for (i = 0; i < 64; i++)
-    {
-        if (i > 0) printf(":");
-        printf("%02X", data_read[i]);
-    }
-    printf("\n");
+    if (data_read[4] == 0x01)
+        return BATTERY_CHARGING;
 
     int bat = data_read[3];
-
-    printf("%02X\n", bat);
-    printf("%d\n", bat);
 
     if (bat > BATTERY_MAX)
         return 100;
@@ -136,9 +111,38 @@ static int arctis_9_send_inactive_time(hid_device* device_handle, uint8_t num)
     return ret;
 }
 
+static int arctis_9_request_chatmix(hid_device* device_handle)
+{
+    // read device info
+    unsigned char data_read[12];
+    int r = arctis_9_read_device_status(device_handle, data_read);
+
+    if (r < 0)
+        return r;
+
+    int game = map(data_read[9], 0, 19, 0, 64);
+    int chat = map(data_read[10], 0, 19, 0, -64);
+
+    return 64 - (chat + game);
+}
+
 int arctis_9_save_state(hid_device* device_handle)
 {
     uint8_t data[31] = { 0x90, 0x00 };
 
     return hid_write(device_handle, data, 31);
+}
+
+int arctis_9_read_device_status(hid_device* device_handle, unsigned char* data_read)
+{
+    int r = 0;
+
+    unsigned char data_request[2] = { 0x20, 0x00 };
+    r = hid_write(device_handle, data_request, 2);
+
+    if (r < 0)
+        return r;
+
+    // read device info
+    return hid_read(device_handle, data_read, 12);
 }
