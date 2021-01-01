@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <math.h>
 #include <stdio.h>
 
 static struct device device_arctis;
@@ -12,7 +13,7 @@ static struct device device_arctis;
 #define ID_ARCTIS_9        0x12c2
 
 #define BATTERY_MAX 0x9A
-#define BATTERY_MIN 0x68
+#define BATTERY_MIN 0x64
 
 static const uint16_t PRODUCT_IDS[] = { ID_ARCTIS_9 };
 
@@ -45,6 +46,9 @@ void arctis_9_init(struct device** device)
 static int arctis_9_send_sidetone(hid_device* device_handle, uint8_t num)
 {
     int ret = -1;
+
+    // transform the log scale sidetone into a more intuitive linear scale
+    num = map(log2(num) * 100, 0, 700, 0, 128);
 
     // the range of the Arctis 9 seems to be from 0xc0 (192, also off) to 0xfd (253)
     // and scales exponential
