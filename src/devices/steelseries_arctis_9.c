@@ -48,7 +48,7 @@ static int arctis_9_send_sidetone(hid_device* device_handle, uint8_t num)
     int ret = -1;
 
     // transform the log scale sidetone into a more intuitive linear scale
-    num = map(log2(num) * 100, 0, 700, 0, 128);
+    num = map((int)log2(num) * 100, 0, 700, 0, 128);
 
     // the range of the Arctis 9 seems to be from 0xc0 (192, also off) to 0xfd (253)
     // and scales exponential
