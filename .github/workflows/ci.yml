@@ -29,6 +29,10 @@ jobs:
         run: brew install hidapi
         if: runner.os == 'macOS'
 
+      - name: Run clang-tidy
+        uses: HorstBaerbel/action-clang-tidy@1.0
+        if: runner.os == 'Linux'
+
       - name: dir
         run: find $RUNNER_WORKSPACE
         shell: bash
