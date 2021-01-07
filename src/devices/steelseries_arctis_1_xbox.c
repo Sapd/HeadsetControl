@@ -71,7 +71,6 @@ static int arctis_1_xbox_send_sidetone(hid_device* device_handle, uint8_t num)
 
 static int arctis_1_xbox_request_battery(hid_device* device_handle)
 {
-
     int r = 0;
 
     // request battery status
@@ -91,7 +90,7 @@ static int arctis_1_xbox_request_battery(hid_device* device_handle)
         return r;
 
     if (data_read[2] == 0x01)
-      return BATTERY_UNAVAILABLE;
+        return BATTERY_UNAVAILABLE;
 
     int bat = data_read[3];
 
