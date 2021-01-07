@@ -1,0 +1,46 @@
+name: CI
+on: [push]
+
+jobs:
+  build:
+    env:
+      buildDir: '${{ github.workspace }}/build'
+
+    name: ${{ matrix.os }}-compile
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            triplet: x64-linux
+          - os: macos-latest
+            triplet: x64-osx
+    steps:
+      - uses: actions/checkout@v1
+      - uses: lukka/get-cmake@latest
+
+      - name: Install Linux packages
+        run: sudo apt-get -y install libhidapi-dev
+        if: runner.os == 'Linux'
+
+      - name: Install Mac homebrew packages
+        run: brew install hidapi
+        if: runner.os == 'macOS'
+
+      - name: dir
+        run: find $RUNNER_WORKSPACE
+        shell: bash
+      - name: Run CMake with Ninja
+        uses: lukka/run-cmake@main
+        id: runcmake
+        with:
+          cmakeListsTxtPath: '${{ github.workspace }}/CMakeLists.txt'
+          useVcpkgToolchainFile: true
+          buildWithCMakeArgs: '-- -v'
+          buildDirectory: ${{ env.buildDir }}
+
+      - name: dir
+        run: find $RUNNER_WORKSPACE
+        shell: bash
