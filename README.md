@@ -63,7 +63,12 @@ RHEL and CentOS also require the epel-repository: `yum install epel-release`. Pl
 
 #### Gentoo
 
-A [ebuild](https://github.com/Sapd/HeadsetControl/wiki/Gentoo-ebuild) is available in project wiki.
+1. Enable [nitratesky](https://github.com/VTimofeenko/nitratesky) overlay:
+
+    `eselect repository enable nitratesky`
+2. Install:
+
+    `emerge -a app-misc/headsetcontrol`
 
 #### Mac OS X
 
