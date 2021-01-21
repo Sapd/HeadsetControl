@@ -6,17 +6,23 @@
 
 static struct device device_gpro;
 
-static const uint16_t PRODUCT_ID = 0x0aa7; // PRO X: 0x0aaa
+#define ID_LOGITECH_PRO     0x0aa7
+#define ID_LOGITECH_PRO_X   0x0aba
+
+static const uint16_t PRODUCT_IDS[] = {
+    ID_LOGITECH_PRO,
+    ID_LOGITECH_PRO_X,
+};
 
 static int gpro_send_sidetone(hid_device* device_handle, uint8_t num);
 
 void gpro_init(struct device** device)
 {
     device_gpro.idVendor = VENDOR_LOGITECH;
-    device_gpro.idProductsSupported = &PRODUCT_ID;
-    device_gpro.numIdProducts = 1;
+    device_gpro.idProductsSupported = PRODUCT_IDS;
+    device_gpro.numIdProducts = sizeof(PRODUCT_IDS) / sizeof(PRODUCT_IDS[0]);
 
-    strncpy(device_gpro.device_name, "Logitech G PRO", sizeof(device_gpro.device_name));
+    strncpy(device_gpro.device_name, "Logitech G PRO Series", sizeof(device_gpro.device_name));
 
     device_gpro.capabilities = CAP_SIDETONE;
     device_gpro.send_sidetone = &gpro_send_sidetone;
