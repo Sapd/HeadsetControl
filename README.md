@@ -125,6 +125,10 @@ Following options don't work on all devices yet:
 
 `headsetcontrol -c` cut unnecessary output, for reading by other scripts or applications.
 
+`headsetcontrol -i 0-90` sets inactive time in minutes, time must be between 0 and 90, 0 disables the feature.
+
+`headsetcontrol -m` retrieves the current chat-mix-dial level setting.
+
 ### Third Party
 The following additional software can be used to enable control via a GUI
 
