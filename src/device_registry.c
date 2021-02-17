@@ -3,8 +3,12 @@
 #include "devices/corsair_void.h"
 #include "devices/logitech_g430.h"
 #include "devices/logitech_g533.h"
-#include "devices/logitech_g633_g933_935.h"
+#include "devices/logitech_g633.h"
+#include "devices/logitech_g635.h"
+#include "devices/logitech_g733.h"
 #include "devices/logitech_g930.h"
+#include "devices/logitech_g933.h"
+#include "devices/logitech_g935.h"
 #include "devices/logitech_gpro.h"
 #include "devices/steelseries_arctis_1.h"
 #include "devices/steelseries_arctis_1_xbox.h"
@@ -13,7 +17,7 @@
 
 #include <string.h>
 
-#define NUMDEVICES 10
+#define NUMDEVICES 14
 
 // array of pointers to device
 static struct device*(devicelist[NUMDEVICES]);
@@ -23,13 +27,17 @@ void init_devices()
     void_init(&devicelist[0]);
     g430_init(&devicelist[1]);
     g533_init(&devicelist[2]);
-    g930_init(&devicelist[3]);
-    g933_935_init(&devicelist[4]);
-    arctis_1_init(&devicelist[5]);
-    arctis_7_init(&devicelist[6]);
-    arctis_9_init(&devicelist[7]);
-    gpro_init(&devicelist[8]);
-    arctis_1_xbox_init(&devicelist[9]);
+    g633_init(&devicelist[3]);
+    g635_init(&devicelist[4]);
+    g733_init(&devicelist[5]);
+    g930_init(&devicelist[6]);
+    g933_init(&devicelist[7]);
+    g935_init(&devicelist[8]);
+    arctis_1_init(&devicelist[9]);
+    arctis_7_init(&devicelist[10]);
+    arctis_9_init(&devicelist[11]);
+    gpro_init(&devicelist[12]);
+    arctis_1_xbox_init(&devicelist[13]);
 }
 
 int get_device(struct device* device_found, uint16_t idVendor, uint16_t idProduct)

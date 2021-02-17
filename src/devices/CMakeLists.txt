@@ -15,8 +15,18 @@ set(SOURCE_FILES ${SOURCE_FILES}
     ${CMAKE_CURRENT_SOURCE_DIR}/steelseries_arctis_7.h
     ${CMAKE_CURRENT_SOURCE_DIR}/steelseries_arctis_9.c
     ${CMAKE_CURRENT_SOURCE_DIR}/steelseries_arctis_9.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/logitech_g633_g933_935.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/logitech_g633_g933_935.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/logitech_g633_635_733_933_935.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/logitech_g633_635_733_933_935.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/logitech_g633.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/logitech_g633.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/logitech_g635.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/logitech_g635.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/logitech_g733.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/logitech_g733.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/logitech_g933.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/logitech_g933.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/logitech_g935.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/logitech_g935.h
     ${CMAKE_CURRENT_SOURCE_DIR}/logitech_gpro.c
     ${CMAKE_CURRENT_SOURCE_DIR}/logitech_gpro.h
     PARENT_SCOPE)
