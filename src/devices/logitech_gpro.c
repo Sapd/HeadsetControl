@@ -6,12 +6,14 @@
 
 static struct device device_gpro;
 
-#define ID_LOGITECH_PRO     0x0aa7
-#define ID_LOGITECH_PRO_X   0x0aba
+#define ID_LOGITECH_PRO         0x0aa7
+#define ID_LOGITECH_PRO_X_0     0x0aaa
+#define ID_LOGITECH_PRO_X_1     0x0aba
 
 static const uint16_t PRODUCT_IDS[] = {
     ID_LOGITECH_PRO,
-    ID_LOGITECH_PRO_X,
+    ID_LOGITECH_PRO_X_0,
+    ID_LOGITECH_PRO_X_1,
 };
 
 static int gpro_send_sidetone(hid_device* device_handle, uint8_t num);
