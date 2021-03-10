@@ -25,6 +25,8 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
   - Sidetone, Battery, Inactive time, Chat-Mix level
 - Logitech G PRO
   - Sidetone
+- Logitech Zone Wired
+  - Sidetone, Voice prompts, Rotate to mute
 
 For non-supported headsets on Linux: There is a chance that you can set the sidetone via AlsaMixer
 
