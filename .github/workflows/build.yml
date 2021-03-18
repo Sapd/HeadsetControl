@@ -41,7 +41,7 @@ jobs:
           buildDirectory: ${{ env.buildDir }}
 
       - name: Run test
-        run: cd ${{ env.buildDir }} && make test
+        run: cd ${{ env.buildDir }} && ctest
 
       - name: dir
         run: find $RUNNER_WORKSPACE
