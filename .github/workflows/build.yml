@@ -1,4 +1,4 @@
-name: CI
+name: Build HeadsetControl
 on: [push, pull_request]
 
 jobs:
@@ -29,6 +29,14 @@ jobs:
         run: brew install hidapi
         if: runner.os == 'macOS'
 
+      - uses: ZedThree/clang-tidy-review@v0.6.0
+        name: clang tidy
+        with:
+          apt_packages: libhidapi-dev
+        # If there are any comments, fail the check
+      - if: steps.review.outputs.total_comments > 0
+        run: exit 1
+
       - name: dir
         run: find $RUNNER_WORKSPACE
         shell: bash
@@ -38,6 +46,7 @@ jobs:
         with:
           cmakeListsTxtPath: '${{ github.workspace }}/CMakeLists.txt'
           buildWithCMakeArgs: '-- -v'
+          cmakeAppendedArgs: '--target check'
           buildDirectory: ${{ env.buildDir }}
 
       - name: dir
