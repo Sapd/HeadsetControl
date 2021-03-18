@@ -38,8 +38,10 @@ jobs:
         with:
           cmakeListsTxtPath: '${{ github.workspace }}/CMakeLists.txt'
           buildWithCMakeArgs: '-- -v'
-          cmakeAppendedArgs: '--target check'
           buildDirectory: ${{ env.buildDir }}
+
+      - name: Run test
+        run: cd ${{ env.buildDir }} && make test
 
       - name: dir
         run: find $RUNNER_WORKSPACE
