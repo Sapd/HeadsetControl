@@ -113,6 +113,8 @@ You can reload udev configuration without reboot via `sudo udevadm control --rel
 Type `headsetcontrol -h` to get all available options.\
 (Don't forget to prefix it with `./` when the application resides in the current folder)
 
+Type `headsetcontrol -?` to get a list of supported capabilities for the currently detected headset
+
 `headsetcontrol -s 128` sets the sidetone to 128 (REAL loud). You can silence it with `0`. I recommend a loudness of 16.
 
 Following options don't work on all devices yet:
