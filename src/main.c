@@ -175,6 +175,17 @@ static char* get_hid_path(uint16_t vid, uint16_t pid, int iid, uint16_t usagepag
     return ret;
 }
 
+static void print_capability(enum capabilities cap, char shortName, const char* longName)
+{
+    if ((device_found.capabilities & cap) == cap) {
+        if (short_output) {
+            printf("%c", shortName);
+        } else {
+            printf("* %s\n", longName);
+        }
+    }
+}
+
 int main(int argc, char* argv[])
 {
     int c;
@@ -187,8 +198,9 @@ int main(int argc, char* argv[])
     long request_chatmix = 0;
     long voice_prompts = -1;
     long rotate_to_mute = -1;
+    long print_capabilities = -1;
 
-    while ((c = getopt(argc, argv, "bchs:n:l:i:mv:r:")) != -1) {
+    while ((c = getopt(argc, argv, "bchs:n:l:i:mv:r:?")) != -1) {
         switch (c) {
         case 'b':
             request_battery = 1;
@@ -243,6 +255,9 @@ int main(int argc, char* argv[])
                 printf("Usage: %s -r 0|1\n", argv[0]);
                 return 1;
             }
+            break;
+        case '?':
+            print_capabilities = 1;
             break;
         case 'h':
             printf("Headsetcontrol written by Sapd (Denis Arnst)\n\thttps://github.com/Sapd\n\n");
@@ -458,6 +473,19 @@ int main(int argc, char* argv[])
         }
 
         PRINT_INFO("Success!\n");
+    }
+
+    if (print_capabilities != -1) {
+        PRINT_INFO("Supported capabilities:\n\n");
+
+        print_capability(CAP_SIDETONE, 's', "set sidetone");
+        print_capability(CAP_BATTERY_STATUS, 'b', "read battery level");
+        print_capability(CAP_NOTIFICATION_SOUND, 'n', "play notification sound");
+        print_capability(CAP_LIGHTS, 'l', "switch lights");
+        print_capability(CAP_INACTIVE_TIME, 'i', "set inactive time");
+        print_capability(CAP_CHATMIX_STATUS, 'm', "read chat-mix");
+        print_capability(CAP_VOICE_PROMPTS, 'v', "set voice prompts");
+        print_capability(CAP_ROTATE_TO_MUTE, 'r', "set rotate to mute");
     }
 
     if (argc <= 1) {
