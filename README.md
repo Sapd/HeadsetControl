@@ -9,16 +9,20 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
 
 ## Supported Headsets
 
-- Corsair Void (Every version*, regardless whether Pro or Wired)
+- Corsair Void (Every version*, regardless whether Elite, Pro, HS70, Wireless or Wired)
   - Sidetone, Battery (for Wireless), LED on/off, Notification Sound
 - Logitech G430
   - No support in current version (Last working on macOS in commit 41be99379f)
 - Logitech G533
   - Sidetone, Battery (for Wireless)
+- Logitech G633 / G635 / G733 / G933 / G935
+  - Sidetone, Battery (for Wireless), LED on/off
 - Logitech G930
   - Sidetone, Battery
-- Logitech G633 / G933 / G935
-  - Sidetone, Battery (for Wireless), LED on/off
+- SteelSeries Arctis 1
+  - Sidetone, Inactive time
+- SteelSeries Arctis 1 for XBox
+  - Sidetone, Battery, Inactive time
 - SteelSeries Arctis (7 and Pro)
   - Sidetone, Battery, Inactive time, Chat-Mix level, LED on/off (allows to turn off the blinking LED on the base-station)
 - SteelSeries Arctis 9
