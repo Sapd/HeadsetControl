@@ -15,6 +15,8 @@ set(SOURCE_FILES ${SOURCE_FILES}
     ${CMAKE_CURRENT_SOURCE_DIR}/steelseries_arctis_7.h
     ${CMAKE_CURRENT_SOURCE_DIR}/steelseries_arctis_9.c
     ${CMAKE_CURRENT_SOURCE_DIR}/steelseries_arctis_9.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/roccat_elo_7_1_air.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/roccat_elo_7_1_air.c
     ${CMAKE_CURRENT_SOURCE_DIR}/logitech_g633_g933_935.c
     ${CMAKE_CURRENT_SOURCE_DIR}/logitech_g633_g933_935.h
     ${CMAKE_CURRENT_SOURCE_DIR}/logitech_gpro.c
