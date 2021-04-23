@@ -68,7 +68,8 @@ static int elo71Air_switch_lights(hid_device* hid_device, uint8_t on)
     unsigned char cmd93[] = {0xff, 0x03, 0x00, 0x01, 0x00, 0x01};
 
     // sets LED color as RGB value
-    unsigned char cmd94[] = {0xff, 0x04, 0x00, 0x00, on * 0xff, on * 0xff, on * 0xff};
+    unsigned char cmd94[] = {0xff, 0x04, 0x00, 0x00, 
+	                     on ? 0xff : 0, on ? 0xff : 0, on ? 0xff : 0};
     unsigned char cmd95[] = {0xff, 0x01};
     int r;
 
