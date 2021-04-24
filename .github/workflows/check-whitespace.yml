@@ -9,7 +9,6 @@ name: check-whitespace
 on:
   pull_request:
     types: [opened, synchronize]
-  push:
 
 jobs:
   check-whitespace:

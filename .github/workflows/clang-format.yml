@@ -1,6 +1,6 @@
 name: Test Code Style via clang-format
 
-on: [push, pull_request]
+on: [pull_request]
 
 jobs:
   format-check:
