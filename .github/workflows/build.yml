@@ -15,19 +15,16 @@ jobs:
         include:
           - os: ubuntu-latest
             triplet: x64-linux
+            INSTALL_DEPS: sudo apt-get -y install libhidapi-dev
           - os: macos-latest
             triplet: x64-osx
+            INSTALL_DEPS: brew install hidapi
     steps:
       - uses: actions/checkout@v1
       - uses: lukka/get-cmake@latest
 
-      - name: Install Linux packages
-        run: sudo apt-get -y install libhidapi-dev
-        if: runner.os == 'Linux'
-
-      - name: Install Mac homebrew packages
-        run: brew install hidapi
-        if: runner.os == 'macOS'
+      - name: Install Dependencies
+        run: ${{ matrix.INSTALL_DEPS }}
 
       - name: dir
         run: find $RUNNER_WORKSPACE

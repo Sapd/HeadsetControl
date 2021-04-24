@@ -1,0 +1,10 @@
+name: Static analysis via clang-tidy
+
+on: [pull_request]
+
+jobs:
+  graph:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Run static analysis
+      uses: JacobDomagala/StaticAnalysis@master
