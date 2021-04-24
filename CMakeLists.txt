@@ -129,3 +129,6 @@ include (CTest)
 enable_testing()
 add_test(run_test headsetcontrol)
 set_tests_properties(run_test PROPERTIES PASS_REGULAR_EXPRESSION "No supported headset found")
+# use make check to compile+test
+add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND}
+                  DEPENDS headsetcontrol)
