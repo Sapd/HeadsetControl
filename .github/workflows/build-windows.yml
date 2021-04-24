@@ -1,4 +1,4 @@
-name: Build HeadsetControl on Windows
+name: Build Windows
 on: [push, pull_request]
 
 jobs:

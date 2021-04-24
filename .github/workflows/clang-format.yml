@@ -1,4 +1,4 @@
-name: Test Code Style via clang-format
+name: Test Code Style
 
 on: [pull_request]
 

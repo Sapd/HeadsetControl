@@ -1,6 +1,6 @@
 # https://github.com/git/git/blob/master/.github/workflows/check-whitespace.yml
 
-name: check-whitespace
+name: Check Whitespaces
 
 # Get the repo with the commits(+1) in the series.
 # Process `git log --check` output to extract just the check errors.
