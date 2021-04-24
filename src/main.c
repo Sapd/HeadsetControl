@@ -175,6 +175,17 @@ static char* get_hid_path(uint16_t vid, uint16_t pid, int iid, uint16_t usagepag
     return ret;
 }
 
+static void print_capability(enum capabilities cap, char shortName, const char* longName)
+{
+    if ((device_found.capabilities & cap) == cap) {
+        if (short_output) {
+            printf("%c", shortName);
+        } else {
+            printf("* %s\n", longName);
+        }
+    }
+}
+
 int main(int argc, char* argv[])
 {
     int c;
@@ -185,8 +196,11 @@ int main(int argc, char* argv[])
     long lights = -1;
     long inactive_time = -1;
     long request_chatmix = 0;
+    long voice_prompts = -1;
+    long rotate_to_mute = -1;
+    long print_capabilities = -1;
 
-    while ((c = getopt(argc, argv, "bchs:n:l:i:m")) != -1) {
+    while ((c = getopt(argc, argv, "bchs:n:l:i:mv:r:?")) != -1) {
         switch (c) {
         case 'b':
             request_battery = 1;
@@ -228,6 +242,23 @@ int main(int argc, char* argv[])
                 return 1;
             }
             break;
+        case 'v':
+            voice_prompts = strtol(optarg, NULL, 10);
+            if (voice_prompts < 0 || voice_prompts > 1) {
+                printf("Usage: %s -v 0|1\n", argv[0]);
+                return 1;
+            }
+            break;
+        case 'r':
+            rotate_to_mute = strtol(optarg, NULL, 10);
+            if (rotate_to_mute < 0 || rotate_to_mute > 1) {
+                printf("Usage: %s -r 0|1\n", argv[0]);
+                return 1;
+            }
+            break;
+        case '?':
+            print_capabilities = 1;
+            break;
         case 'h':
             printf("Headsetcontrol written by Sapd (Denis Arnst)\n\thttps://github.com/Sapd\n\n");
             printf("Parameters\n");
@@ -236,8 +267,10 @@ int main(int argc, char* argv[])
             printf("  -n soundid\tMakes the headset play a notifiation\n");
             printf("  -l 0|1\tSwitch lights (0 = off, 1 = on)\n");
             printf("  -c\t\tCut unnecessary output \n");
-            printf("  -i time\tSets inactive time in minutes, level must be between 0 and 90, 0 disables the feature.\n");
+            printf("  -i time\tSets inactive time in minutes, time must be between 0 and 90, 0 disables the feature.\n");
             printf("  -m\t\tRetrieves the current chat-mix-dial level setting\n");
+            printf("  -v 0|1\tTurn voice prompts on or off (0 = off, 1 = on)\n");
+            printf("  -r 0|1\tTurn rotate to mute feature on or off (0 = off, 1 = on)\n");
 
             printf("\n");
             return 0;
@@ -406,6 +439,53 @@ int main(int argc, char* argv[])
             printf("Chat-Mix: %d\n", ret);
         else
             printf("%d", ret);
+    }
+
+    if (voice_prompts != -1) {
+        if ((device_found.capabilities & CAP_VOICE_PROMPTS) == 0) {
+            fprintf(stderr, "Error: This headset doesn't support voice prompt switching\n");
+            terminate_hid(&device_handle, &hid_path);
+            return 1;
+        }
+        ret = device_found.switch_voice_prompts(device_handle, voice_prompts);
+
+        if (ret < 0) {
+            fprintf(stderr, "Failed to switch voice prompt. Error: %d: %ls\n", ret, hid_error(device_handle));
+            terminate_hid(&device_handle, &hid_path);
+            return 1;
+        }
+
+        PRINT_INFO("Success!\n");
+    }
+
+    if (rotate_to_mute != -1) {
+        if ((device_found.capabilities & CAP_ROTATE_TO_MUTE) == 0) {
+            fprintf(stderr, "Error: This headset doesn't support rotate to mute switching\n");
+            terminate_hid(&device_handle, &hid_path);
+            return 1;
+        }
+        ret = device_found.switch_rotate_to_mute(device_handle, rotate_to_mute);
+
+        if (ret < 0) {
+            fprintf(stderr, "Failed to switch rotate to mute. Error: %d: %ls\n", ret, hid_error(device_handle));
+            terminate_hid(&device_handle, &hid_path);
+            return 1;
+        }
+
+        PRINT_INFO("Success!\n");
+    }
+
+    if (print_capabilities != -1) {
+        PRINT_INFO("Supported capabilities:\n\n");
+
+        print_capability(CAP_SIDETONE, 's', "set sidetone");
+        print_capability(CAP_BATTERY_STATUS, 'b', "read battery level");
+        print_capability(CAP_NOTIFICATION_SOUND, 'n', "play notification sound");
+        print_capability(CAP_LIGHTS, 'l', "switch lights");
+        print_capability(CAP_INACTIVE_TIME, 'i', "set inactive time");
+        print_capability(CAP_CHATMIX_STATUS, 'm', "read chat-mix");
+        print_capability(CAP_VOICE_PROMPTS, 'v', "set voice prompts");
+        print_capability(CAP_ROTATE_TO_MUTE, 'r', "set rotate to mute");
     }
 
     if (argc <= 1) {

@@ -9,22 +9,28 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
 
 ## Supported Headsets
 
-- Corsair Void (Every version*, regardless whether Pro or Wired)
+- Corsair Void (Every version*, regardless whether Elite, Pro, HS70, Wireless or Wired)
   - Sidetone, Battery (for Wireless), LED on/off, Notification Sound
 - Logitech G430
   - No support in current version (Last working on macOS in commit 41be99379f)
 - Logitech G533
   - Sidetone, Battery (for Wireless)
+- Logitech G633 / G635 / G733 / G933 / G935
+  - Sidetone, Battery (for Wireless), LED on/off
 - Logitech G930
   - Sidetone, Battery
-- Logitech G633 / G933 / G935
-  - Sidetone, Battery (for Wireless), LED on/off
+- SteelSeries Arctis 1
+  - Sidetone, Inactive time
+- SteelSeries Arctis 1 for XBox
+  - Sidetone, Battery, Inactive time
 - SteelSeries Arctis (7 and Pro)
   - Sidetone, Battery, Inactive time, Chat-Mix level, LED on/off (allows to turn off the blinking LED on the base-station)
 - SteelSeries Arctis 9
   - Sidetone, Battery, Inactive time, Chat-Mix level
 - Logitech G PRO
   - Sidetone
+- Logitech Zone Wired
+  - Sidetone, Voice prompts, Rotate to mute
 
 For non-supported headsets on Linux: There is a chance that you can set the sidetone via AlsaMixer
 
@@ -63,7 +69,12 @@ RHEL and CentOS also require the epel-repository: `yum install epel-release`. Pl
 
 #### Gentoo
 
-A [ebuild](https://github.com/Sapd/HeadsetControl/wiki/Gentoo-ebuild) is available in project wiki.
+1. Enable [nitratesky](https://github.com/VTimofeenko/nitratesky) overlay:
+
+    `eselect repository enable nitratesky`
+2. Install:
+
+    `emerge -a app-misc/headsetcontrol`
 
 #### Mac OS X
 
@@ -106,6 +117,8 @@ You can reload udev configuration without reboot via `sudo udevadm control --rel
 Type `headsetcontrol -h` to get all available options.\
 (Don't forget to prefix it with `./` when the application resides in the current folder)
 
+Type `headsetcontrol -?` to get a list of supported capabilities for the currently detected headset
+
 `headsetcontrol -s 128` sets the sidetone to 128 (REAL loud). You can silence it with `0`. I recommend a loudness of 16.
 
 Following options don't work on all devices yet:
@@ -117,6 +130,10 @@ Following options don't work on all devices yet:
 `headsetcontrol -l 0|1` switches LED off/on (off almost doubles battery lifetime!).
 
 `headsetcontrol -c` cut unnecessary output, for reading by other scripts or applications.
+
+`headsetcontrol -i 0-90` sets inactive time in minutes, time must be between 0 and 90, 0 disables the feature.
+
+`headsetcontrol -m` retrieves the current chat-mix-dial level setting.
 
 ### Third Party
 The following additional software can be used to enable control via a GUI

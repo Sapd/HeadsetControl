@@ -16,7 +16,9 @@ enum capabilities {
     CAP_NOTIFICATION_SOUND = 4,
     CAP_LIGHTS = 8,
     CAP_INACTIVE_TIME = 16,
-    CAP_CHATMIX_STATUS = 32
+    CAP_CHATMIX_STATUS = 32,
+    CAP_VOICE_PROMPTS = 64,
+    CAP_ROTATE_TO_MUTE = 128,
 };
 
 /** @brief Flags for battery status
@@ -136,4 +138,32 @@ struct device {
      *              -1              HIDAPI error
      */
     int (*request_chatmix)(hid_device* hid_device);
+
+    /** @brief Function pointer for enabling or disabling voice
+     *  prompts on the headset
+     *
+     *  Forwards the request to the device specific implementation
+     *
+     *  @param  device_handle   The hidapi handle. Must be the same
+     *                          device as defined here (same ids)
+     *  @param  on              1 if it should be turned on; 0 otherwise
+     *
+     *  @returns    > 0         success
+     *              -1          HIDAPI error
+     */
+    int (*switch_voice_prompts)(hid_device* hid_device, uint8_t on);
+
+    /** @brief Function pointer for enabling or disabling auto-muting
+     *  when rotating the headset microphone
+     *
+     *  Forwards the request to the device specific implementation
+     *
+     *  @param  device_handle   The hidapi handle. Must be the same
+     *                          device as defined here (same ids)
+     *  @param  on              1 if it should be turned on; 0 otherwise
+     *
+     *  @returns    > 0         success
+     *              -1          HIDAPI error
+     */
+    int (*switch_rotate_to_mute)(hid_device* hid_device, uint8_t on);
 };
