@@ -6,7 +6,7 @@
 
 static struct device device_g432;
 
-#define ID_LOGITECH_G432    0x0a9c
+#define ID_LOGITECH_G432 0x0a9c
 
 static const uint16_t PRODUCT_IDS[] = {
     ID_LOGITECH_G432,
