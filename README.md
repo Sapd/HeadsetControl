@@ -31,6 +31,8 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
   - Sidetone
 - Logitech Zone Wired
   - Sidetone, Voice prompts, Rotate to mute
+- ROCCAT Elo 7.1 Air
+  - LED on/off
 
 For non-supported headsets on Linux: There is a chance that you can set the sidetone via AlsaMixer
 
@@ -101,9 +103,11 @@ make
 ```
 
 If you want to be able to call HeadsetControl from every folder type:
+
 ```bash
 make install
 ```
+
 This will copy the binary to a folder globally accessible via path.
 
 ### Access without root
@@ -136,16 +140,18 @@ Following options don't work on all devices yet:
 `headsetcontrol -m` retrieves the current chat-mix-dial level setting.
 
 ### Third Party
+
 The following additional software can be used to enable control via a GUI
 
 #### Linux
+
 [headsetcontrol-notifcationd](https://github.com/Manawyrm/headsetcontrol-notificationd) provides notifications on the battery status of connected headsets (PHP based)
 
 [headset-charge-indicator](https://github.com/centic9/headset-charge-indicator/) adds a system tray icon, displaying the current amount of battery. Also provides controls via the icon's menu (Python based)
 
 #### Windows
-[HeadsetControl-SystemTray](https://github.com/zampierilucas/HeadsetControl-SystemTray) adds a system tray icon, displaying the current amount of battery. (Python based)
 
+[HeadsetControl-SystemTray](https://github.com/zampierilucas/HeadsetControl-SystemTray) adds a system tray icon, displaying the current amount of battery. (Python based)
 
 ## Development
 
