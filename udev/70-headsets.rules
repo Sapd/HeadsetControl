@@ -78,4 +78,7 @@ KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1038", ATTRS{idProduct
 # SteelSeries ARCTIS 9
 KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1038", ATTRS{idProduct}=="12c2", TAG+="uaccess"
 
+# ROCCAT Elo 7.1 Air
+KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1e7d", ATTRS{idProduct}=="3a37", TAG+="uaccess"
+
 LABEL="headset_end"
