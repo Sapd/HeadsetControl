@@ -45,7 +45,6 @@ static int send_receive(hid_device* hid_device, const unsigned char* data,
     unsigned char send_buffer[64];
     int r;
 
-    memset(send_buffer, 0, sizeof(send_buffer));
     memcpy(send_buffer, data, size);
     r = hid_write(hid_device, send_buffer, sizeof(send_buffer));
     if ((out_buffer != NULL) && (r >= 0)) {
