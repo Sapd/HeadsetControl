@@ -33,6 +33,8 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
   - Sidetone
 - Logitech Zone Wired
   - Sidetone, Voice prompts, Rotate to mute
+- Roccat Elo 7.1 Air
+  - LED on/off, Inactive time (Note for Linux: Sidetone is handled by sound driver => use AlsaMixer)
 
 For non-supported headsets on Linux: There is a chance that you can set the sidetone via AlsaMixer
 
