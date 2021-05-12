@@ -9,7 +9,7 @@
 #include <hidapi.h>
 #include <string.h>
 
-#define MSG_SIZE    20
+#define MSG_SIZE 20
 
 static struct device device_zone_wired;
 

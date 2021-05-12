@@ -13,6 +13,8 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
   - Sidetone, Battery (for Wireless), LED on/off, Notification Sound
 - Logitech G430
   - No support in current version (Last working on macOS in commit 41be99379f)
+- Logitech G432
+  - Sidetone (only tested on Linux)
 - Logitech G533
   - Sidetone, Battery (for Wireless)
 - Logitech G633 / G635 / G733 / G933 / G935
@@ -31,8 +33,8 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
   - Sidetone
 - Logitech Zone Wired
   - Sidetone, Voice prompts, Rotate to mute
-- ROCCAT Elo 7.1 Air
-  - LED on/off
+- Roccat Elo 7.1 Air
+  - LED on/off, Inactive time (Note for Linux: Sidetone is handled by sound driver => use AlsaMixer)
 
 For non-supported headsets on Linux: There is a chance that you can set the sidetone via AlsaMixer
 
