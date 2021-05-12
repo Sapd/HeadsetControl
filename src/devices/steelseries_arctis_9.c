@@ -10,7 +10,7 @@
 
 static struct device device_arctis;
 
-#define ID_ARCTIS_9        0x12c2
+#define ID_ARCTIS_9 0x12c2
 
 #define BATTERY_MAX 0x9A
 #define BATTERY_MIN 0x64
