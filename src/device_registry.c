@@ -57,3 +57,13 @@ int get_device(struct device* device_found, uint16_t idVendor, uint16_t idProduc
     }
     return 1;
 }
+
+int iterate_devices(int index, struct device** device_found)
+{
+    if (index < NUMDEVICES) {
+        *device_found = devicelist[index];
+        return 0;
+    } else {
+        return -1;
+    }
+}

@@ -186,6 +186,27 @@ static void print_capability(enum capabilities cap, char shortName, const char* 
     }
 }
 
+static void print_udevrules()
+{
+    int i = 0;
+    struct device* device_found;
+
+    printf("ACTION!=\"add|change\", GOTO=\"headset_end\"\n");
+    printf("\n");
+
+    while (iterate_devices(i++, &device_found) == 0) {
+        printf("# %s\n", device_found->device_name);
+
+        for (int i = 0; i < device_found->numIdProducts; i++)
+            printf("KERNEL==\"hidraw*\", SUBSYSTEM==\"hidraw\", ATTRS{idVendor}==\"%04x\", ATTRS{idProduct}==\"%04x\", TAG+=\"uaccess\"\n",
+                (unsigned int)device_found->idVendor, (unsigned int)device_found->idProductsSupported[i]);
+
+        printf("\n");
+    }
+
+    printf("LABEL=\"headset_end\"\n");
+}
+
 int main(int argc, char* argv[])
 {
     int c;
@@ -200,7 +221,10 @@ int main(int argc, char* argv[])
     long rotate_to_mute = -1;
     long print_capabilities = -1;
 
-    while ((c = getopt(argc, argv, "bchs:n:l:i:mv:r:?")) != -1) {
+    // Init all information of supported devices
+    init_devices();
+
+    while ((c = getopt(argc, argv, "bchs:n:l:i:mv:r:u?")) != -1) {
         switch (c) {
         case 'b':
             request_battery = 1;
@@ -256,6 +280,10 @@ int main(int argc, char* argv[])
                 return 1;
             }
             break;
+        case 'u':
+            fprintf(stderr, "Outputting udev rules to stdout/console...\n\n");
+            print_udevrules();
+            return 0;
         case '?':
             print_capabilities = 1;
             break;
@@ -271,6 +299,8 @@ int main(int argc, char* argv[])
             printf("  -m\t\tRetrieves the current chat-mix-dial level setting\n");
             printf("  -v 0|1\tTurn voice prompts on or off (0 = off, 1 = on)\n");
             printf("  -r 0|1\tTurn rotate to mute feature on or off (0 = off, 1 = on)\n");
+            printf("\n");
+            printf("  -u\t\tOutputs udev rules to stdout/console\n");
 
             printf("\n");
             return 0;
@@ -284,9 +314,6 @@ int main(int argc, char* argv[])
         for (int index = optind; index < argc; index++)
             printf("Non-option argument %s\n", argv[index]);
     }
-
-    // Init all information of supported devices
-    init_devices();
 
     // Look for a supported device
     int headset_available = find_device();

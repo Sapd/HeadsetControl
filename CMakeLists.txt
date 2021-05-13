@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.6.2)
+cmake_minimum_required(VERSION 2.8...3.19)
 project(headsetcontrol)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules/")
@@ -115,7 +115,17 @@ install(TARGETS headsetcontrol DESTINATION bin)
 
 # install udev files on linux
 if(UNIX AND NOT APPLE)
-    install(DIRECTORY udev/ DESTINATION /etc/udev/rules.d)
+    set (program_cmd headsetcontrol)
+    set (program_arg "-u")
+    set (program_output "/etc/udev/rules.d/70-headsets.rules")
+    install( CODE
+	            "
+    execute_process(COMMAND ${program_cmd} ${program_arg}
+      OUTPUT_FILE ${program_output})
+
+    message(STATUS \"Installed udev rules to ${program_output}\")
+	    "
+    )
 endif()
 
 
