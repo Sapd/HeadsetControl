@@ -114,7 +114,7 @@ This will copy the binary to a folder globally accessible via path.
 
 ### Access without root
 
-Also in Linux, you need udev rules if you don't want to start the application with root. Those rules reside in the udev folder of this repository. Typing `make install` on Linux copies them automatically to /etc/udev/rules.d/.
+Also in Linux, you need udev rules if you don't want to start the application with root. Those rules are generated via `headsetcontrol -u`. Typing `make install` on Linux generates and writes them automatically to /etc/udev/rules.d/.
 
 You can reload udev configuration without reboot via `sudo udevadm control --reload-rules && sudo udevadm trigger`
 
@@ -123,7 +123,7 @@ You can reload udev configuration without reboot via `sudo udevadm control --rel
 Type `headsetcontrol -h` to get all available options.\
 (Don't forget to prefix it with `./` when the application resides in the current folder)
 
-Type `headsetcontrol -?` to get a list of supported capabilities for the currently detected headset
+Type `headsetcontrol -?` to get a list of supported capabilities for the currently detected headset.
 
 `headsetcontrol -s 128` sets the sidetone to 128 (REAL loud). You can silence it with `0`. I recommend a loudness of 16.
 
@@ -140,6 +140,8 @@ Following options don't work on all devices yet:
 `headsetcontrol -i 0-90` sets inactive time in minutes, time must be between 0 and 90, 0 disables the feature.
 
 `headsetcontrol -m` retrieves the current chat-mix-dial level setting.
+
+`headsetcontrol -u` Generates and outputs udev-rules for Linux.
 
 ### Third Party
 
