@@ -14,7 +14,7 @@ static struct device device_arctis;
 static const uint16_t PRODUCT_IDS[] = { ID_ARCTIS_1 };
 
 static int arctis_1_send_sidetone(hid_device* device_handle, uint8_t num);
-//static int arctis_1_request_battery(hid_device* device_handle);
+static int arctis_1_request_battery(hid_device* device_handle);
 static int arctis_1_send_inactive_time(hid_device* device_handle, uint8_t num);
 
 static int arctis_1_save_state(hid_device* device_handle);
@@ -28,9 +28,9 @@ void arctis_1_init(struct device** device)
 
     strncpy(device_arctis.device_name, "SteelSeries Arctis (1) Wireless", sizeof(device_arctis.device_name));
 
-    device_arctis.capabilities = CAP_SIDETONE | CAP_INACTIVE_TIME;
+    device_arctis.capabilities = CAP_SIDETONE | CAP_BATTERY_STATUS | CAP_INACTIVE_TIME;
     device_arctis.send_sidetone = &arctis_1_send_sidetone;
-    //device_arctis.request_battery = &arctis_1_request_battery;
+    device_arctis.request_battery = &arctis_1_request_battery;
     device_arctis.send_inactive_time = &arctis_1_send_inactive_time;
 
     *device = &device_arctis;
@@ -69,13 +69,12 @@ static int arctis_1_send_sidetone(hid_device* device_handle, uint8_t num)
     return ret;
 }
 
-/*static int arctis_1_request_battery(hid_device* device_handle)
+static int arctis_1_request_battery(hid_device* device_handle)
 {
-
     int r = 0;
 
     // request battery status
-    unsigned char data_request[2] = { 0x06, 0x18 };
+    unsigned char data_request[2] = { 0x06, 0x12 };
 
     r = hid_write(device_handle, data_request, 2);
 
@@ -90,13 +89,16 @@ static int arctis_1_send_sidetone(hid_device* device_handle, uint8_t num)
     if (r < 0)
         return r;
 
-    int bat = data_read[2];
+    if (data_read[2] == 0x01)
+        return BATTERY_UNAVAILABLE;
+
+    int bat = data_read[3];
 
     if (bat > 100)
         return 100;
 
     return bat;
-}*/
+}
 
 static int arctis_1_send_inactive_time(hid_device* device_handle, uint8_t num)
 {
