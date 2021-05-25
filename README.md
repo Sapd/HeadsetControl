@@ -21,9 +21,7 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
   - Sidetone, Battery (for Wireless), LED on/off
 - Logitech G930
   - Sidetone, Battery
-- SteelSeries Arctis 1
-  - Sidetone, Inactive time
-- SteelSeries Arctis 1 for XBox
+- SteelSeries Arctis 1, Arctis 1 for XBox
   - Sidetone, Battery, Inactive time
 - SteelSeries Arctis (7 and Pro)
   - Sidetone, Battery, Inactive time, Chat-Mix level, LED on/off (allows to turn off the blinking LED on the base-station)
