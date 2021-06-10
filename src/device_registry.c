@@ -3,6 +3,7 @@
 #include "devices/corsair_void.h"
 #include "devices/logitech_g430.h"
 #include "devices/logitech_g432.h"
+#include "devices/logitech_g433.h"
 #include "devices/logitech_g533.h"
 #include "devices/logitech_g633_g933_935.h"
 #include "devices/logitech_g930.h"
@@ -15,7 +16,7 @@
 
 #include <string.h>
 
-#define NUMDEVICES 12
+#define NUMDEVICES 13
 
 // array of pointers to device
 static struct device*(devicelist[NUMDEVICES]);
@@ -34,6 +35,7 @@ void init_devices()
     zone_wired_init(&devicelist[9]);
     elo71Air_init(&devicelist[10]);
     g432_init(&devicelist[11]);
+    g433_init(&devicelist[12]);
 }
 
 int get_device(struct device* device_found, uint16_t idVendor, uint16_t idProduct)
