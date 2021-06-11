@@ -15,6 +15,8 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
   - No support in current version (Last working on macOS in commit 41be99379f)
 - Logitech G432
   - Sidetone (only tested on Linux)
+- Logitech G433
+  - Sidetone (only tested on Linux)
 - Logitech G533
   - Sidetone, Battery (for Wireless)
 - Logitech G633 / G635 / G733 / G933 / G935
