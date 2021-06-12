@@ -12,10 +12,11 @@
 #include "devices/steelseries_arctis_1.h"
 #include "devices/steelseries_arctis_7.h"
 #include "devices/steelseries_arctis_9.h"
+#include "devices/steelseries_arctis_pro_wireless.h"
 
 #include <string.h>
 
-#define NUMDEVICES 12
+#define NUMDEVICES 13
 
 // array of pointers to device
 static struct device*(devicelist[NUMDEVICES]);
@@ -30,10 +31,11 @@ void init_devices()
     arctis_1_init(&devicelist[5]);
     arctis_7_init(&devicelist[6]);
     arctis_9_init(&devicelist[7]);
-    gpro_init(&devicelist[8]);
-    zone_wired_init(&devicelist[9]);
-    elo71Air_init(&devicelist[10]);
-    g432_init(&devicelist[11]);
+    arctis_pro_wireless_init(&devicelist[8]);
+    gpro_init(&devicelist[9]);
+    zone_wired_init(&devicelist[10]);
+    elo71Air_init(&devicelist[11]);
+    g432_init(&devicelist[12]);
 }
 
 int get_device(struct device* device_found, uint16_t idVendor, uint16_t idProduct)

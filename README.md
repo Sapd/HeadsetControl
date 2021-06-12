@@ -29,6 +29,8 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
   - Sidetone, Battery, Inactive time, Chat-Mix level, LED on/off (allows to turn off the blinking LED on the base-station)
 - SteelSeries Arctis 9
   - Sidetone, Battery, Inactive time, Chat-Mix level
+- SteelSeries Arctis Pro Wireless
+  - Sidetone, Battery, Inactive time
 - Logitech G PRO
   - Sidetone
 - Logitech Zone Wired
