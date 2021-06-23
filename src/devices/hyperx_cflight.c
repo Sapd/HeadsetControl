@@ -14,6 +14,9 @@
 
 static struct device device_cflight;
 
+// timeout for hidapi requests in milliseconds
+
+#define TIMEOUT 2000
 #define VENDOR_HYPERX 0x0951
 #define ID_CFLIGHT_OLD 0x16C4
 #define ID_CFLIGHT_NEW 0x1723
@@ -29,9 +32,9 @@ void cflight_init(struct device** device)
     device_cflight.idVendor = VENDOR_HYPERX;
     device_cflight.idProductsSupported = PRODUCT_IDS;
     device_cflight.numIdProducts = sizeof(PRODUCT_IDS)/sizeof(PRODUCT_IDS[0]);
-    device_cflight.idUsagePage = 0xff90; //TODO: the old one uses 0xff53
+    //device_cflight.idUsagePage = 0xff90; //TODO: the old one uses 0xff53
     //device_cflight.idUsagePage = 0xff53;
-    device_cflight.idUsage = 0x0303;
+    //device_cflight.idUsage = 0x0303;
     strncpy(device_cflight.device_name, "HyperX Cloud Flight Wireless", 
             sizeof(device_cflight.device_name));
 
@@ -171,38 +174,46 @@ static int cflight_request_battery(hid_device* device_handle)
         return r;
 
     uint8_t data_read[20];
-    r = hid_read(device_handle, data_read, 20);
+    r = hid_read_timeout(device_handle, data_read, 20, TIMEOUT);
     if (r < 0)
         return r;
+    if (r == 0) // timeout
+        return HSC_ERROR;
 
+    if (r == 0xf || r == 0x14 ) {
 #ifdef DEBUG
-    printf("cflight_request_battery data_read 3: 0x%08x 4: 0x%08x\n", data_read[3], data_read[4]);
+        printf("cflight_request_battery data_read 3: 0x%08x 4: 0x%08x\n", data_read[3], data_read[4]);
 #endif
-
-    uint8_t chargeState = data_read[3];
-    uint8_t magicValue = data_read[4]; // || chargeState;
-    if (magicValue == 0) magicValue = chargeState;
-
+    
+        uint8_t chargeState = data_read[3];
+        uint8_t magicValue = data_read[4]; // || chargeState;
+        if (magicValue == 0) magicValue = chargeState;
+    
 #ifdef DEBUG
-    printf("cflight_request_battery chargeState: 0x%08x magicValue: 0x%08x\n", chargeState, magicValue);
+        printf("cflight_request_battery chargeState: 0x%08x magicValue: 0x%08x\n", chargeState, magicValue);
 #endif
-
-    uint8_t batteryLevel = calculatePercentage(magicValue, chargeState);
-
+    
+        uint8_t batteryLevel = calculatePercentage(magicValue, chargeState);
+    
 #ifdef DEBUG
-    printf("cflight_request_battery calculated: %i\n", batteryLevel );
+        printf("cflight_request_battery calculated: %i\n", batteryLevel );
 #endif
-
-    if (batteryLevel <= 100)
-      return batteryLevel;
-
-    if (batteryLevel == 199)
-      return BATTERY_CHARGING;
-
-    if (batteryLevel == 200)
-      return 100;
-
-    // either if batteryLevel == 255 or ... 
+    
+        if (batteryLevel <= 100)
+          return batteryLevel;
+    
+        if (batteryLevel == 199)
+          return BATTERY_CHARGING;
+    
+        if (batteryLevel == 200)
+          return 100;
+    
+        // either if batteryLevel == 255 or ... 
+        return HSC_ERROR;
+    }
+    
+    // we've read other functionality (other read length) 
+    // which is currently not supported
     return HSC_ERROR;
 }
 
