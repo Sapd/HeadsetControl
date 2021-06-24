@@ -133,6 +133,11 @@ uint8_t calculatePercentage(uint8_t magicValue, uint8_t chargeState) {
       if (magicValue < 90) {
         return 10;
       }
+      
+      // TODO:
+      // there are values of magicValue > 250 with a charge level 
+      // of round about 65-70... 
+      return 66;
     }
     return 255; //error
 }
