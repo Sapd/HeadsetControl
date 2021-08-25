@@ -145,7 +145,7 @@ Following options don't work on all devices yet:
 
 `headsetcontrol -i 0-90` sets inactive time in minutes, time must be between 0 and 90, 0 disables the feature.
 
-`headsetcontrol -m` retrieves the current chat-mix-dial level setting.
+`headsetcontrol -m` retrieves the current chat-mix-dial level setting between 0 and 128. Below 64 is the chat side and above is the game side.
 
 `headsetcontrol -u` Generates and outputs udev-rules for Linux.
 
