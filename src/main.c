@@ -296,7 +296,7 @@ int main(int argc, char* argv[])
             printf("  -l 0|1\tSwitch lights (0 = off, 1 = on)\n");
             printf("  -c\t\tCut unnecessary output \n");
             printf("  -i time\tSets inactive time in minutes, time must be between 0 and 90, 0 disables the feature.\n");
-            printf("  -m\t\tRetrieves the current chat-mix-dial level setting\n");
+            printf("  -m\t\tRetrieves the current chat-mix-dial level setting between 0 and 128. Below 64 is the chat side and above is the game side.\n");
             printf("  -v 0|1\tTurn voice prompts on or off (0 = off, 1 = on)\n");
             printf("  -r 0|1\tTurn rotate to mute feature on or off (0 = off, 1 = on)\n");
             printf("\n");
