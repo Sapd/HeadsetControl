@@ -20,7 +20,7 @@ void elo71USB_init(struct device** device)
 
     strncpy(device_elo71USB.device_name, "ROCCAT Elo 7.1 USB", sizeof(device_elo71USB.device_name));
 
-    device_elo71USB.capabilities = CAP_LIGHTS | CAP_INACTIVE_TIME;
+    device_elo71USB.capabilities = CAP_LIGHTS;
     device_elo71USB.switch_lights = &elo71USB_switch_lights;
 
     *device = &device_elo71USB;
@@ -68,7 +68,9 @@ static int elo71USB_switch_lights(hid_device* hid_device, uint8_t on)
 
     r = send_receive(hid_device, cmd92, sizeof(cmd92), NULL);
     if (r <= 0) return r;
+
     r = send_receive(hid_device, cmd93, sizeof(cmd93), NULL);
+    if (r <= 0) return r;
 
     if (on == 1) {
         r = send_receive(hid_device, cmd94, sizeof(cmd94), NULL);
