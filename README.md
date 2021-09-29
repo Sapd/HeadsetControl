@@ -33,7 +33,7 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
   - Sidetone, Battery, Inactive time
 - Logitech G PRO
   - Sidetone
-- Logitech Zone Wired
+- Logitech Zone Wired/Zone 750
   - Sidetone, Voice prompts, Rotate to mute
 - Roccat Elo 7.1 Air
   - LED on/off, Inactive time (Note for Linux: Sidetone is handled by sound driver => use AlsaMixer)
