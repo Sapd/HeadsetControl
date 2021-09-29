@@ -61,7 +61,7 @@ RHEL and CentOS also require the epel-repository: `yum install epel-release`. Pl
 `yum groupinstall "Development tools"`
 `yum install git cmake hidapi-devel`
 
-#### Fedora 
+#### Fedora
 
 `dnf install cmake hidapi-devel g++`
 
@@ -133,7 +133,7 @@ Type `headsetcontrol -?` to get a list of supported capabilities for the current
 
 `headsetcontrol -s 128` sets the sidetone to 128 (REAL loud). You can silence it with `0`. I recommend a loudness of 16.
 
-Following options don't work on all devices yet:
+The following options don't work on all devices yet:
 
 `headsetcontrol -b` check battery level. Returns a value from 0 to 100 or loading.
 
@@ -146,6 +146,10 @@ Following options don't work on all devices yet:
 `headsetcontrol -i 0-90` sets inactive time in minutes, time must be between 0 and 90, 0 disables the feature.
 
 `headsetcontrol -m` retrieves the current chat-mix-dial level setting between 0 and 128. Below 64 is the chat side and above is the game side.
+
+`headsetcontrol -v 0|1` turn voice prompts on or off.
+
+`headsetcontrol -r 0|1` turn rotate to mute feature on or off.
 
 `headsetcontrol -u` Generates and outputs udev-rules for Linux.
 
