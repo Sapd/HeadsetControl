@@ -67,21 +67,26 @@ static int elo71USB_switch_lights(hid_device* hid_device, uint8_t on)
     int r;
 
     r = send_receive(hid_device, cmd92, sizeof(cmd92), NULL);
-    if (r <= 0) return r;
+    if (r <= 0)
+        return r;
 
     r = send_receive(hid_device, cmd93, sizeof(cmd93), NULL);
-    if (r <= 0) return r;
+    if (r <= 0)
+        return r;
 
     if (on == 1) {
         r = send_receive(hid_device, cmd94, sizeof(cmd94), NULL);
-        if (r <= 0) return r;
+        if (r <= 0)
+            return r;
     } else {
         r = send_receive(hid_device, cmd97, sizeof(cmd97), NULL);
-        if (r <= 0) return r;
+        if (r <= 0)
+            return r;
     }
 
     r = send_receive(hid_device, cmd95, sizeof(cmd95), NULL);
-    if (r <= 0) return r;
+    if (r <= 0)
+        return r;
 
     return 0;
 }
