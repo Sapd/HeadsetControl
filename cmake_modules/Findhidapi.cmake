@@ -25,7 +25,7 @@
 
 IF (WIN32)
 	find_library(HIDAPI_LIBRARY
-		NAMES hidapi)
+		NAMES hidapi.a libhidapi.a hidapi)
 ELSE()
 	find_library(HIDAPI_LIBRARY
 		NAMES hidapi-hidraw hidapi)
