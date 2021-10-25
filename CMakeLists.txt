@@ -121,6 +121,8 @@ install(TARGETS headsetcontrol DESTINATION bin)
 # install udev files on linux
 if(UNIX AND NOT APPLE)
     set(rules_file 70-headsets.rules)
+    set(udev_rules_dir lib/udev/rules.d/
+        CACHE PATH "Path to the directory where udev rules should be installed")
     add_custom_command(
         OUTPUT ${rules_file}
         COMMAND headsetcontrol -u > ${rules_file}
@@ -128,7 +130,7 @@ if(UNIX AND NOT APPLE)
     add_custom_target(udevrules ALL DEPENDS ${rules_file})
     install(
         FILES ${CMAKE_CURRENT_BINARY_DIR}/${rules_file}
-        DESTINATION lib/udev/rules.d/)
+        DESTINATION ${udev_rules_dir})
 endif()
 
 
