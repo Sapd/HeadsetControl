@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8...3.19)
-project(headsetcontrol)
+project(headsetcontrol LANGUAGES C)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules/")
 set(CLANG_FORMAT_EXCLUDE_PATTERNS  "build/")
