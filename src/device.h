@@ -22,6 +22,17 @@ enum capabilities {
     CAP_ROTATE_TO_MUTE = 128,
 };
 
+static const char* const capabilities_str[] = {
+    [CAP_SIDETONE] = "sidetone",
+    [CAP_BATTERY_STATUS] = "battery status",
+    [CAP_NOTIFICATION_SOUND] = "notification sound",
+    [CAP_LIGHTS] = "lights",
+    [CAP_INACTIVE_TIME] = "inactive time",
+    [CAP_CHATMIX_STATUS] = "chatmix",
+    [CAP_VOICE_PROMPTS] = "voice prompts",
+    [CAP_ROTATE_TO_MUTE] = "rotate to mute",
+};
+
 /** @brief Flags for battery status
  */
 enum battery_status {
