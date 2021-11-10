@@ -141,7 +141,7 @@ The following options don't work on all devices yet:
 
 `headsetcontrol -l 0|1` switches LED off/on (off almost doubles battery lifetime!).
 
-`headsetcontrol -c` cut unnecessary output, for reading by other scripts or applications.
+`headsetcontrol --short-output` cut unnecessary output, for reading by other scripts or applications.
 
 `headsetcontrol -i 0-90` sets inactive time in minutes, time must be between 0 and 90, 0 disables the feature.
 
@@ -152,6 +152,8 @@ The following options don't work on all devices yet:
 `headsetcontrol -r 0|1` turn rotate to mute feature on or off.
 
 `headsetcontrol -u` Generates and outputs udev-rules for Linux.
+
+`headsetcontrol --dev` Advanced menu for developers, to send and/or receive custom data
 
 ### Third Party
 

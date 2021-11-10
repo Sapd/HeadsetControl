@@ -146,7 +146,7 @@ int main(int argc, char* argv[])
         { "notificate", required_argument, NULL, 'n' },
         { "rotate-to-mute", required_argument, NULL, 'r' },
         { "sidetone", required_argument, NULL, 's' },
-        { "short", no_argument, NULL, 'c' },
+        { "short-output", no_argument, NULL, 'c' },
         { "voice-prompt", required_argument, NULL, 'v' },
         { 0, 0, 0, 0 }
     };
@@ -226,7 +226,7 @@ int main(int argc, char* argv[])
             printf("  -b, --battery\t\t\tChecks the battery level\n");
             printf("  -n, --notificate soundid\tMakes the headset play a notifiation\n");
             printf("  -l, --light 0|1\t\tSwitch lights (0 = off, 1 = on)\n");
-            printf("  -c, --short\t\t\tUse more machine-friendly output \n");
+            printf("  -c, --short-output\t\t\tUse more machine-friendly output \n");
             printf("  -i, --inactive-time time\tSets inactive time in minutes, time must be between 0 and 90, 0 disables the feature.\n");
             printf("  -m, --chatmix\t\t\tRetrieves the current chat-mix-dial level setting between 0 and 128. Below 64 is the game side and above is the chat side.\n");
             printf("  -v, --voice-prompt 0|1\tTurn voice prompts on or off (0 = off, 1 = on)\n");
