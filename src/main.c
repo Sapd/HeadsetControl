@@ -321,8 +321,10 @@ int main(int argc, char* argv[])
 
         ret = device_found.request_battery(device_handle);
 
-        if (handle_featurereturn(ret, device_handle, CAP_BATTERY_STATUS))
-            goto error;
+        if (ret < 0) {
+            fprintf(stderr, "Failed to read battery. Error: %d: %ls\n", ret, hid_error(device_handle));
+            return 1;
+        }
 
         if (ret == BATTERY_CHARGING) {
             if (!short_output)
