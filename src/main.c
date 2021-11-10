@@ -17,7 +17,9 @@
     along with HeadsetControl.  If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "dev.h"
 #include "device_registry.h"
+#include "hid_utility.h"
 #include "utility.h"
 
 #include <hidapi.h>
@@ -63,114 +65,6 @@ int find_device(struct device* device_found)
     hid_free_enumeration(devs);
 
     return found;
-}
-
-/**
- *  Helper freeing HID data and terminating HID usage.
- */
-/* This function is explicitly called terminate_hid to avoid HIDAPI clashes. */
-static void terminate_hid(hid_device** handle, char** path)
-{
-    if (handle) {
-        if (*handle) {
-            hid_close(*handle);
-        }
-
-        *handle = NULL;
-    }
-
-    if (path) {
-        free(*path);
-    }
-
-    hid_exit();
-}
-
-/**
- *  @brief Helper fetching a copied HID path for a given device description.
- *
- *  This is a convenience function iterating over connected USB devices and
- *  returning a copy of the HID path belonging to the device described in the
- *  parameters.
- *
- *  @param vid The device vendor ID.
- *  @param pid The device product ID.
- *  @param iid The device interface ID. A value of zero means to take the
- *             first enumerated (sub-) device.
- *  @param usagepageid The device usage page id, see usageid
- *  @param usageid      The device usage id in context to usagepageid.
- *                      Only used on Windows currently, and when not 0;
- *                      ignores iid when set
- *
- *  @return copy of the HID path or NULL on failure
- */
-static char* get_hid_path(uint16_t vid, uint16_t pid, int iid, uint16_t usagepageid, uint16_t usageid)
-{
-    char* ret = NULL;
-
-    struct hid_device_info* devs = hid_enumerate(vid, pid);
-
-    if (!devs) {
-        fprintf(stderr, "HID enumeration failure.\n");
-        return ret;
-    }
-
-    // usageid is more specific to interface id, so we try it first
-    // It is a good idea, to do it on all platforms, however googling shows
-    //      that older versions of hidapi have a bug where the value is not correctly
-    //      set on non-Windows.
-#if defined(WIN32) || defined(_WIN32) || defined(__WIN32)
-    if (usageid && usagepageid) // ignore when one of them 0
-    {
-        struct hid_device_info* cur_dev = devs;
-        while (cur_dev) {
-            if (cur_dev->usage_page == usagepageid && cur_dev->usage == usageid) {
-                ret = strdup(cur_dev->path);
-
-                if (!ret) {
-                    fprintf(stderr, "Unable to copy HID path for usageid.\n");
-                    hid_free_enumeration(devs);
-                    devs = NULL;
-                    return ret;
-                }
-
-                break;
-            }
-
-            cur_dev = cur_dev->next;
-        }
-    }
-#else
-    // ignore unused parameter warning
-    (void)(usageid);
-    (void)(usagepageid);
-#endif
-
-    if (ret == NULL) // only when we didn't yet found something
-    {
-        struct hid_device_info* cur_dev = devs;
-        while (cur_dev) {
-            if (!iid || cur_dev->interface_number == iid) {
-                ret = strdup(cur_dev->path);
-
-                if (!ret) {
-                    fprintf(stderr, "Unable to copy HID path.\n");
-                    hid_free_enumeration(devs);
-                    devs = NULL;
-                    return ret;
-                }
-
-                break;
-            }
-
-            cur_dev = cur_dev->next;
-        }
-    }
-
-    hid_free_enumeration(devs);
-    devs = NULL;
-
-    return ret;
 }
 
 static void print_capability(int capabilities, enum capabilities cap, char shortName, const char* longName)
@@ -239,11 +133,13 @@ int main(int argc, char* argv[])
     int voice_prompts = -1;
     int rotate_to_mute = -1;
     int print_capabilities = -1;
+    int dev_mode = 0;
 
     struct option opts[] = {
         { "battery", no_argument, NULL, 'b' },
         { "capabilities", no_argument, NULL, '?' },
         { "chatmix", no_argument, NULL, 'm' },
+        { "dev", no_argument, NULL, 0 },
         { "help", no_argument, NULL, 'h' },
         { "inactive-time", required_argument, NULL, 'i' },
         { "light", required_argument, NULL, 'l' },
@@ -255,10 +151,12 @@ int main(int argc, char* argv[])
         { 0, 0, 0, 0 }
     };
 
+    int option_index = 0;
+
     // Init all information of supported devices
     init_devices();
 
-    while ((c = getopt_long(argc, argv, "bchi:l:mn:r:s:uv:?", opts, NULL)) != -1) {
+    while ((c = getopt_long(argc, argv, "bchi:l:mn:r:s:uv:?", opts, &option_index)) != -1) {
         switch (c) {
         case 'b':
             request_battery = 1;
@@ -338,14 +236,24 @@ int main(int argc, char* argv[])
 
             printf("\n");
             return 0;
+        case 0:
+            if (strcmp(opts[option_index].name, "dev") == 0) {
+                dev_mode = 1;
+                break;
+            }
         default:
             printf("Invalid argument %c\n", c);
             return 1;
         }
     }
 
-    for (int index = optind; index < argc; index++)
-        fprintf(stderr, "Non-option argument %s\n", argv[index]);
+    if (dev_mode) {
+        // use +1 to make sure the first parameter is some previous argument (which normally would be the name of the program)
+        return dev_main(argc - optind + 1, &argv[optind - 1]);
+    } else {
+        for (int index = optind; index < argc; index++)
+            fprintf(stderr, "Non-option argument %s\n", argv[index]);
+    }
 
     // describes the device, when a headset was found
     static struct device device_found;
