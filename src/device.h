@@ -8,29 +8,38 @@
 #define VENDOR_STEELSERIES 0x1038
 #define VENDOR_ROCCAT      0x1e7d
 
+/// Convert given number to bitmask
+#define B(X) (1 << X)
+
 /** @brief A list of all features settable/queryable
  *         for headsets
+ *
+ *  B(CAP_X) converts them to a bitmask value
  */
 enum capabilities {
-    CAP_SIDETONE = 1,
-    CAP_BATTERY_STATUS = 2,
-    CAP_NOTIFICATION_SOUND = 4,
-    CAP_LIGHTS = 8,
-    CAP_INACTIVE_TIME = 16,
-    CAP_CHATMIX_STATUS = 32,
-    CAP_VOICE_PROMPTS = 64,
-    CAP_ROTATE_TO_MUTE = 128,
+    CAP_SIDETONE = 0,
+    CAP_BATTERY_STATUS,
+    CAP_NOTIFICATION_SOUND,
+    CAP_LIGHTS,
+    CAP_INACTIVE_TIME,
+    CAP_CHATMIX_STATUS,
+    CAP_VOICE_PROMPTS,
+    CAP_ROTATE_TO_MUTE,
+    NUM_CAPABILITIES
 };
 
-static const char* const capabilities_str[] = {
-    [CAP_SIDETONE] = "sidetone",
-    [CAP_BATTERY_STATUS] = "battery status",
-    [CAP_NOTIFICATION_SOUND] = "notification sound",
-    [CAP_LIGHTS] = "lights",
-    [CAP_INACTIVE_TIME] = "inactive time",
-    [CAP_CHATMIX_STATUS] = "chatmix",
-    [CAP_VOICE_PROMPTS] = "voice prompts",
-    [CAP_ROTATE_TO_MUTE] = "rotate to mute",
+/// Long name of every capability
+const char* const capabilities_str[NUM_CAPABILITIES];
+/// Short name of every capability
+const char capabilities_str_short[NUM_CAPABILITIES];
+
+struct capability_detail {
+    // Usage page, only used when usageid is not 0; HID Protocol specific
+    int usagepage;
+    // Used instead of interface when not 0, and only used on Windows currently; HID Protocol specific
+    int usageid;
+    /// Interface ID - zero means first enumerated interface!
+    int interface;
 };
 
 /** @brief Flags for battery status
@@ -57,18 +66,14 @@ struct device {
     const uint16_t* idProductsSupported;
     /// Size of idProducts
     int numIdProducts;
-    /// Interface ID - zero means first enumerated interface!
-    int idInterface;
-    /// Usage page, only used when idUsage is not 0; HID Protocol specific
-    uint16_t idUsagePage;
-    /// Used instead of idInterface when not 0, and only used on Windows currently; HID Protocol specific
-    uint16_t idUsage;
 
     /// Name of device, used as information for the user
     char device_name[64];
 
     /// Bitmask of currently supported features the software can currently handle
     int capabilities;
+    /// Details of all capabilities (e.g. to which interface to connect)
+    struct capability_detail capability_details[NUM_CAPABILITIES];
 
     /** @brief Function pointer for setting headset sidetone
      *

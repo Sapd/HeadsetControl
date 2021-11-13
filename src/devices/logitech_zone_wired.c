@@ -30,11 +30,10 @@ void zone_wired_init(struct device** device)
     device_zone_wired.idVendor = VENDOR_LOGITECH;
     device_zone_wired.idProductsSupported = PRODUCT_IDS;
     device_zone_wired.numIdProducts = sizeof(PRODUCT_IDS) / sizeof(PRODUCT_IDS[0]);
-    device_zone_wired.idUsage = 0x0;
 
     strncpy(device_zone_wired.device_name, "Logitech Zone Wired/Zone 750", sizeof(device_zone_wired.device_name));
 
-    device_zone_wired.capabilities = CAP_SIDETONE | CAP_VOICE_PROMPTS | CAP_ROTATE_TO_MUTE;
+    device_zone_wired.capabilities = B(CAP_SIDETONE) | B(CAP_VOICE_PROMPTS) | B(CAP_ROTATE_TO_MUTE);
     device_zone_wired.send_sidetone = &zone_wired_send_sidetone;
     device_zone_wired.switch_voice_prompts = &zone_wired_switch_voice_prompts;
     device_zone_wired.switch_rotate_to_mute = &zone_wired_switch_rotate_to_mute;

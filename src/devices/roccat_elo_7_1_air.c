@@ -17,11 +17,10 @@ void elo71Air_init(struct device** device)
     device_elo71Air.idVendor = VENDOR_ROCCAT;
     device_elo71Air.idProductsSupported = &PRODUCT_ID;
     device_elo71Air.numIdProducts = 1;
-    device_elo71Air.idInterface = 0;
 
     strncpy(device_elo71Air.device_name, "ROCCAT Elo 7.1 Air", sizeof(device_elo71Air.device_name));
 
-    device_elo71Air.capabilities = CAP_LIGHTS | CAP_INACTIVE_TIME;
+    device_elo71Air.capabilities = B(CAP_LIGHTS) | B(CAP_INACTIVE_TIME);
     device_elo71Air.switch_lights = &elo71Air_switch_lights;
     device_elo71Air.send_inactive_time = &elo71Air_send_inactive_time;
 

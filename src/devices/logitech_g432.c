@@ -24,7 +24,7 @@ void g432_init(struct device** device)
 
     strncpy(device_g432.device_name, "Logitech G432/G433", sizeof(device_g432.device_name));
 
-    device_g432.capabilities = CAP_SIDETONE;
+    device_g432.capabilities = B(CAP_SIDETONE);
     device_g432.send_sidetone = &g432_send_sidetone;
 
     *device = &device_g432;

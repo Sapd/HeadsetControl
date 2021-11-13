@@ -30,11 +30,10 @@ void arctis_9_init(struct device** device)
     device_arctis.idVendor = VENDOR_STEELSERIES;
     device_arctis.idProductsSupported = PRODUCT_IDS;
     device_arctis.numIdProducts = sizeof(PRODUCT_IDS) / sizeof(PRODUCT_IDS[0]);
-    device_arctis.idInterface = 0x00;
 
     strncpy(device_arctis.device_name, "SteelSeries Arctis 9", sizeof(device_arctis.device_name));
 
-    device_arctis.capabilities = CAP_SIDETONE | CAP_BATTERY_STATUS | CAP_INACTIVE_TIME | CAP_CHATMIX_STATUS;
+    device_arctis.capabilities = B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_INACTIVE_TIME) | B(CAP_CHATMIX_STATUS);
     device_arctis.send_sidetone = &arctis_9_send_sidetone;
     device_arctis.request_battery = &arctis_9_request_battery;
     device_arctis.send_inactive_time = &arctis_9_send_inactive_time;

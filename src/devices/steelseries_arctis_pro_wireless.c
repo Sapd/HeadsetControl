@@ -32,11 +32,10 @@ void arctis_pro_wireless_init(struct device** device)
     device_arctis.idVendor = VENDOR_STEELSERIES;
     device_arctis.idProductsSupported = PRODUCT_IDS;
     device_arctis.numIdProducts = sizeof(PRODUCT_IDS) / sizeof(PRODUCT_IDS[0]);
-    device_arctis.idInterface = 0x00;
 
     strncpy(device_arctis.device_name, "SteelSeries Arctis Pro Wireless", sizeof(device_arctis.device_name));
 
-    device_arctis.capabilities = CAP_SIDETONE | CAP_BATTERY_STATUS | CAP_INACTIVE_TIME;
+    device_arctis.capabilities = B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_INACTIVE_TIME);
     device_arctis.send_sidetone = &arctis_pro_wireless_send_sidetone;
     device_arctis.request_battery = &arctis_pro_wireless_request_battery;
     device_arctis.send_inactive_time = &arctis_pro_wireless_send_inactive_time;
