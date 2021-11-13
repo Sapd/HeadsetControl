@@ -46,7 +46,7 @@ struct capability_detail {
  */
 enum battery_status {
     BATTERY_UNAVAILABLE = 65534,
-    BATTERY_CHARGING = 65535
+    BATTERY_CHARGING    = 65535
 };
 
 enum headsetcontrol_errors {

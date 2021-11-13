@@ -23,7 +23,7 @@ static void print_devices(unsigned short vendorid, unsigned short productid)
 {
     struct hid_device_info *devs, *cur_dev;
 
-    devs = hid_enumerate(vendorid, productid);
+    devs    = hid_enumerate(vendorid, productid);
     cur_dev = devs;
     while (cur_dev) {
         printf("Device Found\n  VendorID: %#06hx\n ProductID: %#06hx\n  path: %s\n  serial_number: %ls",
@@ -59,7 +59,7 @@ static int get_data_from_parameter(char* input, char* dest, size_t len)
 
     // For each token in the string, parse and store in buf[].
     char* token = strtok(input, delim);
-    int i = 0;
+    int i       = 0;
     while (token) {
         char* endptr;
         long int val = strtol(token, &endptr, 0);
@@ -68,7 +68,7 @@ static int get_data_from_parameter(char* input, char* dest, size_t len)
             return -1;
 
         dest[i++] = val;
-        token = strtok(NULL, delim);
+        token     = strtok(NULL, delim);
     }
 
     free(str);
@@ -112,7 +112,7 @@ static int get_two_ids(char* input, int* id1, int* id2)
     strcpy(str, input);
 
     char* token = strtok(input, delim);
-    int i = 0;
+    int i       = 0;
     while (token) {
         char* endptr;
         long int val = strtol(token, &endptr, 0);
@@ -188,18 +188,18 @@ static void print_help()
 
 int dev_main(int argc, char* argv[])
 {
-    int vendorid = 0;
-    int productid = 0;
+    int vendorid    = 0;
+    int productid   = 0;
     int interfaceid = 0;
-    int usagepage = 0;
-    int usageid = 0;
+    int usagepage   = 0;
+    int usageid     = 0;
 
-    int send = 0;
+    int send         = 0;
     int send_feature = 0;
 
     int sleep = -1;
 
-    int receive = 0;
+    int receive       = 0;
     int receivereport = 0;
 
     int timeout = 0;
@@ -207,10 +207,10 @@ int dev_main(int argc, char* argv[])
     int print_deviceinfo = 0;
 
 #define BUFFERLENGTH 1024
-    char* sendbuffer = calloc(BUFFERLENGTH, sizeof(char));
+    char* sendbuffer       = calloc(BUFFERLENGTH, sizeof(char));
     char* sendreportbuffer = calloc(BUFFERLENGTH, sizeof(char));
 
-    unsigned char* receivebuffer = malloc(sizeof(char) * BUFFERLENGTH);
+    unsigned char* receivebuffer       = malloc(sizeof(char) * BUFFERLENGTH);
     unsigned char* receivereportbuffer = malloc(sizeof(char) * BUFFERLENGTH);
 
     struct option opts[] = {
@@ -323,7 +323,7 @@ int dev_main(int argc, char* argv[])
         }
         case 'g': { // --receive-feature [reportid]
             int reportid = 0;
-            reportid = strtol(optarg, NULL, 10);
+            reportid     = strtol(optarg, NULL, 10);
 
             if (reportid > 255 || reportid < 0) {
                 fprintf(stderr, "The reportid for --receive-feature must be smaller than 255\n");
@@ -371,7 +371,7 @@ int dev_main(int argc, char* argv[])
         return 1;
     }
 
-    char* hid_path = get_hid_path(vendorid, productid, interfaceid, usagepage, usageid);
+    char* hid_path            = get_hid_path(vendorid, productid, interfaceid, usagepage, usageid);
     hid_device* device_handle = NULL;
 
     if (hid_path == NULL) {

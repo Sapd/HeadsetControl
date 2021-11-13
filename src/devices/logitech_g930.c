@@ -22,20 +22,18 @@ static int g930_request_battery(hid_device* device_handle);
 
 void g930_init(struct device** device)
 {
-    device_g930.idVendor = VENDOR_LOGITECH;
+    device_g930.idVendor            = VENDOR_LOGITECH;
     device_g930.idProductsSupported = &PRODUCT_ID;
-    device_g930.numIdProducts = 1;
+    device_g930.numIdProducts       = 1;
 
     strncpy(device_g930.device_name, "Logitech G930", sizeof(device_g930.device_name));
 
     device_g930.capabilities = B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS);
     /// TODO: usagepages and ids may not be correct for all features
-    device_g930.capability_details[CAP_SIDETONE] = (struct capability_detail)
-            { .usagepage = 0xff00, .usageid = 0x1 };
-    device_g930.capability_details[CAP_BATTERY_STATUS] = (struct capability_detail)
-            { .usagepage = 0xff00, .usageid = 0x1 };
+    device_g930.capability_details[CAP_SIDETONE]       = (struct capability_detail) { .usagepage = 0xff00, .usageid = 0x1 };
+    device_g930.capability_details[CAP_BATTERY_STATUS] = (struct capability_detail) { .usagepage = 0xff00, .usageid = 0x1 };
 
-    device_g930.send_sidetone = &g930_send_sidetone;
+    device_g930.send_sidetone   = &g930_send_sidetone;
     device_g930.request_battery = &g930_request_battery;
 
     *device = &device_g930;
