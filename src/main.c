@@ -52,8 +52,8 @@ static int find_device(struct device* device_found)
     struct hid_device_info* devs;
     struct hid_device_info* cur_dev;
     int found = -1;
-    devs = hid_enumerate(0x0, 0x0);
-    cur_dev = devs;
+    devs      = hid_enumerate(0x0, 0x0);
+    cur_dev   = devs;
     while (cur_dev) {
         found = get_device(device_found, cur_dev->vendor_id, cur_dev->product_id);
 
@@ -246,16 +246,16 @@ int main(int argc, char* argv[])
 {
     int c;
 
-    int sidetone_loudness = -1;
-    int request_battery = 0;
-    int request_chatmix = 0;
+    int sidetone_loudness  = -1;
+    int request_battery    = 0;
+    int request_chatmix    = 0;
     int notification_sound = -1;
-    int lights = -1;
-    int inactive_time = -1;
-    int voice_prompts = -1;
-    int rotate_to_mute = -1;
+    int lights             = -1;
+    int inactive_time      = -1;
+    int voice_prompts      = -1;
+    int rotate_to_mute     = -1;
     int print_capabilities = -1;
-    int dev_mode = 0;
+    int dev_mode           = 0;
 
     struct option opts[] = {
         { "battery", no_argument, NULL, 'b' },
@@ -390,7 +390,7 @@ int main(int argc, char* argv[])
 
     // We open connection to HID devices on demand
     hid_device* device_handle = NULL;
-    char* hid_path = NULL;
+    char* hid_path            = NULL;
 
     // Set all features the user wants us to set
 

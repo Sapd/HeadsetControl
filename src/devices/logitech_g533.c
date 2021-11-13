@@ -16,15 +16,15 @@ static int g533_request_battery(hid_device* device_handle);
 
 void g533_init(struct device** device)
 {
-    device_g533.idVendor = VENDOR_LOGITECH;
+    device_g533.idVendor            = VENDOR_LOGITECH;
     device_g533.idProductsSupported = &PRODUCT_ID;
-    device_g533.numIdProducts = 1;
+    device_g533.numIdProducts       = 1;
 
     strncpy(device_g533.device_name, "Logitech G533", sizeof(device_g533.device_name));
 
-    device_g533.capabilities = B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS);
+    device_g533.capabilities    = B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS);
     device_g533.request_battery = &g533_request_battery;
-    device_g533.send_sidetone = &g533_send_sidetone;
+    device_g533.send_sidetone   = &g533_send_sidetone;
 
     *device = &device_g533;
 }
@@ -67,7 +67,7 @@ static int g533_request_battery(hid_device* device_handle)
     int r = 0;
     // request battery voltage
     uint8_t data_request[HIDPP_LONG_MESSAGE_LENGTH] = { HIDPP_LONG_MESSAGE, HIDPP_DEVICE_RECEIVER, 0x07, 0x01 };
-    r = hid_write(device_handle, data_request, HIDPP_LONG_MESSAGE_LENGTH);
+    r                                               = hid_write(device_handle, data_request, HIDPP_LONG_MESSAGE_LENGTH);
     if (r < 0)
         return r;
 
