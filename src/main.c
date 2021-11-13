@@ -24,6 +24,7 @@
 
 #include <hidapi.h>
 
+#include <assert.h>
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,6 +34,7 @@
 // 0=false; 1=true
 static int short_output = 0;
 
+/// printf only when short output not specified
 #define PRINT_INFO(...)          \
     {                            \
         if (!short_output) {     \
@@ -45,7 +47,7 @@ static int short_output = 0;
  *
  *  @return 0 when a supported device is found
  */
-int find_device(struct device* device_found)
+static int find_device(struct device* device_found)
 {
     struct hid_device_info* devs;
     struct hid_device_info* cur_dev;
@@ -67,17 +69,11 @@ int find_device(struct device* device_found)
     return found;
 }
 
-static void print_capability(int capabilities, enum capabilities cap, char shortName, const char* longName)
-{
-    if ((capabilities & cap) == cap) {
-        if (short_output) {
-            printf("%c", shortName);
-        } else {
-            printf("* %s\n", longName);
-        }
-    }
-}
-
+/**
+ * @brief Generates udev rules, and prints them to STDOUT
+ *
+ * Goes through the implementation of all devices, and generates udev rules for use by Linux systems
+ */
 static void print_udevrules()
 {
     int i = 0;
@@ -99,25 +95,151 @@ static void print_udevrules()
     printf("LABEL=\"headset_end\"\n");
 }
 
-static int check_capability(struct device* device_found, enum capabilities cap)
+/**
+ * @brief Checks if an existing connection exists, and either uses it, or closes it and creates a new one
+ *
+ * A device - depending on the feature - needs differend Endpoints/Connections
+ * Instead of opening and keeping track of multiple connections, we close and open connections no demand
+ *
+ *
+ *
+ * @param existing_hid_path an existing connection path or NULL if none yet
+ * @param device_handle an existing device handle or NULL if none yet
+ * @param device headsetcontrol struct, containing vendor and productid
+ * @param cap which capability to use, to determine interfaceid and usageids
+ * @return 0 if successfull, or hid error code
+ */
+static hid_device* dynamic_connect(char** existing_hid_path, hid_device* device_handle,
+    struct device* device, enum capabilities cap)
 {
-    if ((device_found->capabilities & cap) == 0) {
+    // Generate the path which is needed
+    char* hid_path = get_hid_path(device->idVendor, device->idProduct,
+        device->capability_details[cap].interface, device->capability_details[cap].usagepage, device->capability_details[cap].usageid);
+
+    if (!hid_path) {
+        fprintf(stderr, "Requested/supported HID device not found or system error.\n");
+        fprintf(stderr, " HID Error: %S\n", hid_error(NULL));
+        return NULL;
+    }
+
+    // A connection already exists
+    if (device_handle != NULL) {
+        // The connection which exists is the same we need, so simply return it
+        if (strcmp(*existing_hid_path, hid_path) == 0) {
+            return device_handle;
+        } else { // if its not the same, and already one connection is open, close it so we can make a new one
+            hid_close(device_handle);
+        }
+    }
+
+    free(*existing_hid_path);
+
+    device_handle = hid_open_path(hid_path);
+    if (device_handle == NULL) {
+        fprintf(stderr, "Failed to open requested device.\n");
+        fprintf(stderr, " HID Error: %S\n", hid_error(NULL));
+
+        *existing_hid_path = NULL;
+        return NULL;
+    }
+
+    *existing_hid_path = hid_path;
+    return device_handle;
+}
+
+/**
+ * @brief Handle a requested feature
+ *
+ * @param device_found the headset to use
+ * @param device_handle points to an already open device_handle (if connection already exists) or points to null
+ * @param hid_path points to an already used path used to connect, or points to null
+ * @param cap requested feature
+ * @param param first parameter of the feature
+ * @return int 0 on success, some other number otherwise
+ */
+static int handle_feature(struct device* device_found, hid_device** device_handle, char** hid_path, enum capabilities cap, int param)
+{
+    // Check if the headset implements the requested feature
+    if ((device_found->capabilities & B(cap)) == 0) {
         fprintf(stderr, "Error: This headset doesn't support %s\n", capabilities_str[cap]);
         return 1;
     }
 
-    return 0;
-}
+    *device_handle = dynamic_connect(hid_path, *device_handle,
+        device_found, cap);
 
-static int handle_featurereturn(int ret, hid_device* device_handle, enum capabilities cap)
-{
+    if (!device_handle | !(*device_handle))
+        return 1;
+
+    int ret;
+
+    switch (cap) {
+    case CAP_SIDETONE:
+        ret = device_found->send_sidetone(*device_handle, param);
+        break;
+
+    case CAP_BATTERY_STATUS:
+        ret = device_found->request_battery(*device_handle);
+
+        if (ret < 0)
+            break;
+        else if (ret == BATTERY_CHARGING)
+            short_output ? printf("-1") : printf("Battery: Charging\n");
+        else if (ret == BATTERY_UNAVAILABLE)
+            short_output ? printf("-2") : printf("Battery: Unavailable\n");
+        else
+            short_output ? printf("%d", ret) : printf("Battery: %d%%\n", ret);
+
+        break;
+
+    case CAP_NOTIFICATION_SOUND:
+        ret = device_found->notifcation_sound(*device_handle, param);
+        break;
+
+    case CAP_LIGHTS:
+        ret = device_found->switch_lights(*device_handle, param);
+        break;
+
+    case CAP_INACTIVE_TIME:
+        ret = device_found->send_inactive_time(*device_handle, param);
+
+        if (ret < 0)
+            break;
+
+        PRINT_INFO("Successfully set inactive time to %d minutes!\n", param);
+        break;
+
+    case CAP_CHATMIX_STATUS:
+        ret = device_found->request_chatmix(*device_handle);
+
+        if (ret < 0)
+            break;
+
+        short_output ? printf("%d", ret) : printf("Chat-Mix: %d\n", ret);
+        break;
+
+    case CAP_VOICE_PROMPTS:
+        ret = device_found->switch_voice_prompts(*device_handle, param);
+        break;
+
+    case CAP_ROTATE_TO_MUTE:
+        ret = device_found->switch_rotate_to_mute(*device_handle, param);
+        break;
+
+    case NUM_CAPABILITIES:
+        ret = -99; // silence warning
+
+        assert(0);
+        break;
+    }
+
     if (ret < 0) {
-        fprintf(stderr, "Failed to set %s. Error: %d: %ls\n", capabilities_str[cap], ret, hid_error(device_handle));
+        fprintf(stderr, "Failed to set %s. Error: %d: %ls\n", capabilities_str[cap], ret, hid_error(*device_handle));
         return 1;
     }
 
     PRINT_INFO("Success!\n");
-    return ret;
+    return 0;
 }
 
 int main(int argc, char* argv[])
@@ -206,7 +328,7 @@ int main(int argc, char* argv[])
             }
             break;
         case 'u':
-            fprintf(stderr, "Outputting udev rules to stdout/console...\n\n");
+            fprintf(stderr, "Generating udev rules..\n\n");
             print_udevrules();
             return 0;
         case 'v':
@@ -226,11 +348,12 @@ int main(int argc, char* argv[])
             printf("  -b, --battery\t\t\tChecks the battery level\n");
             printf("  -n, --notificate soundid\tMakes the headset play a notifiation\n");
             printf("  -l, --light 0|1\t\tSwitch lights (0 = off, 1 = on)\n");
-            printf("  -c, --short-output\t\t\tUse more machine-friendly output \n");
+            printf("  -c, --short-output\t\tUse more machine-friendly output \n");
             printf("  -i, --inactive-time time\tSets inactive time in minutes, time must be between 0 and 90, 0 disables the feature.\n");
             printf("  -m, --chatmix\t\t\tRetrieves the current chat-mix-dial level setting between 0 and 128. Below 64 is the game side and above is the chat side.\n");
             printf("  -v, --voice-prompt 0|1\tTurn voice prompts on or off (0 = off, 1 = on)\n");
             printf("  -r, --rotate-to-mute 0|1\tTurn rotate to mute feature on or off (0 = off, 1 = on)\n");
+            printf("  -?, --capabilities\t\tPrint every feature headsetcontrol supports of the connected headset\n");
             printf("\n");
             printf("  -u\tOutputs udev rules to stdout/console\n");
 
@@ -255,7 +378,7 @@ int main(int argc, char* argv[])
             fprintf(stderr, "Non-option argument %s\n", argv[index]);
     }
 
-    // describes the device, when a headset was found
+    // describes the headsetcontrol device, when a headset was found
     static struct device device_found;
 
     // Look for a supported device
@@ -264,147 +387,67 @@ int main(int argc, char* argv[])
         fprintf(stderr, "No supported headset found\n");
         return 1;
     }
-    PRINT_INFO("\n");
 
+    // We open connection to HID devices on demand
     hid_device* device_handle = NULL;
-    char* hid_path = get_hid_path(device_found.idVendor, device_found.idProduct, device_found.idInterface, device_found.idUsagePage, device_found.idUsage);
+    char* hid_path = NULL;
 
-    if (!hid_path) {
-        fprintf(stderr, "Requested/supported HID device not found or system error.\n");
-        terminate_hid(&device_handle, &hid_path);
-        return 1;
-    }
-
-    device_handle = hid_open_path(hid_path);
-    if (device_handle == NULL) {
-        fprintf(stderr, "Couldn't open device.\n");
-        terminate_hid(&device_handle, &hid_path);
-        return 1;
-    }
-
-    int ret = 0;
     // Set all features the user wants us to set
 
     if (sidetone_loudness != -1) {
-        if (check_capability(&device_found, CAP_SIDETONE))
-            goto error;
-
-        ret = device_found.send_sidetone(device_handle, sidetone_loudness);
-
-        if (handle_featurereturn(ret, device_handle, CAP_SIDETONE))
+        if (handle_feature(&device_found, &device_handle, &hid_path, CAP_SIDETONE, sidetone_loudness) != 0)
             goto error;
     }
 
     if (lights != -1) {
-        if (check_capability(&device_found, CAP_LIGHTS))
-            goto error;
-
-        ret = device_found.switch_lights(device_handle, lights);
-
-        if (handle_featurereturn(ret, device_handle, CAP_LIGHTS))
+        if (handle_feature(&device_found, &device_handle, &hid_path, CAP_LIGHTS, lights) != 0)
             goto error;
     }
 
     if (notification_sound != -1) {
-        if (check_capability(&device_found, CAP_NOTIFICATION_SOUND))
-            goto error;
-
-        ret = device_found.notifcation_sound(device_handle, notification_sound);
-
-        if (handle_featurereturn(ret, device_handle, CAP_NOTIFICATION_SOUND))
+        if (handle_feature(&device_found, &device_handle, &hid_path, CAP_NOTIFICATION_SOUND, notification_sound) != 0)
             goto error;
     }
 
     if (request_battery == 1) {
-        if (check_capability(&device_found, CAP_BATTERY_STATUS))
+        if (handle_feature(&device_found, &device_handle, &hid_path, CAP_BATTERY_STATUS, request_battery) != 0)
             goto error;
-
-        ret = device_found.request_battery(device_handle);
-
-        if (ret < 0) {
-            fprintf(stderr, "Failed to read battery. Error: %d: %ls\n", ret, hid_error(device_handle));
-            return 1;
-        }
-
-        if (ret == BATTERY_CHARGING) {
-            if (!short_output)
-                printf("Battery: Charging\n");
-            else
-                printf("-1");
-        } else if (ret == BATTERY_UNAVAILABLE) {
-            if (!short_output)
-                printf("Battery: Unavailable\n");
-            else
-                printf("-2");
-        } else {
-            if (!short_output)
-                printf("Battery: %d%%\n", ret);
-            else
-                printf("%d", ret);
-        }
     }
 
     if (inactive_time != -1) {
-        if (check_capability(&device_found, CAP_INACTIVE_TIME))
+        if (handle_feature(&device_found, &device_handle, &hid_path, CAP_INACTIVE_TIME, inactive_time) != 0)
             goto error;
-
-        ret = device_found.send_inactive_time(device_handle, inactive_time);
-
-        if (ret < 0) {
-            fprintf(stderr, "Failed to set inactive time. Error: %d: %ls\n", ret, hid_error(device_handle));
-            goto error;
-        }
-
-        PRINT_INFO("Successfully set inactive time to %d minutes!\n", inactive_time);
     }
 
     if (request_chatmix == 1) {
-        if (check_capability(&device_found, CAP_CHATMIX_STATUS))
+        if (handle_feature(&device_found, &device_handle, &hid_path, CAP_CHATMIX_STATUS, request_chatmix) != 0)
             goto error;
-
-        ret = device_found.request_chatmix(device_handle);
-
-        if (ret < 0) {
-            fprintf(stderr, "Failed to request chat-mix. Error: %d: %ls\n", ret, hid_error(device_handle));
-            goto error;
-        }
-
-        if (!short_output)
-            printf("Chat-Mix: %d\n", ret);
-        else
-            printf("%d", ret);
     }
 
     if (voice_prompts != -1) {
-        if (check_capability(&device_found, CAP_VOICE_PROMPTS))
-            goto error;
-        ret = device_found.switch_voice_prompts(device_handle, voice_prompts);
-
-        if (handle_featurereturn(ret, device_handle, CAP_VOICE_PROMPTS))
+        if (handle_feature(&device_found, &device_handle, &hid_path, CAP_VOICE_PROMPTS, voice_prompts) != 0)
             goto error;
     }
 
     if (rotate_to_mute != -1) {
-        if (check_capability(&device_found, CAP_ROTATE_TO_MUTE))
-            goto error;
-
-        ret = device_found.switch_rotate_to_mute(device_handle, rotate_to_mute);
-
-        if (handle_featurereturn(ret, device_handle, CAP_ROTATE_TO_MUTE))
+        if (handle_feature(&device_found, &device_handle, &hid_path, CAP_ROTATE_TO_MUTE, rotate_to_mute) != 0)
             goto error;
     }
 
     if (print_capabilities != -1) {
         PRINT_INFO("Supported capabilities:\n\n");
 
-        print_capability(device_found.capabilities, CAP_SIDETONE, 's', "set sidetone");
-        print_capability(device_found.capabilities, CAP_BATTERY_STATUS, 'b', "read battery level");
-        print_capability(device_found.capabilities, CAP_NOTIFICATION_SOUND, 'n', "play notification sound");
-        print_capability(device_found.capabilities, CAP_LIGHTS, 'l', "switch lights");
-        print_capability(device_found.capabilities, CAP_INACTIVE_TIME, 'i', "set inactive time");
-        print_capability(device_found.capabilities, CAP_CHATMIX_STATUS, 'm', "read chat-mix");
-        print_capability(device_found.capabilities, CAP_VOICE_PROMPTS, 'v', "set voice prompts");
-        print_capability(device_found.capabilities, CAP_ROTATE_TO_MUTE, 'r', "set rotate to mute");
+        // go through all enum capabilities
+        for (int i = 0; i < NUM_CAPABILITIES; i++) {
+            // When the capability i is included in .capabilities
+            if ((device_found.capabilities & B(i)) == B(i)) {
+                if (short_output) {
+                    printf("%c", capabilities_str_short[i]);
+                } else {
+                    printf("* %s\n", capabilities_str[i]);
+                }
+            }
+        }
     }
 
     if (argc <= 1) {

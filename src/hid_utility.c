@@ -19,7 +19,7 @@
  *                      Only used on Windows currently, and when not 0;
  *                      ignores iid when set
  *
- *  @return copy of the HID path or NULL on failure
+ *  @return copy of the HID path or NULL on failure (copy must be freed)
  */
 char* get_hid_path(uint16_t vid, uint16_t pid, int iid, uint16_t usagepageid, uint16_t usageid)
 {

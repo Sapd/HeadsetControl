@@ -16,11 +16,10 @@ void elo71USB_init(struct device** device)
     device_elo71USB.idVendor = VENDOR_ROCCAT;
     device_elo71USB.idProductsSupported = &PRODUCT_ID;
     device_elo71USB.numIdProducts = 1;
-    device_elo71USB.idInterface = 0;
 
     strncpy(device_elo71USB.device_name, "ROCCAT Elo 7.1 USB", sizeof(device_elo71USB.device_name));
 
-    device_elo71USB.capabilities = CAP_LIGHTS;
+    device_elo71USB.capabilities = B(CAP_LIGHTS);
     device_elo71USB.switch_lights = &elo71USB_switch_lights;
 
     *device = &device_elo71USB;

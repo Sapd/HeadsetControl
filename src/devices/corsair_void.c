@@ -52,12 +52,19 @@ void void_init(struct device** device)
     device_void.idVendor = VENDOR_CORSAIR;
     device_void.idProductsSupported = PRODUCT_IDS;
     device_void.numIdProducts = sizeof(PRODUCT_IDS) / sizeof(PRODUCT_IDS[0]);
-    device_void.idUsagePage = 0xff00;
-    device_void.idUsage = 0x1;
 
     strncpy(device_void.device_name, "Corsair Headset Device", sizeof(device_void.device_name));
 
-    device_void.capabilities = CAP_SIDETONE | CAP_BATTERY_STATUS | CAP_NOTIFICATION_SOUND | CAP_LIGHTS;
+    device_void.capabilities = B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_NOTIFICATION_SOUND) | B(CAP_LIGHTS);
+    device_void.capability_details[CAP_SIDETONE] = (struct capability_detail)
+            { .usagepage = 0xff00, .usageid = 0x1, .interface = 0 };
+    device_void.capability_details[CAP_BATTERY_STATUS] = (struct capability_detail)
+            { .usagepage = 0xffc5, .usageid = 0x1, .interface = 3 };
+    device_void.capability_details[CAP_NOTIFICATION_SOUND] = (struct capability_detail)
+            { .usagepage = 0xffc5, .usageid = 0x1, .interface = 3 };
+    device_void.capability_details[CAP_LIGHTS] = (struct capability_detail)
+            { .usagepage = 0xffc5, .usageid = 0x1, .interface = 3 };
+
     device_void.send_sidetone = &void_send_sidetone;
     device_void.request_battery = &void_request_battery;
     device_void.notifcation_sound = &void_notification_sound;
@@ -82,8 +89,6 @@ static int void_send_sidetone(hid_device* device_handle, uint8_t num)
 
 static int void_request_battery(hid_device* device_handle)
 {
-    // Notice: For Windows it has a different usage page (0xffc5), multiple usage pages are not supported currently by headsetcontrol
-
     // Packet Description
     // Answer of battery status
     // Index    0   1   2       3       4

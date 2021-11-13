@@ -26,11 +26,22 @@ void arctis_7_init(struct device** device)
     device_arctis.idVendor = VENDOR_STEELSERIES;
     device_arctis.idProductsSupported = PRODUCT_IDS;
     device_arctis.numIdProducts = sizeof(PRODUCT_IDS) / sizeof(PRODUCT_IDS[0]);
-    device_arctis.idInterface = 0x05;
 
     strncpy(device_arctis.device_name, "SteelSeries Arctis (7/Pro)", sizeof(device_arctis.device_name));
 
-    device_arctis.capabilities = CAP_SIDETONE | CAP_BATTERY_STATUS | CAP_INACTIVE_TIME | CAP_CHATMIX_STATUS | CAP_LIGHTS;
+    device_arctis.capabilities = B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_INACTIVE_TIME)
+        | B(CAP_CHATMIX_STATUS) | B(CAP_LIGHTS);
+    device_arctis.capability_details[CAP_SIDETONE] = (struct capability_detail)
+            { .interface = 0x05 };
+    device_arctis.capability_details[CAP_BATTERY_STATUS] = (struct capability_detail)
+            { .interface = 0x05 };
+    device_arctis.capability_details[CAP_INACTIVE_TIME] = (struct capability_detail)
+            { .interface = 0x05 };
+    device_arctis.capability_details[CAP_CHATMIX_STATUS] = (struct capability_detail)
+            { .interface = 0x05 };
+    device_arctis.capability_details[CAP_LIGHTS] = (struct capability_detail)
+            { .interface = 0x05 };
+
     device_arctis.send_sidetone = &arctis_7_send_sidetone;
     device_arctis.request_battery = &arctis_7_request_battery;
     device_arctis.send_inactive_time = &arctis_7_send_inactive_time;

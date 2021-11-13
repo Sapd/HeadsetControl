@@ -26,11 +26,17 @@ void g933_935_init(struct device** device)
     device_g933_935.idVendor = VENDOR_LOGITECH;
     device_g933_935.idProductsSupported = PRODUCT_IDS;
     device_g933_935.numIdProducts = sizeof(PRODUCT_IDS) / sizeof(PRODUCT_IDS[0]);
-    device_g933_935.idUsagePage = 0xff43;
-    device_g933_935.idUsage = 0x0202;
     strncpy(device_g933_935.device_name, "Logitech G633/G635/G933/G935", sizeof(device_g933_935.device_name));
 
-    device_g933_935.capabilities = CAP_SIDETONE | CAP_BATTERY_STATUS | CAP_LIGHTS;
+    device_g933_935.capabilities = B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_LIGHTS);
+    /// TODO: usagepages and ids may not be correct for all features
+    device_g933_935.capability_details[CAP_SIDETONE] = (struct capability_detail)
+            { .usagepage = 0xff43, .usageid = 0x0202 };
+    device_g933_935.capability_details[CAP_BATTERY_STATUS] = (struct capability_detail)
+            { .usagepage = 0xff43, .usageid = 0x0202 };
+    device_g933_935.capability_details[CAP_LIGHTS] = (struct capability_detail)
+            { .usagepage = 0xff43, .usageid = 0x0202 };
+
     device_g933_935.send_sidetone = &g933_935_send_sidetone;
     device_g933_935.request_battery = &g933_935_request_battery;
     device_g933_935.switch_lights = &g933_935_lights;

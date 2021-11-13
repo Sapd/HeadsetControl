@@ -2,6 +2,7 @@ set(SOURCE_FILES ${SOURCE_FILES}
     ${CMAKE_CURRENT_SOURCE_DIR}/main.c
     ${CMAKE_CURRENT_SOURCE_DIR}/dev.c
     ${CMAKE_CURRENT_SOURCE_DIR}/dev.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/device.c
     ${CMAKE_CURRENT_SOURCE_DIR}/device.h
     ${CMAKE_CURRENT_SOURCE_DIR}/device_registry.c
     ${CMAKE_CURRENT_SOURCE_DIR}/device_registry.h

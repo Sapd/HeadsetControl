@@ -22,7 +22,7 @@ void g533_init(struct device** device)
 
     strncpy(device_g533.device_name, "Logitech G533", sizeof(device_g533.device_name));
 
-    device_g533.capabilities = CAP_SIDETONE | CAP_BATTERY_STATUS;
+    device_g533.capabilities = B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS);
     device_g533.request_battery = &g533_request_battery;
     device_g533.send_sidetone = &g533_send_sidetone;
 

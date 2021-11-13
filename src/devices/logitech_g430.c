@@ -17,7 +17,7 @@ void g430_init(struct device** device)
 
     strncpy(device_g430.device_name, "Logitech G430", sizeof(device_g430.device_name));
 
-    device_g430.capabilities = CAP_SIDETONE;
+    device_g430.capabilities = B(CAP_SIDETONE);
     device_g430.send_sidetone = &g430_send_sidetone;
 
     *device = &device_g430;

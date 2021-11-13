@@ -26,7 +26,7 @@ void gpro_init(struct device** device)
 
     strncpy(device_gpro.device_name, "Logitech G PRO Series", sizeof(device_gpro.device_name));
 
-    device_gpro.capabilities = CAP_SIDETONE;
+    device_gpro.capabilities = B(CAP_SIDETONE);
     device_gpro.send_sidetone = &gpro_send_sidetone;
 
     *device = &device_gpro;
