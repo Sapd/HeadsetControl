@@ -1,0 +1,56 @@
+name: 🐞 Problem with device
+description: Report a problem of a device which is supported by HeadsetControl
+labels: [device-bug]
+body:
+- type: markdown
+  attributes:
+    value: |
+      Thank you for your input!  
+      
+      **Note**: If the source of the problem is an error in the implementation of the protocol, then probably only people with the same device can help to fix it. Take a look at the [Wiki](https://github.com/Sapd/HeadsetControl/wiki/Development).
+- type: textarea
+  id: description
+  attributes:
+    label: Description
+    description: |
+      Please describe the error in detail.  
+      Also paste the output of the commands you used.
+  validations:
+    required: true
+- type: input
+  id: device
+  attributes:
+    label: Headset Name
+    description: Manufacturer and name of the headset
+    placeholder: ex. Corsair HS80
+  validations:
+    required: true
+- type: dropdown
+  id: os
+  attributes:
+    label: On which OS does the problem happen?
+    multiple: false
+    options:
+    - Linux
+    - MacOS
+    - Windows
+  validations:
+    required: true
+- type: textarea
+  id: deviceinfo
+  attributes:
+    label: Device information
+    description: |
+        Please first determine the Vendor and ProductID of your headset (you can use `headsetcontrol --dev -- --list` to list all connected devices). 
+        Then copy and paste the output of `headsetcontrol --dev -- --list --device VENDORID:DEVICEID` replacing **PASTE HERE**.
+    value: |
+        <details>
+         <summary>Detailed Device Information</summary>
+  
+         ```
+         PASTE HERE
+         ```
+  
+        </details>
+  validations:
+    required: true
