@@ -29,9 +29,9 @@ enum capabilities {
 };
 
 /// Long name of every capability
-const char* const capabilities_str[NUM_CAPABILITIES];
+extern const char* const capabilities_str[NUM_CAPABILITIES];
 /// Short name of every capability
-const char capabilities_str_short[NUM_CAPABILITIES];
+extern const char capabilities_str_short[NUM_CAPABILITIES];
 
 struct capability_detail {
     // Usage page, only used when usageid is not 0; HID Protocol specific
