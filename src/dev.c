@@ -250,7 +250,7 @@ int dev_main(int argc, char* argv[])
             break;
         }
         case 'i': { // --interface interfaceid
-            interfaceid = strtol(optarg, NULL, 10);
+            interfaceid = strtol(optarg, NULL, 0);
 
             if (interfaceid < 0) {
                 fprintf(stderr, "The interfaceid you supplied is invalid\n");
@@ -323,7 +323,7 @@ int dev_main(int argc, char* argv[])
         }
         case 'g': { // --receive-feature [reportid]
             int reportid = 0;
-            reportid     = strtol(optarg, NULL, 10);
+            reportid     = strtol(optarg, NULL, 0);
 
             if (reportid > 255 || reportid < 0) {
                 fprintf(stderr, "The reportid for --receive-feature must be smaller than 255\n");
