@@ -31,6 +31,8 @@
 #include <string.h>
 #include <unistd.h>
 
+int hsc_device_timeout = 5000;
+
 // 0=false; 1=true
 static int short_output = 0;
 
@@ -233,8 +235,14 @@ static int handle_feature(struct device* device_found, hid_device** device_handl
         break;
     }
 
-    if (ret < 0) {
-        fprintf(stderr, "Failed to set %s. Error: %d: %ls\n", capabilities_str[cap], ret, hid_error(*device_handle));
+    if (ret == HSC_READ_TIMEOUT) {
+        fprintf(stderr, "Failed to set/request %s, because of timeout, try again.\n", capabilities_str[cap]);
+        return HSC_READ_TIMEOUT;
+    } else if (ret == HSC_ERROR) {
+        fprintf(stderr, "Failed to set/request %s. HeadsetControl Error. Error: %d: %ls\n", capabilities_str[cap], ret, hid_error(*device_handle));
+        return HSC_ERROR;
+    } else if (ret < 0) {
+        fprintf(stderr, "Failed to set/request %s. Error: %d: %ls\n", capabilities_str[cap], ret, hid_error(*device_handle));
         return 1;
     }
 
@@ -269,6 +277,7 @@ int main(int argc, char* argv[])
         { "rotate-to-mute", required_argument, NULL, 'r' },
         { "sidetone", required_argument, NULL, 's' },
         { "short-output", no_argument, NULL, 'c' },
+        { "timeout", required_argument, NULL, 0 },
         { "voice-prompt", required_argument, NULL, 'v' },
         { 0, 0, 0, 0 }
     };
@@ -279,6 +288,8 @@ int main(int argc, char* argv[])
     init_devices();
 
     while ((c = getopt_long(argc, argv, "bchi:l:mn:r:s:uv:?", opts, &option_index)) != -1) {
+        char* endptr = NULL; // for strtol
+
         switch (c) {
         case 'b':
             request_battery = 1;
@@ -287,16 +298,16 @@ int main(int argc, char* argv[])
             short_output = 1;
             break;
         case 'i':
-            inactive_time = strtol(optarg, NULL, 10);
+            inactive_time = strtol(optarg, &endptr, 10);
 
-            if (inactive_time > 90 || inactive_time < 0) {
-                printf("Usage: %s -s 0-90, 0 is off\n", argv[0]);
+            if (*endptr != '\0' || endptr == optarg || inactive_time > 90 || inactive_time < 0) {
+                printf("Usage: %s -i 0-90, 0 is off\n", argv[0]);
                 return 1;
             }
             break;
         case 'l':
-            lights = strtol(optarg, NULL, 10);
-            if (lights < 0 || lights > 1) {
+            lights = strtol(optarg, &endptr, 10);
+            if (*endptr != '\0' || endptr == optarg || lights < 0 || lights > 1) {
                 printf("Usage: %s -l 0|1\n", argv[0]);
                 return 1;
             }
@@ -305,24 +316,24 @@ int main(int argc, char* argv[])
             request_chatmix = 1;
             break;
         case 'n': // todo
-            notification_sound = strtol(optarg, NULL, 10);
+            notification_sound = strtol(optarg, &endptr, 10);
 
-            if (notification_sound < 0 || notification_sound > 1) {
+            if (*endptr != '\0' || endptr == optarg || notification_sound < 0 || notification_sound > 1) {
                 printf("Usage: %s -n 0|1\n", argv[0]);
                 return 1;
             }
             break;
         case 'r':
-            rotate_to_mute = strtol(optarg, NULL, 10);
-            if (rotate_to_mute < 0 || rotate_to_mute > 1) {
+            rotate_to_mute = strtol(optarg, &endptr, 10);
+            if (*endptr != '\0' || endptr == optarg || rotate_to_mute < 0 || rotate_to_mute > 1) {
                 printf("Usage: %s -r 0|1\n", argv[0]);
                 return 1;
             }
             break;
         case 's':
-            sidetone_loudness = strtol(optarg, NULL, 10);
+            sidetone_loudness = strtol(optarg, &endptr, 10);
 
-            if (sidetone_loudness > 128 || sidetone_loudness < 0) {
+            if (*endptr != '\0' || endptr == optarg || sidetone_loudness > 128 || sidetone_loudness < 0) {
                 printf("Usage: %s -s 0-128\n", argv[0]);
                 return 1;
             }
@@ -332,8 +343,8 @@ int main(int argc, char* argv[])
             print_udevrules();
             return 0;
         case 'v':
-            voice_prompts = strtol(optarg, NULL, 10);
-            if (voice_prompts < 0 || voice_prompts > 1) {
+            voice_prompts = strtol(optarg, &endptr, 10);
+            if (*endptr != '\0' || endptr == optarg || voice_prompts < 0 || voice_prompts > 1) {
                 printf("Usage: %s -v 0|1\n", argv[0]);
                 return 1;
             }
@@ -353,6 +364,8 @@ int main(int argc, char* argv[])
             printf("  -m, --chatmix\t\t\tRetrieves the current chat-mix-dial level setting between 0 and 128. Below 64 is the game side and above is the chat side.\n");
             printf("  -v, --voice-prompt 0|1\tTurn voice prompts on or off (0 = off, 1 = on)\n");
             printf("  -r, --rotate-to-mute 0|1\tTurn rotate to mute feature on or off (0 = off, 1 = on)\n");
+            printf("\n");
+            printf("      --timeout 0-100000\t\tSpecifies the timeout in ms for reading data from device (default 5000)\n");
             printf("  -?, --capabilities\t\tPrint every feature headsetcontrol supports of the connected headset\n");
             printf("\n");
             printf("  -u\tOutputs udev rules to stdout/console\n");
@@ -363,7 +376,16 @@ int main(int argc, char* argv[])
             if (strcmp(opts[option_index].name, "dev") == 0) {
                 dev_mode = 1;
                 break;
+            } else if (strcmp(opts[option_index].name, "timeout") == 0) {
+                hsc_device_timeout = strtol(optarg, &endptr, 10);
+
+                if (*endptr != '\0' || endptr == optarg || hsc_device_timeout < 0 || hsc_device_timeout > 100000) {
+                    printf("Usage: %s --timeout 0-100000\n", argv[0]);
+                    return 1;
+                }
+                break;
             }
+            // fall through
         default:
             printf("Invalid argument %c\n", c);
             return 1;
@@ -393,44 +415,45 @@ int main(int argc, char* argv[])
     char* hid_path            = NULL;
 
     // Set all features the user wants us to set
+    int error = 0;
 
     if (sidetone_loudness != -1) {
-        if (handle_feature(&device_found, &device_handle, &hid_path, CAP_SIDETONE, sidetone_loudness) != 0)
+        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_SIDETONE, sidetone_loudness)) != 0)
             goto error;
     }
 
     if (lights != -1) {
-        if (handle_feature(&device_found, &device_handle, &hid_path, CAP_LIGHTS, lights) != 0)
+        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_LIGHTS, lights)) != 0)
             goto error;
     }
 
     if (notification_sound != -1) {
-        if (handle_feature(&device_found, &device_handle, &hid_path, CAP_NOTIFICATION_SOUND, notification_sound) != 0)
+        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_NOTIFICATION_SOUND, notification_sound)) != 0)
             goto error;
     }
 
     if (request_battery == 1) {
-        if (handle_feature(&device_found, &device_handle, &hid_path, CAP_BATTERY_STATUS, request_battery) != 0)
+        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_BATTERY_STATUS, request_battery)) != 0)
             goto error;
     }
 
     if (inactive_time != -1) {
-        if (handle_feature(&device_found, &device_handle, &hid_path, CAP_INACTIVE_TIME, inactive_time) != 0)
+        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_INACTIVE_TIME, inactive_time)) != 0)
             goto error;
     }
 
     if (request_chatmix == 1) {
-        if (handle_feature(&device_found, &device_handle, &hid_path, CAP_CHATMIX_STATUS, request_chatmix) != 0)
+        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_CHATMIX_STATUS, request_chatmix)) != 0)
             goto error;
     }
 
     if (voice_prompts != -1) {
-        if (handle_feature(&device_found, &device_handle, &hid_path, CAP_VOICE_PROMPTS, voice_prompts) != 0)
+        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_VOICE_PROMPTS, voice_prompts)) != 0)
             goto error;
     }
 
     if (rotate_to_mute != -1) {
-        if (handle_feature(&device_found, &device_handle, &hid_path, CAP_ROTATE_TO_MUTE, rotate_to_mute) != 0)
+        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_ROTATE_TO_MUTE, rotate_to_mute)) != 0)
             goto error;
     }
 
@@ -460,5 +483,5 @@ int main(int argc, char* argv[])
 
 error:
     terminate_hid(&device_handle, &hid_path);
-    return 1;
+    return error;
 }

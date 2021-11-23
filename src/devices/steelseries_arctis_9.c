@@ -88,6 +88,9 @@ static int arctis_9_request_battery(hid_device* device_handle)
     if (r < 0)
         return r;
 
+    if (r == 0)
+        return HSC_READ_TIMEOUT;
+
     if (data_read[4] == 0x01)
         return BATTERY_CHARGING;
 
@@ -123,6 +126,9 @@ static int arctis_9_request_chatmix(hid_device* device_handle)
     if (r < 0)
         return r;
 
+    if (r == 0)
+        return HSC_READ_TIMEOUT;
+
     int game = map(data_read[9], 0, 19, 0, 64);
     int chat = map(data_read[10], 0, 19, 0, -64);
 
@@ -147,5 +153,5 @@ int arctis_9_read_device_status(hid_device* device_handle, unsigned char* data_r
         return r;
 
     // read device info
-    return hid_read(device_handle, data_read, 12);
+    return hid_read_timeout(device_handle, data_read, 12, hsc_device_timeout);
 }

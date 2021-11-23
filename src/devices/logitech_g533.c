@@ -67,14 +67,18 @@ static int g533_request_battery(hid_device* device_handle)
     int r = 0;
     // request battery voltage
     uint8_t data_request[HIDPP_LONG_MESSAGE_LENGTH] = { HIDPP_LONG_MESSAGE, HIDPP_DEVICE_RECEIVER, 0x07, 0x01 };
-    r                                               = hid_write(device_handle, data_request, HIDPP_LONG_MESSAGE_LENGTH);
+
+    r = hid_write(device_handle, data_request, HIDPP_LONG_MESSAGE_LENGTH);
     if (r < 0)
         return r;
 
     uint8_t data_read[7];
-    r = hid_read(device_handle, data_read, 7);
+    r = hid_read_timeout(device_handle, data_read, 7, hsc_device_timeout);
     if (r < 0)
         return r;
+
+    if (r == 0)
+        return HSC_READ_TIMEOUT;
 
     //Headset offline
     if (data_read[2] == 0xFF)

@@ -87,10 +87,13 @@ static int arctis_1_request_battery(hid_device* device_handle)
     // read battery status
     unsigned char data_read[8];
 
-    r = hid_read(device_handle, data_read, 8);
+    r = hid_read_timeout(device_handle, data_read, 8, hsc_device_timeout);
 
     if (r < 0)
         return r;
+
+    if (r == 0)
+        return HSC_READ_TIMEOUT;
 
     if (data_read[2] == 0x01)
         return BATTERY_UNAVAILABLE;

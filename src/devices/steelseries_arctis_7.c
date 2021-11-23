@@ -95,10 +95,13 @@ static int arctis_7_request_battery(hid_device* device_handle)
     // read battery status
     unsigned char data_read[8];
 
-    r = hid_read(device_handle, data_read, 8);
+    r = hid_read_timeout(device_handle, data_read, 8, hsc_device_timeout);
 
     if (r < 0)
         return r;
+
+    if (r == 0)
+        return HSC_READ_TIMEOUT;
 
     int bat = data_read[2];
 
@@ -147,10 +150,13 @@ static int arctis_7_request_chatmix(hid_device* device_handle)
     // read chatmix level
     unsigned char data_read[8];
 
-    r = hid_read(device_handle, data_read, 8);
+    r = hid_read_timeout(device_handle, data_read, 8, hsc_device_timeout);
 
     if (r < 0)
         return r;
+
+    if (r == 0)
+        return HSC_READ_TIMEOUT;
 
     int game = data_read[2];
     int chat = data_read[3];
