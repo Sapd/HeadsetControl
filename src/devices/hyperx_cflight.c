@@ -1,4 +1,4 @@
-// written by hede <github5562@der-he.de>
+// initial adaption of HyperX Cloud Flight by hede <github5562@der-he.de>
 // This file is part of HeadsetControl.
 
 #include "../device.h"
@@ -37,7 +37,8 @@ void cflight_init(struct device** device)
     strncpy(device_cflight.device_name, "HyperX Cloud Flight Wireless", 
             sizeof(device_cflight.device_name));
 
-    device_cflight.capabilities = CAP_BATTERY_STATUS;
+    device_cflight.capabilities = B(CAP_BATTERY_STATUS);
+
     device_cflight.request_battery = &cflight_request_battery;
 
     *device = &device_cflight;

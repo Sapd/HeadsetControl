@@ -18,7 +18,7 @@
 
 #include <string.h>
 
-#define NUMDEVICES 14
+#define NUMDEVICES 15
 
 // array of pointers to device
 static struct device*(devicelist[NUMDEVICES]);
