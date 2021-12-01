@@ -37,7 +37,7 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
   - Sidetone, Battery, Inactive time
 - Logitech G PRO
   - Sidetone
-- Logitech Zone Wired
+- Logitech Zone Wired/Zone 750
   - Sidetone, Voice prompts, Rotate to mute
 - Roccat Elo 7.1 Air
   - LED on/off, Inactive time (Note for Linux: Sidetone is handled by sound driver => use AlsaMixer)
@@ -65,7 +65,7 @@ RHEL and CentOS also require the epel-repository: `yum install epel-release`. Pl
 `yum groupinstall "Development tools"`
 `yum install git cmake hidapi-devel`
 
-#### Fedora 
+#### Fedora
 
 `dnf install cmake hidapi-devel g++`
 
@@ -137,7 +137,7 @@ Type `headsetcontrol -?` to get a list of supported capabilities for the current
 
 `headsetcontrol -s 128` sets the sidetone to 128 (REAL loud). You can silence it with `0`. I recommend a loudness of 16.
 
-Following options don't work on all devices yet:
+The following options don't work on all devices yet:
 
 `headsetcontrol -b` check battery level. Returns a value from 0 to 100 or loading.
 
@@ -145,13 +145,19 @@ Following options don't work on all devices yet:
 
 `headsetcontrol -l 0|1` switches LED off/on (off almost doubles battery lifetime!).
 
-`headsetcontrol -c` cut unnecessary output, for reading by other scripts or applications.
+`headsetcontrol --short-output` cut unnecessary output, for reading by other scripts or applications.
 
 `headsetcontrol -i 0-90` sets inactive time in minutes, time must be between 0 and 90, 0 disables the feature.
 
-`headsetcontrol -m` retrieves the current chat-mix-dial level setting.
+`headsetcontrol -m` retrieves the current chat-mix-dial level setting between 0 and 128. Below 64 is the game side and above is the chat side.
+
+`headsetcontrol -v 0|1` turn voice prompts on or off.
+
+`headsetcontrol -r 0|1` turn rotate to mute feature on or off.
 
 `headsetcontrol -u` Generates and outputs udev-rules for Linux.
+
+`headsetcontrol --dev` Advanced menu for developers, to send and/or receive custom data
 
 ### Third Party
 

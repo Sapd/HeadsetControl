@@ -30,7 +30,7 @@ jobs:
         run: find $RUNNER_WORKSPACE
         shell: bash
       - name: Run CMake with Ninja
-        uses: lukka/run-cmake@main
+        uses: lukka/run-cmake@v3
         id: runcmake
         with:
           cmakeListsTxtPath: '${{ github.workspace }}/CMakeLists.txt'
