@@ -11,13 +11,13 @@ static int g430_send_sidetone(hid_device* device_handle, uint8_t num);
 
 void g430_init(struct device** device)
 {
-    device_g430.idVendor = VENDOR_LOGITECH;
+    device_g430.idVendor            = VENDOR_LOGITECH;
     device_g430.idProductsSupported = &PRODUCT_ID;
-    device_g430.numIdProducts = 1;
+    device_g430.numIdProducts       = 1;
 
     strncpy(device_g430.device_name, "Logitech G430", sizeof(device_g430.device_name));
 
-    device_g430.capabilities = CAP_SIDETONE;
+    device_g430.capabilities  = B(CAP_SIDETONE);
     device_g430.send_sidetone = &g430_send_sidetone;
 
     *device = &device_g430;

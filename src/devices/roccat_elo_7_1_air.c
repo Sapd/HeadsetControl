@@ -14,15 +14,14 @@ static int elo71Air_send_inactive_time(hid_device* hid_device, uint8_t num);
 
 void elo71Air_init(struct device** device)
 {
-    device_elo71Air.idVendor = VENDOR_ROCCAT;
+    device_elo71Air.idVendor            = VENDOR_ROCCAT;
     device_elo71Air.idProductsSupported = &PRODUCT_ID;
-    device_elo71Air.numIdProducts = 1;
-    device_elo71Air.idInterface = 0;
+    device_elo71Air.numIdProducts       = 1;
 
     strncpy(device_elo71Air.device_name, "ROCCAT Elo 7.1 Air", sizeof(device_elo71Air.device_name));
 
-    device_elo71Air.capabilities = CAP_LIGHTS | CAP_INACTIVE_TIME;
-    device_elo71Air.switch_lights = &elo71Air_switch_lights;
+    device_elo71Air.capabilities       = B(CAP_LIGHTS) | B(CAP_INACTIVE_TIME);
+    device_elo71Air.switch_lights      = &elo71Air_switch_lights;
     device_elo71Air.send_inactive_time = &elo71Air_send_inactive_time;
 
     *device = &device_elo71Air;
@@ -50,7 +49,7 @@ static int send_receive(hid_device* hid_device, const uint8_t* data,
         r = hid_read(hid_device, out_buffer, 64);
     }
 
-    ts.tv_sec = 0;
+    ts.tv_sec  = 0;
     ts.tv_nsec = 75 * 1000000;
     nanosleep(&ts, NULL);
 
@@ -101,7 +100,7 @@ static int elo71Air_send_inactive_time(hid_device* hid_device, uint8_t num)
         return -2;
     }
 
-    int seconds = num * 60;
+    int seconds     = num * 60;
     uint8_t cmd[64] = { 0xa1, 0x04, 0x06, 0x54, seconds >> 8, seconds & 0xFF };
     uint8_t response[64];
 

@@ -1,0 +1,27 @@
+name: 👉 Feature for an existing device
+description: Request a new feature for an device already supported by HeadsetControl
+body:
+- type: markdown
+  attributes:
+    value: |
+      Thank you for your input!  
+      
+      **Note**: Probably only people with the same device can help to implement the protocol for it
+      That is why it is a good idea to try it yourself 🚀! Take a look at the [Wiki](https://github.com/Sapd/HeadsetControl/wiki/Development).
+      
+      We are here to help you. You can provide WireShark logs, ask for help in Coding and open up a PR any time.
+- type: textarea
+  id: description
+  attributes:
+    label: Description
+    description: Type in all details which could be useful
+  validations:
+    required: true
+- type: input
+  id: device
+  attributes:
+    label: Headset Name
+    description: Manufacturer and name of the headset
+    placeholder: ex. Corsair HS80
+  validations:
+    required: true

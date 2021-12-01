@@ -27,18 +27,17 @@ int arctis_9_read_device_status(hid_device* device_handle, unsigned char* data_r
 
 void arctis_9_init(struct device** device)
 {
-    device_arctis.idVendor = VENDOR_STEELSERIES;
+    device_arctis.idVendor            = VENDOR_STEELSERIES;
     device_arctis.idProductsSupported = PRODUCT_IDS;
-    device_arctis.numIdProducts = sizeof(PRODUCT_IDS) / sizeof(PRODUCT_IDS[0]);
-    device_arctis.idInterface = 0x00;
+    device_arctis.numIdProducts       = sizeof(PRODUCT_IDS) / sizeof(PRODUCT_IDS[0]);
 
     strncpy(device_arctis.device_name, "SteelSeries Arctis 9", sizeof(device_arctis.device_name));
 
-    device_arctis.capabilities = CAP_SIDETONE | CAP_BATTERY_STATUS | CAP_INACTIVE_TIME | CAP_CHATMIX_STATUS;
-    device_arctis.send_sidetone = &arctis_9_send_sidetone;
-    device_arctis.request_battery = &arctis_9_request_battery;
+    device_arctis.capabilities       = B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_INACTIVE_TIME) | B(CAP_CHATMIX_STATUS);
+    device_arctis.send_sidetone      = &arctis_9_send_sidetone;
+    device_arctis.request_battery    = &arctis_9_request_battery;
     device_arctis.send_inactive_time = &arctis_9_send_inactive_time;
-    device_arctis.request_chatmix = &arctis_9_request_chatmix;
+    device_arctis.request_chatmix    = &arctis_9_request_chatmix;
 
     *device = &device_arctis;
 }
@@ -60,7 +59,7 @@ static int arctis_9_send_sidetone(hid_device* device_handle, uint8_t num)
         return ret;
     }
 
-    const unsigned char data_on[5] = { 0x06, 0x00, num };
+    const unsigned char data_on[5]  = { 0x06, 0x00, num };
     const unsigned char data_off[3] = { 0x06, 0x00, 0xc0 };
 
     if (num) {
@@ -103,7 +102,7 @@ static int arctis_9_request_battery(hid_device* device_handle)
 static int arctis_9_send_inactive_time(hid_device* device_handle, uint8_t num)
 {
     // the value for the Arctis 9 needs to be in seconds
-    uint32_t time = num * 60;
+    uint32_t time    = num * 60;
     uint8_t data[31] = { 0x04, 0x00, (uint8_t)(time >> 8), (uint8_t)(time) };
 
     int ret = hid_write(device_handle, data, 31);
@@ -142,7 +141,7 @@ int arctis_9_read_device_status(hid_device* device_handle, unsigned char* data_r
     int r = 0;
 
     unsigned char data_request[2] = { 0x20, 0x00 };
-    r = hid_write(device_handle, data_request, 2);
+    r                             = hid_write(device_handle, data_request, 2);
 
     if (r < 0)
         return r;

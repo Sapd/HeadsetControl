@@ -20,13 +20,13 @@ static int gpro_send_sidetone(hid_device* device_handle, uint8_t num);
 
 void gpro_init(struct device** device)
 {
-    device_gpro.idVendor = VENDOR_LOGITECH;
+    device_gpro.idVendor            = VENDOR_LOGITECH;
     device_gpro.idProductsSupported = PRODUCT_IDS;
-    device_gpro.numIdProducts = sizeof(PRODUCT_IDS) / sizeof(PRODUCT_IDS[0]);
+    device_gpro.numIdProducts       = sizeof(PRODUCT_IDS) / sizeof(PRODUCT_IDS[0]);
 
     strncpy(device_gpro.device_name, "Logitech G PRO Series", sizeof(device_gpro.device_name));
 
-    device_gpro.capabilities = CAP_SIDETONE;
+    device_gpro.capabilities  = B(CAP_SIDETONE);
     device_gpro.send_sidetone = &gpro_send_sidetone;
 
     *device = &device_gpro;

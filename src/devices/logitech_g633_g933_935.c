@@ -23,17 +23,20 @@ static int g933_935_lights(hid_device* device_handle, uint8_t on);
 
 void g933_935_init(struct device** device)
 {
-    device_g933_935.idVendor = VENDOR_LOGITECH;
+    device_g933_935.idVendor            = VENDOR_LOGITECH;
     device_g933_935.idProductsSupported = PRODUCT_IDS;
-    device_g933_935.numIdProducts = sizeof(PRODUCT_IDS) / sizeof(PRODUCT_IDS[0]);
-    device_g933_935.idUsagePage = 0xff43;
-    device_g933_935.idUsage = 0x0202;
+    device_g933_935.numIdProducts       = sizeof(PRODUCT_IDS) / sizeof(PRODUCT_IDS[0]);
     strncpy(device_g933_935.device_name, "Logitech G633/G635/G933/G935", sizeof(device_g933_935.device_name));
 
-    device_g933_935.capabilities = CAP_SIDETONE | CAP_BATTERY_STATUS | CAP_LIGHTS;
-    device_g933_935.send_sidetone = &g933_935_send_sidetone;
+    device_g933_935.capabilities = B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_LIGHTS);
+    /// TODO: usagepages and ids may not be correct for all features
+    device_g933_935.capability_details[CAP_SIDETONE]       = (struct capability_detail) { .usagepage = 0xff43, .usageid = 0x0202 };
+    device_g933_935.capability_details[CAP_BATTERY_STATUS] = (struct capability_detail) { .usagepage = 0xff43, .usageid = 0x0202 };
+    device_g933_935.capability_details[CAP_LIGHTS]         = (struct capability_detail) { .usagepage = 0xff43, .usageid = 0x0202 };
+
+    device_g933_935.send_sidetone   = &g933_935_send_sidetone;
     device_g933_935.request_battery = &g933_935_request_battery;
-    device_g933_935.switch_lights = &g933_935_lights;
+    device_g933_935.switch_lights   = &g933_935_lights;
 
     *device = &device_g933_935;
 }
@@ -108,7 +111,7 @@ static int g933_935_lights(hid_device* device_handle, uint8_t on)
     // off            11 ff 04 3c 01 (0 for logo) 00
     // logo and strips can be controlled individually
 
-    uint8_t data_on[HIDPP_LONG_MESSAGE_LENGTH] = { HIDPP_LONG_MESSAGE, HIDPP_DEVICE_RECEIVER, 0x04, 0x3c, 0x01, 0x02, 0x00, 0xb6, 0xff, 0x0f, 0xa0, 0x00, 0x64, 0x00, 0x00, 0x00 };
+    uint8_t data_on[HIDPP_LONG_MESSAGE_LENGTH]  = { HIDPP_LONG_MESSAGE, HIDPP_DEVICE_RECEIVER, 0x04, 0x3c, 0x01, 0x02, 0x00, 0xb6, 0xff, 0x0f, 0xa0, 0x00, 0x64, 0x00, 0x00, 0x00 };
     uint8_t data_off[HIDPP_LONG_MESSAGE_LENGTH] = { HIDPP_LONG_MESSAGE, HIDPP_DEVICE_RECEIVER, 0x04, 0x3c, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
     int res;
     res = hid_write(device_handle, on ? data_on : data_off, HIDPP_LONG_MESSAGE_LENGTH);
@@ -118,9 +121,9 @@ static int g933_935_lights(hid_device* device_handle, uint8_t on)
     // TODO Investigate further.
     usleep(1 * 1000); // wait before next request, otherwise device ignores one of them, on windows at least.
     // turn logo lights on/off
-    uint8_t data_logo_on[HIDPP_LONG_MESSAGE_LENGTH] = { HIDPP_LONG_MESSAGE, HIDPP_DEVICE_RECEIVER, 0x04, 0x3c, 0x00, 0x02, 0x00, 0xb6, 0xff, 0x0f, 0xa0, 0x00, 0x64, 0x00, 0x00, 0x00 };
+    uint8_t data_logo_on[HIDPP_LONG_MESSAGE_LENGTH]  = { HIDPP_LONG_MESSAGE, HIDPP_DEVICE_RECEIVER, 0x04, 0x3c, 0x00, 0x02, 0x00, 0xb6, 0xff, 0x0f, 0xa0, 0x00, 0x64, 0x00, 0x00, 0x00 };
     uint8_t data_logo_off[HIDPP_LONG_MESSAGE_LENGTH] = { HIDPP_LONG_MESSAGE, HIDPP_DEVICE_RECEIVER, 0x04, 0x3c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-    res = hid_write(device_handle, on ? data_logo_on : data_logo_off, HIDPP_LONG_MESSAGE_LENGTH);
+    res                                              = hid_write(device_handle, on ? data_logo_on : data_logo_off, HIDPP_LONG_MESSAGE_LENGTH);
 
     return res;
 }
