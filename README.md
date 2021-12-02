@@ -155,6 +155,10 @@ The following options don't work on all devices yet:
 
 `headsetcontrol --dev` Advanced menu for developers, to send and/or receive custom data
 
+##### Modifiers
+
+`--timeout 5000` Specifies a timeout for read-operations in milliseconds. Default is 5 seconds, 0 disables timeout.
+
 ### Third Party
 
 The following additional software can be used to enable control via a GUI
