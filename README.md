@@ -9,7 +9,7 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
 
 ## Supported Headsets
 
-- Corsair Void (Every version*, regardless whether Elite, Pro, HS70, Wireless or Wired)
+- Corsair **Void** (Every void-version*, regardless whether Elite, Pro, HS70 Wireless)
   - Sidetone, Battery (for Wireless), LED on/off, Notification Sound
 - Logitech G430
   - No support in current version (Last working on macOS in commit 41be99379f)
@@ -40,9 +40,11 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
 
 For non-supported headsets on Linux: There is a chance that you can set the sidetone via AlsaMixer
 
-&ast; *If your Corsair headset is not recognized, see [Adding a corsair device](https://github.com/Sapd/HeadsetControl/wiki/Adding-a-Corsair-device)*
+&ast; *If your Corsair headset is not recognized, see [Adding a corsair device](https://github.com/Sapd/HeadsetControl/wiki/Adding-a-Corsair-device). HS80 and HS70 wired is not supported, buy you can change its sidetone in Alsamixer.*
 
 For more features or other headsets, the protocol of the respective headset must be analyzed further. This can be done by capturing the USB traffic between the device and the original Windows software and analyzing it with WireShark or USBlyzer. For that, you can also use a virtual machine with USB passthrough. The [wiki](https://github.com/Sapd/HeadsetControl/wiki/Development) provides a tutorial.
+
+Some headsets expose sidetone as audio-channel volume and as such can be changed in Alsamixer.
 
 ## Building
 
