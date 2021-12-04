@@ -48,16 +48,23 @@ static float estimate_battery_level(uint16_t voltage)
 {
     // from logitech_g633_g933_935.c
     // TODO: 3674->10% , 3970->100%
-    if (voltage <= 3677)
+    
+    //Original:
+    if (voltage <= 3686)
+        return (float)((0.03 * voltage) - 103);
+    if (voltage > 3980)
+        return (float)100.0;
+    //0.00000005847405*x^{4}-0.000895776*x^{3}+5.144332*x^{2}-13125.86*x+12554550
+    return (float)(0.00000005847405* pow(voltage, 4) - 0.000895776 * pow(voltage, 3) + 5.144332 * pow(voltage, 2) - 13125.86 * voltage + 12554550);
+
+    //first try:
+    /*if (voltage <= 3677)
         return (float)((0.03 * voltage) - 100.23);
     if (voltage > 4013)
         return (float)100.0;
-    //Original:
-    //0.00000005847405*x^{4}-0.000895776*x^{3}+5.144332*x^{2}-13125.86*x+12554550
-    return (float)(0.00000005847405* pow(voltage, 4) - 0.000895776 * pow(voltage, 3) + 5.144332 * pow(voltage, 2) - 13125.86 * voltage + 12554550);
-    //first try:
     //0.0000000037287*x^{4}-0.0000560630*x^{3}+0.315606*x^{2}-788.0937250298629*x+736260
-    //return (float)(0.0000000037287 * pow(voltage, 4) - 0.0000560630 * pow(voltage, 3) + 0.315606 * pow(voltage, 2) - 788.0937250298629 * voltage + 736260);
+    return (float)(0.0000000037287 * pow(voltage, 4) - 0.0000560630 * pow(voltage, 3) + 0.315606 * pow(voltage, 2) - 788.0937250298629 * voltage + 736260);
+    */
     
 }
 
