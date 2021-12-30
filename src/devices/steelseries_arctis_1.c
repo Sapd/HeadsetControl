@@ -112,7 +112,7 @@ static int arctis_1_send_inactive_time(hid_device* device_handle, uint8_t num)
     // the range of the Arctis 7 seems to be from 0 to 0x5A (90)
     // num = map(num, 0, 128, 0x00, 0x5A);
 
-    uint8_t data[31] = { 0x06, 0x51, num };
+    uint8_t data[31] = { 0x06, 0x53, num };
 
     int ret = hid_write(device_handle, data, 31);
 
