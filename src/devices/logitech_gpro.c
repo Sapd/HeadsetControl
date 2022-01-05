@@ -7,7 +7,6 @@
 #include <math.h>
 #include <string.h>
 
-#define MSG_SIZE    20
 #define MAX_BATTERY 4200 // max seen 0x10e6, but seems to report Vdc
 
 static struct device device_gpro;
