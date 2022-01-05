@@ -7,7 +7,7 @@
 #include <math.h>
 #include <string.h>
 
-#define MSG_SIZE 20
+#define MSG_SIZE    20
 #define MAX_BATTERY 4200 // max seen 0x10e6, but seems to report Vdc
 
 static struct device device_gpro;
@@ -34,9 +34,9 @@ void gpro_init(struct device** device)
 
     strncpy(device_gpro.device_name, "Logitech G PRO Series", sizeof(device_gpro.device_name));
 
-    device_gpro.capabilities    = B(CAP_SIDETONE | B(CAP_BATTERY_STATUS) | B(CAP_INACTIVE_TIME));
-    device_gpro.send_sidetone   = &gpro_send_sidetone;
-    device_gpro.request_battery = &gpro_request_battery;
+    device_gpro.capabilities       = B(CAP_SIDETONE | B(CAP_BATTERY_STATUS) | B(CAP_INACTIVE_TIME));
+    device_gpro.send_sidetone      = &gpro_send_sidetone;
+    device_gpro.request_battery    = &gpro_request_battery;
     device_gpro.send_inactive_time = &gpro_send_inactive_time;
 
     *device = &device_gpro;
@@ -91,7 +91,6 @@ static int gpro_request_battery(hid_device* device_handle)
     // 6th byte is state; 0x1 for discharging, 0x3 for charging
     if (buf[6] == 0x03)
         return BATTERY_CHARGING;
-
 
     const uint16_t voltage = (buf[4] << 8) | buf[5];
     return (int)(roundf(estimate_battery_level(voltage)));
