@@ -2,13 +2,13 @@
 #include "../utility.h"
 #include "logitech.h"
 
-#include <stdio.h>
 #include <unistd.h>
 
 #include <math.h>
 #include <string.h>
 
 #define MSG_SIZE 20
+#define MAX_BATTERY 4200 // max seen 0x10e6, but seems to report Vdc
 
 static struct device device_gpro;
 
@@ -51,40 +51,11 @@ static int gpro_send_sidetone(hid_device* device_handle, uint8_t num)
     return hid_write(device_handle, sidetone_data, sizeof(sidetone_data) / sizeof(sidetone_data[0]));
 }
 
-#ifdef DEBUG
-static void printhexdump(uint8_t* buf, int len)
-{
-    printf("┌────────┬─────────────────────────────────────────────────┬──────────────────┐\n");
-    for (int offset = 0; offset < MSG_SIZE; offset += 16) {
-        printf("│ \e[1m%06X\e[m │", offset);
-        printf("\e[36m");
-        for (int i = offset; i < offset + 16; i++) {
-            if (i < MSG_SIZE) {
-                printf(" %02X", buf[i]);
-            } else {
-                printf("   ");
-            }
-        }
-        printf("\e[m");
-        printf(" │ ");
-        printf("\e[33m");
-        for (int i = offset; i < offset + 16; i++) {
-            if (buf[i] > 31 && buf[i] < 127) {
-                printf("%c", buf[i]);
-            } else {
-                printf(".");
-            }
-        }
-        printf("\e[m");
-        printf(" │\n");
-    }
-    printf("└────────┴─────────────────────────────────────────────────┴──────────────────┘\n");
-}
-#endif /* DEBUG */
-
 static float estimate_battery_level(uint16_t voltage)
 {
-    return voltage * 100.0 / 0x0fff;
+    if (voltage > 4200)
+        return 100.0;
+    return voltage * 100.0 / MAX_BATTERY;
 }
 
 static int gpro_request_battery(hid_device* device_handle)
@@ -110,9 +81,17 @@ static int gpro_request_battery(hid_device* device_handle)
     if (r == 0)
         return HSC_READ_TIMEOUT;
 
-#ifdef DEBUG
-    printhexdump(buf, HIDPP_LONG_MESSAGE_LENGTH);
-#endif /* DEBUG */
+    if (buf[6] == 0x03)
+        return BATTERY_CHARGING;
+
+    // Headset offline
+    if (buf[2] == 0xff)
+        return HSC_ERROR;
+
+    // 6th byte is state; 0x1 for discharging, 0x3 for charging
+    if (buf[6] == 0x03)
+        return BATTERY_CHARGING;
+
 
     const uint16_t voltage = (buf[4] << 8) | buf[5];
     return (int)(roundf(estimate_battery_level(voltage)));
