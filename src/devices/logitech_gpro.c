@@ -114,5 +114,8 @@ static int gpro_send_inactive_time(hid_device* device_handle, uint8_t num)
     if (r == 0)
         return HSC_READ_TIMEOUT;
 
+    if (buf[2] == 0xff)
+        return HSC_ERROR;
+
     return r;
 }
