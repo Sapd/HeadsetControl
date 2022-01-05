@@ -24,6 +24,7 @@ static const uint16_t PRODUCT_IDS[] = {
 
 static int gpro_send_sidetone(hid_device* device_handle, uint8_t num);
 static int gpro_request_battery(hid_device* device_handle);
+static int gpro_send_inactive_time(hid_device* device_handle, uint8_t num);
 
 void gpro_init(struct device** device)
 {
@@ -33,9 +34,10 @@ void gpro_init(struct device** device)
 
     strncpy(device_gpro.device_name, "Logitech G PRO Series", sizeof(device_gpro.device_name));
 
-    device_gpro.capabilities    = B(CAP_SIDETONE | B(CAP_BATTERY_STATUS));
+    device_gpro.capabilities    = B(CAP_SIDETONE | B(CAP_BATTERY_STATUS) | B(CAP_INACTIVE_TIME));
     device_gpro.send_sidetone   = &gpro_send_sidetone;
     device_gpro.request_battery = &gpro_request_battery;
+    device_gpro.send_inactive_time = &gpro_send_inactive_time;
 
     *device = &device_gpro;
 }
@@ -114,4 +116,24 @@ static int gpro_request_battery(hid_device* device_handle)
 
     const uint16_t voltage = (buf[4] << 8) | buf[5];
     return (int)(roundf(estimate_battery_level(voltage)));
+}
+
+static int gpro_send_inactive_time(hid_device* device_handle, uint8_t num)
+{
+    int r = 0;
+    // request new inactivity timeout
+    uint8_t buf[HIDPP_LONG_MESSAGE_LENGTH] = { HIDPP_LONG_MESSAGE, HIDPP_DEVICE_RECEIVER, 0x06, 0x2d, num, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+
+    r = hid_write(device_handle, buf, sizeof(buf) / sizeof(buf[0]));
+    if (r < 0)
+        return r;
+
+    r = hid_read_timeout(device_handle, buf, HIDPP_LONG_MESSAGE_LENGTH, hsc_device_timeout);
+    if (r < 0)
+        return r;
+
+    if (r == 0)
+        return HSC_READ_TIMEOUT;
+
+    return r;
 }
