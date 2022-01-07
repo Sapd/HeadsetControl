@@ -87,10 +87,6 @@ static int gpro_request_battery(hid_device* device_handle)
     if (buf[2] == 0xff)
         return HSC_ERROR;
 
-    // 6th byte is state; 0x1 for discharging, 0x3 for charging
-    if (buf[6] == 0x03)
-        return BATTERY_CHARGING;
-
     const uint16_t voltage = (buf[4] << 8) | buf[5];
     return (int)(roundf(estimate_battery_level(voltage)));
 }
