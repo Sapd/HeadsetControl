@@ -34,6 +34,10 @@ void gpro_init(struct device** device)
     strncpy(device_gpro.device_name, "Logitech G PRO Series", sizeof(device_gpro.device_name));
 
     device_gpro.capabilities       = B(CAP_SIDETONE | B(CAP_BATTERY_STATUS) | B(CAP_INACTIVE_TIME));
+
+    device_gpro.capability_details[CAP_BATTERY_STATUS] = (struct capability_detail) { .usagepage = 0xff43, .usageid = 0x0202 };
+    device_gpro.capability_details[CAP_INACTIVE_TIME] = (struct capability_detail) { .usagepage = 0xff43, .usageid = 0x0202 };
+
     device_gpro.send_sidetone      = &gpro_send_sidetone;
     device_gpro.request_battery    = &gpro_request_battery;
     device_gpro.send_inactive_time = &gpro_send_inactive_time;
