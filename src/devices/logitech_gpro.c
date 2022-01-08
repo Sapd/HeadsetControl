@@ -7,8 +7,6 @@
 #include <math.h>
 #include <string.h>
 
-#define MAX_BATTERY 4200 // max seen 0x10e6, but seems to report Vdc
-
 static struct device device_gpro;
 
 #define ID_LOGITECH_PRO     0x0aa7
@@ -54,11 +52,44 @@ static int gpro_send_sidetone(hid_device* device_handle, uint8_t num)
     return hid_write(device_handle, sidetone_data, sizeof(sidetone_data) / sizeof(sidetone_data[0]));
 }
 
+/**
+ * @brief This function calculates the estimate batttery level in percent.
+ *
+ * Battery stats:
+ *   - Voltage capacity:  4200 (100%)
+ *   - Charging voltage:  4700
+ *   - Power off voltage: 3300 (  0%)
+ *
+ * @param voltage readings
+ * @return battery level in percent
+ */
 static float estimate_battery_level(uint16_t voltage)
 {
-    if (voltage > 4200)
-        return 100.0;
-    return voltage * 100.0 / MAX_BATTERY;
+    double terms[] = {
+        -6.1964487179274298e+005,
+        6.5828721046922783e+002,
+        -2.2633136783613775e-001,
+        1.1433822915597668e-005,
+        8.9940712231305347e-009,
+        -1.5410267634516437e-012,
+        -8.1338998403017992e-018,
+        1.1289501838578214e-020
+    };
+
+    size_t csz = sizeof terms / sizeof *terms;
+
+    double t = 1;
+    double percent = 0;
+    for (int i = 0; i < csz; i++) {
+        percent += terms[i] * t;
+        t *= voltage;
+    }
+
+    if (percent > 100)
+        percent = 100;
+    if (percent < 0)
+        percent = 0;
+    return percent;
 }
 
 static int gpro_request_battery(hid_device* device_handle)
