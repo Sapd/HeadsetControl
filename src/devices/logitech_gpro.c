@@ -31,10 +31,10 @@ void gpro_init(struct device** device)
 
     strncpy(device_gpro.device_name, "Logitech G PRO Series", sizeof(device_gpro.device_name));
 
-    device_gpro.capabilities       = B(CAP_SIDETONE | B(CAP_BATTERY_STATUS) | B(CAP_INACTIVE_TIME));
+    device_gpro.capabilities = B(CAP_SIDETONE | B(CAP_BATTERY_STATUS) | B(CAP_INACTIVE_TIME));
 
     device_gpro.capability_details[CAP_BATTERY_STATUS] = (struct capability_detail) { .usagepage = 0xff43, .usageid = 0x0202 };
-    device_gpro.capability_details[CAP_INACTIVE_TIME] = (struct capability_detail) { .usagepage = 0xff43, .usageid = 0x0202 };
+    device_gpro.capability_details[CAP_INACTIVE_TIME]  = (struct capability_detail) { .usagepage = 0xff43, .usageid = 0x0202 };
 
     device_gpro.send_sidetone      = &gpro_send_sidetone;
     device_gpro.request_battery    = &gpro_request_battery;
@@ -76,7 +76,7 @@ static float estimate_battery_level(uint16_t voltage)
 
     size_t csz = sizeof terms / sizeof *terms;
 
-    double t = 1;
+    double t       = 1;
     double percent = 0;
     for (int i = 0; i < csz; i++) {
         percent += terms[i] * t;
