@@ -29,9 +29,9 @@ void arctis_1_init(struct device** device)
     strncpy(device_arctis.device_name, "SteelSeries Arctis (1) Wireless", sizeof(device_arctis.device_name));
 
     device_arctis.capabilities                           = B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_INACTIVE_TIME);
-    device_arctis.capability_details[CAP_SIDETONE]       = (struct capability_detail) { .usagepage=0xff43, .usageid=0x202, .interface = 0x03 };
-    device_arctis.capability_details[CAP_BATTERY_STATUS] = (struct capability_detail) { .usagepage=0xff43, .usageid=0x202, .interface = 0x03 };
-    device_arctis.capability_details[CAP_INACTIVE_TIME]  = (struct capability_detail) { .usagepage=0xff43, .usageid=0x202, .interface = 0x03 };
+    device_arctis.capability_details[CAP_SIDETONE]       = (struct capability_detail) { .usagepage = 0xff43, .usageid = 0x202, .interface = 0x03 };
+    device_arctis.capability_details[CAP_BATTERY_STATUS] = (struct capability_detail) { .usagepage = 0xff43, .usageid = 0x202, .interface = 0x03 };
+    device_arctis.capability_details[CAP_INACTIVE_TIME]  = (struct capability_detail) { .usagepage = 0xff43, .usageid = 0x202, .interface = 0x03 };
     device_arctis.send_sidetone                          = &arctis_1_send_sidetone;
     device_arctis.request_battery                        = &arctis_1_request_battery;
     device_arctis.send_inactive_time                     = &arctis_1_send_inactive_time;
