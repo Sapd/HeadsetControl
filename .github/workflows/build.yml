@@ -15,10 +15,10 @@ jobs:
         include:
           - os: ubuntu-latest
             triplet: x64-linux
-            INSTALL_DEPS: sudo apt-get -y install libhidapi-dev
+            #INSTALL_DEPS: sudo apt-get -y install libhidapi-dev
           - os: macos-latest
             triplet: x64-osx
-            INSTALL_DEPS: brew install hidapi
+            #INSTALL_DEPS: brew install hidapi
     steps:
       - uses: actions/checkout@v1
       - uses: lukka/get-cmake@latest
@@ -30,7 +30,7 @@ jobs:
         run: find $RUNNER_WORKSPACE
         shell: bash
       - name: Run CMake with Ninja
-        uses: lukka/run-cmake@v3
+        uses: lukka/run-cmake@v10
         id: runcmake
         with:
           cmakeListsTxtPath: '${{ github.workspace }}/CMakeLists.txt'

@@ -7,3 +7,5 @@ cmake-build-debug/
 *.code-workspace
 
 .DS_Store
+
+vcpkg_installed/
