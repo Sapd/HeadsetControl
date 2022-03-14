@@ -45,8 +45,6 @@ jobs:
           install: git base-devel mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-hidapi make
         if: ${{ matrix.UNIX == 0 }}
 
-      - name: dir
-        run: find $RUNNER_WORKSPACE
       - name: Run CMake with Makefile
         uses: lukka/run-cmake@v10
         id: runcmake
@@ -59,6 +57,3 @@ jobs:
       - name: Run test
         run: cd ${{ env.buildDir }}/makefile && ctest
 
-      - name: dir
-        run: find $RUNNER_WORKSPACE
-        shell: bash
