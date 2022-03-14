@@ -58,8 +58,8 @@ jobs:
 
       - name: Run CMake on Windows
         run: |
-          mkdir ${{ env.buildDir }}
-          cd ${{ env.buildDir }}
+          mkdir build
+          cd build
           cmake -G"MSYS Makefiles" ..
           make
         shell: msys2 {0}
