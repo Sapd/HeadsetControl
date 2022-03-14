@@ -10,14 +10,14 @@
         "name": "makefile",
         "displayName": "Unix Makefiles",
         "description": "Configure with makefiles",
-        "binaryDir": "${sourceDir}/build/${presetName}",
+        "binaryDir": "${sourceDir}/build",
         "generator": "Unix Makefiles"
       },
       {
         "name": "msys2",
         "displayName": "MSYS Makefiles",
         "description": "Configure with MSYS makefiles",
-        "binaryDir": "${sourceDir}/build/${presetName}",
+        "binaryDir": "${sourceDir}/build",
         "generator": "MSYS Makefiles"
       }
     ],

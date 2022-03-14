@@ -19,19 +19,24 @@ jobs:
             GENERATOR: makefile
             PRESET: makefile-release
             UNIX: 1
+            SHELL: bash
           - os: macos-latest
             triplet: x64-osx
             INSTALL_DEPS: brew install hidapi
             GENERATOR: makefile
             PRESET: makefile-release
             UNIX: 1
+            SHELL: bash
           - os: windows-latest
             GENERATOR: msys2
             PRESET: msys2-release
             UNIX: 0
+            SHELL: msys2 {0}
     steps:
       - uses: actions/checkout@v1
+
       - uses: lukka/get-cmake@latest
+        if: ${{ matrix.UNIX == 1 }}
 
       - name: Install Dependencies
         run: ${{ matrix.INSTALL_DEPS }}
@@ -40,7 +45,7 @@ jobs:
       - uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
-          update: false
+          update: true
           release: false
           install: git base-devel mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-hidapi make
         if: ${{ matrix.UNIX == 0 }}
@@ -52,8 +57,16 @@ jobs:
           cmakeListsTxtPath: '${{ github.workspace }}/CMakeLists.txt'
           configurePreset: '${{ matrix.GENERATOR }}'
           buildPreset: '${{ matrix.PRESET }}'
-          #vcpkgJsonGlob: 'vcpkg.json'
+        if: ${{ matrix.UNIX == 1 }}
+
+      - name: Run CMake on Windows
+        run: |
+          mkdir ${{ env.buildDir }}
+          cd ${{ env.buildDir }}
+          cmake -G"MSYS Makefiles" ..
+          make
+        if: ${{ matrix.UNIX == 0 }}
 
       - name: Run test
-        run: cd ${{ env.buildDir }}/makefile && ctest
+        run: cd ${{ env.buildDir }} && ctest
 
