@@ -32,14 +32,14 @@ jobs:
 
       - name: Install Dependencies
         run: ${{ matrix.INSTALL_DEPS }}
-        if: ${{ UNIX == 1 }}
+        if: ${{ matrix.UNIX == 1 }}
 
       - uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
           update: true
           install: git base-devel mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-hidapi make
-        if: ${{ UNIX == 0 }}
+        if: ${{ matrix.UNIX == 0 }}
 
       - name: dir
         run: find $RUNNER_WORKSPACE
