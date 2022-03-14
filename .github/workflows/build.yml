@@ -19,19 +19,16 @@ jobs:
             GENERATOR: makefile
             PRESET: makefile-release
             UNIX: 1
-            SHELL: bash
           - os: macos-latest
             triplet: x64-osx
             INSTALL_DEPS: brew install hidapi
             GENERATOR: makefile
             PRESET: makefile-release
             UNIX: 1
-            SHELL: bash
           - os: windows-latest
             GENERATOR: msys2
             PRESET: msys2-release
             UNIX: 0
-            SHELL: msys2 {0}
     steps:
       - uses: actions/checkout@v1
 
@@ -65,6 +62,7 @@ jobs:
           cd ${{ env.buildDir }}
           cmake -G"MSYS Makefiles" ..
           make
+        shell: msys2 {0}
         if: ${{ matrix.UNIX == 0 }}
 
       - name: Run test
