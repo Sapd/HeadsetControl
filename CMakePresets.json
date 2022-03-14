@@ -24,14 +24,30 @@
     "buildPresets": [
       {
         "name": "makefile-debug",
+        "configurePreset": "makefile",
         "displayName": "Build makefile-debug",
         "description": "Build makefile Debug configuration",
         "configuration": "Debug"
       },
       {
         "name": "makefile-release",
+        "configurePreset": "makefile",
         "displayName": "Build makefile-release",
         "description": "Build makefile Release configuration",
+        "configuration": "RelWithDebInfo"
+      },
+      {
+        "name": "msys2-debug",
+        "configurePreset": "msys2",
+        "displayName": "Build msys2-debug",
+        "description": "Build msys2 Debug configuration",
+        "configuration": "Debug"
+      },
+      {
+        "name": "msys2-release",
+        "configurePreset": "msys2",
+        "displayName": "Build msys2-release",
+        "description": "Build msys2 Release configuration",
         "configuration": "RelWithDebInfo"
       }
     ],

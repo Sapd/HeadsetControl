@@ -17,14 +17,17 @@ jobs:
             triplet: x64-linux
             INSTALL_DEPS: sudo apt-get -y install libhidapi-dev
             GENERATOR: makefile
+            PRESET: makefile-release
             UNIX: 1
           - os: macos-latest
             triplet: x64-osx
             INSTALL_DEPS: brew install hidapi
             GENERATOR: makefile
+            PRESET: makefile-release
             UNIX: 1
           - os: windows-latest
             GENERATOR: msys2
+            PRESET: msys2-release
             UNIX: 0
     steps:
       - uses: actions/checkout@v1
@@ -37,7 +40,8 @@ jobs:
       - uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
-          update: true
+          update: false
+          release: false
           install: git base-devel mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-hidapi make
         if: ${{ matrix.UNIX == 0 }}
 
@@ -49,7 +53,7 @@ jobs:
         with:
           cmakeListsTxtPath: '${{ github.workspace }}/CMakeLists.txt'
           configurePreset: '${{ matrix.GENERATOR }}'
-          buildPreset: 'makefile-release'
+          buildPreset: '${{ matrix.PRESET }}'
           #vcpkgJsonGlob: 'vcpkg.json'
 
       - name: Run test
