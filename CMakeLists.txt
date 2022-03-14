@@ -1,10 +1,10 @@
-cmake_minimum_required(VERSION 2.8...3.19)
+cmake_minimum_required(VERSION 3.10)
 project(headsetcontrol LANGUAGES C)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules/")
 set(CLANG_FORMAT_EXCLUDE_PATTERNS  "build/")
 
-find_package(hidapi REQUIRED)
+find_package(hidapi MODULE REQUIRED)
 
 # ------------------------------------------------------------------------------
 # Includes
@@ -109,12 +109,23 @@ if(ENABLE_CLANG_TIDY)
 
 endif()
 
+
+# Needed to also support build with vcpkg and hidapi
+#       (we could also instead directly use the vcpkg targets, however then a sole homebrew build won't work...)
+if(APPLE)
+    find_library(IOKit IOKit)
+    find_library(CoreFoundation CoreFoundation)
+    find_library(AppKit AppKit)
+
+    set(APPLE_LIBRARIES ${IOKit} ${CoreFoundation} ${AppKit})
+endif(APPLE)
+
 # ------------------------------------------------------------------------------
 # Executables
 # ------------------------------------------------------------------------------
 
 add_executable(headsetcontrol ${SOURCE_FILES})
-target_link_libraries(headsetcontrol m ${HIDAPI_LIBRARIES})
+target_link_libraries(headsetcontrol m ${HIDAPI_LIBRARIES} ${APPLE_LIBRARIES})
 
 install(TARGETS headsetcontrol DESTINATION bin)
 

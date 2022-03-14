@@ -1,0 +1,45 @@
+{
+    "version": 3,
+    "cmakeMinimumRequired": {
+      "major": 3,
+      "minor": 10,
+      "patch": 0
+    },
+    "configurePresets": [
+      {
+        "name": "makefile",
+        "displayName": "Unix Makefiles",
+        "description": "Configure with makefiles",
+        "binaryDir": "${sourceDir}/build/${presetName}",
+        "generator": "Unix Makefiles"
+      }
+    ],
+    "buildPresets": [
+      {
+        "name": "makefile-debug",
+        "configurePreset": "makefile",
+        "displayName": "Build makefile-debug",
+        "description": "Build makefile Debug configuration",
+        "configuration": "Debug"
+      },
+      {
+        "name": "makefile-release",
+        "configurePreset": "makefile",
+        "displayName": "Build makefile-release",
+        "description": "Build makefile Release configuration",
+        "configuration": "RelWithDebInfo"
+      }
+    ],
+    "testPresets": [
+      {
+        "name": "makefile-debug",
+        "configurePreset": "makefile",
+        "configuration": "Debug"
+      },
+      {
+        "name": "makefile-release",
+        "configurePreset": "makefile",
+        "configuration": "RelWithDebInfo"
+      }
+    ]
+  }

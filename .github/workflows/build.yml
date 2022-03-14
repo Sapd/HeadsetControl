@@ -34,8 +34,10 @@ jobs:
         id: runcmake
         with:
           cmakeListsTxtPath: '${{ github.workspace }}/CMakeLists.txt'
-          buildWithCMakeArgs: '-- -v'
           buildDirectory: ${{ env.buildDir }}
+          configurePreset: 'makefile'
+          buildPreset: 'makefile-release'
+          #vcpkgJsonGlob: 'vcpkg.json'
 
       - name: Run test
         run: cd ${{ env.buildDir }} && ctest
