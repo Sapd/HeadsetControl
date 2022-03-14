@@ -12,19 +12,24 @@
         "description": "Configure with makefiles",
         "binaryDir": "${sourceDir}/build/${presetName}",
         "generator": "Unix Makefiles"
+      },
+      {
+        "name": "msys2",
+        "displayName": "MSYS Makefiles",
+        "description": "Configure with MSYS makefiles",
+        "binaryDir": "${sourceDir}/build/${presetName}",
+        "generator": "MSYS Makefiles"
       }
     ],
     "buildPresets": [
       {
         "name": "makefile-debug",
-        "configurePreset": "makefile",
         "displayName": "Build makefile-debug",
         "description": "Build makefile Debug configuration",
         "configuration": "Debug"
       },
       {
         "name": "makefile-release",
-        "configurePreset": "makefile",
         "displayName": "Build makefile-release",
         "description": "Build makefile Release configuration",
         "configuration": "RelWithDebInfo"

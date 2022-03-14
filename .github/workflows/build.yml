@@ -11,36 +11,49 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
         include:
           - os: ubuntu-latest
             triplet: x64-linux
             INSTALL_DEPS: sudo apt-get -y install libhidapi-dev
+            GENERATOR: makefile
+            UNIX: 1
           - os: macos-latest
             triplet: x64-osx
             INSTALL_DEPS: brew install hidapi
+            GENERATOR: makefile
+            UNIX: 1
+          - os: windows-latest
+            GENERATOR: msys2
+            UNIX: 0
     steps:
       - uses: actions/checkout@v1
       - uses: lukka/get-cmake@latest
 
       - name: Install Dependencies
         run: ${{ matrix.INSTALL_DEPS }}
+        if: ${{ UNIX == 1 }}
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: git base-devel mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-hidapi make
+        if: ${{ UNIX == 0 }}
 
       - name: dir
         run: find $RUNNER_WORKSPACE
-        shell: bash
-      - name: Run CMake with Ninja
+      - name: Run CMake with Makefile
         uses: lukka/run-cmake@v10
         id: runcmake
         with:
           cmakeListsTxtPath: '${{ github.workspace }}/CMakeLists.txt'
-          buildDirectory: ${{ env.buildDir }}
-          configurePreset: 'makefile'
+          configurePreset: '${{ matrix.GENERATOR }}'
           buildPreset: 'makefile-release'
           #vcpkgJsonGlob: 'vcpkg.json'
 
       - name: Run test
-        run: cd ${{ env.buildDir }} && ctest
+        run: cd ${{ env.buildDir }}/makefile && ctest
 
       - name: dir
         run: find $RUNNER_WORKSPACE
