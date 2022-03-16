@@ -68,7 +68,13 @@ jobs:
       - name: Run test
         run: cd ${{ env.buildDir }} && ctest
 
+      - name: Copy Artifacts
+        run: |
+          cd ${{ env.buildDir }}
+          mkdir -p "artifacts/$RUNNER_OS"
+          cp headsetcontrol* "artifacts/$RUNNER_OS/"
+
       - uses: actions/upload-artifact@v3
         with:
-          path: '${{ env.buildDir }}/headsetcontrol*'
+          path: '${{ env.buildDir }}/artifacts/**/*'
 
