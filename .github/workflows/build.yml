@@ -54,7 +54,7 @@ jobs:
           cmakeListsTxtPath: '${{ github.workspace }}/CMakeLists.txt'
           configurePreset: '${{ matrix.GENERATOR }}'
           buildPreset: '${{ matrix.PRESET }}'
-          useShell: msys2
+        if: ${{ matrix.UNIX == 1 }}
 
       - name: Run CMake on Windows # TODO use CMakePresets
         run: |
