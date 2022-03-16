@@ -53,6 +53,11 @@ jobs:
           install: git base-devel mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-hidapi make
         if: ${{ matrix.UNIX == 0 }}
 
+      - shell: msys2 {0}
+        run: |
+          where msys2
+        if: ${{ matrix.UNIX == 0 }}
+
       - name: Run CMake with Makefile
         uses: lukka/run-cmake@v10
         id: runcmake
@@ -60,6 +65,7 @@ jobs:
           cmakeListsTxtPath: '${{ github.workspace }}/CMakeLists.txt'
           configurePreset: '${{ matrix.GENERATOR }}'
           buildPreset: '${{ matrix.PRESET }}'
+          useShell: '${{ matrix.shell }}'
 
       #- name: Run CMake on Windows # TODO use CMakePresets
       #  run: |
