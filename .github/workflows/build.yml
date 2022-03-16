@@ -54,16 +54,16 @@ jobs:
           cmakeListsTxtPath: '${{ github.workspace }}/CMakeLists.txt'
           configurePreset: '${{ matrix.GENERATOR }}'
           buildPreset: '${{ matrix.PRESET }}'
-        if: ${{ matrix.UNIX == 1 }}
+          useShell: msys2
 
-      - name: Run CMake on Windows
-        run: |
-          mkdir build
-          cd build
-          cmake -G"MSYS Makefiles" ..
-          make
-        shell: msys2 {0}
-        if: ${{ matrix.UNIX == 0 }}
+      #- name: Run CMake on Windows # TODO use CMakePresets
+      #  run: |
+      #    mkdir build
+      #    cd build
+      #    cmake -G"MSYS Makefiles" ..
+      #    make
+      #  shell: msys2 {0}
+      #  if: ${{ matrix.UNIX == 0 }}
 
       - name: Run test
         run: cd ${{ env.buildDir }} && ctest

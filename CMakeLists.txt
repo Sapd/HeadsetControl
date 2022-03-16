@@ -19,18 +19,9 @@ add_subdirectory(src/devices)
 # C Flags
 # ------------------------------------------------------------------------------
 
-macro(use_c99)
-    if (CMAKE_VERSION VERSION_LESS "3.1")
-        if (CMAKE_C_COMPILER_ID STREQUAL "GNU")
-            set (CMAKE_C_FLAGS "--std=gnu99 ${CMAKE_C_FLAGS}")
-        endif ()
-    else ()
-        set (CMAKE_C_STANDARD 99)
-    endif ()
-endmacro(use_c99)
+set (CMAKE_C_STANDARD 99)
 
-use_c99()
-
+# Flags to support static linking on Windows
 IF (WIN32)
 	set(CMAKE_C_STANDARD_LIBRARIES "-lsetupapi -static-libgcc -static-libstdc++ -lwsock32 -lws2_32 ${CMAKE_CXX_STANDARD_LIBRARIES}")
 	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-Bstatic,--whole-archive -lwinpthread -Wl,--no-whole-archive")
@@ -109,6 +100,9 @@ if(ENABLE_CLANG_TIDY)
 
 endif()
 
+# ------------------------------------------------------------------------------
+# Misc
+# ------------------------------------------------------------------------------
 
 # Needed to also support build with vcpkg and hidapi
 #       (we could also instead directly use the vcpkg targets, however then a sole homebrew build won't work...)
