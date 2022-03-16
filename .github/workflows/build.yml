@@ -30,7 +30,7 @@ jobs:
           - os: windows-latest
             GENERATOR: msys2
             PRESET: msys2-release
-            shell: msys2
+            shell: 'D:\a\_temp\setup-msys2\msys2.CMD'
             UNIX: 0
     defaults:
       run:
@@ -51,11 +51,6 @@ jobs:
           update: true
           release: false
           install: git base-devel mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-hidapi make
-        if: ${{ matrix.UNIX == 0 }}
-
-      - shell: msys2 {0}
-        run: |
-          where msys2
         if: ${{ matrix.UNIX == 0 }}
 
       - name: Run CMake with Makefile
