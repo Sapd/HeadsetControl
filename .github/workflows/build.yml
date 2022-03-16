@@ -56,14 +56,18 @@ jobs:
           buildPreset: '${{ matrix.PRESET }}'
           useShell: msys2
 
-      #- name: Run CMake on Windows # TODO use CMakePresets
-      #  run: |
-      #    mkdir build
-      #    cd build
-      #    cmake -G"MSYS Makefiles" ..
-      #    make
-      #  shell: msys2 {0}
-      #  if: ${{ matrix.UNIX == 0 }}
+      - name: Run CMake on Windows # TODO use CMakePresets
+        run: |
+          mkdir build
+          cd build
+          cmake -G"MSYS Makefiles" ..
+          make
+        shell: msys2 {0}
+        if: ${{ matrix.UNIX == 0 }}
+
+      - uses: actions/upload-artifact@v3
+        with:
+          path: ${{ env.buildDir }}/headsetcontrol[.exe]
 
       - name: Run test
         run: cd ${{ env.buildDir }} && ctest
