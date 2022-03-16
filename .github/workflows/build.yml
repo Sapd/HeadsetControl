@@ -18,17 +18,23 @@ jobs:
             INSTALL_DEPS: sudo apt-get -y install libhidapi-dev
             GENERATOR: makefile
             PRESET: makefile-release
+            shell: bash
             UNIX: 1
           - os: macos-latest
             triplet: x64-osx
             INSTALL_DEPS: brew install hidapi
             GENERATOR: makefile
             PRESET: makefile-release
+            shell: bash
             UNIX: 1
           - os: windows-latest
             GENERATOR: msys2
             PRESET: msys2-release
+            shell: msys2
             UNIX: 0
+    defaults:
+      run:
+        shell: ${{ matrix.shell} {0}
     steps:
       - uses: actions/checkout@v1
 
@@ -54,16 +60,15 @@ jobs:
           cmakeListsTxtPath: '${{ github.workspace }}/CMakeLists.txt'
           configurePreset: '${{ matrix.GENERATOR }}'
           buildPreset: '${{ matrix.PRESET }}'
-        if: ${{ matrix.UNIX == 1 }}
 
-      - name: Run CMake on Windows # TODO use CMakePresets
-        run: |
-          mkdir build
-          cd build
-          cmake -G"MSYS Makefiles" ..
-          make
-        shell: msys2 {0}
-        if: ${{ matrix.UNIX == 0 }}
+      #- name: Run CMake on Windows # TODO use CMakePresets
+      #  run: |
+      #    mkdir build
+      #    cd build
+      #    cmake -G"MSYS Makefiles" ..
+      #    make
+      #  shell: msys2 {0}
+      #  if: ${{ matrix.UNIX == 0 }}
 
       - name: Run test
         run: cd ${{ env.buildDir }} && ctest
