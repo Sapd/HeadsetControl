@@ -65,10 +65,10 @@ jobs:
         shell: msys2 {0}
         if: ${{ matrix.UNIX == 0 }}
 
-      - uses: actions/upload-artifact@v3
-        with:
-          path: ${{ env.buildDir }}/headsetcontrol[.exe]
-
       - name: Run test
         run: cd ${{ env.buildDir }} && ctest
+
+      - uses: actions/upload-artifact@v3
+        with:
+          path: '${{ env.buildDir }}/headsetcontrol*'
 
