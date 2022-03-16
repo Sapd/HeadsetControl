@@ -34,7 +34,7 @@ jobs:
             UNIX: 0
     defaults:
       run:
-        shell: ${{ matrix.shell} {0}
+        shell: ${{ matrix.shell }} {0}
     steps:
       - uses: actions/checkout@v1
 
