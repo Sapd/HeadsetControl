@@ -22,9 +22,11 @@ void g533_init(struct device** device)
 
     strncpy(device_g533.device_name, "Logitech G533", sizeof(device_g533.device_name));
 
-    device_g533.capabilities    = B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS);
-    device_g533.request_battery = &g533_request_battery;
-    device_g533.send_sidetone   = &g533_send_sidetone;
+    device_g533.capabilities                           = B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS);
+    device_g533.capability_details[CAP_SIDETONE]       = (struct capability_detail) { .usagepage = 0xff00, .usageid = 0x1, .interface = 3 };
+    device_g533.capability_details[CAP_BATTERY_STATUS] = (struct capability_detail) { .usagepage = 0xff43, .usageid = 0x202, .interface = 3 };
+    device_g533.request_battery                        = &g533_request_battery;
+    device_g533.send_sidetone                          = &g533_send_sidetone;
 
     *device = &device_g533;
 }
@@ -80,11 +82,11 @@ static int g533_request_battery(hid_device* device_handle)
     if (r == 0)
         return HSC_READ_TIMEOUT;
 
-    //Headset offline
+    // Headset offline
     if (data_read[2] == 0xFF)
         return HSC_ERROR;
 
-    //6th byte is state; 0x1 for idle, 0x3 for charging
+    // 6th byte is state; 0x1 for idle, 0x3 for charging
     uint8_t state = data_read[6];
     if (state == 0x03)
         return BATTERY_CHARGING;
