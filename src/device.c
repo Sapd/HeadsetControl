@@ -10,6 +10,7 @@ const char* const capabilities_str[NUM_CAPABILITIES]
           [CAP_CHATMIX_STATUS]     = "chatmix",
           [CAP_VOICE_PROMPTS]      = "voice prompts",
           [CAP_ROTATE_TO_MUTE]     = "rotate to mute",
+          [CAP_EQUALIZER_PRESET]   = "equalizer preset",
       };
 
 const char capabilities_str_short[NUM_CAPABILITIES]
@@ -22,4 +23,5 @@ const char capabilities_str_short[NUM_CAPABILITIES]
           [CAP_CHATMIX_STATUS]     = 'm',
           [CAP_VOICE_PROMPTS]      = 'v',
           [CAP_ROTATE_TO_MUTE]     = 'r',
+          [CAP_EQUALIZER_PRESET]   = 'e',
       };
