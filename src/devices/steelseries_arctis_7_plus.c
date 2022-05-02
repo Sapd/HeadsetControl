@@ -1,7 +1,6 @@
 #include "../device.h"
 #include "../utility.h"
 
-#include <bits/stdint-uintn.h>
 #include <hidapi.h>
 #include <stdlib.h>
 #include <string.h>
