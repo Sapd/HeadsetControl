@@ -46,35 +46,13 @@ void cflight_init(struct device** device)
 
 static float estimate_battery_level(uint16_t voltage)
 {
-    // from logitech_g633_g933_935.c
-    // TODO: 3674->10% , 3970->100%
+    // derived from logitech_g633_g933_935.c
     
-    //Original 1:
-    /*if (voltage <= 3686)
-        return (float)((0.03 * voltage) - 103);
-    if (voltage > 3980)
-        return (float)100.0;
-    //0.00000005847405*x^{4}-0.000895776*x^{3}+5.144332*x^{2}-13125.86*x+12554550
-    return (float)(0.00000005847405* pow(voltage, 4) - 0.000895776 * pow(voltage, 3) + 5.144332 * pow(voltage, 2) - 13125.86 * voltage + 12554550);*/
-    
-    //Original 2:
     if (voltage <= 3648)
         return (float)(0.00125 * voltage);
     if (voltage > 3975)
         return (float)100.0;
-    //0.00000005847405*x^{4}-0.000895776*x^{3}+5.144332*x^{2}-13125.86*x+12554550
-    //5452289 - 5706.256*x + 2.238321*x^2 - 0.0003900299*x^3 + 0.00000002547505*x^4
     return (float)(0.00000002547505* pow(voltage, 4) - 0.0003900299 * pow(voltage, 3) + 2.238321 * pow(voltage, 2) - 5706.256 * voltage + 5452299);
-
-
-    //first try:
-    /*if (voltage <= 3677)
-        return (float)((0.03 * voltage) - 100.23);
-    if (voltage > 4013)
-        return (float)100.0;
-    //0.0000000037287*x^{4}-0.0000560630*x^{3}+0.315606*x^{2}-788.0937250298629*x+736260
-    return (float)(0.0000000037287 * pow(voltage, 4) - 0.0000560630 * pow(voltage, 3) + 0.315606 * pow(voltage, 2) - 788.0937250298629 * voltage + 736260);
-    */
     
 }
 
