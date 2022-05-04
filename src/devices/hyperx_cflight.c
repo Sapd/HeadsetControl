@@ -1,4 +1,7 @@
 // initial adaption of HyperX Cloud Flight by hede <github5562@der-he.de>
+// derived from some other headset device files
+// with Help from Søren Brokær and https://github.com/srn/hyperx-cloud-flight-wireless
+
 // This file is part of HeadsetControl.
 
 #include "../device.h"
