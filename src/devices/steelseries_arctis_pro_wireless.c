@@ -70,6 +70,9 @@ static int arctis_pro_wireless_request_battery(hid_device* device_handle)
     if (r < 0)
         return r;
 
+    if (r == 0)
+        return HSC_READ_TIMEOUT;
+
     if (data_read[0] == HEADSET_OFFLINE)
         return BATTERY_UNAVAILABLE;
 
@@ -79,9 +82,12 @@ static int arctis_pro_wireless_request_battery(hid_device* device_handle)
     if (r < 0)
         return r;
 
-    r = hid_read(device_handle, data_read, 1);
+    r = hid_read_timeout(device_handle, data_read, 1, hsc_device_timeout);
     if (r < 0)
         return r;
+
+    if (r == 0)
+        return HSC_READ_TIMEOUT;
 
     int bat = data_read[0];
     return map(bat, BATTERY_MIN, BATTERY_MAX, 0, 100);
@@ -114,7 +120,7 @@ int arctis_pro_wireless_read_device_status(hid_device* device_handle, unsigned c
         return r;
 
     // read device info
-    return hid_read(device_handle, data_read, 2);
+    return hid_read_timeout(device_handle, data_read, 2, hsc_device_timeout);
 }
 
 int arctis_pro_wireless_save_state(hid_device* device_handle)

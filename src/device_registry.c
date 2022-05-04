@@ -12,13 +12,14 @@
 #include "devices/roccat_elo_7_1_usb.h"
 #include "devices/steelseries_arctis_1.h"
 #include "devices/steelseries_arctis_7.h"
+#include "devices/steelseries_arctis_7_plus.h"
 #include "devices/steelseries_arctis_9.h"
 #include "devices/steelseries_arctis_pro_wireless.h"
 #include "devices/hyperx_cflight.h"
 
 #include <string.h>
 
-#define NUMDEVICES 15
+#define NUMDEVICES 16
 
 // array of pointers to device
 static struct device*(devicelist[NUMDEVICES]);
@@ -39,7 +40,8 @@ void init_devices()
     elo71Air_init(&devicelist[11]);
     g432_init(&devicelist[12]);
     elo71USB_init(&devicelist[13]);
-    cflight_init(&devicelist[14]);
+    arctis_7_plus_init(&devicelist[14]);
+    cflight_init(&devicelist[15]);
 }
 
 int get_device(struct device* device_found, uint16_t idVendor, uint16_t idProduct)
