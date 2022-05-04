@@ -11,6 +11,9 @@
 /// Convert given number to bitmask
 #define B(X) (1 << X)
 
+/// global read timeout in millisecounds
+extern int hsc_device_timeout;
+
 /** @brief A list of all features settable/queryable
  *         for headsets
  *
@@ -50,7 +53,8 @@ enum battery_status {
 };
 
 enum headsetcontrol_errors {
-    HSC_ERROR = -100
+    HSC_ERROR        = -100,
+    HSC_READ_TIMEOUT = -101,
 };
 
 /** @brief Defines the basic data of a device

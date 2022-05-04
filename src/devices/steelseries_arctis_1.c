@@ -29,9 +29,9 @@ void arctis_1_init(struct device** device)
     strncpy(device_arctis.device_name, "SteelSeries Arctis (1) Wireless", sizeof(device_arctis.device_name));
 
     device_arctis.capabilities                           = B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_INACTIVE_TIME);
-    device_arctis.capability_details[CAP_SIDETONE]       = (struct capability_detail) { .interface = 0x03 };
-    device_arctis.capability_details[CAP_BATTERY_STATUS] = (struct capability_detail) { .interface = 0x03 };
-    device_arctis.capability_details[CAP_INACTIVE_TIME]  = (struct capability_detail) { .interface = 0x03 };
+    device_arctis.capability_details[CAP_SIDETONE]       = (struct capability_detail) { .usagepage = 0xff43, .usageid = 0x202, .interface = 0x03 };
+    device_arctis.capability_details[CAP_BATTERY_STATUS] = (struct capability_detail) { .usagepage = 0xff43, .usageid = 0x202, .interface = 0x03 };
+    device_arctis.capability_details[CAP_INACTIVE_TIME]  = (struct capability_detail) { .usagepage = 0xff43, .usageid = 0x202, .interface = 0x03 };
     device_arctis.send_sidetone                          = &arctis_1_send_sidetone;
     device_arctis.request_battery                        = &arctis_1_request_battery;
     device_arctis.send_inactive_time                     = &arctis_1_send_inactive_time;
@@ -87,10 +87,13 @@ static int arctis_1_request_battery(hid_device* device_handle)
     // read battery status
     unsigned char data_read[8];
 
-    r = hid_read(device_handle, data_read, 8);
+    r = hid_read_timeout(device_handle, data_read, 8, hsc_device_timeout);
 
     if (r < 0)
         return r;
+
+    if (r == 0)
+        return HSC_READ_TIMEOUT;
 
     if (data_read[2] == 0x01)
         return BATTERY_UNAVAILABLE;
@@ -109,7 +112,7 @@ static int arctis_1_send_inactive_time(hid_device* device_handle, uint8_t num)
     // the range of the Arctis 7 seems to be from 0 to 0x5A (90)
     // num = map(num, 0, 128, 0x00, 0x5A);
 
-    uint8_t data[31] = { 0x06, 0x51, num };
+    uint8_t data[31] = { 0x06, 0x53, num };
 
     int ret = hid_write(device_handle, data, 31);
 

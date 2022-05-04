@@ -45,7 +45,7 @@ static int send_receive(hid_device* hid_device, const uint8_t* data,
     r = hid_write(hid_device, data, size);
 
     if ((out_buffer != NULL) && (r >= 0)) {
-        r = hid_read(hid_device, out_buffer, 16);
+        r = hid_read_timeout(hid_device, out_buffer, 16, hsc_device_timeout);
     }
 
     ts.tv_sec  = 0;
@@ -66,26 +66,41 @@ static int elo71USB_switch_lights(hid_device* hid_device, uint8_t on)
     int r;
 
     r = send_receive(hid_device, cmd92, sizeof(cmd92), NULL);
-    if (r <= 0)
+    if (r < 0)
         return r;
 
+    if (r == 0)
+        return HSC_READ_TIMEOUT;
+
     r = send_receive(hid_device, cmd93, sizeof(cmd93), NULL);
-    if (r <= 0)
+    if (r < 0)
         return r;
+
+    if (r == 0)
+        return HSC_READ_TIMEOUT;
 
     if (on == 1) {
         r = send_receive(hid_device, cmd94, sizeof(cmd94), NULL);
-        if (r <= 0)
+        if (r < 0)
             return r;
+
+        if (r == 0)
+            return HSC_READ_TIMEOUT;
     } else {
         r = send_receive(hid_device, cmd97, sizeof(cmd97), NULL);
-        if (r <= 0)
+        if (r < 0)
             return r;
+
+        if (r == 0)
+            return HSC_READ_TIMEOUT;
     }
 
     r = send_receive(hid_device, cmd95, sizeof(cmd95), NULL);
-    if (r <= 0)
+    if (r < 0)
         return r;
+
+    if (r == 0)
+        return HSC_READ_TIMEOUT;
 
     return 0;
 }
