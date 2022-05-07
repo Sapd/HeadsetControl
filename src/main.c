@@ -251,6 +251,9 @@ static int handle_feature(struct device* device_found, hid_device** device_handl
     } else if (ret == HSC_ERROR) {
         fprintf(stderr, "Failed to set/request %s. HeadsetControl Error. Error: %d: %ls\n", capabilities_str[cap], ret, hid_error(*device_handle));
         return HSC_ERROR;
+    } else if (ret == HSC_OUT_OF_BOUNDS) {
+        fprintf(stderr, "Failed to set/request %s. Provided parameter out of boundaries. Error: %d: %ls\n", capabilities_str[cap], ret, hid_error(*device_handle));
+        return HSC_ERROR;
     } else if (ret < 0) {
         fprintf(stderr, "Failed to set/request %s. Error: %d: %ls\n", capabilities_str[cap], ret, hid_error(*device_handle));
         return 1;

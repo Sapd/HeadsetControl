@@ -2,6 +2,7 @@
 #include "../utility.h"
 
 #include <hidapi.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -116,9 +117,11 @@ static int arctis_7_plus_send_equalizer_preset(hid_device* device_handle, uint8_
         uint8_t focus[MSG_SIZE] = { 0x0, 0x33, 0x0e, 0x16, 0x11, 0x13, 0x20, 0x24, 0x1f, 0x11, 0x18, 0x11, 0x0 };
         return hid_write(device_handle, focus, MSG_SIZE);
     }
+    default: {
+        printf("Device only supports 0-3 range for presets.\n");
+        return HSC_OUT_OF_BOUNDS;
     }
-
-    return 0;
+    }
 }
 
 int arctis_7_plus_read_device_status(hid_device* device_handle, unsigned char* data_read)

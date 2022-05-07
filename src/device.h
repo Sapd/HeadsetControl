@@ -54,8 +54,9 @@ enum battery_status {
 };
 
 enum headsetcontrol_errors {
-    HSC_ERROR        = -100,
-    HSC_READ_TIMEOUT = -101,
+    HSC_ERROR         = -100,
+    HSC_READ_TIMEOUT  = -101,
+    HSC_OUT_OF_BOUNDS = -102,
 };
 
 /** @brief Defines the basic data of a device
