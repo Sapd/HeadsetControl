@@ -18,6 +18,7 @@
 ***/
 
 #include "dev.h"
+#include "device.h"
 #include "device_registry.h"
 #include "hid_utility.h"
 #include "utility.h"
@@ -228,6 +229,15 @@ static int handle_feature(struct device* device_found, hid_device** device_handl
         ret = device_found->switch_rotate_to_mute(*device_handle, param);
         break;
 
+    case CAP_EQUALIZER_PRESET:
+        ret = device_found->send_equalizer_preset(*device_handle, param);
+
+        if (ret < 0)
+            break;
+
+        PRINT_INFO("Successfully set equalizer preset to %d!\n", param);
+        break;
+
     case NUM_CAPABILITIES:
         ret = -99; // silence warning
 
@@ -240,6 +250,9 @@ static int handle_feature(struct device* device_found, hid_device** device_handl
         return HSC_READ_TIMEOUT;
     } else if (ret == HSC_ERROR) {
         fprintf(stderr, "Failed to set/request %s. HeadsetControl Error. Error: %d: %ls\n", capabilities_str[cap], ret, hid_error(*device_handle));
+        return HSC_ERROR;
+    } else if (ret == HSC_OUT_OF_BOUNDS) {
+        fprintf(stderr, "Failed to set/request %s. Provided parameter out of boundaries. Error: %d: %ls\n", capabilities_str[cap], ret, hid_error(*device_handle));
         return HSC_ERROR;
     } else if (ret < 0) {
         fprintf(stderr, "Failed to set/request %s. Error: %d: %ls\n", capabilities_str[cap], ret, hid_error(*device_handle));
@@ -263,6 +276,7 @@ int main(int argc, char* argv[])
     int voice_prompts      = -1;
     int rotate_to_mute     = -1;
     int print_capabilities = -1;
+    int equalizer_preset   = -1;
     int dev_mode           = 0;
 
     struct option opts[] = {
@@ -271,6 +285,7 @@ int main(int argc, char* argv[])
         { "chatmix", no_argument, NULL, 'm' },
         { "dev", no_argument, NULL, 0 },
         { "help", no_argument, NULL, 'h' },
+        { "equalizer-preset", required_argument, NULL, 'p' },
         { "inactive-time", required_argument, NULL, 'i' },
         { "light", required_argument, NULL, 'l' },
         { "notificate", required_argument, NULL, 'n' },
@@ -287,7 +302,7 @@ int main(int argc, char* argv[])
     // Init all information of supported devices
     init_devices();
 
-    while ((c = getopt_long(argc, argv, "bchi:l:mn:r:s:uv:?", opts, &option_index)) != -1) {
+    while ((c = getopt_long(argc, argv, "bchi:l:mn:r:s:uv:p:?", opts, &option_index)) != -1) {
         char* endptr = NULL; // for strtol
 
         switch (c) {
@@ -320,6 +335,14 @@ int main(int argc, char* argv[])
 
             if (*endptr != '\0' || endptr == optarg || notification_sound < 0 || notification_sound > 1) {
                 printf("Usage: %s -n 0|1\n", argv[0]);
+                return 1;
+            }
+            break;
+        case 'p':
+            equalizer_preset = strtol(optarg, &endptr, 10);
+
+            if (*endptr != '\0' || endptr == optarg || equalizer_preset < 0 || equalizer_preset > 3) {
+                printf("Usage: %s -p 0-3, 0 is default\n", argv[0]);
                 return 1;
             }
             break;
@@ -364,6 +387,7 @@ int main(int argc, char* argv[])
             printf("  -m, --chatmix\t\t\tRetrieves the current chat-mix-dial level setting between 0 and 128. Below 64 is the game side and above is the chat side.\n");
             printf("  -v, --voice-prompt 0|1\tTurn voice prompts on or off (0 = off, 1 = on)\n");
             printf("  -r, --rotate-to-mute 0|1\tTurn rotate to mute feature on or off (0 = off, 1 = on)\n");
+            printf("  -p, --equalizer-preset number\tSets equalizer preset, number must be between 0 and 3, 0 sets the default\n");
             printf("\n");
             printf("      --timeout 0-100000\t\tSpecifies the timeout in ms for reading data from device (default 5000)\n");
             printf("  -?, --capabilities\t\tPrint every feature headsetcontrol supports of the connected headset\n");
@@ -454,6 +478,11 @@ int main(int argc, char* argv[])
 
     if (rotate_to_mute != -1) {
         if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_ROTATE_TO_MUTE, rotate_to_mute)) != 0)
+            goto error;
+    }
+
+    if (equalizer_preset != -1) {
+        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_EQUALIZER_PRESET, equalizer_preset)) != 0)
             goto error;
     }
 

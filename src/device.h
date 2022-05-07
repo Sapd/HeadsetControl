@@ -28,6 +28,7 @@ enum capabilities {
     CAP_CHATMIX_STATUS,
     CAP_VOICE_PROMPTS,
     CAP_ROTATE_TO_MUTE,
+    CAP_EQUALIZER_PRESET,
     NUM_CAPABILITIES
 };
 
@@ -53,8 +54,9 @@ enum battery_status {
 };
 
 enum headsetcontrol_errors {
-    HSC_ERROR        = -100,
-    HSC_READ_TIMEOUT = -101,
+    HSC_ERROR         = -100,
+    HSC_READ_TIMEOUT  = -101,
+    HSC_OUT_OF_BOUNDS = -102,
 };
 
 /** @brief Defines the basic data of a device
@@ -187,4 +189,19 @@ struct device {
      *              -1          HIDAPI error
      */
     int (*switch_rotate_to_mute)(hid_device* hid_device, uint8_t on);
+
+    /** @brief Function pointer for setting headset equalizer preset
+     *
+     *  Forwards the request to the device specific implementation
+     *
+     *  @param  device_handle   The hidapi handle. Must be the same
+     *                          device as defined here (same ids)
+     *  @param  num             The preset number, between 0 - 3
+     *
+     *  @returns    > 0                on success
+     *              HSC_OUT_OF_BOUNDS  on preset parmeter out of range
+     *                                 specific to this hardware
+     *              -1                 HIDAPI error
+     */
+    int (*send_equalizer_preset)(hid_device* hid_device, uint8_t num);
 };
