@@ -198,9 +198,10 @@ struct device {
      *                          device as defined here (same ids)
      *  @param  num             The preset number, between 0 - 3
      *
-     *  @returns    > 0         on success
-     *              HSC_ERROR   on error specific to this software
-     *              -1          HIDAPI error
+     *  @returns    > 0                on success
+     *              HSC_OUT_OF_BOUNDS  on preset parmeter out of range
+     *                                 specific to this hardware
+     *              -1                 HIDAPI error
      */
     int (*send_equalizer_preset)(hid_device* hid_device, uint8_t num);
 };
