@@ -285,7 +285,7 @@ int main(int argc, char* argv[])
         { "chatmix", no_argument, NULL, 'm' },
         { "dev", no_argument, NULL, 0 },
         { "help", no_argument, NULL, 'h' },
-        { "equalizer-preset", required_argument, NULL, 'e' },
+        { "equalizer-preset", required_argument, NULL, 'p' },
         { "inactive-time", required_argument, NULL, 'i' },
         { "light", required_argument, NULL, 'l' },
         { "notificate", required_argument, NULL, 'n' },
@@ -302,7 +302,7 @@ int main(int argc, char* argv[])
     // Init all information of supported devices
     init_devices();
 
-    while ((c = getopt_long(argc, argv, "bchi:l:mn:r:s:uv:e:?", opts, &option_index)) != -1) {
+    while ((c = getopt_long(argc, argv, "bchi:l:mn:r:s:uv:p:?", opts, &option_index)) != -1) {
         char* endptr = NULL; // for strtol
 
         switch (c) {
@@ -311,14 +311,6 @@ int main(int argc, char* argv[])
             break;
         case 'c':
             short_output = 1;
-            break;
-        case 'e':
-            equalizer_preset = strtol(optarg, &endptr, 10);
-
-            if (*endptr != '\0' || endptr == optarg || equalizer_preset < 0 || equalizer_preset > 3) {
-                printf("Usage: %s -n 0-3, 0 is default\n", argv[0]);
-                return 1;
-            }
             break;
         case 'i':
             inactive_time = strtol(optarg, &endptr, 10);
@@ -343,6 +335,14 @@ int main(int argc, char* argv[])
 
             if (*endptr != '\0' || endptr == optarg || notification_sound < 0 || notification_sound > 1) {
                 printf("Usage: %s -n 0|1\n", argv[0]);
+                return 1;
+            }
+            break;
+        case 'p':
+            equalizer_preset = strtol(optarg, &endptr, 10);
+
+            if (*endptr != '\0' || endptr == optarg || equalizer_preset < 0 || equalizer_preset > 3) {
+                printf("Usage: %s -p 0-3, 0 is default\n", argv[0]);
                 return 1;
             }
             break;
@@ -387,7 +387,7 @@ int main(int argc, char* argv[])
             printf("  -m, --chatmix\t\t\tRetrieves the current chat-mix-dial level setting between 0 and 128. Below 64 is the game side and above is the chat side.\n");
             printf("  -v, --voice-prompt 0|1\tTurn voice prompts on or off (0 = off, 1 = on)\n");
             printf("  -r, --rotate-to-mute 0|1\tTurn rotate to mute feature on or off (0 = off, 1 = on)\n");
-            printf("  -e, --equalizer-preset number\tSets equalizer preset, number must be between 0 and 3, 0 sets the default\n");
+            printf("  -p, --equalizer-preset number\tSets equalizer preset, number must be between 0 and 3, 0 sets the default\n");
             printf("\n");
             printf("      --timeout 0-100000\t\tSpecifies the timeout in ms for reading data from device (default 5000)\n");
             printf("  -?, --capabilities\t\tPrint every feature headsetcontrol supports of the connected headset\n");

@@ -23,5 +23,5 @@ const char capabilities_str_short[NUM_CAPABILITIES]
           [CAP_CHATMIX_STATUS]     = 'm',
           [CAP_VOICE_PROMPTS]      = 'v',
           [CAP_ROTATE_TO_MUTE]     = 'r',
-          [CAP_EQUALIZER_PRESET]   = 'e',
+          [CAP_EQUALIZER_PRESET]   = 'p',
       };
