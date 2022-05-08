@@ -9,9 +9,8 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
 
 ## Supported Headsets
 
-- initial support for HyperX Cloud Flight Wireless (only tested on Linux)
-  - Battery only
-  - hardcoded debug messages
+- HyperX Cloud Flight Wireless
+  - Battery only (only tested on Linux)
 - Corsair **Void** (Every void-version*, regardless whether Elite, Pro, HS70 Wireless)
   - Sidetone, Battery (for Wireless), LED on/off, Notification Sound
 - Logitech G430
