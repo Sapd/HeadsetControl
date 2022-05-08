@@ -28,7 +28,7 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
 - SteelSeries Arctis (7 and Pro)
   - Sidetone, Battery, Inactive time, Chat-Mix level, LED on/off (allows to turn off the blinking LED on the base-station)
 - SteelSeries Arctis 7+
-  - Sidetone, Battery, Inactive time
+  - Sidetone, Battery, Inactive time, Equalizer Presets
 - SteelSeries Arctis 9
   - Sidetone, Battery, Inactive time, Chat-Mix level
 - SteelSeries Arctis Pro Wireless
@@ -158,6 +158,8 @@ The following options don't work on all devices yet:
 `headsetcontrol -u` Generates and outputs udev-rules for Linux.
 
 `headsetcontrol --dev` Advanced menu for developers, to send and/or receive custom data
+
+`headsetcontrol -p 0-3` sets equalizer preset, must be between 0 and 3, 0 is the default preset.
 
 ##### Modifiers
 
