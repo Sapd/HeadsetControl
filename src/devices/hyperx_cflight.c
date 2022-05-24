@@ -36,9 +36,8 @@ void cflight_init(struct device** device)
 {
     device_cflight.idVendor            = VENDOR_HYPERX;
     device_cflight.idProductsSupported = PRODUCT_IDS;
-    device_cflight.numIdProducts       = sizeof(PRODUCT_IDS)/sizeof(PRODUCT_IDS[0]);
-    strncpy(device_cflight.device_name, "HyperX Cloud Flight Wireless",
-            sizeof(device_cflight.device_name));
+    device_cflight.numIdProducts       = sizeof(PRODUCT_IDS) / sizeof(PRODUCT_IDS[0]);
+    strncpy(device_cflight.device_name, "HyperX Cloud Flight Wireless", sizeof(device_cflight.device_name));
 
     device_cflight.capabilities    = B(CAP_BATTERY_STATUS);
     device_cflight.request_battery = &cflight_request_battery;
@@ -61,7 +60,7 @@ static int cflight_request_battery(hid_device* device_handle)
 {
     int r = 0;
     // request battery voltage
-    uint8_t data_request[] = {0x21, 0xff, 0x05, 0x00, 0x00, 0x00, 0x00,
+    uint8_t data_request[] = { 0x21, 0xff, 0x05, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
@@ -99,4 +98,3 @@ static int cflight_request_battery(hid_device* device_handle)
     // which is currently not supported
     return HSC_ERROR;
 }
-
