@@ -37,7 +37,7 @@ void cflight_init(struct device** device)
     device_cflight.idVendor = VENDOR_HYPERX;
     device_cflight.idProductsSupported = PRODUCT_IDS;
     device_cflight.numIdProducts = sizeof(PRODUCT_IDS)/sizeof(PRODUCT_IDS[0]);
-    strncpy(device_cflight.device_name, "HyperX Cloud Flight Wireless", 
+    strncpy(device_cflight.device_name, "HyperX Cloud Flight Wireless",
             sizeof(device_cflight.device_name));
 
     device_cflight.capabilities = B(CAP_BATTERY_STATUS);
@@ -50,20 +50,19 @@ void cflight_init(struct device** device)
 static float estimate_battery_level(uint16_t voltage)
 {
     // derived from logitech_g633_g933_935.c
-    
+
     if (voltage <= 3648)
         return (float)(0.00125 * voltage);
     if (voltage > 3975)
         return (float)100.0;
     return (float)(0.00000002547505* pow(voltage, 4) - 0.0003900299 * pow(voltage, 3) + 2.238321 * pow(voltage, 2) - 5706.256 * voltage + 5452299);
-    
 }
 
 static int cflight_request_battery(hid_device* device_handle)
 {
     int r = 0;
     // request battery voltage
-    uint8_t data_request[] = {0x21, 0xff, 0x05, 0x00, 0x00, 0x00, 0x00, 
+    uint8_t data_request[] = {0x21, 0xff, 0x05, 0x00, 0x00, 0x00, 0x00,
                               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                               0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
@@ -83,21 +82,21 @@ static int cflight_request_battery(hid_device* device_handle)
 #ifdef DEBUG
         printf("cflight_request_battery data_read 3: 0x%02x 4: 0x%02x\n", data_read[3], data_read[4]);
 #endif
-    
+
         // battery voltage in millivolts
         uint32_t batteryVoltage = data_read[4] | data_read[3] << 8;
 
 #ifdef DEBUG
         printf("batteryVoltage: %d mV\n", batteryVoltage);
 #endif
-    
+
        if (batteryVoltage > 0x100B)
          return BATTERY_CHARGING;
 
        return (int)(roundf(estimate_battery_level(batteryVoltage)));
     }
-    
-    // we've read other functionality here (other read length) 
+
+    // we've read other functionality here (other read length)
     // which is currently not supported
     return HSC_ERROR;
 }
