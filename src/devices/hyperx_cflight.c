@@ -24,7 +24,7 @@ static struct device device_cflight;
 // timeout for hidapi requests in milliseconds
 #define TIMEOUT 2000
 
-#define VENDOR_HYPERX 0x0951
+#define VENDOR_HYPERX  0x0951
 #define ID_CFLIGHT_OLD 0x16C4
 #define ID_CFLIGHT_NEW 0x1723
 
@@ -34,14 +34,13 @@ static int cflight_request_battery(hid_device* device_handle);
 
 void cflight_init(struct device** device)
 {
-    device_cflight.idVendor = VENDOR_HYPERX;
+    device_cflight.idVendor            = VENDOR_HYPERX;
     device_cflight.idProductsSupported = PRODUCT_IDS;
-    device_cflight.numIdProducts = sizeof(PRODUCT_IDS)/sizeof(PRODUCT_IDS[0]);
+    device_cflight.numIdProducts       = sizeof(PRODUCT_IDS)/sizeof(PRODUCT_IDS[0]);
     strncpy(device_cflight.device_name, "HyperX Cloud Flight Wireless",
             sizeof(device_cflight.device_name));
 
-    device_cflight.capabilities = B(CAP_BATTERY_STATUS);
-
+    device_cflight.capabilities    = B(CAP_BATTERY_STATUS);
     device_cflight.request_battery = &cflight_request_battery;
 
     *device = &device_cflight;
@@ -55,7 +54,7 @@ static float estimate_battery_level(uint16_t voltage)
         return (float)(0.00125 * voltage);
     if (voltage > 3975)
         return (float)100.0;
-    return (float)(0.00000002547505* pow(voltage, 4) - 0.0003900299 * pow(voltage, 3) + 2.238321 * pow(voltage, 2) - 5706.256 * voltage + 5452299);
+    return (float)(0.00000002547505 * pow(voltage, 4) - 0.0003900299 * pow(voltage, 3) + 2.238321 * pow(voltage, 2) - 5706.256 * voltage + 5452299);
 }
 
 static int cflight_request_battery(hid_device* device_handle)
@@ -63,8 +62,8 @@ static int cflight_request_battery(hid_device* device_handle)
     int r = 0;
     // request battery voltage
     uint8_t data_request[] = {0x21, 0xff, 0x05, 0x00, 0x00, 0x00, 0x00,
-                              0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                              0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
     r = hid_write(device_handle, data_request, sizeof(data_request) / sizeof(data_request[0]));
     if (r < 0)
@@ -77,7 +76,7 @@ static int cflight_request_battery(hid_device* device_handle)
     if (r == 0) // timeout
         return HSC_ERROR;
 
-    if (r == 0xf || r == 0x14 ) {
+    if (r == 0xf || r == 0x14) {
 
 #ifdef DEBUG
         printf("cflight_request_battery data_read 3: 0x%02x 4: 0x%02x\n", data_read[3], data_read[4]);
@@ -90,10 +89,10 @@ static int cflight_request_battery(hid_device* device_handle)
         printf("batteryVoltage: %d mV\n", batteryVoltage);
 #endif
 
-       if (batteryVoltage > 0x100B)
-         return BATTERY_CHARGING;
+        if (batteryVoltage > 0x100B)
+            return BATTERY_CHARGING;
 
-       return (int)(roundf(estimate_battery_level(batteryVoltage)));
+        return (int)(roundf(estimate_battery_level(batteryVoltage)));
     }
 
     // we've read other functionality here (other read length)

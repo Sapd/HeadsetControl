@@ -1,6 +1,7 @@
 #include "device_registry.h"
 
 #include "devices/corsair_void.h"
+#include "devices/hyperx_cflight.h"
 #include "devices/logitech_g430.h"
 #include "devices/logitech_g432.h"
 #include "devices/logitech_g533.h"
@@ -15,7 +16,6 @@
 #include "devices/steelseries_arctis_7_plus.h"
 #include "devices/steelseries_arctis_9.h"
 #include "devices/steelseries_arctis_pro_wireless.h"
-#include "devices/hyperx_cflight.h"
 
 #include <string.h>
 
