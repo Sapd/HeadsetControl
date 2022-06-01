@@ -11,8 +11,10 @@ static struct device device_arctis;
 
 #define ID_ARCTIS_1      0x12b3
 #define ID_ARCTIS_1_XBOX 0x12b6
+#define ID_ARCTIS_7X     0x12d7
 
-static const uint16_t PRODUCT_IDS[] = { ID_ARCTIS_1, ID_ARCTIS_1_XBOX };
+
+static const uint16_t PRODUCT_IDS[] = { ID_ARCTIS_1, ID_ARCTIS_1_XBOX, ID_ARCTIS_7X };
 
 static int arctis_1_send_sidetone(hid_device* device_handle, uint8_t num);
 static int arctis_1_request_battery(hid_device* device_handle);
@@ -26,7 +28,7 @@ void arctis_1_init(struct device** device)
     device_arctis.idProductsSupported = PRODUCT_IDS;
     device_arctis.numIdProducts       = sizeof(PRODUCT_IDS) / sizeof(PRODUCT_IDS[0]);
 
-    strncpy(device_arctis.device_name, "SteelSeries Arctis (1) Wireless", sizeof(device_arctis.device_name));
+    strncpy(device_arctis.device_name, "SteelSeries Arctis (1/7X) Wireless", sizeof(device_arctis.device_name));
 
     device_arctis.capabilities                           = B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_INACTIVE_TIME);
     device_arctis.capability_details[CAP_SIDETONE]       = (struct capability_detail) { .usagepage = 0xff43, .usageid = 0x202, .interface = 0x03 };
