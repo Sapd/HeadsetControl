@@ -13,7 +13,6 @@ static struct device device_arctis;
 #define ID_ARCTIS_1_XBOX 0x12b6
 #define ID_ARCTIS_7X     0x12d7
 
-
 static const uint16_t PRODUCT_IDS[] = { ID_ARCTIS_1, ID_ARCTIS_1_XBOX, ID_ARCTIS_7X };
 
 static int arctis_1_send_sidetone(hid_device* device_handle, uint8_t num);
