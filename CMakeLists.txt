@@ -119,7 +119,7 @@ target_link_libraries(headsetcontrol m ${HIDAPI_LIBRARIES})
 install(TARGETS headsetcontrol DESTINATION bin)
 
 # install udev files on linux
-if(UNIX AND NOT APPLE)
+if(UNIX AND NOT APPLE AND NOT ${CMAKE_HOST_SYSTEM_NAME} MATCHES "FreeBSD")
     set(rules_file 70-headsets.rules)
     set(udev_rules_dir lib/udev/rules.d/
         CACHE PATH "Path to the directory where udev rules should be installed")
