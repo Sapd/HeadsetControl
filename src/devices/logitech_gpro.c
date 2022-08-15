@@ -1,13 +1,12 @@
 #include <unistd.h>
 
 #include <math.h>
-#include <string.h>
 #include <stdint.h>
+#include <string.h>
 
 #include "../device.h"
 #include "../utility.h"
 #include "logitech.h"
-
 
 static struct device device_gpro;
 
