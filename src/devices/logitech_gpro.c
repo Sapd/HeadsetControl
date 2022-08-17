@@ -1,11 +1,12 @@
-#include "../device.h"
-#include "../utility.h"
-#include "logitech.h"
-
 #include <unistd.h>
 
 #include <math.h>
+#include <stdint.h>
 #include <string.h>
+
+#include "../device.h"
+#include "../utility.h"
+#include "logitech.h"
 
 static struct device device_gpro;
 
@@ -18,6 +19,16 @@ static const uint16_t PRODUCT_IDS[] = {
     ID_LOGITECH_PRO_X_0,
     ID_LOGITECH_PRO_X_1,
 };
+
+static const double battery_estimate_terms[] = {
+    -1.7790085824253613e+006,
+    2.3692153307344888e+003,
+    -1.2580905041506840e+000,
+    3.3295201187388395e-004,
+    -4.3913981733597497e-008,
+    2.3093121045539907e-012
+};
+static const size_t num_terms = 6;
 
 static int gpro_send_sidetone(hid_device* device_handle, uint8_t num);
 static int gpro_request_battery(hid_device* device_handle);
@@ -52,44 +63,6 @@ static int gpro_send_sidetone(hid_device* device_handle, uint8_t num)
     return hid_write(device_handle, sidetone_data, sizeof(sidetone_data) / sizeof(sidetone_data[0]));
 }
 
-/**
- * @brief This function calculates the estimate batttery level in percent.
- *
- * Battery stats:
- *   - Voltage capacity:  4200 (100%)
- *   - Charging voltage:  4700
- *   - Power off voltage: 3300 (  0%)
- *
- * @param voltage readings
- * @return battery level in percent
- */
-static float estimate_battery_level(uint16_t voltage)
-{
-    double terms[] = {
-        -1.7790085824253613e+006,
-        2.3692153307344888e+003,
-        -1.2580905041506840e+000,
-        3.3295201187388395e-004,
-        -4.3913981733597497e-008,
-        2.3093121045539907e-012
-    };
-
-    size_t csz = sizeof terms / sizeof *terms;
-
-    double t       = 1;
-    double percent = 0;
-    for (int i = 0; i < csz; i++) {
-        percent += terms[i] * t;
-        t *= voltage;
-    }
-
-    if (percent > 100)
-        percent = 100;
-    if (percent < 0)
-        percent = 0;
-    return percent;
-}
-
 static int gpro_request_battery(hid_device* device_handle)
 {
     /*
@@ -121,7 +94,7 @@ static int gpro_request_battery(hid_device* device_handle)
         return HSC_ERROR;
 
     const uint16_t voltage = (buf[4] << 8) | buf[5];
-    return (int)(roundf(estimate_battery_level(voltage)));
+    return (int)(roundf(poly_battery_level(battery_estimate_terms, num_terms, voltage)));
 }
 
 static int gpro_send_inactive_time(hid_device* device_handle, uint8_t num)
