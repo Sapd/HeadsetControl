@@ -10,7 +10,7 @@
 
 static struct device device_arctis;
 
-#define ID_ARCTIS_7_PLUS 0x220e
+#define ID_ARCTIS_7_PLUS     0x220e
 #define ID_ARCTIS_7_PLUS_PS5 0x2212
 
 #define BATTERY_MAX 0x04
