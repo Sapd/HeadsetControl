@@ -11,13 +11,14 @@
 static struct device device_arctis;
 
 #define ID_ARCTIS_7_PLUS 0x220e
+#define ID_ARCTIS_7_PLUS_PS5 0x2212
 
 #define BATTERY_MAX 0x04
 #define BATTERY_MIN 0x00
 
 #define HEADSET_OFFLINE 0x01
 
-static const uint16_t PRODUCT_IDS[] = { ID_ARCTIS_7_PLUS };
+static const uint16_t PRODUCT_IDS[] = { ID_ARCTIS_7_PLUS, ID_ARCTIS_7_PLUS_PS5 };
 
 static int arctis_7_plus_send_sidetone(hid_device* device_handle, uint8_t num);
 static int arctis_7_plus_send_inactive_time(hid_device* device_handle, uint8_t num);
