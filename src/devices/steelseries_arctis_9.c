@@ -146,7 +146,7 @@ int arctis_9_read_device_status(hid_device* device_handle, unsigned char* data_r
 {
     int r = 0;
 
-    unsigned char data_request[2] = { 0x20, 0x00 };
+    unsigned char data_request[2] = { 0x20, 0x20 };
     r                             = hid_write(device_handle, data_request, 2);
 
     if (r < 0)
