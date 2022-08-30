@@ -278,6 +278,8 @@ int main(int argc, char* argv[])
     int print_capabilities = -1;
     int equalizer_preset   = -1;
     int dev_mode           = 0;
+    int follow             = 0;
+    unsigned follow_sec    = 2;
 
     struct option opts[] = {
         { "battery", no_argument, NULL, 'b' },
@@ -288,6 +290,7 @@ int main(int argc, char* argv[])
         { "equalizer-preset", required_argument, NULL, 'p' },
         { "inactive-time", required_argument, NULL, 'i' },
         { "light", required_argument, NULL, 'l' },
+        { "follow", optional_argument, NULL, 'f' },
         { "notificate", required_argument, NULL, 'n' },
         { "rotate-to-mute", required_argument, NULL, 'r' },
         { "sidetone", required_argument, NULL, 's' },
@@ -302,7 +305,7 @@ int main(int argc, char* argv[])
     // Init all information of supported devices
     init_devices();
 
-    while ((c = getopt_long(argc, argv, "bchi:l:mn:r:s:uv:p:?", opts, &option_index)) != -1) {
+    while ((c = getopt_long(argc, argv, "bchi:l:f::n:r:s:uv:p:?", opts, &option_index)) != -1) {
         char* endptr = NULL; // for strtol
 
         switch (c) {
@@ -311,6 +314,16 @@ int main(int argc, char* argv[])
             break;
         case 'c':
             short_output = 1;
+            break;
+        case 'f':
+            follow = 1;
+            if (optarg) {
+                follow_sec = strtol(optarg, &endptr, 10);
+                if (follow_sec == 0) {
+                    printf("Usage: %s -f[secs timeout]\n", argv[0]);
+                    return 1;
+                }
+            }
             break;
         case 'i':
             inactive_time = strtol(optarg, &endptr, 10);
@@ -388,6 +401,7 @@ int main(int argc, char* argv[])
             printf("  -v, --voice-prompt 0|1\tTurn voice prompts on or off (0 = off, 1 = on)\n");
             printf("  -r, --rotate-to-mute 0|1\tTurn rotate to mute feature on or off (0 = off, 1 = on)\n");
             printf("  -p, --equalizer-preset number\tSets equalizer preset, number must be between 0 and 3, 0 sets the default\n");
+            printf("  -f, --follow=[secs timeout]\tRe-run the commands after the specified seconds timeout or 2 by default\n");
             printf("\n");
             printf("      --timeout 0-100000\t\tSpecifies the timeout in ms for reading data from device (default 5000)\n");
             printf("  -?, --capabilities\t\tPrint every feature headsetcontrol supports of the connected headset\n");
@@ -441,6 +455,7 @@ int main(int argc, char* argv[])
     // Set all features the user wants us to set
     int error = 0;
 
+loop_start:
     if (sidetone_loudness != -1) {
         if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_SIDETONE, sidetone_loudness)) != 0)
             goto error;
@@ -504,6 +519,11 @@ int main(int argc, char* argv[])
 
     if (argc <= 1) {
         printf("You didn't set any arguments, so nothing happened.\nType %s -h for help.\n", argv[0]);
+    }
+
+    if (follow) {
+        sleep(follow_sec);
+        goto loop_start;
     }
 
     terminate_hid(&device_handle, &hid_path);
