@@ -30,19 +30,12 @@ void g535_init(struct device** device)
 
 static int g535_send_sidetone(hid_device* device_handle, uint8_t num)
 {
-    uint8_t turn_sidetone_data[MSG_SIZE] = { 0x11, 0xff, 0x04, 0x0e };
-
-    for (int i = 16; i < MSG_SIZE; i++)
-        turn_sidetone_data[i] = 0;
-
-    hid_send_feature_report(device_handle, turn_sidetone_data, MSG_SIZE);
-
     num = map(num, 0, 128, 0, 100);
 
-    uint8_t set_sidetone_data[MSG_SIZE] = { 0x11, 0xff, 0x04, 0x1e, num };
+    uint8_t set_sidetone_level[MSG_SIZE] = { 0x11, 0xff, 0x04, 0x1e, num };
 
     for (int i = 16; i < MSG_SIZE; i++)
-        set_sidetone_data[i] = 0;
+        set_sidetone_level[i] = 0;
 
-    return hid_send_feature_report(device_handle, set_sidetone_data, MSG_SIZE);
+    return hid_send_feature_report(device_handle, set_sidetone_level, MSG_SIZE);
 }
