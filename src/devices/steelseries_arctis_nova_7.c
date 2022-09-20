@@ -11,13 +11,14 @@
 static struct device device_arctis;
 
 #define ID_ARCTIS_NOVA_7     0x2202
+#define ID_ARCTIS_NOVA_7x    0x2206
 
 #define BATTERY_MAX 0x04
 #define BATTERY_MIN 0x00
 
 #define HEADSET_OFFLINE 0x01
 
-static const uint16_t PRODUCT_IDS[] = { ID_ARCTIS_NOVA_7 };
+static const uint16_t PRODUCT_IDS[] = { ID_ARCTIS_NOVA_7, ID_ARCTIS_NOVA_7x };
 
 static int arctis_nova_7_send_sidetone(hid_device* device_handle, uint8_t num);
 static int arctis_nova_7_send_inactive_time(hid_device* device_handle, uint8_t num);
