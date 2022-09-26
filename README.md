@@ -32,7 +32,7 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
 - SteelSeries Arctis 7+
   - Sidetone, Battery, Inactive time, Equalizer Presets
 - SteelSeries Arctis Nova 7
-  - Sidetone, Battery, Inactive time, Equalizer Presets
+  - Sidetone, Battery, Chat-Mix level, Inactive time, Equalizer Presets
 - SteelSeries Arctis 9
   - Sidetone, Battery, Inactive time, Chat-Mix level
 - SteelSeries Arctis Pro Wireless
