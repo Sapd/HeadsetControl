@@ -5,6 +5,7 @@
 #include "devices/logitech_g430.h"
 #include "devices/logitech_g432.h"
 #include "devices/logitech_g533.h"
+#include "devices/logitech_g535.h"
 #include "devices/logitech_g633_g933_935.h"
 #include "devices/logitech_g930.h"
 #include "devices/logitech_gpro.h"
@@ -19,7 +20,7 @@
 
 #include <string.h>
 
-#define NUMDEVICES 16
+#define NUMDEVICES 17
 
 // array of pointers to device
 static struct device*(devicelist[NUMDEVICES]);
@@ -42,6 +43,7 @@ void init_devices()
     elo71USB_init(&devicelist[13]);
     arctis_7_plus_init(&devicelist[14]);
     cflight_init(&devicelist[15]);
+    g535_init(&devicelist[16]);
 }
 
 int get_device(struct device* device_found, uint16_t idVendor, uint16_t idProduct)
