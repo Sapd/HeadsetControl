@@ -21,6 +21,8 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
   - Sidetone (only tested on Linux)
 - Logitech G533
   - Sidetone, Battery (for Wireless)
+- Logitech G535
+  - Sidetone (only tested on Linux)
 - Logitech G633 / G635 / G733 / G933 / G935
   - Sidetone, Battery (for Wireless), LED on/off
 - Logitech G930

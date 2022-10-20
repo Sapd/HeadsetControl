@@ -11,6 +11,8 @@ set(SOURCE_FILES ${SOURCE_FILES}
     ${CMAKE_CURRENT_SOURCE_DIR}/logitech_g432.h
     ${CMAKE_CURRENT_SOURCE_DIR}/logitech_g533.c
     ${CMAKE_CURRENT_SOURCE_DIR}/logitech_g533.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/logitech_g535.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/logitech_g535.h
     ${CMAKE_CURRENT_SOURCE_DIR}/steelseries_arctis_1.c
     ${CMAKE_CURRENT_SOURCE_DIR}/steelseries_arctis_1.h
     ${CMAKE_CURRENT_SOURCE_DIR}/steelseries_arctis_7.c
