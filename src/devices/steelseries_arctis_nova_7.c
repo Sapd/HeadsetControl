@@ -68,6 +68,21 @@ static int arctis_nova_7_send_sidetone(hid_device* device_handle, uint8_t num)
 static int arctis_nova_7_send_inactive_time(hid_device* device_handle, uint8_t num)
 {
     return 0;
+    uint8_t data[MSG_SIZE] = { 0x00, 0xa3, num };
+    /*
+     * During setting this part headphones my lose paring with transmitter, to fix this issue follow instruction in this link
+     * https://support.steelseries.com/hc/en-us/articles/115000051472-The-SteelSeries-Engine-says-Reconnect-Headset-but-my-transmitter-is-connected-
+     *
+     0x00 never
+     0x01 1m
+     0x05 5m
+     0x0a 10m
+     0x0f 15m
+     0x1e 30m
+     0x2d 45m
+     */
+
+    return hid_write(device_handle, data, MSG_SIZE);
 }
 
 static int arctis_nova_7_request_battery(hid_device* device_handle)
@@ -106,7 +121,30 @@ static int arctis_nova_7_request_battery(hid_device* device_handle)
 
 static int arctis_nova_7_send_equalizer_preset(hid_device* device_handle, uint8_t num)
 {
-    return HSC_OUT_OF_BOUNDS;
+    // flat (default), bass boost, smiley, focus
+
+    switch (num) {
+    case 0: {
+        uint8_t flat[MSG_SIZE] = { 0x0, 0x33, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x0 };
+        return hid_write(device_handle, flat, MSG_SIZE);
+    }
+    case 1: {
+        uint8_t bass[MSG_SIZE] = { 0x0, 0x33, 0x1b, 0x1f, 0x1c, 0x16, 0x11, 0x11, 0x12, 0x12, 0x12, 0x12, 0x0 };
+        return hid_write(device_handle, bass, MSG_SIZE);
+    }
+    case 2: {
+        uint8_t smiley[MSG_SIZE] = { 0x0, 0x33, 0x0a, 0x0d, 0x12, 0x0d, 0x0f, 0x1c, 0x20, 0x1b, 0x0d, 0x14, 0x0 };
+        return hid_write(device_handle, smiley, MSG_SIZE);
+    }
+    case 3: {
+        uint8_t focus[MSG_SIZE] = { 0x0, 0x33, 0x1a, 0x1b, 0x17, 0x11, 0x0c, 0x0c, 0x0f, 0x17, 0x1a, 0x1c, 0x0 };
+        return hid_write(device_handle, focus, MSG_SIZE);
+    }
+    default: {
+        printf("Device only supports 0-3 range for presets.\n");
+        return HSC_OUT_OF_BOUNDS;
+    }
+    }
 }
 
 int arctis_nova_7_read_device_status(hid_device* device_handle, unsigned char* data_read)
