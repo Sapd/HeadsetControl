@@ -21,3 +21,13 @@ int map(int x, int in_min, int in_max, int out_min, int out_max);
  * @return battery level in percent
  */
 float poly_battery_level(const double terms[], const size_t numterms, uint16_t voltage);
+
+/**
+ *
+ * @param out buffer to write output example char tmp[128];
+ * @param out_size sizeof(out)
+ * @param data data to be represented as hex string
+ * @param data_size sizeof(data) or sizeof(*data);
+ * @return 0 on failure or filled size of out
+ */
+size_t hexdump(char* out, size_t out_size, unsigned char* data, size_t data_size);
