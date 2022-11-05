@@ -266,10 +266,10 @@ static int handle_feature(struct device* device_found, hid_device** device_handl
 
 // Makes parsing of optiona arguments easier
 // Credits to https://cfengine.com/blog/2021/optional-arguments-with-getopt-long/
-#define OPTIONAL_ARGUMENT_IS_PRESENT \
+#define OPTIONAL_ARGUMENT_IS_PRESENT                             \
     ((optarg == NULL && optind < argc && argv[optind][0] != '-') \
-     ? (bool) (optarg = argv[optind++]) \
-     : (optarg != NULL))
+            ? (bool)(optarg = argv[optind++])                    \
+            : (optarg != NULL))
 
 int main(int argc, char* argv[])
 {
