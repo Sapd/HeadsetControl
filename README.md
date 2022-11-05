@@ -33,6 +33,8 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
   - Sidetone, Battery, Inactive time, Chat-Mix level, LED on/off (allows to turn off the blinking LED on the base-station)
 - SteelSeries Arctis 7+
   - Sidetone, Battery, Inactive time, Equalizer Presets
+- SteelSeries Arctis Nova 7
+  - Sidetone, Battery, Chat-Mix level, Inactive time, Equalizer Presets
 - SteelSeries Arctis 9
   - Sidetone, Battery, Inactive time, Chat-Mix level
 - SteelSeries Arctis Pro Wireless
