@@ -27,6 +27,7 @@
 
 #include <assert.h>
 #include <getopt.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -263,6 +264,13 @@ static int handle_feature(struct device* device_found, hid_device** device_handl
     return 0;
 }
 
+// Makes parsing of optiona arguments easier
+// Credits to https://cfengine.com/blog/2021/optional-arguments-with-getopt-long/
+#define OPTIONAL_ARGUMENT_IS_PRESENT \
+    ((optarg == NULL && optind < argc && argv[optind][0] != '-') \
+     ? (bool) (optarg = argv[optind++]) \
+     : (optarg != NULL))
+
 int main(int argc, char* argv[])
 {
     int c;
@@ -317,10 +325,10 @@ int main(int argc, char* argv[])
             break;
         case 'f':
             follow = 1;
-            if (optarg) {
+            if (OPTIONAL_ARGUMENT_IS_PRESENT) {
                 follow_sec = strtol(optarg, &endptr, 10);
                 if (follow_sec == 0) {
-                    printf("Usage: %s -f[secs timeout]\n", argv[0]);
+                    printf("Usage: %s -f [secs timeout]\n", argv[0]);
                     return 1;
                 }
             }
@@ -401,7 +409,7 @@ int main(int argc, char* argv[])
             printf("  -v, --voice-prompt 0|1\tTurn voice prompts on or off (0 = off, 1 = on)\n");
             printf("  -r, --rotate-to-mute 0|1\tTurn rotate to mute feature on or off (0 = off, 1 = on)\n");
             printf("  -p, --equalizer-preset number\tSets equalizer preset, number must be between 0 and 3, 0 sets the default\n");
-            printf("  -f, --follow=[secs timeout]\tRe-run the commands after the specified seconds timeout or 2 by default\n");
+            printf("  -f, --follow [secs timeout]\tRe-run the commands after the specified seconds timeout or 2 by default\n");
             printf("\n");
             printf("      --timeout 0-100000\t\tSpecifies the timeout in ms for reading data from device (default 5000)\n");
             printf("  -?, --capabilities\t\tPrint every feature headsetcontrol supports of the connected headset\n");
