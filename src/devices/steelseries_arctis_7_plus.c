@@ -17,6 +17,7 @@ static struct device device_arctis;
 #define BATTERY_MIN 0x00
 
 #define HEADSET_OFFLINE 0x01
+#define STATUS_BUF_SIZE 6
 
 static const uint16_t PRODUCT_IDS[] = { ID_ARCTIS_7_PLUS, ID_ARCTIS_7_PLUS_PS5 };
 
@@ -24,6 +25,7 @@ static int arctis_7_plus_send_sidetone(hid_device* device_handle, uint8_t num);
 static int arctis_7_plus_send_inactive_time(hid_device* device_handle, uint8_t num);
 static int arctis_7_plus_send_equalizer_preset(hid_device* device_handle, uint8_t num);
 static int arctis_7_plus_request_battery(hid_device* device_handle);
+static int arctis_7_plus_request_chatmix(hid_device* device_handle);
 
 int arctis_7_plus_read_device_status(hid_device* device_handle, unsigned char* data_read);
 
@@ -35,14 +37,16 @@ void arctis_7_plus_init(struct device** device)
 
     strncpy(device_arctis.device_name, "SteelSeries Arctis 7+", sizeof(device_arctis.device_name));
 
-    device_arctis.capabilities                             = B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_INACTIVE_TIME) | B(CAP_EQUALIZER_PRESET);
+    device_arctis.capabilities                             = B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_CHATMIX_STATUS) | B(CAP_INACTIVE_TIME) | B(CAP_EQUALIZER_PRESET);
     device_arctis.capability_details[CAP_SIDETONE]         = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
     device_arctis.capability_details[CAP_BATTERY_STATUS]   = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
+    device_arctis.capability_details[CAP_CHATMIX_STATUS]   = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
     device_arctis.capability_details[CAP_INACTIVE_TIME]    = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
     device_arctis.capability_details[CAP_EQUALIZER_PRESET] = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
 
     device_arctis.send_sidetone         = &arctis_7_plus_send_sidetone;
     device_arctis.request_battery       = &arctis_7_plus_request_battery;
+    device_arctis.request_chatmix       = &arctis_7_plus_request_chatmix;
     device_arctis.send_inactive_time    = &arctis_7_plus_send_inactive_time;
     device_arctis.send_equalizer_preset = &arctis_7_plus_send_equalizer_preset;
 
@@ -53,7 +57,17 @@ static int arctis_7_plus_send_sidetone(hid_device* device_handle, uint8_t num)
 {
     // num, will be from 0 to 128, we need to map it to the correct value
     // the range of the Arctis 7+ is from 0 to 3
-    num = map(num, 0, 128, 0, 3);
+    // steps to make it work nicely with headset-charge-indicator
+
+    if (num < 26) {
+        num = 0x0;
+    } else if (num < 51) {
+        num = 0x1;
+    } else if (num < 76) {
+        num = 0x2;
+    } else {
+        num = 0x3;
+    }
 
     uint8_t data[MSG_SIZE] = { 0x00, 0x39, num };
 
@@ -73,7 +87,7 @@ static int arctis_7_plus_send_inactive_time(hid_device* device_handle, uint8_t n
 static int arctis_7_plus_request_battery(hid_device* device_handle)
 {
     // read device info
-    unsigned char data_read[6];
+    unsigned char data_read[STATUS_BUF_SIZE];
     int r = arctis_7_plus_read_device_status(device_handle, data_read);
 
     if (r < 0)
@@ -94,6 +108,36 @@ static int arctis_7_plus_request_battery(hid_device* device_handle)
         return 100;
 
     return map(bat, BATTERY_MIN, BATTERY_MAX, 0, 100);
+}
+
+static int arctis_7_plus_request_chatmix(hid_device* device_handle)
+{
+    // request for setting new mix 0x45
+    // max chat 0x00, 0x64
+    // max game 0x64, 0x00
+    // neutral 0x64, 0x64
+    // read device info
+    unsigned char data_read[STATUS_BUF_SIZE];
+    int r = arctis_7_plus_read_device_status(device_handle, data_read);
+
+    if (r < 0)
+        return r;
+
+    if (r == 0)
+        return HSC_READ_TIMEOUT;
+
+    // it's a slider, but setting for game and chat
+    // are reported as separate values, we combine
+    // them back into one setting of the slider
+
+    // the two values are between 0 and 100,
+    // we translate that to a value from 0 to 128
+    // with "64" being in the middle
+
+    int game = map(data_read[4], 0, 100, 0, 64);
+    int chat = map(data_read[5], 0, 100, 0, -64);
+
+    return 64 - (chat + game);
 }
 
 static int arctis_7_plus_send_equalizer_preset(hid_device* device_handle, uint8_t num)
@@ -133,5 +177,5 @@ int arctis_7_plus_read_device_status(hid_device* device_handle, unsigned char* d
     if (r < 0)
         return r;
 
-    return hid_read_timeout(device_handle, data_read, 6, hsc_device_timeout);
+    return hid_read_timeout(device_handle, data_read, STATUS_BUF_SIZE, hsc_device_timeout);
 }
