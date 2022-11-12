@@ -17,7 +17,8 @@ static struct device device_arctis;
 #define BATTERY_MAX 0x04
 #define BATTERY_MIN 0x00
 
-#define HEADSET_OFFLINE 0x01
+#define HEADSET_OFFLINE 0x00
+#define STATUS_BUF_SIZE 8
 
 static const uint16_t PRODUCT_IDS[] = { ID_ARCTIS_NOVA_7, ID_ARCTIS_NOVA_7x, ID_ARCTIS_NOVA_7p };
 
@@ -55,19 +56,32 @@ void arctis_nova_7_init(struct device** device)
 
 static int arctis_nova_7_send_sidetone(hid_device* device_handle, uint8_t num)
 {
-    // num, will be from 0 to 128, we need to map it to the correct value
-    // the range of the Arctis 7+ is from 0 to 3
-    num = map(num, 0, 128, 0, 3);
+    /*
+     * steps to make it work nicely with headset-charge-indicator
+     */
+    if (num < 26) {
+        num = 0x0;
+    } else if (num < 51) {
+        num = 0x1;
+    } else if (num < 76) {
+        num = 0x2;
+    } else {
+        num = 0x3;
+    }
 
     uint8_t data[MSG_SIZE] = { 0x00, 0x39, num };
 
-    return hid_write(device_handle, data, MSG_SIZE);
+    return hid_write(device_handle, data, sizeof(data));
 }
 
 static int arctis_nova_7_send_inactive_time(hid_device* device_handle, uint8_t num)
 {
-    // as the value is in minutes, mapping to a different range does not make too much sense here
-    // the range of the Arctis 7+ is from 0 to 0x5A (90)
+    /*
+     * Leave it default or set to 0 other ways' connection with headset is going to be permanently lost
+     * On windows suspend packet information on interrupt is 0xbb but was not able to wake them up on windows in virtual box or linux.
+     * My environment does not allow wake up scenario to happened.
+     * https://support.steelseries.com/hc/en-us/articles/115000051472-The-SteelSeries-Engine-says-Reconnect-Headset-but-my-transmitter-is-connected-
+     */
 
     uint8_t data[MSG_SIZE] = { 0x00, 0xa3, num };
 
@@ -77,7 +91,7 @@ static int arctis_nova_7_send_inactive_time(hid_device* device_handle, uint8_t n
 static int arctis_nova_7_request_battery(hid_device* device_handle)
 {
     // read device info
-    unsigned char data_read[6];
+    unsigned char data_read[STATUS_BUF_SIZE];
     int r = arctis_nova_7_read_device_status(device_handle, data_read);
 
     if (r < 0)
@@ -86,7 +100,7 @@ static int arctis_nova_7_request_battery(hid_device* device_handle)
     if (r == 0)
         return HSC_READ_TIMEOUT;
 
-    if (data_read[1] == HEADSET_OFFLINE)
+    if (data_read[3] == HEADSET_OFFLINE)
         return BATTERY_UNAVAILABLE;
 
     if (data_read[3] == 0x01)
@@ -102,8 +116,12 @@ static int arctis_nova_7_request_battery(hid_device* device_handle)
 
 static int arctis_nova_7_request_chatmix(hid_device* device_handle)
 {
+    // request for setting new mix 0x45
+    // max chat 0x00, 0x64
+    // max game 0x64, 0x00
+    // neutral 0x64, 0x64
     // read device info
-    unsigned char data_read[6];
+    unsigned char data_read[STATUS_BUF_SIZE];
     int r = arctis_nova_7_read_device_status(device_handle, data_read);
 
     if (r < 0)
@@ -133,19 +151,19 @@ static int arctis_nova_7_send_equalizer_preset(hid_device* device_handle, uint8_
 
     switch (num) {
     case 0: {
-        uint8_t flat[MSG_SIZE] = { 0x0, 0x33, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x0 };
+        uint8_t flat[MSG_SIZE] = { 0x0, 0x33, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x0 };
         return hid_write(device_handle, flat, MSG_SIZE);
     }
     case 1: {
-        uint8_t bass[MSG_SIZE] = { 0x0, 0x33, 0x1f, 0x20, 0x1a, 0x15, 0x15, 0x16, 0x16, 0x16, 0x16, 0x23, 0x0 };
+        uint8_t bass[MSG_SIZE] = { 0x0, 0x33, 0x1b, 0x1f, 0x1c, 0x16, 0x11, 0x11, 0x12, 0x12, 0x12, 0x12, 0x0 };
         return hid_write(device_handle, bass, MSG_SIZE);
     }
     case 2: {
-        uint8_t smiley[MSG_SIZE] = { 0x0, 0x33, 0x1e, 0x1b, 0x15, 0x10, 0x10, 0x13, 0x1b, 0x1e, 0x20, 0x1f, 0x0 };
+        uint8_t smiley[MSG_SIZE] = { 0x0, 0x33, 0x0a, 0x0d, 0x12, 0x0d, 0x0f, 0x1c, 0x20, 0x1b, 0x0d, 0x14, 0x0 };
         return hid_write(device_handle, smiley, MSG_SIZE);
     }
     case 3: {
-        uint8_t focus[MSG_SIZE] = { 0x0, 0x33, 0x0e, 0x16, 0x11, 0x13, 0x20, 0x24, 0x1f, 0x11, 0x18, 0x11, 0x0 };
+        uint8_t focus[MSG_SIZE] = { 0x0, 0x33, 0x1a, 0x1b, 0x17, 0x11, 0x0c, 0x0c, 0x0f, 0x17, 0x1a, 0x1c, 0x0 };
         return hid_write(device_handle, focus, MSG_SIZE);
     }
     default: {
@@ -158,10 +176,54 @@ static int arctis_nova_7_send_equalizer_preset(hid_device* device_handle, uint8_
 int arctis_nova_7_read_device_status(hid_device* device_handle, unsigned char* data_read)
 {
     unsigned char data_request[2] = { 0x00, 0xb0 };
-    int r                         = hid_write(device_handle, data_request, 2);
+    int r                         = hid_write(device_handle, data_request, sizeof(data_request));
 
     if (r < 0)
         return r;
 
-    return hid_read_timeout(device_handle, data_read, 6, hsc_device_timeout);
+    return hid_read_timeout(device_handle, data_read, STATUS_BUF_SIZE, hsc_device_timeout);
 }
+
+/*
+static int arctis_nova_7_enable_bluetooth_when_powered_on(hid_device* device_handle, uint8_t num)
+{
+    unsigned char data[MSG_SIZE] = { 0x00, 0xb2, num};
+    return hid_write(device_handle, data, MSG_SIZE);
+}
+
+static int arctis_nova_7_bluetooth_call(hid_device* device_handle, uint8_t num)
+{
+    // 0x00 do nothing
+    // 0x01 lower volume by 12db
+    // 0x02 mute game during call
+    unsigned char data[MSG_SIZE] = { 0x00, 0xb3, num};
+    return hid_write(device_handle, data, MSG_SIZE);
+}
+
+static int arctis_nova_7_mic_light(hid_device* device_handle, uint8_t num)
+{
+    // 0x00 off
+    // 0x01
+    // 0x02
+    // 0x03 max
+    unsigned char data[MSG_SIZE] = { 0x00, 0xae, num};
+    return hid_write(device_handle, data, MSG_SIZE);
+}
+
+static int arctis_nova_7_mic_volume(hid_device* device_handle, uint8_t num)
+{
+    // 0x00 off
+    // step + 0x01
+    // 0x07 max
+    unsigned char data[MSG_SIZE] = { 0x00, 0x37, num};
+    return hid_write(device_handle, data, MSG_SIZE);
+}
+
+static int arctis_nova_7_volume_limiter(hid_device* device_handle, uint8_t num)
+{
+    // 0x00 off
+    // 0x01 on
+    unsigned char data[MSG_SIZE] = { 0x00, 0x3a, num};
+    return hid_write(device_handle, data, MSG_SIZE);
+}
+*/
