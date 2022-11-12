@@ -23,7 +23,8 @@ int map(int x, int in_min, int in_max, int out_min, int out_max);
 float poly_battery_level(const double terms[], const size_t numterms, uint16_t voltage);
 
 /**
- *
+ * @brief Helper function used during debugging for printing out binary data
+ * 
  * @param out buffer to write output example char tmp[128];
  * @param out_size sizeof(out)
  * @param data data to be represented as hex string

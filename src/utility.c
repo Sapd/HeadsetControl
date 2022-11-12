@@ -39,9 +39,9 @@ size_t hexdump(char* out, size_t out_size, unsigned char* data, size_t data_size
         rc = snprintf(out + used_buf, out_size - used_buf, "0x%02X ", data[i]);
         if (rc < 0) {
 #ifdef _WIN32
-            printf("hexdump formatting failed");
+            printf("hexdump formatting failed\n");
 #elif __APPLE__
-            printf("hexdump formatting failed");
+            printf("%s\n", strerror(errno));
 #else //__linux__
             printf("%s\n", strerror_l(errno, NULL));
 #endif
