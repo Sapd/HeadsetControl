@@ -2,6 +2,8 @@
 
 #include "hid_utility.h"
 
+#include "utility.h"
+
 #include <hidapi.h>
 
 #include <getopt.h>
@@ -37,42 +39,6 @@ static void print_devices(unsigned short vendorid, unsigned short productid)
         cur_dev = cur_dev->next;
     }
     hid_free_enumeration(devs);
-}
-
-/**
- * @brief Accepts textual input and converts them to a sendable buffer
- *
- * Parses data like "0xff, 123, 0xb" and converts them to an array of len 3
- *
- * @param input string
- * @param dest destination array
- * @param len max dest length
- * @return int amount of data converted
- */
-static int get_data_from_parameter(char* input, char* dest, size_t len)
-{
-    const char* delim = " ,{}\n\r";
-
-    size_t sz = strlen(input);
-    char* str = (char*)malloc(sz + 1);
-    strcpy(str, input);
-
-    // For each token in the string, parse and store in buf[].
-    char* token = strtok(input, delim);
-    int i       = 0;
-    while (token) {
-        char* endptr;
-        long int val = strtol(token, &endptr, 0);
-
-        if (i >= len)
-            return -1;
-
-        dest[i++] = val;
-        token     = strtok(NULL, delim);
-    }
-
-    free(str);
-    return i;
 }
 
 /**

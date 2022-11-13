@@ -11,6 +11,7 @@ const char* const capabilities_str[NUM_CAPABILITIES]
           [CAP_VOICE_PROMPTS]      = "voice prompts",
           [CAP_ROTATE_TO_MUTE]     = "rotate to mute",
           [CAP_EQUALIZER_PRESET]   = "equalizer preset",
+          [CAP_EQUALIZER]          = "equalizer",
       };
 
 const char capabilities_str_short[NUM_CAPABILITIES]
@@ -24,4 +25,5 @@ const char capabilities_str_short[NUM_CAPABILITIES]
           [CAP_VOICE_PROMPTS]      = 'v',
           [CAP_ROTATE_TO_MUTE]     = 'r',
           [CAP_EQUALIZER_PRESET]   = 'p',
+          [CAP_EQUALIZER]          = 'e'
       };

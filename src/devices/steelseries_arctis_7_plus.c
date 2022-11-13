@@ -19,11 +19,14 @@ static struct device device_arctis;
 #define HEADSET_OFFLINE 0x01
 #define STATUS_BUF_SIZE 6
 
+#define EQUALIZER_BANDS_SIZE 10
+
 static const uint16_t PRODUCT_IDS[] = { ID_ARCTIS_7_PLUS, ID_ARCTIS_7_PLUS_PS5 };
 
 static int arctis_7_plus_send_sidetone(hid_device* device_handle, uint8_t num);
 static int arctis_7_plus_send_inactive_time(hid_device* device_handle, uint8_t num);
 static int arctis_7_plus_send_equalizer_preset(hid_device* device_handle, uint8_t num);
+static int arctis_7_plus_send_equalizer(hid_device* device_handle, struct equalizer_settings* settings);
 static int arctis_7_plus_request_battery(hid_device* device_handle);
 static int arctis_7_plus_request_chatmix(hid_device* device_handle);
 
@@ -37,18 +40,20 @@ void arctis_7_plus_init(struct device** device)
 
     strncpy(device_arctis.device_name, "SteelSeries Arctis 7+", sizeof(device_arctis.device_name));
 
-    device_arctis.capabilities                             = B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_CHATMIX_STATUS) | B(CAP_INACTIVE_TIME) | B(CAP_EQUALIZER_PRESET);
+    device_arctis.capabilities                             = B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_CHATMIX_STATUS) | B(CAP_INACTIVE_TIME) | B(CAP_EQUALIZER) | B(CAP_EQUALIZER_PRESET);
     device_arctis.capability_details[CAP_SIDETONE]         = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
     device_arctis.capability_details[CAP_BATTERY_STATUS]   = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
     device_arctis.capability_details[CAP_CHATMIX_STATUS]   = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
     device_arctis.capability_details[CAP_INACTIVE_TIME]    = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
     device_arctis.capability_details[CAP_EQUALIZER_PRESET] = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
+    device_arctis.capability_details[CAP_EQUALIZER]        = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
 
     device_arctis.send_sidetone         = &arctis_7_plus_send_sidetone;
     device_arctis.request_battery       = &arctis_7_plus_request_battery;
     device_arctis.request_chatmix       = &arctis_7_plus_request_chatmix;
     device_arctis.send_inactive_time    = &arctis_7_plus_send_inactive_time;
     device_arctis.send_equalizer_preset = &arctis_7_plus_send_equalizer_preset;
+    device_arctis.send_equalizer        = &arctis_7_plus_send_equalizer;
 
     *device = &device_arctis;
 }
@@ -147,6 +152,7 @@ static int arctis_7_plus_send_equalizer_preset(hid_device* device_handle, uint8_
 
     switch (num) {
     case 0: {
+
         uint8_t flat[MSG_SIZE] = { 0x0, 0x33, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x0 };
         return hid_write(device_handle, flat, MSG_SIZE);
     }
@@ -167,6 +173,22 @@ static int arctis_7_plus_send_equalizer_preset(hid_device* device_handle, uint8_
         return HSC_OUT_OF_BOUNDS;
     }
     }
+}
+
+static int arctis_7_plus_send_equalizer(hid_device* device_handle, struct equalizer_settings* settings)
+{
+    if (settings->size != EQUALIZER_BANDS_SIZE) {
+        printf("Device only supports %d bands.\n", EQUALIZER_BANDS_SIZE);
+        return HSC_OUT_OF_BOUNDS;
+    }
+
+    uint8_t data[MSG_SIZE] = { 0x0, 0x33 };
+    for (int i = 0; i < settings->size; i++) {
+        data[i + 2] = (uint8_t)settings->bands_values[i];
+    }
+    data[settings->size + 3] = 0x0;
+
+    return hid_write(device_handle, data, MSG_SIZE);
 }
 
 int arctis_7_plus_read_device_status(hid_device* device_handle, unsigned char* data_read)
