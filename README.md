@@ -167,7 +167,7 @@ The following options don't work on all devices yet:
 
 `headsetcontrol -p 0-3` sets equalizer preset, must be between 0 and 3, 0 is the default preset.
 
-`headsetcontrol -e string` sets equalizer to specified curve, string must contain band values specific to the device (hex or decimal) delimited by spaces, or commas, or new-lines e.g \"0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18\".
+`headsetcontrol -e string` sets equalizer to specified curve, string must contain band values specific to the device (hex or decimal) delimited by spaces, or commas, or new-lines e.g "0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18".
 
 ##### Modifiers
 
