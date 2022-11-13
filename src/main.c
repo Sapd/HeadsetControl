@@ -442,11 +442,11 @@ int main(int argc, char* argv[])
             printf("  -m, --chatmix\t\t\tRetrieves the current chat-mix-dial level setting between 0 and 128. Below 64 is the game side and above is the chat side.\n");
             printf("  -v, --voice-prompt 0|1\tTurn voice prompts on or off (0 = off, 1 = on)\n");
             printf("  -r, --rotate-to-mute 0|1\tTurn rotate to mute feature on or off (0 = off, 1 = on)\n");
-            printf("  -e, --equalizer string\tSets equalizer to specfied curve, string must contain band values specific to the device (hex or decimal) delimited by spaces, or commas, or new-lines. e.g \"0x18, 0x18, 0x18, 0x18, 0x18\" \n");
+            printf("  -e, --equalizer string\tSets equalizer to specified curve, string must contain band values specific to the device (hex or decimal) delimited by spaces, or commas, or new-lines e.g \"0x18, 0x18, 0x18, 0x18, 0x18\".\n");
             printf("  -p, --equalizer-preset number\tSets equalizer preset, number must be between 0 and 3, 0 sets the default\n");
             printf("  -f, --follow [secs timeout]\tRe-run the commands after the specified seconds timeout or 2 by default\n");
             printf("\n");
-            printf("      --timeout 0-100000\tSpecifies the timeout in ms for reading data from device (default 5000)\n");
+            printf("      --timeout 0-100000\t\tSpecifies the timeout in ms for reading data from device (default 5000)\n");
             printf("  -?, --capabilities\t\tPrint every feature headsetcontrol supports of the connected headset\n");
             printf("\n");
             printf("  -u\tOutputs udev rules to stdout/console\n");
