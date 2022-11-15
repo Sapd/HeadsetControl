@@ -161,7 +161,7 @@ static hid_device* dynamic_connect(char** existing_hid_path, hid_device* device_
  * @param param first parameter of the feature
  * @return int 0 on success, some other number otherwise
  */
-static int handle_feature(struct device* device_found, hid_device** device_handle, char** hid_path, enum capabilities cap, int param)
+static int handle_feature(struct device* device_found, hid_device** device_handle, char** hid_path, enum capabilities cap, void* param)
 {
     // Check if the headset implements the requested feature
     if ((device_found->capabilities & B(cap)) == 0) {
@@ -179,7 +179,7 @@ static int handle_feature(struct device* device_found, hid_device** device_handl
 
     switch (cap) {
     case CAP_SIDETONE:
-        ret = device_found->send_sidetone(*device_handle, param);
+        ret = device_found->send_sidetone(*device_handle, *(int*)param);
         break;
 
     case CAP_BATTERY_STATUS:
@@ -197,20 +197,20 @@ static int handle_feature(struct device* device_found, hid_device** device_handl
         break;
 
     case CAP_NOTIFICATION_SOUND:
-        ret = device_found->notifcation_sound(*device_handle, param);
+        ret = device_found->notifcation_sound(*device_handle, *(int*)param);
         break;
 
     case CAP_LIGHTS:
-        ret = device_found->switch_lights(*device_handle, param);
+        ret = device_found->switch_lights(*device_handle, *(int*)param);
         break;
 
     case CAP_INACTIVE_TIME:
-        ret = device_found->send_inactive_time(*device_handle, param);
+        ret = device_found->send_inactive_time(*device_handle, *(int*)param);
 
         if (ret < 0)
             break;
 
-        PRINT_INFO("Successfully set inactive time to %d minutes!\n", param);
+        PRINT_INFO("Successfully set inactive time to %d minutes!\n", *(int*)param);
         break;
 
     case CAP_CHATMIX_STATUS:
@@ -223,20 +223,29 @@ static int handle_feature(struct device* device_found, hid_device** device_handl
         break;
 
     case CAP_VOICE_PROMPTS:
-        ret = device_found->switch_voice_prompts(*device_handle, param);
+        ret = device_found->switch_voice_prompts(*device_handle, *(int*)param);
         break;
 
     case CAP_ROTATE_TO_MUTE:
-        ret = device_found->switch_rotate_to_mute(*device_handle, param);
+        ret = device_found->switch_rotate_to_mute(*device_handle, *(int*)param);
         break;
 
     case CAP_EQUALIZER_PRESET:
-        ret = device_found->send_equalizer_preset(*device_handle, param);
+        ret = device_found->send_equalizer_preset(*device_handle, *(int*)param);
 
         if (ret < 0)
             break;
 
-        PRINT_INFO("Successfully set equalizer preset to %d!\n", param);
+        PRINT_INFO("Successfully set equalizer preset to %d!\n", *(int*)param);
+        break;
+
+    case CAP_EQUALIZER:
+        ret = device_found->send_equalizer(*device_handle, (struct equalizer_settings*)param);
+
+        if (ret < 0)
+            break;
+
+        PRINT_INFO("Successfully set equalizer!\n");
         break;
 
     case NUM_CAPABILITIES:
@@ -275,19 +284,23 @@ int main(int argc, char* argv[])
 {
     int c;
 
-    int sidetone_loudness  = -1;
-    int request_battery    = 0;
-    int request_chatmix    = 0;
-    int notification_sound = -1;
-    int lights             = -1;
-    int inactive_time      = -1;
-    int voice_prompts      = -1;
-    int rotate_to_mute     = -1;
-    int print_capabilities = -1;
-    int equalizer_preset   = -1;
-    int dev_mode           = 0;
-    int follow             = 0;
-    unsigned follow_sec    = 2;
+    int sidetone_loudness                = -1;
+    int request_battery                  = 0;
+    int request_chatmix                  = 0;
+    int notification_sound               = -1;
+    int lights                           = -1;
+    int inactive_time                    = -1;
+    int voice_prompts                    = -1;
+    int rotate_to_mute                   = -1;
+    int print_capabilities               = -1;
+    int equalizer_preset                 = -1;
+    int dev_mode                         = 0;
+    int follow                           = 0;
+    unsigned follow_sec                  = 2;
+    struct equalizer_settings* equalizer = NULL;
+
+#define BUFFERLENGTH 1024
+    char* read_buffer = calloc(BUFFERLENGTH, sizeof(char));
 
     struct option opts[] = {
         { "battery", no_argument, NULL, 'b' },
@@ -295,6 +308,7 @@ int main(int argc, char* argv[])
         { "chatmix", no_argument, NULL, 'm' },
         { "dev", no_argument, NULL, 0 },
         { "help", no_argument, NULL, 'h' },
+        { "equalizer", required_argument, NULL, 'e' },
         { "equalizer-preset", required_argument, NULL, 'p' },
         { "inactive-time", required_argument, NULL, 'i' },
         { "light", required_argument, NULL, 'l' },
@@ -313,7 +327,7 @@ int main(int argc, char* argv[])
     // Init all information of supported devices
     init_devices();
 
-    while ((c = getopt_long(argc, argv, "bchi:l:f::mn:r:s:uv:p:?", opts, &option_index)) != -1) {
+    while ((c = getopt_long(argc, argv, "bchi:l:f::mn:r:s:uv:p:e:?", opts, &option_index)) != -1) {
         char* endptr = NULL; // for strtol
 
         switch (c) {
@@ -323,6 +337,26 @@ int main(int argc, char* argv[])
         case 'c':
             short_output = 1;
             break;
+        case 'e': {
+            int size = get_data_from_parameter(optarg, read_buffer, BUFFERLENGTH);
+
+            if (size < 0) {
+                fprintf(stderr, "Equalizer bands values size larger than supported %d\n", BUFFERLENGTH);
+                return 1;
+            }
+
+            if (size == 0) {
+                fprintf(stderr, "No bands values specified to --equalizer\n");
+                return 1;
+            }
+
+            equalizer       = malloc(sizeof(struct equalizer_settings) + size * sizeof(char));
+            equalizer->size = size;
+            for (int i = 0; i < size; i++) {
+                equalizer->bands_values[i] = read_buffer[i];
+            }
+            break;
+        }
         case 'f':
             follow = 1;
             if (OPTIONAL_ARGUMENT_IS_PRESENT) {
@@ -408,6 +442,7 @@ int main(int argc, char* argv[])
             printf("  -m, --chatmix\t\t\tRetrieves the current chat-mix-dial level setting between 0 and 128. Below 64 is the game side and above is the chat side.\n");
             printf("  -v, --voice-prompt 0|1\tTurn voice prompts on or off (0 = off, 1 = on)\n");
             printf("  -r, --rotate-to-mute 0|1\tTurn rotate to mute feature on or off (0 = off, 1 = on)\n");
+            printf("  -e, --equalizer string\tSets equalizer to specified curve, string must contain band values specific to the device (hex or decimal) delimited by spaces, or commas, or new-lines e.g \"0x18, 0x18, 0x18, 0x18, 0x18\".\n");
             printf("  -p, --equalizer-preset number\tSets equalizer preset, number must be between 0 and 3, 0 sets the default\n");
             printf("  -f, --follow [secs timeout]\tRe-run the commands after the specified seconds timeout or 2 by default\n");
             printf("\n");
@@ -438,6 +473,8 @@ int main(int argc, char* argv[])
         }
     }
 
+    free(read_buffer);
+
     if (dev_mode) {
         // use +1 to make sure the first parameter is some previous argument (which normally would be the name of the program)
         return dev_main(argc - optind + 1, &argv[optind - 1]);
@@ -465,47 +502,55 @@ int main(int argc, char* argv[])
 
 loop_start:
     if (sidetone_loudness != -1) {
-        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_SIDETONE, sidetone_loudness)) != 0)
+        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_SIDETONE, &sidetone_loudness)) != 0)
             goto error;
     }
 
     if (lights != -1) {
-        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_LIGHTS, lights)) != 0)
+        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_LIGHTS, &lights)) != 0)
             goto error;
     }
 
     if (notification_sound != -1) {
-        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_NOTIFICATION_SOUND, notification_sound)) != 0)
+        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_NOTIFICATION_SOUND, &notification_sound)) != 0)
             goto error;
     }
 
     if (request_battery == 1) {
-        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_BATTERY_STATUS, request_battery)) != 0)
+        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_BATTERY_STATUS, &request_battery)) != 0)
             goto error;
     }
 
     if (inactive_time != -1) {
-        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_INACTIVE_TIME, inactive_time)) != 0)
+        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_INACTIVE_TIME, &inactive_time)) != 0)
             goto error;
     }
 
     if (request_chatmix == 1) {
-        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_CHATMIX_STATUS, request_chatmix)) != 0)
+        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_CHATMIX_STATUS, &request_chatmix)) != 0)
             goto error;
     }
 
     if (voice_prompts != -1) {
-        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_VOICE_PROMPTS, voice_prompts)) != 0)
+        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_VOICE_PROMPTS, &voice_prompts)) != 0)
             goto error;
     }
 
     if (rotate_to_mute != -1) {
-        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_ROTATE_TO_MUTE, rotate_to_mute)) != 0)
+        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_ROTATE_TO_MUTE, &rotate_to_mute)) != 0)
             goto error;
     }
 
     if (equalizer_preset != -1) {
-        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_EQUALIZER_PRESET, equalizer_preset)) != 0)
+        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_EQUALIZER_PRESET, &equalizer_preset)) != 0)
+            goto error;
+    }
+
+    if (equalizer != NULL) {
+        error = handle_feature(&device_found, &device_handle, &hid_path, CAP_EQUALIZER, equalizer);
+        free(equalizer);
+
+        if ((error) != 0)
             goto error;
     }
 

@@ -1,6 +1,7 @@
 #include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -49,5 +50,31 @@ size_t hexdump(char* out, size_t out_size, unsigned char* data, size_t data_size
             used_buf += rc;
         }
     }
+    return i;
+}
+
+int get_data_from_parameter(char* input, char* dest, size_t len)
+{
+    const char* delim = " ,{}\n\r";
+
+    size_t sz = strlen(input);
+    char* str = (char*)malloc(sz + 1);
+    strcpy(str, input);
+
+    // For each token in the string, parse and store in buf[].
+    char* token = strtok(input, delim);
+    int i       = 0;
+    while (token) {
+        char* endptr;
+        long int val = strtol(token, &endptr, 0);
+
+        if (i >= len)
+            return -1;
+
+        dest[i++] = val;
+        token     = strtok(NULL, delim);
+    }
+
+    free(str);
     return i;
 }

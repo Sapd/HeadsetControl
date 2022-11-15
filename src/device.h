@@ -29,6 +29,7 @@ enum capabilities {
     CAP_VOICE_PROMPTS,
     CAP_ROTATE_TO_MUTE,
     CAP_EQUALIZER_PRESET,
+    CAP_EQUALIZER,
     NUM_CAPABILITIES
 };
 
@@ -57,6 +58,15 @@ enum headsetcontrol_errors {
     HSC_ERROR         = -100,
     HSC_READ_TIMEOUT  = -101,
     HSC_OUT_OF_BOUNDS = -102,
+};
+
+/** @brief Defines equalizer custom setings
+ */
+struct equalizer_settings {
+    /// The size of the bands array
+    int size;
+    /// The equalizer frequency bands values
+    char bands_values[];
 };
 
 /** @brief Defines the basic data of a device
@@ -204,4 +214,20 @@ struct device {
      *              -1                 HIDAPI error
      */
     int (*send_equalizer_preset)(hid_device* hid_device, uint8_t num);
+
+    /** @brief Function pointer for setting headset equalizer
+     *
+     *  Forwards the request to the device specific implementation
+     *
+     *  @param  device_handle   The hidapi handle. Must be the same
+     *                          device as defined here (same ids)
+     *  @param  settings        The equalizer settings containing
+     *                          the frequency bands values
+     *
+     *  @returns    > 0                on success
+     *              HSC_OUT_OF_BOUNDS  on equalizer settings size out of range
+     *                                 specific to this hardware
+     *              -1                 HIDAPI error
+     */
+    int (*send_equalizer)(hid_device* hid_device, struct equalizer_settings* settings);
 };
