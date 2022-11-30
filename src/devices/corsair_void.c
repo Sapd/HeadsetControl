@@ -10,7 +10,6 @@ enum void_wireless_battery_flags {
     VOID_BATTERY_MICUP = 128
 };
 
-
 #define ID_CORSAIR_VOID_WIRELESS                   0x1b27
 #define ID_CORSAIR_VOID_PRO                        0x0a14
 #define ID_CORSAIR_VOID_PRO_R2                     0x0a16
