@@ -10,20 +10,21 @@ enum void_wireless_battery_flags {
     VOID_BATTERY_MICUP = 128
 };
 
-#define ID_CORSAIR_VOID_WIRELESS           0x1b27
-#define ID_CORSAIR_VOID_PRO                0x0a14
-#define ID_CORSAIR_VOID_PRO_R2             0x0a16
-#define ID_CORSAIR_VOID_PRO_USB            0x0a17
-#define ID_CORSAIR_VOID_PRO_WIRELESS       0x0a1a
-#define ID_CORSAIR_VOID_RGB_USB            0x1b2a
-#define ID_CORSAIR_VOID_RGB_USB_2          0x1b23
-#define ID_CORSAIR_VOID_RGB_WIRED          0x1b1c
-#define ID_CORSAIR_VOID_ELITE_WIRELESS     0x0a55
-#define ID_CORSAIR_VOID_RGB_ELITE_WIRELESS 0x0a51
-#define ID_CORSAIR_VOID_ELITE_USB          0x0a52
-#define ID_CORSAIR_HS70_WIRELESS           0x0a38
-#define ID_CORSAIR_HS70_PRO                0x0a4f
-#define ID_CORSAIR_VOID_RGB_WIRELESS       0x0a2b
+#define ID_CORSAIR_VOID_WIRELESS                   0x1b27
+#define ID_CORSAIR_VOID_PRO                        0x0a14
+#define ID_CORSAIR_VOID_PRO_R2                     0x0a16
+#define ID_CORSAIR_VOID_PRO_USB                    0x0a17
+#define ID_CORSAIR_VOID_PRO_WIRELESS               0x0a1a
+#define ID_CORSAIR_VOID_RGB_USB                    0x1b2a
+#define ID_CORSAIR_VOID_RGB_USB_2                  0x1b23
+#define ID_CORSAIR_VOID_RGB_WIRED                  0x1b1c
+#define ID_CORSAIR_VOID_ELITE_WIRELESS             0x0a55
+#define ID_CORSAIR_VOID_RGB_ELITE_WIRELESS         0x0a51
+#define ID_CORSAIR_VOID_ELITE_USB                  0x0a52
+#define ID_CORSAIR_HS70_WIRELESS                   0x0a38
+#define ID_CORSAIR_HS70_PRO                        0x0a4f
+#define ID_CORSAIR_VOID_RGB_WIRELESS               0x0a2b
+#define ID_CORSAIR_VOID_ELITE_WIRELESS_PREMIUM_RGB 0x0a75
 
 static const uint16_t PRODUCT_IDS[] = {
     ID_CORSAIR_VOID_RGB_WIRED,
@@ -40,6 +41,7 @@ static const uint16_t PRODUCT_IDS[] = {
     ID_CORSAIR_HS70_WIRELESS,
     ID_CORSAIR_HS70_PRO,
     ID_CORSAIR_VOID_RGB_WIRELESS,
+    ID_CORSAIR_VOID_ELITE_WIRELESS_PREMIUM_RGB,
 };
 
 static int void_send_sidetone(hid_device* device_handle, uint8_t num);
