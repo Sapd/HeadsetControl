@@ -59,8 +59,8 @@ static int arctis_9_send_sidetone(hid_device* device_handle, uint8_t num)
         return ret;
     }
 
-    const unsigned char data_on[5]  = { 0x0, 0x06, num };
-    const unsigned char data_off[3] = { 0x0, 0x06, 0xc0 };
+    const unsigned char data_on[5]  = { 0x06, 0x0, num };
+    const unsigned char data_off[3] = { 0x06, 0x0, 0xc0 };
 
     if (num) {
         memmove(buf, data_on, sizeof(data_on));
@@ -68,6 +68,7 @@ static int arctis_9_send_sidetone(hid_device* device_handle, uint8_t num)
         memmove(buf, data_off, sizeof(data_off));
     }
 
+    // TODO: Sometimes hangs.
     ret = hid_write(device_handle, buf, 31);
 
     free(buf);
@@ -106,8 +107,9 @@ static int arctis_9_send_inactive_time(hid_device* device_handle, uint8_t num)
 {
     // the value for the Arctis 9 needs to be in seconds
     uint32_t time    = num * 60;
-    uint8_t data[31] = { 0x0, 0x04, (uint8_t)(time >> 8), (uint8_t)(time) };
+    uint8_t data[31] = { 0x04, 0x0, (uint8_t)(time >> 8), (uint8_t)(time) };
 
+    // TODO: Sometimes hangs.
     int ret = hid_write(device_handle, data, 31);
 
     if (ret >= 0) {
@@ -137,7 +139,7 @@ static int arctis_9_request_chatmix(hid_device* device_handle)
 
 int arctis_9_save_state(hid_device* device_handle)
 {
-    uint8_t data[31] = { 0x0, 0x90 };
+    uint8_t data[31] = { 0x90, 0x0 };
 
     return hid_write(device_handle, data, 31);
 }
