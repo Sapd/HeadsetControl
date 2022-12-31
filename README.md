@@ -24,7 +24,7 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
 - Logitech G535
   - Sidetone (only tested on Linux)
 - Logitech G633 / G635 / G733 / G933 / G935
-  - Sidetone, Battery (for Wireless), LED on/off
+  - Sidetone, Battery (for Wireless), LED on/off, RGB lights
 - Logitech G930
   - Sidetone, Battery
 - SteelSeries Arctis 1, Arctis 1 for XBox
