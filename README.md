@@ -151,13 +151,13 @@ The following options don't work on all devices yet:
 
 `headsetcontrol -l 0|1` switches LED off/on (off almost doubles battery lifetime!).
 
-`headsetcontrol -R` Sets Red channel light color, values must be between 0 and 255\n");
+`headsetcontrol -R` Sets Red channel light color, values must be between 0 and 255
 
-`headsetcontrol -G` Sets Green channel light color, values must be between 0 and 255\n");
+`headsetcontrol -G` Sets Green channel light color, values must be between 0 and 255
 
-`headsetcontrol -B` Sets Blue channel light color, values must be between 0 and 255\n");
+`headsetcontrol -B` Sets Blue channel light color, values must be between 0 and 255
 
-`headsetcontrol -t 0|1` Sets top light color. Use it with -R -G -B. Default: Bottom (0 = bottom, 1 = top)\n");
+`headsetcontrol -t 0|1` Sets top light color. Use it with -R -G -B. Default: Bottom (0 = bottom, 1 = top)
 
 `headsetcontrol --short-output` cut unnecessary output, for reading by other scripts or applications.
 
