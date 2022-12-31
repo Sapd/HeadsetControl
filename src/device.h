@@ -24,6 +24,7 @@ enum capabilities {
     CAP_BATTERY_STATUS,
     CAP_NOTIFICATION_SOUND,
     CAP_LIGHTS,
+    CAP_RGB,
     CAP_INACTIVE_TIME,
     CAP_CHATMIX_STATUS,
     CAP_VOICE_PROMPTS,
@@ -67,6 +68,17 @@ struct equalizer_settings {
     int size;
     /// The equalizer frequency bands values
     char bands_values[];
+};
+
+/** @brief Defines RGB channels and light side
+ */
+struct rgb_settings {
+    /// The RGB channels values
+    uint8_t r_channel;
+    uint8_t g_channel;
+    uint8_t b_channel;
+    /// The top or bottom light
+    uint8_t top;
 };
 
 /** @brief Defines the basic data of a device
@@ -143,6 +155,21 @@ struct device {
      *              -1          HIDAPI error
      */
     int (*switch_lights)(hid_device* hid_device, uint8_t on);
+
+    /** @brief Function pointer for setting headset rgb light colors
+     *
+     *  Forwards the request to the device specific implementation
+     *
+     *  @param  device_handle   The hidapi handle. Must be the same
+     *                          device as defined here (same ids)
+     *  @param  rgb             The RGB settings containing
+     *                          the channel values and light side
+     * 
+     *  @returns    > 0         on success
+     *              HSC_ERROR   on error specific to this software
+     *              -1          HIDAPI error
+     */
+    int (*send_rgb)(hid_device* hid_device, struct rgb_settings* rgb);
 
     /** @brief Function pointer for setting headset inactive time
      *

@@ -204,6 +204,10 @@ static int handle_feature(struct device* device_found, hid_device** device_handl
         ret = device_found->switch_lights(*device_handle, *(int*)param);
         break;
 
+    case CAP_RGB:
+        ret = device_found->send_rgb(*device_handle, (struct rgb_settings*)param);
+        break;
+
     case CAP_INACTIVE_TIME:
         ret = device_found->send_inactive_time(*device_handle, *(int*)param);
 
@@ -289,6 +293,10 @@ int main(int argc, char* argv[])
     int request_chatmix                  = 0;
     int notification_sound               = -1;
     int lights                           = -1;
+    int r_channel                        = -1;
+    int g_channel                        = -1;
+    int b_channel                        = -1;
+    int top                              = 0;
     int inactive_time                    = -1;
     int voice_prompts                    = -1;
     int rotate_to_mute                   = -1;
@@ -312,6 +320,10 @@ int main(int argc, char* argv[])
         { "equalizer-preset", required_argument, NULL, 'p' },
         { "inactive-time", required_argument, NULL, 'i' },
         { "light", required_argument, NULL, 'l' },
+        { "r_channel", required_argument, NULL, 'R' },
+        { "g_channel", required_argument, NULL, 'G' },
+        { "b_channel", required_argument, NULL, 'B' },
+        { "top", optional_argument, NULL, 't' },
         { "follow", optional_argument, NULL, 'f' },
         { "notificate", required_argument, NULL, 'n' },
         { "rotate-to-mute", required_argument, NULL, 'r' },
@@ -327,7 +339,7 @@ int main(int argc, char* argv[])
     // Init all information of supported devices
     init_devices();
 
-    while ((c = getopt_long(argc, argv, "bchi:l:f::mn:r:s:uv:p:e:?", opts, &option_index)) != -1) {
+    while ((c = getopt_long(argc, argv, "bchi:l:f::mn:r:s:uv:p:e:?R:G:B:t::", opts, &option_index)) != -1) {
         char* endptr = NULL; // for strtol
 
         switch (c) {
@@ -380,6 +392,40 @@ int main(int argc, char* argv[])
             if (*endptr != '\0' || endptr == optarg || lights < 0 || lights > 1) {
                 printf("Usage: %s -l 0|1\n", argv[0]);
                 return 1;
+            }
+            break;
+        case 'R':
+            r_channel = strtol(optarg, &endptr, 10);
+
+            if (*endptr != '\0' || endptr == optarg || r_channel > 255 || r_channel < 0) {
+                printf("Usage: %s -R 0-255\n", argv[0]);
+                return 1;
+            }
+            break;
+        case 'G':
+            g_channel = strtol(optarg, &endptr, 10);
+
+            if (*endptr != '\0' || endptr == optarg || g_channel > 255 || g_channel < 0) {
+                printf("Usage: %s -G 0-255\n", argv[0]);
+                return 1;
+            }
+            break;
+        case 'B':
+            b_channel = strtol(optarg, &endptr, 10);
+
+            if (*endptr != '\0' || endptr == optarg || b_channel > 255 || b_channel < 0) {
+                printf("Usage: %s -B 0-255\n", argv[0]);
+                return 1;
+            }
+            break;
+        case 't':
+            top = 1;
+            if (OPTIONAL_ARGUMENT_IS_PRESENT) {
+                top = strtol(optarg, &endptr, 10);
+                if (top != 0 && top != 1) {
+                    printf("Usage: %s -t 0|1\n", argv[0]);
+                    return 1;
+                }
             }
             break;
         case 'm':
@@ -437,6 +483,10 @@ int main(int argc, char* argv[])
             printf("  -b, --battery\t\t\tChecks the battery level\n");
             printf("  -n, --notificate soundid\tMakes the headset play a notifiation\n");
             printf("  -l, --light 0|1\t\tSwitch lights (0 = off, 1 = on)\n");
+            printf("  -R, --red\t\t\tSets Red channel light color, values must be between 0 and 255\n");
+            printf("  -G, --green\t\t\tSets Green channel light color, values must be between 0 and 255\n");
+            printf("  -B, --blue\t\t\tSets Blue channel light color, values must be between 0 and 255\n");
+            printf("  -t, --top 0|1\t\t\tSets top light color. Use it with -R -G -B. Default: Bottom (0 = bottom, 1 = top)\n");
             printf("  -c, --short-output\t\tUse more machine-friendly output \n");
             printf("  -i, --inactive-time time\tSets inactive time in minutes, time must be between 0 and 90, 0 disables the feature.\n");
             printf("  -m, --chatmix\t\t\tRetrieves the current chat-mix-dial level setting between 0 and 128. Below 64 is the game side and above is the chat side.\n");
@@ -508,6 +558,17 @@ loop_start:
 
     if (lights != -1) {
         if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_LIGHTS, &lights)) != 0)
+            goto error;
+    }
+
+    if (r_channel != -1 || g_channel != -1 || b_channel != -1) {
+        struct rgb_settings rgb;
+        rgb.r_channel = (r_channel < 0) ? 0 : r_channel;
+        rgb.g_channel = (g_channel < 0) ? 0 : g_channel;
+        rgb.b_channel = (b_channel < 0) ? 0 : b_channel;
+        rgb.top = top;
+
+        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_RGB, &rgb)) != 0)
             goto error;
     }
 
