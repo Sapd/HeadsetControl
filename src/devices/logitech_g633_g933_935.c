@@ -20,23 +20,27 @@ static const uint16_t PRODUCT_IDS[] = { ID_LOGITECH_G633, ID_LOGITECH_G635, ID_L
 static int g933_935_send_sidetone(hid_device* device_handle, uint8_t num);
 static int g933_935_request_battery(hid_device* device_handle);
 static int g933_935_lights(hid_device* device_handle, uint8_t on);
+static int g933_935_send_rgb(hid_device* device_handle, struct rgb_settings* rgb);
+double color_equation(double x);
 
 void g933_935_init(struct device** device)
 {
     device_g933_935.idVendor            = VENDOR_LOGITECH;
     device_g933_935.idProductsSupported = PRODUCT_IDS;
     device_g933_935.numIdProducts       = sizeof(PRODUCT_IDS) / sizeof(PRODUCT_IDS[0]);
-    strncpy(device_g933_935.device_name, "Logitech G633/G635/G933/G935", sizeof(device_g933_935.device_name));
+    strncpy(device_g933_935.device_name, "Logitech G633/G635/G733/G933/G935", sizeof(device_g933_935.device_name));
 
-    device_g933_935.capabilities = B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_LIGHTS);
+    device_g933_935.capabilities = B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_LIGHTS) | B(CAP_RGB);
     /// TODO: usagepages and ids may not be correct for all features
     device_g933_935.capability_details[CAP_SIDETONE]       = (struct capability_detail) { .usagepage = 0xff43, .usageid = 0x0202 };
     device_g933_935.capability_details[CAP_BATTERY_STATUS] = (struct capability_detail) { .usagepage = 0xff43, .usageid = 0x0202 };
     device_g933_935.capability_details[CAP_LIGHTS]         = (struct capability_detail) { .usagepage = 0xff43, .usageid = 0x0202 };
+    device_g933_935.capability_details[CAP_RGB]            = (struct capability_detail) { .usagepage = 0xff43, .usageid = 0x0202 };
 
     device_g933_935.send_sidetone   = &g933_935_send_sidetone;
     device_g933_935.request_battery = &g933_935_request_battery;
     device_g933_935.switch_lights   = &g933_935_lights;
+    device_g933_935.send_rgb        = &g933_935_send_rgb;
 
     *device = &device_g933_935;
 }
@@ -102,7 +106,7 @@ static int g933_935_send_sidetone(hid_device* device_handle, uint8_t num)
     uint8_t data_send[HIDPP_LONG_MESSAGE_LENGTH] = { HIDPP_LONG_MESSAGE, HIDPP_DEVICE_RECEIVER, 0x07, 0x1a, num, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
 #ifdef DEBUG
-    printf("G33 - setting sidetone to: %2x", num);
+    printf("G33 - setting sidetone to: %2x\n", num);
 #endif
 
     return hid_write(device_handle, data_send, sizeof(data_send) / sizeof(data_send[0]));
@@ -129,4 +133,41 @@ static int g933_935_lights(hid_device* device_handle, uint8_t on)
     res                                              = hid_write(device_handle, on ? data_logo_on : data_logo_off, HIDPP_LONG_MESSAGE_LENGTH);
 
     return res;
+}
+
+static int g933_935_send_rgb(hid_device* device_handle, struct rgb_settings* rgb)
+{
+
+    int R_fit = (int)color_equation(rgb->r_channel);
+    int G_fit = (int)color_equation(rgb->g_channel);
+    int B_fit = (int)color_equation(rgb->b_channel);
+    uint8_t data_send[HIDPP_LONG_MESSAGE_LENGTH] = { HIDPP_LONG_MESSAGE, HIDPP_DEVICE_RECEIVER, 0x04, 0x3e, rgb->top, 0x01, R_fit, G_fit, B_fit, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+
+#ifdef DEBUG
+    printf("G33 - setting RGB to: %d %d %d\n", R_fit, G_fit, B_fit);
+#endif
+
+    return hid_write(device_handle, data_send, sizeof(data_send) / sizeof(data_send[0]));
+}
+
+double color_equation(double x) {
+  if(x > 255) x = 255;
+  if(x < 0) x = 0;  
+  
+  double terms[] = {
+     1.6819656928435833e-001,
+    -3.7521501680023439e-003,
+     2.7707067841309251e-003,
+     4.5469372940149370e-006
+    };
+  
+  size_t csz = sizeof terms / sizeof *terms;
+  
+  double t = 1;
+  double r = 0;
+  for (int i = 0; i < csz;i++) {
+    r += terms[i] * t;
+    t *= x;
+  }
+  return r;
 }
