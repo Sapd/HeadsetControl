@@ -18,6 +18,7 @@ enum void_wireless_battery_flags {
 #define ID_CORSAIR_VOID_PRO_WIRELESS               0x0a1a
 #define ID_CORSAIR_VOID_RGB_USB                    0x1b2a
 #define ID_CORSAIR_VOID_RGB_USB_2                  0x1b23
+#define ID_CORSAIR_VOID_RGB_USB_3                  0x1b29
 #define ID_CORSAIR_VOID_RGB_WIRED                  0x1b1c
 #define ID_CORSAIR_VOID_ELITE_WIRELESS             0x0a55
 #define ID_CORSAIR_VOID_RGB_ELITE_WIRELESS         0x0a51
@@ -37,6 +38,7 @@ static const uint16_t PRODUCT_IDS[] = {
     ID_CORSAIR_VOID_PRO_WIRELESS,
     ID_CORSAIR_VOID_RGB_USB,
     ID_CORSAIR_VOID_RGB_USB_2,
+    ID_CORSAIR_VOID_RGB_USB_3,
     ID_CORSAIR_VOID_ELITE_WIRELESS,
     ID_CORSAIR_VOID_RGB_ELITE_WIRELESS,
     ID_CORSAIR_VOID_ELITE_USB,
