@@ -164,7 +164,7 @@ struct device {
      *                          device as defined here (same ids)
      *  @param  rgb             The RGB settings containing
      *                          the channel values and light side
-     * 
+     *
      *  @returns    > 0         on success
      *              HSC_ERROR   on error specific to this software
      *              -1          HIDAPI error

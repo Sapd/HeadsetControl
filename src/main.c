@@ -566,7 +566,7 @@ loop_start:
         rgb.r_channel = (r_channel < 0) ? 0 : r_channel;
         rgb.g_channel = (g_channel < 0) ? 0 : g_channel;
         rgb.b_channel = (b_channel < 0) ? 0 : b_channel;
-        rgb.top = top;
+        rgb.top       = top;
 
         if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_RGB, &rgb)) != 0)
             goto error;

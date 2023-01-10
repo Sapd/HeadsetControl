@@ -79,7 +79,7 @@ static int g933_935_request_battery(hid_device* device_handle)
     if (r == 0)
         return HSC_READ_TIMEOUT;
 
-    //6th byte is state; 0x1 for idle, 0x3 for charging
+    // 6th byte is state; 0x1 for idle, 0x3 for charging
     uint8_t state = data_read[6];
     if (state == 0x03)
         return BATTERY_CHARGING;
@@ -141,7 +141,8 @@ static int g933_935_send_rgb(hid_device* device_handle, struct rgb_settings* rgb
     int R_fit = (int)color_equation(rgb->r_channel);
     int G_fit = (int)color_equation(rgb->g_channel);
     int B_fit = (int)color_equation(rgb->b_channel);
-    uint8_t data_send[HIDPP_LONG_MESSAGE_LENGTH] = { HIDPP_LONG_MESSAGE, HIDPP_DEVICE_RECEIVER, 0x04, 0x3e, rgb->top, 0x01, R_fit, G_fit, B_fit, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+
+    uint8_t data_send[HIDPP_LONG_MESSAGE_LENGTH] = { HIDPP_LONG_MESSAGE, HIDPP_DEVICE_RECEIVER, 0x04, 0x3e, rgb->top, 0x01, R_fit, G_fit, B_fit, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
 #ifdef DEBUG
     printf("G33 - setting RGB to: %d %d %d\n", R_fit, G_fit, B_fit);
@@ -150,24 +151,27 @@ static int g933_935_send_rgb(hid_device* device_handle, struct rgb_settings* rgb
     return hid_write(device_handle, data_send, sizeof(data_send) / sizeof(data_send[0]));
 }
 
-double color_equation(double x) {
-  if(x > 255) x = 255;
-  if(x < 0) x = 0;  
-  
-  double terms[] = {
-     1.6819656928435833e-001,
-    -3.7521501680023439e-003,
-     2.7707067841309251e-003,
-     4.5469372940149370e-006
+double color_equation(double x)
+{
+    if (x > 255)
+        x = 255;
+    if (x < 0)
+        x = 0;
+
+    double terms[] = {
+        1.6819656928435833e-001,
+        -3.7521501680023439e-003,
+        2.7707067841309251e-003,
+        4.5469372940149370e-006
     };
-  
-  size_t csz = sizeof terms / sizeof *terms;
-  
-  double t = 1;
-  double r = 0;
-  for (int i = 0; i < csz;i++) {
-    r += terms[i] * t;
-    t *= x;
-  }
-  return r;
+
+    size_t csz = sizeof terms / sizeof *terms;
+
+    double t = 1;
+    double r = 0;
+    for (int i = 0; i < csz; i++) {
+        r += terms[i] * t;
+        t *= x;
+    }
+    return r;
 }
