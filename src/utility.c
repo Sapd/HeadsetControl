@@ -12,6 +12,27 @@ int map(int x, int in_min, int in_max, int out_min, int out_max)
     return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
+int spline_battery_level(const int p[], const int v[], const size_t size, uint16_t voltage)
+{
+    int percent = 0;
+
+    for (int i = 0; i < size; ++i) {
+        // if >= then 100%
+        if (voltage >= v[i]) {
+            percent = p[i];
+            break;
+        }
+
+        // if not last
+        if (i < size - 1 && voltage >= v[i + 1]) {
+            percent = p[i + 1] + (voltage - v[i + 1]) / (v[i] - v[i + 1]) * (p[i] - p[i + 1]);
+            break;
+        }
+    }
+
+    return percent;
+}
+
 float poly_battery_level(const double terms[], const size_t numterms, uint16_t voltage)
 {
     double t       = 1;

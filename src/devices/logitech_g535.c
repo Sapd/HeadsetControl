@@ -58,21 +58,9 @@ static const uint16_t PRODUCT_ID = 0x0ac4;
 // - 3339, 0
 // - 3325, 0
 // - 3310, 0
-
-// Generated using https://arachnoid.com/polysolve/
-static const double battery_estimate_terms[] = {
-    5.2745819811026892e+006,
-    -7.2266407634766219e+003,
-    3.8767801227503904e+000,
-    -1.0542664248696289e-003,
-    1.8582262783020881e-007,
-    -3.4500263384672060e-011,
-    4.7875908463303429e-015,
-    3.9178868212079191e-019,
-    -2.1037922411043121e-022,
-    1.7519707367951941e-026
-};
-static const size_t num_terms = 10;
+static const int battery_estimate_percentages[] = { 100, 50, 30, 20, 5, 0 };
+static const int battery_estimate_voltages[]    = { 4175, 3817, 3766, 3730, 3664, 3310 };
+static const size_t battery_estimate_size       = 6;
 
 static int g535_send_sidetone(hid_device* device_handle, uint8_t num);
 static int g535_request_battery(hid_device* device_handle);
@@ -169,7 +157,7 @@ static int g535_request_battery(hid_device* device_handle)
     // actual voltage is byte 4 and byte 5 combined together
     const uint16_t voltage = (buf[4] << 8) | buf[5];
 
-    return (int)(roundf(poly_battery_level(battery_estimate_terms, num_terms, voltage)));
+    return spline_battery_level(battery_estimate_percentages, battery_estimate_voltages, battery_estimate_size, voltage);
 }
 
 static int g535_send_inactive_time(hid_device* device_handle, uint8_t num)
