@@ -163,6 +163,10 @@ static int g535_request_battery(hid_device* device_handle)
 static int g535_send_inactive_time(hid_device* device_handle, uint8_t num)
 {
     // Accepted values are 0 (never), 1, 2, 5, 10, 15, 30
+    if (num != 0 && num != 1 && num != 2 && num != 5 && num != 10 && num != 15 && num != 30) {
+        return HSC_OUT_OF_BOUNDS;
+    }
+
     int ret = 0;
 
     uint8_t buf[HIDPP_LONG_MESSAGE_LENGTH] = { HIDPP_LONG_MESSAGE, HIDPP_DEVICE_RECEIVER, 0x05, 0x2d, num, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
