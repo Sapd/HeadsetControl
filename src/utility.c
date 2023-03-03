@@ -12,6 +12,11 @@ int map(int x, int in_min, int in_max, int out_min, int out_max)
     return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
+unsigned int round_to_multiples(unsigned int number, unsigned int multiple)
+{
+    return ((number + (multiple / 2)) / multiple) * multiple;
+}
+
 int spline_battery_level(const int p[], const int v[], const size_t size, uint16_t voltage)
 {
     int percent = 0;

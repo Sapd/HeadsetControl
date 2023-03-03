@@ -10,6 +10,17 @@
 int map(int x, int in_min, int in_max, int out_min, int out_max);
 
 /**
+ * @brief Rounds a given positive number to the nearest given multiple
+ *
+ * I.e. A number of 17 would be rounded to 15 if multiple is 5
+ *
+ * @param number A number to round
+ * @param multiple A multiple
+ * @return unsigned int the result rounded number
+ */
+unsigned int round_to_multiples(unsigned int number, unsigned int multiple);
+
+/**
  * @brief This function calculates the estimate batttery level in percent using splines.
  *
  * @param p percentage values to be associated with voltage values

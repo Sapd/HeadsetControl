@@ -163,8 +163,13 @@ static int g535_request_battery(hid_device* device_handle)
 static int g535_send_inactive_time(hid_device* device_handle, uint8_t num)
 {
     // Accepted values are 0 (never), 1, 2, 5, 10, 15, 30
-    if (num != 0 && num != 1 && num != 2 && num != 5 && num != 10 && num != 15 && num != 30) {
+    if (num > 30) {
+        printf("Device only accepts 0 (never) and numbers up to 30 for inactive time\n");
         return HSC_OUT_OF_BOUNDS;
+    } else if (num > 2 && num < 5) { // let numbers smaller-inclusive 2 through, set numbers smaller than 5 to 5, and round the rest up to 30
+        num = 5;
+    } else if (num > 5) {
+        num = round_to_multiples(num, 5);
     }
 
     int ret = 0;
