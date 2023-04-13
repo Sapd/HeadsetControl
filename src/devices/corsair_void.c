@@ -63,9 +63,9 @@ void void_init(struct device** device)
 
     device_void.capabilities                               = B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_NOTIFICATION_SOUND) | B(CAP_LIGHTS);
     device_void.capability_details[CAP_SIDETONE]           = (struct capability_detail) { .usagepage = 0xff00, .usageid = 0x1, .interface = 0 };
-    device_void.capability_details[CAP_BATTERY_STATUS]     = (struct capability_detail) { .usagepage = 0xffc5, .usageid = 0x1, .interface = 3 };
-    device_void.capability_details[CAP_NOTIFICATION_SOUND] = (struct capability_detail) { .usagepage = 0xffc5, .usageid = 0x1, .interface = 3 };
-    device_void.capability_details[CAP_LIGHTS]             = (struct capability_detail) { .usagepage = 0xffc5, .usageid = 0x1, .interface = 3 };
+    device_void.capability_details[CAP_BATTERY_STATUS]     = (struct capability_detail) { .usagepage = 0xffc5, .usageid = 0x1, .interface = 0 };
+    device_void.capability_details[CAP_NOTIFICATION_SOUND] = (struct capability_detail) { .usagepage = 0xffc5, .usageid = 0x1, .interface = 0 };
+    device_void.capability_details[CAP_LIGHTS]             = (struct capability_detail) { .usagepage = 0xffc5, .usageid = 0x1, .interface = 0 };
 
     device_void.send_sidetone     = &void_send_sidetone;
     device_void.request_battery   = &void_request_battery;
