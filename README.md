@@ -22,7 +22,7 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
 - Logitech G533
   - Sidetone, Battery (for Wireless)
 - Logitech G535
-  - Sidetone (only tested on Linux)
+  - Sidetone, Battery, Inactive time (only tested on Linux)
 - Logitech G633 / G635 / G733 / G933 / G935
   - Sidetone, Battery (for Wireless), LED on/off
 - Logitech G930
@@ -182,6 +182,8 @@ The following additional software can be used to enable control via a GUI
 [headsetcontrol-notifcationd](https://github.com/Manawyrm/headsetcontrol-notificationd) provides notifications on the battery status of connected headsets (PHP based)
 
 [headset-charge-indicator](https://github.com/centic9/headset-charge-indicator/) adds a system tray icon, displaying the current amount of battery. Also provides controls via the icon's menu (Python based)
+
+[gnome-shell-extension-HeadsetControl](https://github.com/ChrisLauinger77/gnome-shell-extension-HeadsetControl/) adds a system tray icon, displaying the current amount of battery. Also provides controls via the icon's menu (gnome-shell 42 and later)
 
 #### Windows
 

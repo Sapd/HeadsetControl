@@ -10,13 +10,35 @@
 int map(int x, int in_min, int in_max, int out_min, int out_max);
 
 /**
+ * @brief Rounds a given positive number to the nearest given multiple
+ *
+ * I.e. A number of 17 would be rounded to 15 if multiple is 5
+ *
+ * @param number A number to round
+ * @param multiple A multiple
+ * @return unsigned int the result rounded number
+ */
+unsigned int round_to_multiples(unsigned int number, unsigned int multiple);
+
+/**
+ * @brief This function calculates the estimate batttery level in percent using splines.
+ *
+ * @param p percentage values to be associated with voltage values
+ * @param v voltage values associated with percentage values
+ * @param size number of percentage and voltage associations
+ * @param voltage readings
+ * @return battery level in percent
+ */
+int spline_battery_level(const int p[], const int v[], const size_t size, uint16_t voltage);
+
+/**
  * @brief This function calculates the estimate batttery level in percent.
  *
  * To find the terms representing the polynominal discarge curve of the
  * battery an solver like https://arachnoid.com/polysolve/ can be used.
  *
- * @param array polynominal terms for the battery discharge curve
- * @param number of terms
+ * @param terms polynominal terms for the battery discharge curve
+ * @param numterms number of terms
  * @param voltage readings
  * @return battery level in percent
  */
