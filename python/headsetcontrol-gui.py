@@ -14,7 +14,7 @@ try :
 except :
     sys.exit("import failed: please ensure that you have the gi (Python API for Introspection) library installed")
 
-# GUI
+# GUI -- mainwindow
 class MainWindow(Gtk.ApplicationWindow):
     def quit(self, button) :
         Gtk.main_quit()
@@ -59,7 +59,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.button.connect('clicked', self.quit)
         self.innerbox.pack_start(self.button, False, False, 0)
 
-# Headset capabilities
+# Interaction with eadset capabilities
 class Capability :
     def __init__(self, short_option, long_option, argument, description, max=0, default=0, editable=True) :
         self.short_option = short_option
@@ -289,13 +289,10 @@ if (args.debug) :
     print("name " + name)
 
 # ask headset capabilities
-#result = subprocess.run(['headsetcontrol', '-c', '-?'], stdout=subprocess.PIPE)
-#split = result.stdout.decode().split('\n')
-result = sendHeadset(cmd='?')
-split = result.split('\n')
-
 headset_capabilities = Capabilities()
 
+result = sendHeadset(cmd='?')
+split = result.split('\n')
 for char in split[0] :
     headset_capabilities.insert(all_capabilities.lookup(char))
         
