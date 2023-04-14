@@ -1,8 +1,8 @@
 #include "device_registry.h"
 
 #include "devices/corsair_void.h"
-#include "devices/hyperx_cflight.h"
 #include "devices/hyperx_calphaw.h"
+#include "devices/hyperx_cflight.h"
 #include "devices/logitech_g430.h"
 #include "devices/logitech_g432.h"
 #include "devices/logitech_g533.h"

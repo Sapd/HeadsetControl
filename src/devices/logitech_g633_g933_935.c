@@ -75,7 +75,7 @@ static int g933_935_request_battery(hid_device* device_handle)
     if (r == 0)
         return HSC_READ_TIMEOUT;
 
-    //6th byte is state; 0x1 for idle, 0x3 for charging
+    // 6th byte is state; 0x1 for idle, 0x3 for charging
     uint8_t state = data_read[6];
     if (state == 0x03)
         return BATTERY_CHARGING;

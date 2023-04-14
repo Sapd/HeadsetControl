@@ -40,10 +40,10 @@ void calphaw_init(struct device** device)
     device_calphaw.numIdProducts       = sizeof(PRODUCT_IDS) / sizeof(PRODUCT_IDS[0]);
     strncpy(device_calphaw.device_name, "HyperX Cloud Alpha Wireless", sizeof(device_calphaw.device_name));
 
-    device_calphaw.capabilities    = B(CAP_BATTERY_STATUS) | B(CAP_INACTIVE_TIME) | B(CAP_SIDETONE) | B(CAP_VOICE_PROMPTS);
-    device_calphaw.request_battery = &calphaw_request_battery;
-    device_calphaw.send_inactive_time = &calphaw_send_inactive_time;
-    device_calphaw.send_sidetone = &calphaw_send_sidetone;
+    device_calphaw.capabilities         = B(CAP_BATTERY_STATUS) | B(CAP_INACTIVE_TIME) | B(CAP_SIDETONE) | B(CAP_VOICE_PROMPTS);
+    device_calphaw.request_battery      = &calphaw_request_battery;
+    device_calphaw.send_inactive_time   = &calphaw_send_inactive_time;
+    device_calphaw.send_sidetone        = &calphaw_send_sidetone;
     device_calphaw.switch_voice_prompts = &calphaw_switch_voice_prompts;
 
     *device = &device_calphaw;
@@ -58,18 +58,18 @@ int calphaw_request_charge(hid_device* device_handle)
     r = hid_write(device_handle, data_request, sizeof(data_request) / sizeof(data_request[0]));
     if (r < 0)
         return r;
-    
+
     uint8_t data_read[31];
     r = hid_read_timeout(device_handle, data_read, 20, TIMEOUT);
     if (r < 0)
         return r;
     if (r == 0) // timeout
         return HSC_ERROR;
-    
+
     if (r == 0xf || r == 0x14) {
         if (data_read[3] == 0x01)
             return 1;
-        
+
         return 0;
     }
 
@@ -125,13 +125,16 @@ static int calphaw_send_inactive_time(hid_device* device_handle, uint8_t num)
     return ret;
 }
 
-int calphaw_toggle_sidetone(hid_device* device_handle, uint8_t num) {
+int calphaw_toggle_sidetone(hid_device* device_handle, uint8_t num)
+{
     uint8_t data_request[31] = { 0x21, 0xbb, 0x10, num };
 
-    return hid_write(device_handle, data_request, sizeof(data_request) / sizeof(data_request[0]));;
+    return hid_write(device_handle, data_request, sizeof(data_request) / sizeof(data_request[0]));
+    ;
 }
 
-static int calphaw_send_sidetone(hid_device* device_handle, uint8_t num) {
+static int calphaw_send_sidetone(hid_device* device_handle, uint8_t num)
+{
     if (num == 0) {
         return calphaw_toggle_sidetone(device_handle, 0);
     } else {
@@ -152,5 +155,6 @@ static int calphaw_switch_voice_prompts(hid_device* device_handle, uint8_t on)
 {
     uint8_t data_request[31] = { 0x21, 0xbb, 0x13, on };
 
-    return hid_write(device_handle, data_request, sizeof(data_request) / sizeof(data_request[0]));;
+    return hid_write(device_handle, data_request, sizeof(data_request) / sizeof(data_request[0]));
+    ;
 }
