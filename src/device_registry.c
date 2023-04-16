@@ -1,6 +1,7 @@
 #include "device_registry.h"
 
 #include "devices/corsair_void.h"
+#include "devices/hyperx_calphaw.h"
 #include "devices/hyperx_cflight.h"
 #include "devices/logitech_g430.h"
 #include "devices/logitech_g432.h"
@@ -21,7 +22,7 @@
 
 #include <string.h>
 
-#define NUMDEVICES 18
+#define NUMDEVICES 19
 
 // array of pointers to device
 static struct device*(devicelist[NUMDEVICES]);
@@ -46,6 +47,7 @@ void init_devices()
     cflight_init(&devicelist[15]);
     g535_init(&devicelist[16]);
     arctis_nova_7_init(&devicelist[17]);
+    calphaw_init(&devicelist[18]);
 }
 
 int get_device(struct device* device_found, uint16_t idVendor, uint16_t idProduct)

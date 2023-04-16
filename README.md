@@ -9,6 +9,8 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
 
 ## Supported Headsets
 
+- HyperX Cloud Alpha Wireless
+  - Battery, Inactive time, Sidetone, Voice Prompts (only tested on Linux)
 - HyperX Cloud Flight Wireless
   - Battery only (only tested on Linux)
 - Corsair **Void** (Every void-version*, regardless whether Elite, Pro, HS70 Wireless)

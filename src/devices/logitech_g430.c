@@ -41,9 +41,9 @@ static int g430_send_sidetone(hid_device* device_handle, uint8_t num)
         0x081E, 0x1E1E, 0x341E, 0x4A1E, 0x601E, 0x761E, 0x8C1E, 0xA21E, 0xB81E, 0xCE1E, 0xE41E, 0xFA1E, 0x101F, 0x261F,
         0x3C1F, 0x521F, 0x681F };*/
 
-    //unsigned char data[2] = { volumes[num] >> 8, volumes[num] & 0xFF };
+    // unsigned char data[2] = { volumes[num] >> 8, volumes[num] & 0xFF };
 
-    //int size = libusb_control_transfer(device_handle, LIBUSB_DT_HID, LIBUSB_REQUEST_CLEAR_FEATURE, 0x0201, 0x0600, data, 0x2, 1000);
+    // int size = libusb_control_transfer(device_handle, LIBUSB_DT_HID, LIBUSB_REQUEST_CLEAR_FEATURE, 0x0201, 0x0600, data, 0x2, 1000);
 
     // unused parameter
     (void)(device_handle);

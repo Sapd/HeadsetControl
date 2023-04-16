@@ -113,5 +113,5 @@ static int elo71Air_send_inactive_time(hid_device* hid_device, uint8_t num)
     uint8_t response[64];
 
     return send_receive(hid_device, cmd, sizeof(cmd), response);
-    //meaning of response of headset is not clear yet, fetch & ignore it for now
+    // meaning of response of headset is not clear yet, fetch & ignore it for now
 }
