@@ -13,7 +13,7 @@
  *  @param vid The device vendor ID.
  *  @param pid The device product ID.
  *  @param iid The device interface ID. A value of zero means to take the
- *             first enumerated (sub-) device.
+ *             first enumerated (sub-) device. (Ignored on macOS)
  *  @param usagepageid The device usage page id, see usageid
  *  @param usageid      The device usage id in context to usagepageid.
  *                      Only used on Windows currently, and when not 0;
@@ -31,6 +31,12 @@ char* get_hid_path(uint16_t vid, uint16_t pid, int iid, uint16_t usagepageid, ui
         fprintf(stderr, "HID enumeration failure.\n");
         return ret;
     }
+
+    // Because of a MacOS Bug beginning with Ventura 13.3, we ignore the interfaceid
+    //   See https://github.com/Sapd/HeadsetControl/issues/281
+#ifdef __APPLE__
+    iid = 0;
+#endif
 
     // usageid is more specific to interface id, so we try it first
     // It is a good idea, to do it on all platforms, however googling shows
