@@ -195,6 +195,12 @@ The following additional software can be used to enable control via a GUI
 
 Look at the [wiki](https://github.com/Sapd/HeadsetControl/wiki/Development) if you want to contribute and implement another device or improve the software.
 
+## Release Cycle
+
+HeadsetControl is designed to be a rolling-release software, with minor versions (0.x.0) providing new features in the software itself, and patch versions (0.0.x) fixing issues or adding support for new headsets. Major versions are reserved for bigger rewrites.
+
+If you want to build and provide packages for it, we recommend building and providing the current git `HEAD` in most cases. This ensures that users have access to the latest features and fixes.
+
 ## Notice
 
 HeadsetControl is distributed in the hope that it will be useful,\
