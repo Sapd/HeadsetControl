@@ -13,7 +13,7 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
   - Battery, Inactive time, Sidetone, Voice Prompts (only tested on Linux)
 - HyperX Cloud Flight Wireless
   - Battery only (only tested on Linux)
-- Corsair **Void** (Every void-version*, regardless whether Elite, Pro, HS70 Wireless)
+- Corsair **Void** (Most void-versions*)
   - Sidetone, Battery (for Wireless), LED on/off, Notification Sound
 - Logitech G430
   - No support in current version (Last working on macOS in commit 41be99379f)
@@ -50,7 +50,7 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
 
 For non-supported headsets on Linux: There is a chance that you can set the sidetone via AlsaMixer
 
-&ast; *If your Corsair headset is not recognized, see [Adding a corsair device](https://github.com/Sapd/HeadsetControl/wiki/Adding-a-Corsair-device). HS80 and HS70 wired is not supported, but you can change its sidetone in Alsamixer.*
+&ast; *If your Corsair headset is not recognized, see [Adding a corsair device](https://github.com/Sapd/HeadsetControl/wiki/Adding-a-Corsair-device).* HS80 and HS70 wired, RGB Elite, and Virtuso is not supported, but you can change its sidetone in Alsamixer.
 
 For more features or other headsets, the protocol of the respective headset must be analyzed further. This can be done by capturing the USB traffic between the device and the original Windows software and analyzing it with WireShark or USBlyzer. For that, you can also use a virtual machine with USB passthrough. The [wiki](https://github.com/Sapd/HeadsetControl/wiki/Development) provides a tutorial.
 
