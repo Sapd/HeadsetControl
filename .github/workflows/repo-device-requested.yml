@@ -23,5 +23,6 @@ jobs:
             In order to create a implementation for a specific headset, we need to be able to reverse-engineer and test the implementation on that particular device.
             Explicitly speaking, only people who actually own the headset, can implement that request.
 
-            If you're interested in adding support for a specific headset, 
-            we recommend taking a look at our [wiki](https://github.com/Sapd/HeadsetControl/wiki/Development) to get started.
+            👉 If you're interested in adding support for a specific headset, we recommend taking a look at our [wiki](https://github.com/Sapd/HeadsetControl/wiki/Development) to get started.
+
+            📝 If you encounter any problems while using WireShark, we would be more than happy to help. Simply post screenshots and data on your progress.
