@@ -24,3 +24,8 @@ jobs:
         run: |
           cd build
           make test
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: headsetcontrol.exe
+          path: build/headsetcontrol.exe
