@@ -9,13 +9,12 @@
 
 static struct device device_g933_935;
 
-#define ID_LOGITECH_G633 0x0a5c
-#define ID_LOGITECH_G635 0x0a89
-#define ID_LOGITECH_G933 0x0a5b
-#define ID_LOGITECH_G935 0x0a87
-#define ID_LOGITECH_G733 0x0ab5
+#define ID_LOGITECH_G633   0x0a5c
+#define ID_LOGITECH_G635   0x0a89
+#define ID_LOGITECH_G933   0x0a5b
+#define ID_LOGITECH_G935   0x0a87
+#define ID_LOGITECH_G733   0x0ab5
 #define ID_LOGITECH_G733_2 0x0afe
-
 
 static const uint16_t PRODUCT_IDS[] = { ID_LOGITECH_G633, ID_LOGITECH_G635, ID_LOGITECH_G933, ID_LOGITECH_G935, ID_LOGITECH_G733, ID_LOGITECH_G733_2 };
 
@@ -77,7 +76,7 @@ static int g933_935_request_battery(hid_device* device_handle)
     if (r == 0)
         return HSC_READ_TIMEOUT;
 
-    //6th byte is state; 0x1 for idle, 0x3 for charging
+    // 6th byte is state; 0x1 for idle, 0x3 for charging
     uint8_t state = data_read[6];
     if (state == 0x03)
         return BATTERY_CHARGING;
