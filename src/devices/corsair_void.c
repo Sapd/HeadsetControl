@@ -75,7 +75,7 @@ void void_init(struct device** device)
     device_void.capability_details[CAP_BATTERY_STATUS]     = (struct capability_detail) { .usagepage = 0xffc5, .usageid = 0x1, .interface = 3 };
     device_void.capability_details[CAP_NOTIFICATION_SOUND] = (struct capability_detail) { .usagepage = 0xffc5, .usageid = 0x1, .interface = 3 };
     device_void.capability_details[CAP_LIGHTS]             = (struct capability_detail) { .usagepage = 0xffc5, .usageid = 0x1, .interface = 3 };
-    device_void.capability_details[CAP_DAEMONIZE]          = (struct capability_detail) { .usagepage = 0xff00, .usageid = 0x1, .interface = 3 };
+    device_void.capability_details[CAP_DAEMONIZE]          = (struct capability_detail) { .usagepage = 0xffc5, .usageid = 0x1, .interface = 3 };
 
     device_void.send_sidetone     = &void_send_sidetone;
     device_void.request_battery   = &void_request_battery;
