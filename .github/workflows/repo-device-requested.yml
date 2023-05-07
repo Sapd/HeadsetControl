@@ -1,0 +1,28 @@
+name: Add comment
+on:
+  issues:
+    types:
+      - labeled
+jobs:
+  add-comment:
+    if: github.event.label.name == 'device-request'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Add comment
+        uses: peter-evans/create-or-update-comment@v3
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          body: |
+            Hello 👋
+
+            Thank you for reaching out and expressing interest in having support for a new headset.
+            We appreciate your willingness to contribute to the project!
+
+            In order to create a implementation for a specific headset, we need to be able to reverse-engineer and test the implementation on that particular device.
+            Explicitly speaking, only people who actually own the headset, can implement that request.
+
+            👉 If you're interested in adding support for a specific headset, we recommend taking a look at our [wiki](https://github.com/Sapd/HeadsetControl/wiki/Development) to get started.
+
+            📝 If you encounter any problems while using WireShark, we would be more than happy to help. Simply post screenshots and data on your progress.

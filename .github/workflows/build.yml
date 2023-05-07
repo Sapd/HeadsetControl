@@ -1,0 +1,45 @@
+name: Build
+on: [push, pull_request]
+
+jobs:
+  build:
+    env:
+      buildDir: '${{ github.workspace }}/build'
+
+    name: ${{ matrix.os }}-compile
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            triplet: x64-linux
+            INSTALL_DEPS: sudo apt-get -y install libhidapi-dev
+          - os: macos-latest
+            triplet: x64-osx
+            INSTALL_DEPS: brew install hidapi
+    steps:
+      - uses: actions/checkout@v1
+      - uses: lukka/get-cmake@latest
+
+      - name: Install Dependencies
+        run: ${{ matrix.INSTALL_DEPS }}
+
+      - name: dir
+        run: find $RUNNER_WORKSPACE
+        shell: bash
+      - name: Run CMake with Ninja
+        uses: lukka/run-cmake@v3
+        id: runcmake
+        with:
+          cmakeListsTxtPath: '${{ github.workspace }}/CMakeLists.txt'
+          buildWithCMakeArgs: '-- -v'
+          buildDirectory: ${{ env.buildDir }}
+
+      - name: Run test
+        run: cd ${{ env.buildDir }} && ctest
+
+      - name: dir
+        run: find $RUNNER_WORKSPACE
+        shell: bash

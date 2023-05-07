@@ -1,5 +1,5 @@
-cmake_minimum_required(VERSION 2.6.2)
-project(headsetcontrol)
+cmake_minimum_required(VERSION 2.8...3.19)
+project(headsetcontrol LANGUAGES C)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules/")
 set(CLANG_FORMAT_EXCLUDE_PATTERNS  "build/")
@@ -30,6 +30,11 @@ macro(use_c99)
 endmacro(use_c99)
 
 use_c99()
+
+IF (WIN32)
+	set(CMAKE_C_STANDARD_LIBRARIES "-lsetupapi -static-libgcc -static-libstdc++ -lwsock32 -lws2_32 ${CMAKE_CXX_STANDARD_LIBRARIES}")
+	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-Bstatic,--whole-archive -lwinpthread -Wl,--no-whole-archive")
+ENDIF()
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror")
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -114,8 +119,18 @@ target_link_libraries(headsetcontrol m ${HIDAPI_LIBRARIES})
 install(TARGETS headsetcontrol DESTINATION bin)
 
 # install udev files on linux
-if(UNIX AND NOT APPLE)
-    install(DIRECTORY udev/ DESTINATION /etc/udev/rules.d)
+if(UNIX AND NOT APPLE AND NOT ${CMAKE_HOST_SYSTEM_NAME} MATCHES "FreeBSD")
+    set(rules_file 70-headsets.rules)
+    set(udev_rules_dir lib/udev/rules.d/
+        CACHE PATH "Path to the directory where udev rules should be installed")
+    add_custom_command(
+        OUTPUT ${rules_file}
+        COMMAND headsetcontrol -u > ${rules_file}
+        DEPENDS headsetcontrol)
+    add_custom_target(udevrules ALL DEPENDS ${rules_file})
+    install(
+        FILES ${CMAKE_CURRENT_BINARY_DIR}/${rules_file}
+        DESTINATION ${udev_rules_dir})
 endif()
 
 
@@ -129,3 +144,6 @@ include (CTest)
 enable_testing()
 add_test(run_test headsetcontrol)
 set_tests_properties(run_test PROPERTIES PASS_REGULAR_EXPRESSION "No supported headset found")
+# use make check to compile+test
+add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND}
+                  DEPENDS headsetcontrol)

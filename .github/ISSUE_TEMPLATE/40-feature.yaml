@@ -1,0 +1,18 @@
+name: 💡 Feature request
+description: Request a new general feature of HeadsetControl (not specific to a headset)
+body:
+- type: markdown
+  attributes:
+    value: |
+      Thank you for your input!
+
+      If your feature request is related to a problem, please describe it.
+
+      Also please describe possible solutions or alternatives.
+- type: textarea
+  id: description
+  attributes:
+    label: Description
+    description: Type in all details which could be useful
+  validations:
+    required: true

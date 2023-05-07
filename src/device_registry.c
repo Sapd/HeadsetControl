@@ -1,15 +1,29 @@
 #include "device_registry.h"
 
 #include "devices/corsair_void.h"
+#include "devices/hyperx_calphaw.h"
+#include "devices/hyperx_cflight.h"
 #include "devices/logitech_g430.h"
+#include "devices/logitech_g432.h"
 #include "devices/logitech_g533.h"
+#include "devices/logitech_g535.h"
 #include "devices/logitech_g633_g933_935.h"
 #include "devices/logitech_g930.h"
-#include "devices/steelseries_arctis.h"
+#include "devices/logitech_gpro.h"
+#include "devices/logitech_zone_wired.h"
+#include "devices/roccat_elo_7_1_air.h"
+#include "devices/roccat_elo_7_1_usb.h"
+#include "devices/steelseries_arctis_1.h"
+#include "devices/steelseries_arctis_7.h"
+#include "devices/steelseries_arctis_7_plus.h"
+#include "devices/steelseries_arctis_9.h"
+#include "devices/steelseries_arctis_nova_7.h"
+#include "devices/steelseries_arctis_pro_wireless.h"
 
 #include <string.h>
 
-#define NUMDEVICES 6
+#define NUMDEVICES 19
+
 // array of pointers to device
 static struct device*(devicelist[NUMDEVICES]);
 
@@ -20,7 +34,20 @@ void init_devices()
     g533_init(&devicelist[2]);
     g930_init(&devicelist[3]);
     g933_935_init(&devicelist[4]);
-    arctis_init(&devicelist[5]);
+    arctis_1_init(&devicelist[5]);
+    arctis_7_init(&devicelist[6]);
+    arctis_9_init(&devicelist[7]);
+    arctis_pro_wireless_init(&devicelist[8]);
+    gpro_init(&devicelist[9]);
+    zone_wired_init(&devicelist[10]);
+    elo71Air_init(&devicelist[11]);
+    g432_init(&devicelist[12]);
+    elo71USB_init(&devicelist[13]);
+    arctis_7_plus_init(&devicelist[14]);
+    cflight_init(&devicelist[15]);
+    g535_init(&devicelist[16]);
+    arctis_nova_7_init(&devicelist[17]);
+    calphaw_init(&devicelist[18]);
 }
 
 int get_device(struct device* device_found, uint16_t idVendor, uint16_t idProduct)
@@ -41,4 +68,14 @@ int get_device(struct device* device_found, uint16_t idVendor, uint16_t idProduc
         }
     }
     return 1;
+}
+
+int iterate_devices(int index, struct device** device_found)
+{
+    if (index < NUMDEVICES) {
+        *device_found = devicelist[index];
+        return 0;
+    } else {
+        return -1;
+    }
 }
