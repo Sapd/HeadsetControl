@@ -398,9 +398,13 @@ static int void_daemonize(hid_device* device_handle)
     device_pointer = device_handle;
 
     // Initialize signal handler for CTRL + C
+#ifdef _WIN32
+    signal(SIGINT, interruptHandler);
+#else
     struct sigaction act;
     act.sa_handler = interruptHandler;
     sigaction(SIGINT, &act, NULL);
+#endif
 
     const size_t readlength = 16;
 
