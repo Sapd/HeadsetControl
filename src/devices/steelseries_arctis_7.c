@@ -7,11 +7,11 @@
 
 static struct device device_arctis;
 
-#define ID_ARCTIS_7        0x1260
-#define ID_ARCTIS_7_2019   0x12ad
-#define ID_ARCTIS_PRO_2019 0x1252
-
-static const uint16_t PRODUCT_IDS[] = { ID_ARCTIS_7, ID_ARCTIS_7_2019, ID_ARCTIS_PRO_2019 };
+#define ID_ARCTIS_7           0x1260
+#define ID_ARCTIS_7_2019      0x12ad
+#define ID_ARCTIS_PRO_2019    0x1252
+#define ID_ARCTIS_PRO_GAMEDAC 0x1280
+static const uint16_t PRODUCT_IDS[] = { ID_ARCTIS_7, ID_ARCTIS_7_2019, ID_ARCTIS_PRO_2019, ID_ARCTIS_PRO_GAMEDAC };
 
 static int arctis_7_send_sidetone(hid_device* device_handle, uint8_t num);
 static int arctis_7_request_battery(hid_device* device_handle);
