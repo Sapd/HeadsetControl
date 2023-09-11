@@ -30,7 +30,7 @@ int spline_battery_level(const int p[], const int v[], const size_t size, uint16
 
         // if not last
         if (i < size - 1 && voltage >= v[i + 1]) {
-            percent = p[i + 1] + (voltage - v[i + 1]) / (v[i] - v[i + 1]) * (p[i] - p[i + 1]);
+            percent = p[i + 1] + (float)(voltage - v[i + 1]) / (float)(v[i] - v[i + 1]) * (p[i] - p[i + 1]);
             break;
         }
     }

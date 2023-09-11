@@ -23,6 +23,14 @@ unsigned int round_to_multiples(unsigned int number, unsigned int multiple);
 /**
  * @brief This function calculates the estimate batttery level in percent using splines.
  *
+ * Example:
+ * @code{.c}
+ * static const int battery_estimate_percentages[] = { 100, 50, 30, 20, 5, 0 };
+ * static const int battery_estimate_voltages[]    = { 4175, 3817, 3766, 3730, 3664, 3310 };
+ * static size_t battery_estimate_size = sizeof(battery_estimate_percentages)/sizeof(battery_estimate_percentages[0]);
+ * int level = spline_battery_level(battery_estimate_percentages, battery_estimate_voltages, battery_estimate_size, voltage_read);
+ * @endcode
+ * 
  * @param p percentage values to be associated with voltage values
  * @param v voltage values associated with percentage values
  * @param size number of percentage and voltage associations
