@@ -49,6 +49,30 @@ void calphaw_init(struct device** device)
     *device = &device_calphaw;
 }
 
+int calphaw_request_connection(hid_device* device_handle)
+{
+    int r = 0;
+    // request charge info
+    uint8_t data_request[31] = { 0x21, 0xbb, 0x03 };
+
+    r = hid_write(device_handle, data_request, sizeof(data_request) / sizeof(data_request[0]));
+    if (r < 0)
+        return r;
+
+    uint8_t data_read[31];
+    r = hid_read_timeout(device_handle, data_read, 20, TIMEOUT);
+    if (r < 0)
+        return r;
+    if (r == 0) // timeout
+        return HSC_ERROR;
+
+    if (r == 0xf || r == 0x14) {
+        return data_read[3];
+    }
+
+    return HSC_ERROR;
+}
+
 int calphaw_request_charge(hid_device* device_handle)
 {
     int r = 0;
@@ -78,6 +102,9 @@ int calphaw_request_charge(hid_device* device_handle)
 
 static int calphaw_request_battery(hid_device* device_handle)
 {
+    if (calphaw_request_connection(device_handle) == 1)
+        return BATTERY_UNAVAILABLE;
+
     if (calphaw_request_charge(device_handle) == 1)
         return BATTERY_CHARGING;
 
