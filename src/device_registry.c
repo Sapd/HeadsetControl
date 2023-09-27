@@ -18,11 +18,12 @@
 #include "devices/steelseries_arctis_7_plus.h"
 #include "devices/steelseries_arctis_9.h"
 #include "devices/steelseries_arctis_nova_7.h"
+#include "devices/steelseries_arctis_nova_pro_wireless.h"
 #include "devices/steelseries_arctis_pro_wireless.h"
 
 #include <string.h>
 
-#define NUMDEVICES 19
+#define NUMDEVICES 20
 
 // array of pointers to device
 static struct device*(devicelist[NUMDEVICES]);
@@ -48,6 +49,7 @@ void init_devices()
     g535_init(&devicelist[16]);
     arctis_nova_7_init(&devicelist[17]);
     calphaw_init(&devicelist[18]);
+    arctis_nova_pro_wireless_init(&devicelist[19]);
 }
 
 int get_device(struct device* device_found, uint16_t idVendor, uint16_t idProduct)
