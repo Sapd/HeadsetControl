@@ -10,9 +10,10 @@
 
 static struct device device_arctis;
 
-#define ID_ARCTIS_NOVA_7  0x2202
-#define ID_ARCTIS_NOVA_7x 0x2206
-#define ID_ARCTIS_NOVA_7p 0x220a
+#define ID_ARCTIS_NOVA_7           0x2202
+#define ID_ARCTIS_NOVA_7x          0x2206
+#define ID_ARCTIS_NOVA_7p          0x220a
+#define ID_ARCTIS_NOVA_7_DIABLO_IV 0x223a
 
 #define BATTERY_MAX 0x04
 #define BATTERY_MIN 0x00
@@ -22,7 +23,7 @@ static struct device device_arctis;
 
 #define EQUALIZER_BANDS_SIZE 10
 
-static const uint16_t PRODUCT_IDS[] = { ID_ARCTIS_NOVA_7, ID_ARCTIS_NOVA_7x, ID_ARCTIS_NOVA_7p };
+static const uint16_t PRODUCT_IDS[] = { ID_ARCTIS_NOVA_7, ID_ARCTIS_NOVA_7x, ID_ARCTIS_NOVA_7p, ID_ARCTIS_NOVA_7_DIABLO_IV };
 
 static int arctis_nova_7_send_sidetone(hid_device* device_handle, uint8_t num);
 static int arctis_nova_7_send_inactive_time(hid_device* device_handle, uint8_t num);
