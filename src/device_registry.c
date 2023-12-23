@@ -10,6 +10,7 @@
 #include "devices/logitech_g633_g933_935.h"
 #include "devices/logitech_g930.h"
 #include "devices/logitech_gpro.h"
+#include "devices/logitech_gpro_x2.h"
 #include "devices/logitech_zone_wired.h"
 #include "devices/roccat_elo_7_1_air.h"
 #include "devices/roccat_elo_7_1_usb.h"
@@ -23,7 +24,7 @@
 
 #include <string.h>
 
-#define NUMDEVICES 20
+#define NUMDEVICES 21
 
 // array of pointers to device
 static struct device*(devicelist[NUMDEVICES]);
@@ -50,6 +51,7 @@ void init_devices()
     arctis_nova_7_init(&devicelist[17]);
     calphaw_init(&devicelist[18]);
     arctis_nova_pro_wireless_init(&devicelist[19]);
+    gpro_x2_init(&devicelist[20]);
 }
 
 int get_device(struct device* device_found, uint16_t idVendor, uint16_t idProduct)
