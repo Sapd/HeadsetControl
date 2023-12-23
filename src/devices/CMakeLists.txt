@@ -39,4 +39,6 @@ set(SOURCE_FILES ${SOURCE_FILES}
     ${CMAKE_CURRENT_SOURCE_DIR}/logitech_gpro.h
     ${CMAKE_CURRENT_SOURCE_DIR}/logitech_zone_wired.c
     ${CMAKE_CURRENT_SOURCE_DIR}/logitech_zone_wired.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/logitech_gpro_x2.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/logitech_gpro_x2.h
     PARENT_SCOPE)

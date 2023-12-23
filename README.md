@@ -45,6 +45,8 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
   - Sidetone, Battery, Inactive time
 - Logitech G PRO
   - Sidetone, Battery, Inactive time
+- Logitech G PRO X 2
+  - Sidetone, Inactive time
 - Logitech Zone Wired/Zone 750
   - Sidetone, Voice prompts, Rotate to mute
 - Roccat Elo 7.1 Air
