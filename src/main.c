@@ -248,6 +248,14 @@ static int handle_feature(struct device* device_found, hid_device** device_handl
         PRINT_INFO("Successfully set equalizer!\n");
         break;
 
+    case CAP_MICROPHONE_MUTE_LED_BRIGHTNESS:
+        ret = device_found->send_microphone_mute_led_brightness(*device_handle, *(int*)param);
+        break;
+
+    case CAP_MICROPHONE_VOLUME:
+        ret = device_found->send_microphone_volume(*device_handle, *(int*)param);
+        break;
+
     case NUM_CAPABILITIES:
         ret = -99; // silence warning
 
@@ -294,6 +302,8 @@ int main(int argc, char* argv[])
     int rotate_to_mute                   = -1;
     int print_capabilities               = -1;
     int equalizer_preset                 = -1;
+    int microphone_mute_led_brightness   = -1;
+    int microphone_volume                = -1;
     int dev_mode                         = 0;
     int follow                           = 0;
     unsigned follow_sec                  = 2;
@@ -327,7 +337,7 @@ int main(int argc, char* argv[])
     // Init all information of supported devices
     init_devices();
 
-    while ((c = getopt_long(argc, argv, "bchi:l:f::mn:r:s:uv:p:e:?", opts, &option_index)) != -1) {
+    while ((c = getopt_long(argc, argv, "bchi:l:f::mn:r:s:uv:p:t:o:e:?", opts, &option_index)) != -1) {
         char* endptr = NULL; // for strtol
 
         switch (c) {
@@ -401,6 +411,22 @@ int main(int argc, char* argv[])
                 return 1;
             }
             break;
+        case 't':
+            microphone_mute_led_brightness = strtol(optarg, &endptr, 10);
+
+            if (*endptr != '\0' || endptr == optarg || microphone_mute_led_brightness < 0 || microphone_mute_led_brightness > 3) {
+                printf("Usage: %s -t 0-3\n", argv[0]);
+                return 1;
+            }
+            break;
+        case 'o':
+            microphone_volume = strtol(optarg, &endptr, 10);
+
+            if (*endptr != '\0' || endptr == optarg || microphone_volume < 0 || microphone_volume > 128) {
+                printf("Usage: %s -o 0-128\n", argv[0]);
+                return 1;
+            }
+            break;
         case 'r':
             rotate_to_mute = strtol(optarg, &endptr, 10);
             if (*endptr != '\0' || endptr == optarg || rotate_to_mute < 0 || rotate_to_mute > 1) {
@@ -444,6 +470,8 @@ int main(int argc, char* argv[])
             printf("  -r, --rotate-to-mute 0|1\tTurn rotate to mute feature on or off (0 = off, 1 = on)\n");
             printf("  -e, --equalizer string\tSets equalizer to specified curve, string must contain band values specific to the device (hex or decimal) delimited by spaces, or commas, or new-lines e.g \"0x18, 0x18, 0x18, 0x18, 0x18\".\n");
             printf("  -p, --equalizer-preset number\tSets equalizer preset, number must be between 0 and 3, 0 sets the default\n");
+            printf("  -t, --microphone-mute-led-brightness number\tSets microphone mute LED brightness, number must be between 0 and 3\n");
+            printf("  -o, --microphone-volume number\tSets microphone volume, number must be between 0 and 128\n");
             printf("  -f, --follow [secs timeout]\tRe-run the commands after the specified seconds timeout or 2 by default\n");
             printf("\n");
             printf("      --timeout 0-100000\t\tSpecifies the timeout in ms for reading data from device (default 5000)\n");
@@ -543,6 +571,16 @@ loop_start:
 
     if (equalizer_preset != -1) {
         if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_EQUALIZER_PRESET, &equalizer_preset)) != 0)
+            goto error;
+    }
+
+    if (microphone_mute_led_brightness != -1) {
+        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_MICROPHONE_MUTE_LED_BRIGHTNESS, &microphone_mute_led_brightness)) != 0)
+            goto error;
+    }
+
+    if (microphone_volume != -1) {
+        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_MICROPHONE_VOLUME, &microphone_volume)) != 0)
             goto error;
     }
 
