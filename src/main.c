@@ -320,6 +320,8 @@ int main(int argc, char* argv[])
         { "help", no_argument, NULL, 'h' },
         { "equalizer", required_argument, NULL, 'e' },
         { "equalizer-preset", required_argument, NULL, 'p' },
+        { "microphone-mute-led-brightness", required_argument, NULL, 0 },
+        { "microphone-volume", required_argument, NULL, 0 },
         { "inactive-time", required_argument, NULL, 'i' },
         { "light", required_argument, NULL, 'l' },
         { "follow", optional_argument, NULL, 'f' },
@@ -337,7 +339,7 @@ int main(int argc, char* argv[])
     // Init all information of supported devices
     init_devices();
 
-    while ((c = getopt_long(argc, argv, "bchi:l:f::mn:r:s:uv:p:t:o:e:?", opts, &option_index)) != -1) {
+    while ((c = getopt_long(argc, argv, "bchi:l:f::mn:r:s:uv:p:e:?", opts, &option_index)) != -1) {
         char* endptr = NULL; // for strtol
 
         switch (c) {
@@ -411,22 +413,6 @@ int main(int argc, char* argv[])
                 return 1;
             }
             break;
-        case 't':
-            microphone_mute_led_brightness = strtol(optarg, &endptr, 10);
-
-            if (*endptr != '\0' || endptr == optarg || microphone_mute_led_brightness < 0 || microphone_mute_led_brightness > 3) {
-                printf("Usage: %s -t 0-3\n", argv[0]);
-                return 1;
-            }
-            break;
-        case 'o':
-            microphone_volume = strtol(optarg, &endptr, 10);
-
-            if (*endptr != '\0' || endptr == optarg || microphone_volume < 0 || microphone_volume > 128) {
-                printf("Usage: %s -o 0-128\n", argv[0]);
-                return 1;
-            }
-            break;
         case 'r':
             rotate_to_mute = strtol(optarg, &endptr, 10);
             if (*endptr != '\0' || endptr == optarg || rotate_to_mute < 0 || rotate_to_mute > 1) {
@@ -470,8 +456,8 @@ int main(int argc, char* argv[])
             printf("  -r, --rotate-to-mute 0|1\tTurn rotate to mute feature on or off (0 = off, 1 = on)\n");
             printf("  -e, --equalizer string\tSets equalizer to specified curve, string must contain band values specific to the device (hex or decimal) delimited by spaces, or commas, or new-lines e.g \"0x18, 0x18, 0x18, 0x18, 0x18\".\n");
             printf("  -p, --equalizer-preset number\tSets equalizer preset, number must be between 0 and 3, 0 sets the default\n");
-            printf("  -t, --microphone-mute-led-brightness number\tSets microphone mute LED brightness, number must be between 0 and 3\n");
-            printf("  -o, --microphone-volume number\tSets microphone volume, number must be between 0 and 128\n");
+            printf("      --microphone-mute-led-brightness number\tSets microphone mute LED brightness, number must be between 0 and 3\n");
+            printf("      --microphone-volume number\tSets microphone volume, number must be between 0 and 128\n");
             printf("  -f, --follow [secs timeout]\tRe-run the commands after the specified seconds timeout or 2 by default\n");
             printf("\n");
             printf("      --timeout 0-100000\t\tSpecifies the timeout in ms for reading data from device (default 5000)\n");
@@ -490,6 +476,22 @@ int main(int argc, char* argv[])
 
                 if (*endptr != '\0' || endptr == optarg || hsc_device_timeout < 0 || hsc_device_timeout > 100000) {
                     printf("Usage: %s --timeout 0-100000\n", argv[0]);
+                    return 1;
+                }
+                break;
+            } else if (strcmp(opts[option_index].name, "microphone-mute-led-brightness") == 0) {
+                microphone_mute_led_brightness = strtol(optarg, &endptr, 10);
+
+                if (*endptr != '\0' || endptr == optarg || microphone_mute_led_brightness < 0 || microphone_mute_led_brightness > 3) {
+                    printf("Usage: %s --microphone-mute-led-brightness 0-3\n", argv[0]);
+                    return 1;
+                }
+                break;
+            } else if (strcmp(opts[option_index].name, "microphone-volume") == 0) {
+                microphone_volume = strtol(optarg, &endptr, 10);
+
+                if (*endptr != '\0' || endptr == optarg || microphone_volume < 0 || microphone_volume > 128) {
+                    printf("Usage: %s --microphone-volume 0-128\n", argv[0]);
                     return 1;
                 }
                 break;
