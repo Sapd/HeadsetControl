@@ -30,6 +30,8 @@ enum capabilities {
     CAP_ROTATE_TO_MUTE,
     CAP_EQUALIZER_PRESET,
     CAP_EQUALIZER,
+    CAP_MICROPHONE_MUTE_LED_BRIGHTNESS,
+    CAP_MICROPHONE_VOLUME,
     NUM_CAPABILITIES
 };
 
@@ -209,7 +211,7 @@ struct device {
      *  @param  num             The preset number, between 0 - 3
      *
      *  @returns    > 0                on success
-     *              HSC_OUT_OF_BOUNDS  on preset parmeter out of range
+     *              HSC_OUT_OF_BOUNDS  on preset parameter out of range
      *                                 specific to this hardware
      *              -1                 HIDAPI error
      */
@@ -230,4 +232,34 @@ struct device {
      *              -1                 HIDAPI error
      */
     int (*send_equalizer)(hid_device* hid_device, struct equalizer_settings* settings);
+
+    /** @brief Function pointer for setting headset microphone mute LED brightness
+     *
+     *  Forwards the request to the device specific implementation
+     *
+     *  @param  device_handle   The hidapi handle. Must be the same
+     *                          device as defined here (same ids)
+     *  @param  num             The level number, between 0 - 3
+     *
+     *  @returns    > 0                on success
+     *              HSC_OUT_OF_BOUNDS  on level parameter out of range
+     *                                 specific to this hardware
+     *              -1                 HIDAPI error
+     */
+    int (*send_microphone_mute_led_brightness)(hid_device* hid_device, uint8_t num);
+
+    /** @brief Function pointer for setting headset microphone volume
+     *
+     *  Forwards the request to the device specific implementation
+     *
+     *  @param  device_handle   The hidapi handle. Must be the same
+     *                          device as defined here (same ids)
+     *  @param  num             The volume number, between 0 - 128
+     *
+     *  @returns    > 0                on success
+     *              HSC_OUT_OF_BOUNDS  on volume parameter out of range
+     *                                 specific to this hardware
+     *              -1                 HIDAPI error
+     */
+    int (*send_microphone_volume)(hid_device* hid_device, uint8_t num);
 };
