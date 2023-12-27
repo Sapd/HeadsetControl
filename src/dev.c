@@ -173,8 +173,8 @@ int dev_main(int argc, char* argv[])
     int print_deviceinfo = 0;
 
 #define BUFFERLENGTH 1024
-    char* sendbuffer       = calloc(BUFFERLENGTH, sizeof(char));
-    char* sendreportbuffer = calloc(BUFFERLENGTH, sizeof(char));
+    unsigned char* sendbuffer       = calloc(BUFFERLENGTH, sizeof(char));
+    unsigned char* sendreportbuffer = calloc(BUFFERLENGTH, sizeof(char));
 
     unsigned char* receivebuffer       = malloc(sizeof(char) * BUFFERLENGTH);
     unsigned char* receivereportbuffer = malloc(sizeof(char) * BUFFERLENGTH);
@@ -240,7 +240,7 @@ int dev_main(int argc, char* argv[])
             break;
         }
         case 's': { // --send string
-            int size = get_data_from_parameter(optarg, sendbuffer, BUFFERLENGTH);
+            int size = get_byte_data_from_parameter(optarg, sendbuffer, BUFFERLENGTH);
 
             if (size < 0) {
                 fprintf(stderr, "Data to send larger than %d\n", BUFFERLENGTH);
@@ -257,7 +257,7 @@ int dev_main(int argc, char* argv[])
             break;
         }
         case 'f': { // --send-feature string
-            int size = get_data_from_parameter(optarg, sendreportbuffer, BUFFERLENGTH);
+            int size = get_byte_data_from_parameter(optarg, sendreportbuffer, BUFFERLENGTH);
 
             if (size < 0) {
                 fprintf(stderr, "Data to send for feature report larger than %d\n", BUFFERLENGTH);

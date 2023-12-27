@@ -11,6 +11,9 @@ static struct device device_arctis;
 #define ID_ARCTIS_NOVA_3 0x12ec
 
 #define EQUALIZER_BANDS_SIZE 6
+#define EQUALIZER_BASELINE   0x14
+#define EQUALIZER_BAND_MIN   -6
+#define EQUALIZER_BAND_MAX   +6
 
 static const uint16_t PRODUCT_IDS[]      = { ID_ARCTIS_NOVA_3 };
 static const uint8_t SAVE_DATA[MSG_SIZE] = { 0x06, 0x09 }; // Command to save settings to headset
@@ -111,7 +114,13 @@ static int arctis_nova_3_send_equalizer(hid_device* device_handle, struct equali
 
     uint8_t data[MSG_SIZE] = { 0x06, 0x33 };
     for (int i = 0; i < settings->size; i++) {
-        data[i + 2] = (uint8_t)settings->bands_values[i];
+        float band_value = settings->bands_values[i];
+        if (band_value < EQUALIZER_BAND_MIN || band_value > EQUALIZER_BAND_MAX) {
+            printf("Device only supports bands ranging from %d to %d.\n", EQUALIZER_BAND_MIN, EQUALIZER_BAND_MAX);
+            return HSC_OUT_OF_BOUNDS;
+        }
+
+        data[i + 2] = (uint8_t)(EQUALIZER_BASELINE + 2 * band_value);
     }
 
     return hid_send_feature_report(device_handle, data, MSG_SIZE);

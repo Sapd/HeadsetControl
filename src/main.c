@@ -310,7 +310,7 @@ int main(int argc, char* argv[])
     struct equalizer_settings* equalizer = NULL;
 
 #define BUFFERLENGTH 1024
-    char* read_buffer = calloc(BUFFERLENGTH, sizeof(char));
+    float* read_buffer = calloc(BUFFERLENGTH, sizeof(float));
 
     struct option opts[] = {
         { "battery", no_argument, NULL, 'b' },
@@ -350,7 +350,7 @@ int main(int argc, char* argv[])
             short_output = 1;
             break;
         case 'e': {
-            int size = get_data_from_parameter(optarg, read_buffer, BUFFERLENGTH);
+            int size = get_float_data_from_parameter(optarg, read_buffer, BUFFERLENGTH);
 
             if (size < 0) {
                 fprintf(stderr, "Equalizer bands values size larger than supported %d\n", BUFFERLENGTH);
@@ -362,7 +362,7 @@ int main(int argc, char* argv[])
                 return 1;
             }
 
-            equalizer       = malloc(sizeof(struct equalizer_settings) + size * sizeof(char));
+            equalizer       = malloc(sizeof(struct equalizer_settings) + size * sizeof(float));
             equalizer->size = size;
             for (int i = 0; i < size; i++) {
                 equalizer->bands_values[i] = read_buffer[i];
@@ -454,7 +454,7 @@ int main(int argc, char* argv[])
             printf("  -m, --chatmix\t\t\tRetrieves the current chat-mix-dial level setting between 0 and 128. Below 64 is the game side and above is the chat side.\n");
             printf("  -v, --voice-prompt 0|1\tTurn voice prompts on or off (0 = off, 1 = on)\n");
             printf("  -r, --rotate-to-mute 0|1\tTurn rotate to mute feature on or off (0 = off, 1 = on)\n");
-            printf("  -e, --equalizer string\tSets equalizer to specified curve, string must contain band values specific to the device (hex or decimal) delimited by spaces, or commas, or new-lines e.g \"0x18, 0x18, 0x18, 0x18, 0x18\".\n");
+            printf("  -e, --equalizer string\tSets equalizer to specified curve, string must contain band values (hex or decimal), with minimum and maximum values specific to the device and delimited by spaces, or commas, or new-lines e.g \"0, 0, 0, 0, 0\".\n");
             printf("  -p, --equalizer-preset number\tSets equalizer preset, number must be between 0 and 3, 0 sets the default\n");
             printf("      --microphone-mute-led-brightness number\tSets microphone mute LED brightness, number must be between 0 and 3\n");
             printf("      --microphone-volume number\tSets microphone volume, number must be between 0 and 128\n");
