@@ -22,6 +22,9 @@ static struct device device_arctis;
 #define STATUS_BUF_SIZE 8
 
 #define EQUALIZER_BANDS_SIZE 10
+#define EQUALIZER_BASELINE   0x14
+#define EQUALIZER_BAND_MIN   -10
+#define EQUALIZER_BAND_MAX   +10
 
 static const uint16_t PRODUCT_IDS[] = { ID_ARCTIS_NOVA_7, ID_ARCTIS_NOVA_7x, ID_ARCTIS_NOVA_7p, ID_ARCTIS_NOVA_7_DIABLO_IV };
 
@@ -188,7 +191,13 @@ static int arctis_nova_7_send_equalizer(hid_device* device_handle, struct equali
 
     uint8_t data[MSG_SIZE] = { 0x0, 0x33 };
     for (int i = 0; i < settings->size; i++) {
-        data[i + 2] = (uint8_t)settings->bands_values[i];
+        float band_value = settings->bands_values[i];
+        if (band_value < EQUALIZER_BAND_MIN || band_value > EQUALIZER_BAND_MAX) {
+            printf("Device only supports bands ranging from %d to %d.\n", EQUALIZER_BAND_MIN, EQUALIZER_BAND_MAX);
+            return HSC_OUT_OF_BOUNDS;
+        }
+
+        data[i + 2] = (uint8_t)(EQUALIZER_BASELINE + band_value);
     }
     data[settings->size + 3] = 0x0;
 

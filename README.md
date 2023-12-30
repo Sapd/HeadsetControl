@@ -31,6 +31,8 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
   - Sidetone, Battery
 - SteelSeries Arctis 1, Arctis 1 for XBox
   - Sidetone, Battery, Inactive time
+- SteelSeries Arctis Nova 3
+  - Sidetone, Equalizer Presets, Equalizer, Microphone Mute LED Brightness, Microphone Volume
 - SteelSeries Arctis (7 and Pro)
   - Sidetone, Battery, Inactive time, Chat-Mix level, LED on/off (allows to turn off the blinking LED on the base-station)
 - SteelSeries Arctis 7+

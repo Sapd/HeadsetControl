@@ -68,7 +68,7 @@ struct equalizer_settings {
     /// The size of the bands array
     int size;
     /// The equalizer frequency bands values
-    char bands_values[];
+    float bands_values[];
 };
 
 /** @brief Defines the basic data of a device

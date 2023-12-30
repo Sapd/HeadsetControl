@@ -73,4 +73,16 @@ size_t hexdump(char* out, size_t out_size, unsigned char* data, size_t data_size
  * @param len max dest length
  * @return int amount of data converted
  */
-int get_data_from_parameter(char* input, char* dest, size_t len);
+int get_byte_data_from_parameter(char* input, unsigned char* dest, size_t len);
+
+/**
+ * @brief Accepts textual input and converts them to a sendable buffer
+ *
+ * Parses data like "0xff, 123, 0xb" and converts them to an array of len 3
+ *
+ * @param input string
+ * @param dest destination array
+ * @param len max dest length
+ * @return int amount of data converted
+ */
+int get_float_data_from_parameter(char* input, float* dest, size_t len);

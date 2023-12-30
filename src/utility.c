@@ -79,13 +79,9 @@ size_t hexdump(char* out, size_t out_size, unsigned char* data, size_t data_size
     return i;
 }
 
-int get_data_from_parameter(char* input, char* dest, size_t len)
+int get_byte_data_from_parameter(char* input, unsigned char* dest, size_t len)
 {
     const char* delim = " ,{}\n\r";
-
-    size_t sz = strlen(input);
-    char* str = (char*)malloc(sz + 1);
-    strcpy(str, input);
 
     // For each token in the string, parse and store in buf[].
     char* token = strtok(input, delim);
@@ -101,6 +97,26 @@ int get_data_from_parameter(char* input, char* dest, size_t len)
         token     = strtok(NULL, delim);
     }
 
-    free(str);
+    return i;
+}
+
+int get_float_data_from_parameter(char* input, float* dest, size_t len)
+{
+    const char* delim = " ,{}\n\r";
+
+    // For each token in the string, parse and store in buf[].
+    char* token = strtok(input, delim);
+    int i       = 0;
+    while (token) {
+        char* endptr;
+        float val = strtof(token, &endptr);
+
+        if (i >= len)
+            return -1;
+
+        dest[i++] = val;
+        token     = strtok(NULL, delim);
+    }
+
     return i;
 }

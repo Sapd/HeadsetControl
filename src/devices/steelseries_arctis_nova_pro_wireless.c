@@ -42,6 +42,9 @@ enum mic_mute_led_brightness {
 enum {
     EQUALIZER_PRESET_CUSTOM = 4,
     EQUALIZER_BANDS_SIZE    = 10,
+    EQUALIZER_BASELINE      = 0x14,
+    EQUALIZER_BAND_MIN      = -10,
+    EQUALIZER_BAND_MAX      = +10,
 };
 
 static const uint16_t PRODUCT_IDS[] = { ID_ARCTIS_NOVA_PRO_WIRELESS_BASE_STATION };
@@ -194,7 +197,13 @@ static int set_equalizer(hid_device* device_handle, struct equalizer_settings* s
 
     uint8_t data[MSG_SIZE] = { 0x06, 0x33 };
     for (int i = 0; i < settings->size; i++) {
-        data[i + 2] = (uint8_t)settings->bands_values[i];
+        float band_value = settings->bands_values[i];
+        if (band_value < EQUALIZER_BAND_MIN || band_value > EQUALIZER_BAND_MAX) {
+            printf("Device only supports bands ranging from %d to %d.\n", EQUALIZER_BAND_MIN, EQUALIZER_BAND_MAX);
+            return HSC_OUT_OF_BOUNDS;
+        }
+
+        data[i + 2] = (uint8_t)(EQUALIZER_BASELINE + 2 * band_value);
     }
 
     return hid_write(device_handle, data, MSG_SIZE);
