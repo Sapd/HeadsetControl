@@ -295,6 +295,7 @@ int main(int argc, char* argv[])
     int sidetone_loudness                = -1;
     int request_battery                  = 0;
     int request_chatmix                  = 0;
+    int request_connected                = 0;
     int notification_sound               = -1;
     int lights                           = -1;
     int inactive_time                    = -1;
@@ -316,6 +317,7 @@ int main(int argc, char* argv[])
         { "battery", no_argument, NULL, 'b' },
         { "capabilities", no_argument, NULL, '?' },
         { "chatmix", no_argument, NULL, 'm' },
+        { "connected", no_argument, NULL, 0 },
         { "dev", no_argument, NULL, 0 },
         { "help", no_argument, NULL, 'h' },
         { "equalizer", required_argument, NULL, 'e' },
@@ -338,6 +340,9 @@ int main(int argc, char* argv[])
 
     // Init all information of supported devices
     init_devices();
+
+    // describes the headsetcontrol device, when a headset was found
+    static struct device device_found;
 
     while ((c = getopt_long(argc, argv, "bchi:l:f::mn:r:s:uv:p:e:?", opts, &option_index)) != -1) {
         char* endptr = NULL; // for strtol
@@ -461,6 +466,7 @@ int main(int argc, char* argv[])
             printf("  -f, --follow [secs timeout]\tRe-run the commands after the specified seconds timeout or 2 by default\n");
             printf("\n");
             printf("      --timeout 0-100000\t\tSpecifies the timeout in ms for reading data from device (default 5000)\n");
+            printf("      --connected\t\tCheck if there is a connected headset\n");
             printf("  -?, --capabilities\t\tPrint every feature headsetcontrol supports of the connected headset\n");
             printf("\n");
             printf("  -u\tOutputs udev rules to stdout/console\n");
@@ -495,6 +501,13 @@ int main(int argc, char* argv[])
                     return 1;
                 }
                 break;
+            } else if (strcmp(opts[option_index].name, "connected") == 0) {
+                short_output = 1;
+                if (find_device(&device_found) != 0) {
+                    return 1;
+                }
+                request_connected = 1;
+                break;
             }
             // fall through
         default:
@@ -512,9 +525,6 @@ int main(int argc, char* argv[])
         for (int index = optind; index < argc; index++)
             fprintf(stderr, "Non-option argument %s\n", argv[index]);
     }
-
-    // describes the headsetcontrol device, when a headset was found
-    static struct device device_found;
 
     // Look for a supported device
     int headset_available = find_device(&device_found);
@@ -608,6 +618,30 @@ loop_start:
                 }
             }
         }
+    }
+
+    if (request_connected) {
+        /* Check if battery status can be read
+        If it isn't supported, the device is
+        probably wired meaning it is connected*/
+        int battery_error = 0;
+        if ((device_found.capabilities & B(CAP_BATTERY_STATUS)) == B(CAP_BATTERY_STATUS)) {
+            device_handle = dynamic_connect(&hid_path, device_handle, &device_found, CAP_BATTERY_STATUS);
+            if (!device_handle | !(device_handle))
+                return 1;
+
+            int ret = device_found.request_battery(device_handle);
+
+            if (ret < 0) {
+                battery_error = 1;
+            }
+        }
+        terminate_hid(&device_handle, &hid_path);
+        if (battery_error != 0) {
+            return 1;
+        }
+        printf("true");
+        return 0;
     }
 
     if (argc <= 1) {
