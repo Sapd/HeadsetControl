@@ -8,6 +8,8 @@ set(SOURCE_FILES ${SOURCE_FILES}
     ${CMAKE_CURRENT_SOURCE_DIR}/device_registry.h
     ${CMAKE_CURRENT_SOURCE_DIR}/hid_utility.c
     ${CMAKE_CURRENT_SOURCE_DIR}/hid_utility.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/output.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/output.h
     ${CMAKE_CURRENT_SOURCE_DIR}/utility.c
     ${CMAKE_CURRENT_SOURCE_DIR}/utility.h
     PARENT_SCOPE)

@@ -1,7 +1,9 @@
 build/
+src/version.h
 
 .idea/
 cmake-build-debug/
+.codechecker/
 
 .vscode/*
 *.code-workspace

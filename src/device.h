@@ -1,12 +1,16 @@
 #pragma once
 
 #include <hidapi.h>
+#include <stdbool.h>
 #include <stdint.h>
 
 #define VENDOR_CORSAIR     0x1b1c
 #define VENDOR_LOGITECH    0x046d
 #define VENDOR_STEELSERIES 0x1038
 #define VENDOR_ROCCAT      0x1e7d
+
+#define VENDOR_TESTDEVICE  0xF00B
+#define PRODUCT_TESTDEVICE 0xA00C
 
 /// Convert given number to bitmask
 #define B(X) (1 << X)
@@ -35,10 +39,22 @@ enum capabilities {
     NUM_CAPABILITIES
 };
 
+enum capabilitytype {
+    CAPABILITYTYPE_ACTION,
+    CAPABILITYTYPE_INFO
+};
+
 /// Long name of every capability
 extern const char* const capabilities_str[NUM_CAPABILITIES];
-/// Short name of every capability
+/// Short name of every capability (deprecated)
 extern const char capabilities_str_short[NUM_CAPABILITIES];
+/// Enum name of every capability
+extern const char* const capabilities_str_enum[NUM_CAPABILITIES];
+
+static inline bool has_capability(int device_capabilities, enum capabilities cap)
+{
+    return (device_capabilities & B(cap)) == B(cap);
+}
 
 struct capability_detail {
     // Usage page, only used when usageid is not 0; HID Protocol specific
@@ -53,7 +69,8 @@ struct capability_detail {
  */
 enum battery_status {
     BATTERY_UNAVAILABLE = 65534,
-    BATTERY_CHARGING    = 65535
+    BATTERY_CHARGING    = 65535,
+    BATTERY_AVAILABLE   = 65500,
 };
 
 enum headsetcontrol_errors {
@@ -61,6 +78,31 @@ enum headsetcontrol_errors {
     HSC_READ_TIMEOUT  = -101,
     HSC_OUT_OF_BOUNDS = -102,
 };
+
+typedef enum {
+    FEATURE_SUCCESS,
+    FEATURE_ERROR,
+    FEATURE_DEVICE_FAILED_OPEN,
+    FEATURE_INFO, // For non-error, informational states like "charging"
+    FEATURE_NOT_PROCESSED
+} FeatureStatus;
+
+typedef struct {
+    FeatureStatus status;
+    /// Can hold battery level, error codes, or special status codes
+    int value;
+    /// For error messages, "Charging", "Unavailable", etc. Should be free()d after use
+    char* message;
+} FeatureResult;
+
+typedef struct {
+    enum capabilities cap;
+    enum capabilitytype type;
+    void* param;
+    bool should_process;
+    FeatureResult result;
+    const char* name;
+} FeatureRequest;
 
 /** @brief Defines equalizer custom setings
  */
@@ -87,6 +129,9 @@ struct device {
 
     /// Name of device, used as information for the user
     char device_name[64];
+
+    wchar_t device_hid_vendorname[64];
+    wchar_t device_hid_productname[64];
 
     /// Bitmask of currently supported features the software can currently handle
     int capabilities;

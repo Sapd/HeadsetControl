@@ -1,5 +1,5 @@
 /***
-    Copyright (C) 2016-2018 Denis Arnst (Sapd) <https://github.com/Sapd>
+    Copyright (C) 2016-2024 Denis Arnst (Sapd) <https://github.com/Sapd>
 
     This file is part of HeadsetControl.
 
@@ -21,38 +21,35 @@
 #include "device.h"
 #include "device_registry.h"
 #include "hid_utility.h"
+#include "output.h"
 #include "utility.h"
+#include "version.h"
 
 #include <hidapi.h>
 
 #include <assert.h>
 #include <getopt.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
+int test_profile = 0;
+
 int hsc_device_timeout = 5000;
-
-// 0=false; 1=true
-static int short_output = 0;
-
-/// printf only when short output not specified
-#define PRINT_INFO(...)          \
-    {                            \
-        if (!short_output) {     \
-            printf(__VA_ARGS__); \
-        }                        \
-    }
 
 /**
  *  This function iterates through all HID devices.
  *
  *  @return 0 when a supported device is found
  */
-static int find_device(struct device* device_found)
+static int find_device(struct device* device_found, int test_device)
 {
+    if (test_device)
+        return get_device(device_found, VENDOR_TESTDEVICE, PRODUCT_TESTDEVICE);
+
     struct hid_device_info* devs;
     struct hid_device_info* cur_dev;
     int found = -1;
@@ -62,7 +59,6 @@ static int find_device(struct device* device_found)
         found = get_device(device_found, cur_dev->vendor_id, cur_dev->product_id);
 
         if (found == 0) {
-            PRINT_INFO("Found %s!\n", device_found->device_name);
             break;
         }
 
@@ -99,6 +95,37 @@ static void print_udevrules()
     printf("LABEL=\"headset_end\"\n");
 }
 
+static void print_readmetable()
+{
+    int i = 0;
+    struct device* device_found;
+
+    printf("| Device |");
+    for (int j = 0; j < NUM_CAPABILITIES; j++) {
+        printf(" %s |", capabilities_str[j]);
+    }
+    printf("\n");
+
+    printf("| --- | ");
+    for (int j = 0; j < NUM_CAPABILITIES; j++) {
+        printf("--- | ");
+    }
+    printf("\n");
+
+    while (iterate_devices(i++, &device_found) == 0) {
+        printf("| %s |", device_found->device_name);
+
+        for (int j = 0; j < NUM_CAPABILITIES; j++) {
+            if (has_capability(device_found->capabilities, j)) {
+                printf(" x |");
+            } else {
+                printf("   |");
+            }
+        }
+        printf("\n");
+    }
+}
+
 /**
  * @brief Checks if an existing connection exists, and either uses it, or closes it and creates a new one
  *
@@ -111,7 +138,7 @@ static void print_udevrules()
  * @param device_handle an existing device handle or NULL if none yet
  * @param device headsetcontrol struct, containing vendor and productid
  * @param cap which capability to use, to determine interfaceid and usageids
- * @return 0 if successfull, or hid error code
+ * @return hid_device pointer if successfull, or NULL (error in hid_error)
  */
 static hid_device* dynamic_connect(char** existing_hid_path, hid_device* device_handle,
     struct device* device, enum capabilities cap)
@@ -121,8 +148,6 @@ static hid_device* dynamic_connect(char** existing_hid_path, hid_device* device_
         device->capability_details[cap].interface, device->capability_details[cap].usagepage, device->capability_details[cap].usageid);
 
     if (!hid_path) {
-        fprintf(stderr, "Requested/supported HID device not found or system error.\n");
-        fprintf(stderr, " HID Error: %S\n", hid_error(NULL));
         return NULL;
     }
 
@@ -140,12 +165,12 @@ static hid_device* dynamic_connect(char** existing_hid_path, hid_device* device_
 
     device_handle = hid_open_path(hid_path);
     if (device_handle == NULL) {
-        fprintf(stderr, "Failed to open requested device.\n");
-        fprintf(stderr, " HID Error: %S\n", hid_error(NULL));
-
         *existing_hid_path = NULL;
         return NULL;
     }
+
+    hid_get_manufacturer_string(device_handle, device->device_hid_vendorname, sizeof(device->device_hid_vendorname) / sizeof(device->device_hid_vendorname[0]));
+    hid_get_product_string(device_handle, device->device_hid_productname, sizeof(device->device_hid_productname) / sizeof(device->device_hid_productname[0]));
 
     *existing_hid_path = hid_path;
     return device_handle;
@@ -159,21 +184,33 @@ static hid_device* dynamic_connect(char** existing_hid_path, hid_device* device_
  * @param hid_path points to an already used path used to connect, or points to null
  * @param cap requested feature
  * @param param first parameter of the feature
- * @return int 0 on success, some other number otherwise
+ * @return FeatureResult which saves the result or failure of the requested feature
  */
-static int handle_feature(struct device* device_found, hid_device** device_handle, char** hid_path, enum capabilities cap, void* param)
+static FeatureResult handle_feature(struct device* device_found, hid_device** device_handle, char** hid_path, enum capabilities cap, void* param)
 {
+    FeatureResult result;
+
     // Check if the headset implements the requested feature
     if ((device_found->capabilities & B(cap)) == 0) {
-        fprintf(stderr, "Error: This headset doesn't support %s\n", capabilities_str[cap]);
-        return 1;
+        result.status = FEATURE_ERROR;
+        result.value  = -1;
+        asprintf(&result.message, "This headset doesn't support %s", capabilities_str[cap]);
+        return result;
     }
 
-    *device_handle = dynamic_connect(hid_path, *device_handle,
-        device_found, cap);
+    if (device_found->idProduct != PRODUCT_TESTDEVICE) {
+        *device_handle = dynamic_connect(hid_path, *device_handle,
+            device_found, cap);
 
-    if (!device_handle | !(*device_handle))
-        return 1;
+        if (!device_handle | !(*device_handle)) {
+            result.status = FEATURE_DEVICE_FAILED_OPEN;
+            result.value  = 0;
+            asprintf(&result.message, "Could not open device. Error: %ls", hid_error(*device_handle));
+            return result;
+        }
+    } else {
+        *device_handle = NULL;
+    }
 
     int ret;
 
@@ -185,16 +222,24 @@ static int handle_feature(struct device* device_found, hid_device** device_handl
     case CAP_BATTERY_STATUS:
         ret = device_found->request_battery(*device_handle);
 
-        if (ret < 0)
-            break;
-        else if (ret == BATTERY_CHARGING)
-            short_output ? printf("-1") : printf("Battery: Charging\n");
-        else if (ret == BATTERY_UNAVAILABLE)
-            short_output ? printf("-2") : printf("Battery: Unavailable\n");
-        else
-            short_output ? printf("%d", ret) : printf("Battery: %d%%\n", ret);
-
-        break;
+        if (ret >= 0) { // Assuming 0 or positive values are valid battery levels
+            result.status = FEATURE_SUCCESS;
+            result.value  = ret;
+            asprintf(&result.message, "Battery: %d%%", ret);
+        } else if (ret == BATTERY_CHARGING || ret == BATTERY_UNAVAILABLE) {
+            result.status = FEATURE_INFO;
+            result.value  = ret;
+            if (ret == BATTERY_CHARGING) {
+                result.message = strdup("Charging");
+            } else {
+                result.message = strdup("Unavailable");
+            }
+        } else { // Handle errors
+            result.status  = FEATURE_ERROR;
+            result.value   = ret;
+            result.message = strdup("Error retrieving battery status");
+        }
+        return result;
 
     case CAP_NOTIFICATION_SOUND:
         ret = device_found->notifcation_sound(*device_handle, *(int*)param);
@@ -206,21 +251,22 @@ static int handle_feature(struct device* device_found, hid_device** device_handl
 
     case CAP_INACTIVE_TIME:
         ret = device_found->send_inactive_time(*device_handle, *(int*)param);
-
-        if (ret < 0)
-            break;
-
-        PRINT_INFO("Successfully set inactive time to %d minutes!\n", *(int*)param);
         break;
 
     case CAP_CHATMIX_STATUS:
         ret = device_found->request_chatmix(*device_handle);
 
-        if (ret < 0)
-            break;
+        if (ret >= 0) {
+            result.status = FEATURE_SUCCESS;
+            result.value  = ret;
+            asprintf(&result.message, "Chat-Mix: %d", ret);
+        } else {
+            result.status  = FEATURE_ERROR;
+            result.value   = ret;
+            result.message = strdup("Error retrieving chatmix status");
+        }
 
-        short_output ? printf("%d", ret) : printf("Chat-Mix: %d\n", ret);
-        break;
+        return result;
 
     case CAP_VOICE_PROMPTS:
         ret = device_found->switch_voice_prompts(*device_handle, *(int*)param);
@@ -232,20 +278,10 @@ static int handle_feature(struct device* device_found, hid_device** device_handl
 
     case CAP_EQUALIZER_PRESET:
         ret = device_found->send_equalizer_preset(*device_handle, *(int*)param);
-
-        if (ret < 0)
-            break;
-
-        PRINT_INFO("Successfully set equalizer preset to %d!\n", *(int*)param);
         break;
 
     case CAP_EQUALIZER:
         ret = device_found->send_equalizer(*device_handle, (struct equalizer_settings*)param);
-
-        if (ret < 0)
-            break;
-
-        PRINT_INFO("Successfully set equalizer!\n");
         break;
 
     case CAP_MICROPHONE_MUTE_LED_BRIGHTNESS:
@@ -263,25 +299,167 @@ static int handle_feature(struct device* device_found, hid_device** device_handl
         break;
     }
 
-    if (ret == HSC_READ_TIMEOUT) {
-        fprintf(stderr, "Failed to set/request %s, because of timeout, try again.\n", capabilities_str[cap]);
-        return HSC_READ_TIMEOUT;
-    } else if (ret == HSC_ERROR) {
-        fprintf(stderr, "Failed to set/request %s. HeadsetControl Error. Error: %d: %ls\n", capabilities_str[cap], ret, hid_error(*device_handle));
-        return HSC_ERROR;
-    } else if (ret == HSC_OUT_OF_BOUNDS) {
-        fprintf(stderr, "Failed to set/request %s. Provided parameter out of boundaries. Error: %d: %ls\n", capabilities_str[cap], ret, hid_error(*device_handle));
-        return HSC_ERROR;
-    } else if (ret < 0) {
-        fprintf(stderr, "Failed to set/request %s. Error: %d: %ls\n", capabilities_str[cap], ret, hid_error(*device_handle));
-        return 1;
+    // Handle success
+    if (ret >= 0) {
+        result.status  = FEATURE_SUCCESS;
+        result.value   = ret;
+        result.message = NULL;
+        return result;
     }
 
-    PRINT_INFO("Success!\n");
-    return 0;
+    result.status = FEATURE_ERROR;
+    result.value  = ret;
+
+    switch (ret) {
+    case HSC_READ_TIMEOUT:
+        asprintf(&result.message, "Failed to set/request %s, because of timeout", capabilities_str[cap]);
+        break;
+    case HSC_ERROR:
+        asprintf(&result.message, "Failed to set/request %s. HeadsetControl Error", capabilities_str[cap]);
+        break;
+    case HSC_OUT_OF_BOUNDS:
+        asprintf(&result.message, "Failed to set/request %s. Provided parameter out of boundaries", capabilities_str[cap]);
+        break;
+    default: // Must be a HID error
+        if (device_found->idProduct != PRODUCT_TESTDEVICE)
+            asprintf(&result.message, "Failed to set/request %s. Error: %d: %ls", capabilities_str[cap], ret, hid_error(*device_handle));
+        else // dont call hid_error on test device, it will confuse users/devs because it will show success
+            asprintf(&result.message, "Failed to set/request %s. Error: %d", capabilities_str[cap], ret);
+
+        break;
+    }
+
+    return result;
 }
 
-// Makes parsing of optiona arguments easier
+void print_help(char* programname, struct device* device_found, bool _show_all)
+{
+    bool show_all = !device_found || _show_all;
+
+    printf("HeadsetControl by Sapd (Denis Arnst)\n\thttps://github.com/Sapd/HeadsetControl\n\n");
+    printf("Version: %s\n\n", VERSION);
+    // printf("Usage: %s [options]\n", programname);
+    // printf("Options:\n");
+
+    if (show_all || has_capability(device_found->capabilities, CAP_SIDETONE)) {
+        printf("Sidetone:\n");
+        printf("  -s, --sidetone LEVEL\t\tSet sidetone level (0-128)\n");
+        printf("\n");
+    }
+
+    if (show_all || has_capability(device_found->capabilities, CAP_BATTERY_STATUS)) {
+        printf("Battery:\n");
+        printf("  -b, --battery\t\t\tCheck battery level\n");
+        printf("\n");
+    }
+
+    // ------ Category: lights and notifications
+    bool show_lights        = show_all || has_capability(device_found->capabilities, CAP_LIGHTS);
+    bool show_voice_prompts = show_all || has_capability(device_found->capabilities, CAP_VOICE_PROMPTS);
+
+    if (show_lights || show_voice_prompts) {
+        printf("%s:\n", (show_lights && show_voice_prompts) ? "Lights and Voice Prompts" : (show_lights ? "Lights" : "Voice Prompts"));
+        if (show_lights) {
+            printf("  -l, --light [0|1]\t\tTurn lights off (0) or on (1)\n");
+        }
+        if (show_voice_prompts) {
+            printf("  -v, --voice-prompt [0|1]\tTurn voice prompts off (0) or on (1)\n");
+        }
+        printf("\n");
+    }
+    // ------
+
+    // ------ Category: Features
+    bool show_inactive_time      = show_all || has_capability(device_found->capabilities, CAP_INACTIVE_TIME);
+    bool show_chatmix_status     = show_all || has_capability(device_found->capabilities, CAP_CHATMIX_STATUS);
+    bool show_notification_sound = show_all || has_capability(device_found->capabilities, CAP_NOTIFICATION_SOUND);
+
+    if (show_inactive_time || show_chatmix_status || show_notification_sound) {
+        printf("Features:\n");
+        if (show_inactive_time) {
+            printf("  -i, --inactive-time MINUTES\tSet inactive time (0-90 minutes, 0 disables)\n");
+        }
+        if (show_chatmix_status) {
+            printf("  -m, --chatmix LEVEL\t\tGet chat-mix-dial level (0-128, <64 for game, >64 for chat)\n");
+        }
+        if (show_notification_sound) {
+            printf("  -n, --notificate SOUNDID\tPlay notification sound (SOUNDID depends on device)\n");
+        }
+        printf("\n");
+    }
+    // ------
+
+    // ------ Category: Equalizer
+    bool show_equalizer        = show_all || has_capability(device_found->capabilities, CAP_EQUALIZER);
+    bool show_equalizer_preset = show_all || has_capability(device_found->capabilities, CAP_EQUALIZER_PRESET);
+
+    if (show_equalizer || show_equalizer_preset) {
+        printf("Equalizer:\n");
+        if (show_equalizer) {
+            printf("  -e, --equalizer STRING\tSet equalizer curve (values separated by spaces, commas, or new-lines)\n");
+        }
+        if (show_equalizer_preset) {
+            printf("  -p, --equalizer-preset NUMBER\tSet equalizer preset (0-3, 0 for default)\n");
+        }
+        printf("\n");
+    }
+    // ------
+
+    // ------ Category: Microphone
+    bool show_rotate_to_mute                 = show_all || has_capability(device_found->capabilities, CAP_ROTATE_TO_MUTE);
+    bool show_microphone_mute_led_brightness = show_all || has_capability(device_found->capabilities, CAP_MICROPHONE_MUTE_LED_BRIGHTNESS);
+    bool show_microphone_volume              = show_all || has_capability(device_found->capabilities, CAP_MICROPHONE_VOLUME);
+
+    if (show_rotate_to_mute || show_microphone_mute_led_brightness || show_microphone_volume) {
+        printf("Microphone:\n");
+        if (show_rotate_to_mute) {
+            printf("  -r, --rotate-to-mute [0|1]\t\tToggle rotate to mute (0 = off, 1 = on)\n");
+        }
+        if (show_microphone_mute_led_brightness) {
+            printf("  --microphone-mute-led-brightness NUMBER\tSet mic mute LED brightness (0-3)\n");
+        }
+        if (show_microphone_volume) {
+            printf("  --microphone-volume NUMBER\t\tSet microphone volume (0-128)\n");
+        }
+        printf("\n");
+    }
+    // ------
+
+    if (show_all) {
+        printf("Advanced:\n");
+        printf("  -f, --follow [SECS]\t\tRe-run commands after SECS seconds (default 2 seconds if not specified)\n");
+        printf("  --timeout MS\t\t\tSet timeout for reading data (0-100000 ms, default 5000)\n");
+        printf("  -?, --capabilities\t\tList supported features of the connected headset\n\n");
+
+        printf("Miscellaneous:\n");
+        printf("  -u\t\t\t\tOutput udev rules to stdout/console\n");
+        printf("  --dev\t\t\t\tDevelopment options\n");
+        printf("  --readme-helper\t\tOutput table of device features for README.md\n");
+        printf("  --test-device [profile]\tUse a built-in test device instead of a real one\n");
+        printf("                         \t profile is an optional number for different tests\n");
+        printf("  -o, --output FORMAT\t\tOutput format (JSON, YAML, ENV, STANDARD)\n");
+        printf("\n");
+    }
+
+    printf("Examples:\n");
+    printf("  %s -b\t\tCheck the battery level\n", programname);
+    printf("  %s -s 64\tSet sidetone level to 64\n", programname);
+    printf("  %s -l 1 -v 1\tTurn on lights and voice prompts\n", programname);
+    printf("\n");
+
+    if (!show_all && device_found)
+        printf("\nHint:\tOptions were filtered to your device (%s)\n\tUse --help-all to show all options (including advanced ones)\n", device_found->device_name);
+}
+
+// for --follow
+volatile sig_atomic_t follow = false;
+
+void interruptHandler(int signal_number)
+{
+    follow = false;
+}
+
+// Makes parsing of optional arguments easier
 // Credits to https://cfengine.com/blog/2021/optional-arguments-with-getopt-long/
 #define OPTIONAL_ARGUMENT_IS_PRESENT                             \
     ((optarg == NULL && optind < argc && argv[optind][0] != '-') \
@@ -292,6 +470,8 @@ int main(int argc, char* argv[])
 {
     int c;
 
+    int should_print_help                = 0;
+    int should_print_help_all            = 0;
     int sidetone_loudness                = -1;
     int request_battery                  = 0;
     int request_chatmix                  = 0;
@@ -305,9 +485,14 @@ int main(int argc, char* argv[])
     int microphone_mute_led_brightness   = -1;
     int microphone_volume                = -1;
     int dev_mode                         = 0;
-    int follow                           = 0;
     unsigned follow_sec                  = 2;
     struct equalizer_settings* equalizer = NULL;
+
+    OutputType output_format = OUTPUT_STANDARD;
+    int test_device          = 0;
+
+    // Init all information of supported devices
+    init_devices();
 
 #define BUFFERLENGTH 1024
     float* read_buffer = calloc(BUFFERLENGTH, sizeof(float));
@@ -318,12 +503,14 @@ int main(int argc, char* argv[])
         { "chatmix", no_argument, NULL, 'm' },
         { "dev", no_argument, NULL, 0 },
         { "help", no_argument, NULL, 'h' },
+        { "help-all", no_argument, NULL, 0 },
         { "equalizer", required_argument, NULL, 'e' },
         { "equalizer-preset", required_argument, NULL, 'p' },
         { "microphone-mute-led-brightness", required_argument, NULL, 0 },
         { "microphone-volume", required_argument, NULL, 0 },
         { "inactive-time", required_argument, NULL, 'i' },
         { "light", required_argument, NULL, 'l' },
+        { "output", optional_argument, NULL, 'o' },
         { "follow", optional_argument, NULL, 'f' },
         { "notificate", required_argument, NULL, 'n' },
         { "rotate-to-mute", required_argument, NULL, 'r' },
@@ -331,15 +518,14 @@ int main(int argc, char* argv[])
         { "short-output", no_argument, NULL, 'c' },
         { "timeout", required_argument, NULL, 0 },
         { "voice-prompt", required_argument, NULL, 'v' },
+        { "test-device", optional_argument, NULL, 0 },
+        { "readme-helper", no_argument, NULL, 0 },
         { 0, 0, 0, 0 }
     };
 
     int option_index = 0;
 
-    // Init all information of supported devices
-    init_devices();
-
-    while ((c = getopt_long(argc, argv, "bchi:l:f::mn:r:s:uv:p:e:?", opts, &option_index)) != -1) {
+    while ((c = getopt_long(argc, argv, "bchi:l:f::mn:o::r:s:uv:p:e:?", opts, &option_index)) != -1) {
         char* endptr = NULL; // for strtol
 
         switch (c) {
@@ -347,7 +533,7 @@ int main(int argc, char* argv[])
             request_battery = 1;
             break;
         case 'c':
-            short_output = 1;
+            output_format = OUTPUT_SHORT;
             break;
         case 'e': {
             int size = get_float_data_from_parameter(optarg, read_buffer, BUFFERLENGTH);
@@ -374,7 +560,7 @@ int main(int argc, char* argv[])
             if (OPTIONAL_ARGUMENT_IS_PRESENT) {
                 follow_sec = strtol(optarg, &endptr, 10);
                 if (follow_sec == 0) {
-                    printf("Usage: %s -f [secs timeout]\n", argv[0]);
+                    fprintf(stderr, "Usage: %s -f [secs timeout]\n", argv[0]);
                     return 1;
                 }
             }
@@ -383,40 +569,68 @@ int main(int argc, char* argv[])
             inactive_time = strtol(optarg, &endptr, 10);
 
             if (*endptr != '\0' || endptr == optarg || inactive_time > 90 || inactive_time < 0) {
-                printf("Usage: %s -i 0-90, 0 is off\n", argv[0]);
+                fprintf(stderr, "Usage: %s -i 0-90, 0 is off\n", argv[0]);
                 return 1;
             }
             break;
         case 'l':
             lights = strtol(optarg, &endptr, 10);
             if (*endptr != '\0' || endptr == optarg || lights < 0 || lights > 1) {
-                printf("Usage: %s -l 0|1\n", argv[0]);
+                fprintf(stderr, "Usage: %s -l 0|1\n", argv[0]);
                 return 1;
             }
             break;
         case 'm':
             request_chatmix = 1;
             break;
-        case 'n': // todo
+        case 'n':
             notification_sound = strtol(optarg, &endptr, 10);
 
             if (*endptr != '\0' || endptr == optarg || notification_sound < 0 || notification_sound > 1) {
-                printf("Usage: %s -n 0|1\n", argv[0]);
+                fprintf(stderr, "Usage: %s -n 0|1\n", argv[0]);
                 return 1;
             }
             break;
+        case 'o': {
+            bool output_specified = true;
+
+            if (OPTIONAL_ARGUMENT_IS_PRESENT) {
+                if (strcasecmp(optarg, "JSON") == 0)
+                    output_format = OUTPUT_JSON;
+                else if (strcasecmp(optarg, "YAML") == 0)
+                    output_format = OUTPUT_YAML;
+                else if (strcasecmp(optarg, "ENV") == 0)
+                    output_format = OUTPUT_ENV;
+                else if (strcasecmp(optarg, "STANDARD") == 0)
+                    output_format = OUTPUT_STANDARD;
+                else if (strcasecmp(optarg, "SHORT") == 0)
+                    output_format = OUTPUT_SHORT;
+                else
+                    output_specified = false;
+            } else {
+                output_specified = false;
+            }
+
+            if (output_specified == false) {
+                // short not listed because deprecated
+                fprintf(stderr, "Usage: %s -o JSON|YAML|ENV|STANDARD\n", argv[0]);
+                return 1;
+            }
+
+            break;
+        }
         case 'p':
             equalizer_preset = strtol(optarg, &endptr, 10);
 
             if (*endptr != '\0' || endptr == optarg || equalizer_preset < 0 || equalizer_preset > 3) {
-                printf("Usage: %s -p 0-3, 0 is default\n", argv[0]);
+                fprintf(stderr, "Usage: %s -p 0-3, 0 is default\n", argv[0]);
                 return 1;
             }
             break;
         case 'r':
             rotate_to_mute = strtol(optarg, &endptr, 10);
             if (*endptr != '\0' || endptr == optarg || rotate_to_mute < 0 || rotate_to_mute > 1) {
-                printf("Usage: %s -r 0|1\n", argv[0]);
+                fprintf(stderr, "Usage: %s -r 0|1\n", argv[0]);
                 return 1;
             }
             break;
@@ -424,7 +638,7 @@ int main(int argc, char* argv[])
             sidetone_loudness = strtol(optarg, &endptr, 10);
 
             if (*endptr != '\0' || endptr == optarg || sidetone_loudness > 128 || sidetone_loudness < 0) {
-                printf("Usage: %s -s 0-128\n", argv[0]);
+                fprintf(stderr, "Usage: %s -s 0-128\n", argv[0]);
                 return 1;
             }
             break;
@@ -435,7 +649,7 @@ int main(int argc, char* argv[])
         case 'v':
             voice_prompts = strtol(optarg, &endptr, 10);
             if (*endptr != '\0' || endptr == optarg || voice_prompts < 0 || voice_prompts > 1) {
-                printf("Usage: %s -v 0|1\n", argv[0]);
+                fprintf(stderr, "Usage: %s -v 0|1\n", argv[0]);
                 return 1;
             }
             break;
@@ -443,30 +657,8 @@ int main(int argc, char* argv[])
             print_capabilities = 1;
             break;
         case 'h':
-            printf("Headsetcontrol written by Sapd (Denis Arnst)\n\thttps://github.com/Sapd\n\n");
-            printf("Parameters\n");
-            printf("  -s, --sidetone level\t\tSets sidetone, level must be between 0 and 128\n");
-            printf("  -b, --battery\t\t\tChecks the battery level\n");
-            printf("  -n, --notificate soundid\tMakes the headset play a notifiation\n");
-            printf("  -l, --light 0|1\t\tSwitch lights (0 = off, 1 = on)\n");
-            printf("  -c, --short-output\t\tUse more machine-friendly output \n");
-            printf("  -i, --inactive-time time\tSets inactive time in minutes, time must be between 0 and 90, 0 disables the feature.\n");
-            printf("  -m, --chatmix\t\t\tRetrieves the current chat-mix-dial level setting between 0 and 128. Below 64 is the game side and above is the chat side.\n");
-            printf("  -v, --voice-prompt 0|1\tTurn voice prompts on or off (0 = off, 1 = on)\n");
-            printf("  -r, --rotate-to-mute 0|1\tTurn rotate to mute feature on or off (0 = off, 1 = on)\n");
-            printf("  -e, --equalizer string\tSets equalizer to specified curve, string must contain band values (hex or decimal), with minimum and maximum values specific to the device and delimited by spaces, or commas, or new-lines e.g \"0, 0, 0, 0, 0\".\n");
-            printf("  -p, --equalizer-preset number\tSets equalizer preset, number must be between 0 and 3, 0 sets the default\n");
-            printf("      --microphone-mute-led-brightness number\tSets microphone mute LED brightness, number must be between 0 and 3\n");
-            printf("      --microphone-volume number\tSets microphone volume, number must be between 0 and 128\n");
-            printf("  -f, --follow [secs timeout]\tRe-run the commands after the specified seconds timeout or 2 by default\n");
-            printf("\n");
-            printf("      --timeout 0-100000\t\tSpecifies the timeout in ms for reading data from device (default 5000)\n");
-            printf("  -?, --capabilities\t\tPrint every feature headsetcontrol supports of the connected headset\n");
-            printf("\n");
-            printf("  -u\tOutputs udev rules to stdout/console\n");
-
-            printf("\n");
-            return 0;
+            should_print_help = 1;
+            break;
         case 0:
             if (strcmp(opts[option_index].name, "dev") == 0) {
                 dev_mode = 1;
@@ -475,30 +667,46 @@ int main(int argc, char* argv[])
                 hsc_device_timeout = strtol(optarg, &endptr, 10);
 
                 if (*endptr != '\0' || endptr == optarg || hsc_device_timeout < 0 || hsc_device_timeout > 100000) {
-                    printf("Usage: %s --timeout 0-100000\n", argv[0]);
+                    fprintf(stderr, "Usage: %s --timeout 0-100000\n", argv[0]);
                     return 1;
                 }
-                break;
+                // fall through
             } else if (strcmp(opts[option_index].name, "microphone-mute-led-brightness") == 0) {
                 microphone_mute_led_brightness = strtol(optarg, &endptr, 10);
 
                 if (*endptr != '\0' || endptr == optarg || microphone_mute_led_brightness < 0 || microphone_mute_led_brightness > 3) {
-                    printf("Usage: %s --microphone-mute-led-brightness 0-3\n", argv[0]);
+                    fprintf(stderr, "Usage: %s --microphone-mute-led-brightness 0-3\n", argv[0]);
                     return 1;
                 }
-                break;
+                // fall through
             } else if (strcmp(opts[option_index].name, "microphone-volume") == 0) {
                 microphone_volume = strtol(optarg, &endptr, 10);
 
                 if (*endptr != '\0' || endptr == optarg || microphone_volume < 0 || microphone_volume > 128) {
-                    printf("Usage: %s --microphone-volume 0-128\n", argv[0]);
+                    fprintf(stderr, "Usage: %s --microphone-volume 0-128\n", argv[0]);
                     return 1;
                 }
-                break;
+                // fall through
+            } else if (strcmp(opts[option_index].name, "test-device") == 0) {
+                test_device = 1;
+
+                if (OPTIONAL_ARGUMENT_IS_PRESENT) {
+                    test_profile = strtol(optarg, &endptr, 10);
+                    if (test_profile < 0) {
+                        fprintf(stderr, "Usage: %s --test-device [testprofile]\n", argv[0]);
+                        return 1;
+                    }
+                }
+                // fall through
+            } else if (strcmp(opts[option_index].name, "readme-helper") == 0) {
+                print_readmetable();
+                return 0;
+            } else if (strcmp(opts[option_index].name, "help-all") == 0) {
+                should_print_help_all = 1;
             }
-            // fall through
+            break;
         default:
-            printf("Invalid argument %c\n", c);
+            fprintf(stderr, "Invalid argument %c\n", c);
             return 1;
         }
     }
@@ -517,9 +725,17 @@ int main(int argc, char* argv[])
     static struct device device_found;
 
     // Look for a supported device
-    int headset_available = find_device(&device_found);
-    if (headset_available != 0) {
-        fprintf(stderr, "No supported headset found\n");
+    int headset_available = find_device(&device_found, test_device);
+
+    if (should_print_help || should_print_help_all) {
+        if (headset_available == 0)
+            print_help(argv[0], &device_found, should_print_help_all);
+        else
+            print_help(argv[0], NULL, should_print_help_all);
+
+        return 0;
+    } else if (headset_available != 0) {
+        output(NULL, false, output_format);
         return 1;
     }
 
@@ -527,103 +743,75 @@ int main(int argc, char* argv[])
     hid_device* device_handle = NULL;
     char* hid_path            = NULL;
 
-    // Set all features the user wants us to set
-    int error = 0;
+    // Initialize signal handler for CTRL + C
+#ifdef _WIN32
+    signal(SIGINT, interruptHandler);
+#else
+    struct sigaction act;
+    act.sa_handler = interruptHandler;
+    sigaction(SIGINT, &act, NULL);
+#endif
 
-loop_start:
-    if (sidetone_loudness != -1) {
-        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_SIDETONE, &sidetone_loudness)) != 0)
-            goto error;
-    }
+    FeatureRequest featureRequests[] = {
+        { CAP_SIDETONE, CAPABILITYTYPE_ACTION, &sidetone_loudness, sidetone_loudness != -1 },
+        { CAP_LIGHTS, CAPABILITYTYPE_ACTION, &lights, lights != -1 },
+        { CAP_NOTIFICATION_SOUND, CAPABILITYTYPE_ACTION, &notification_sound, notification_sound != -1 },
+        { CAP_BATTERY_STATUS, CAPABILITYTYPE_INFO, &request_battery, request_battery == 1 },
+        { CAP_INACTIVE_TIME, CAPABILITYTYPE_ACTION, &inactive_time, inactive_time != -1 },
+        { CAP_CHATMIX_STATUS, CAPABILITYTYPE_INFO, &request_chatmix, request_chatmix == 1 },
+        { CAP_VOICE_PROMPTS, CAPABILITYTYPE_ACTION, &voice_prompts, voice_prompts != -1 },
+        { CAP_ROTATE_TO_MUTE, CAPABILITYTYPE_ACTION, &rotate_to_mute, rotate_to_mute != -1 },
+        { CAP_EQUALIZER_PRESET, CAPABILITYTYPE_ACTION, &equalizer_preset, equalizer_preset != -1 },
+        { CAP_MICROPHONE_MUTE_LED_BRIGHTNESS, CAPABILITYTYPE_ACTION, &microphone_mute_led_brightness, microphone_mute_led_brightness != -1 },
+        { CAP_MICROPHONE_VOLUME, CAPABILITYTYPE_ACTION, &microphone_volume, microphone_volume != -1 },
+        { CAP_EQUALIZER, CAPABILITYTYPE_ACTION, equalizer, equalizer != NULL },
+    };
+    int numFeatures = sizeof(featureRequests) / sizeof(featureRequests[0]);
+    assert(numFeatures == NUM_CAPABILITIES);
 
-    if (lights != -1) {
-        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_LIGHTS, &lights)) != 0)
-            goto error;
-    }
-
-    if (notification_sound != -1) {
-        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_NOTIFICATION_SOUND, &notification_sound)) != 0)
-            goto error;
-    }
-
-    if (request_battery == 1) {
-        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_BATTERY_STATUS, &request_battery)) != 0)
-            goto error;
-    }
-
-    if (inactive_time != -1) {
-        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_INACTIVE_TIME, &inactive_time)) != 0)
-            goto error;
-    }
-
-    if (request_chatmix == 1) {
-        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_CHATMIX_STATUS, &request_chatmix)) != 0)
-            goto error;
-    }
-
-    if (voice_prompts != -1) {
-        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_VOICE_PROMPTS, &voice_prompts)) != 0)
-            goto error;
-    }
-
-    if (rotate_to_mute != -1) {
-        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_ROTATE_TO_MUTE, &rotate_to_mute)) != 0)
-            goto error;
-    }
-
-    if (equalizer_preset != -1) {
-        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_EQUALIZER_PRESET, &equalizer_preset)) != 0)
-            goto error;
-    }
-
-    if (microphone_mute_led_brightness != -1) {
-        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_MICROPHONE_MUTE_LED_BRIGHTNESS, &microphone_mute_led_brightness)) != 0)
-            goto error;
-    }
-
-    if (microphone_volume != -1) {
-        if ((error = handle_feature(&device_found, &device_handle, &hid_path, CAP_MICROPHONE_VOLUME, &microphone_volume)) != 0)
-            goto error;
-    }
-
-    if (equalizer != NULL) {
-        error = handle_feature(&device_found, &device_handle, &hid_path, CAP_EQUALIZER, equalizer);
-        free(equalizer);
-
-        if ((error) != 0)
-            goto error;
-    }
-
-    if (print_capabilities != -1) {
-        PRINT_INFO("Supported capabilities:\n\n");
-
-        // go through all enum capabilities
-        for (int i = 0; i < NUM_CAPABILITIES; i++) {
-            // When the capability i is included in .capabilities
-            if ((device_found.capabilities & B(i)) == B(i)) {
-                if (short_output) {
-                    printf("%c", capabilities_str_short[i]);
-                } else {
-                    printf("* %s\n", capabilities_str[i]);
+    // For specific output types, like YAML, we will do all actions - even when not specified - to aggreate all information
+    if (output_format == OUTPUT_YAML || output_format == OUTPUT_JSON || output_format == OUTPUT_ENV) {
+        for (int i = 0; i < numFeatures; i++) {
+            if (featureRequests[i].type == CAPABILITYTYPE_INFO && !featureRequests[i].should_process) {
+                if ((device_found.capabilities & B(featureRequests[i].cap)) == B(featureRequests[i].cap)) {
+                    featureRequests[i].should_process = true;
                 }
             }
         }
     }
 
-    if (argc <= 1) {
-        printf("You didn't set any arguments, so nothing happened.\nType %s -h for help.\n", argv[0]);
+    do {
+        for (int i = 0; i < numFeatures; i++) {
+            if (featureRequests[i].should_process) {
+                // Assuming handle_feature now returns FeatureResult
+                featureRequests[i].result = handle_feature(&device_found, &device_handle, &hid_path, featureRequests[i].cap, featureRequests[i].param);
+            } else {
+                // Populate with a default "not processed" result
+                featureRequests[i].result.status  = FEATURE_NOT_PROCESSED;
+                featureRequests[i].result.message = strdup("Not processed");
+                featureRequests[i].result.value   = 0;
+            }
+        }
+
+        DeviceList deviceList;
+        deviceList.device          = &device_found;
+        deviceList.num_devices     = 1;
+        deviceList.featureRequests = featureRequests;
+        deviceList.size            = numFeatures;
+
+        output(&deviceList, print_capabilities != -1, output_format);
+
+        if (follow)
+            sleep(follow_sec);
+    } while (follow);
+
+    // Free memory from features
+    for (int i = 0; i < numFeatures; i++) {
+        free(featureRequests[i].result.message);
     }
 
-    if (follow) {
-        sleep(follow_sec);
-        goto loop_start;
-    }
+    free(equalizer);
 
     terminate_hid(&device_handle, &hid_path);
-
     return 0;
-
-error:
-    terminate_hid(&device_handle, &hid_path);
-    return error;
 }

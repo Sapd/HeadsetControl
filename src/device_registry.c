@@ -1,6 +1,7 @@
 #include "device_registry.h"
 
 #include "devices/corsair_void.h"
+#include "devices/headsetcontrol_test.h"
 #include "devices/hyperx_calphaw.h"
 #include "devices/hyperx_cflight.h"
 #include "devices/logitech_g430.h"
@@ -23,43 +24,72 @@
 #include "devices/steelseries_arctis_nova_pro_wireless.h"
 #include "devices/steelseries_arctis_pro_wireless.h"
 
+#include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
-#define NUMDEVICES 22
+// Pointer to an array of pointers to device
+static struct device** devicelist = NULL;
+int num_devices                   = 0;
 
-// array of pointers to device
-static struct device*(devicelist[NUMDEVICES]);
+void add_device(void (*init_func)(struct device**));
 
 void init_devices()
 {
-    void_init(&devicelist[0]);
-    g430_init(&devicelist[1]);
-    g533_init(&devicelist[2]);
-    g930_init(&devicelist[3]);
-    g933_935_init(&devicelist[4]);
-    arctis_1_init(&devicelist[5]);
-    arctis_7_init(&devicelist[6]);
-    arctis_9_init(&devicelist[7]);
-    arctis_pro_wireless_init(&devicelist[8]);
-    gpro_init(&devicelist[9]);
-    zone_wired_init(&devicelist[10]);
-    elo71Air_init(&devicelist[11]);
-    g432_init(&devicelist[12]);
-    elo71USB_init(&devicelist[13]);
-    arctis_7_plus_init(&devicelist[14]);
-    cflight_init(&devicelist[15]);
-    g535_init(&devicelist[16]);
-    arctis_nova_3_init(&devicelist[17]);
-    arctis_nova_7_init(&devicelist[18]);
-    calphaw_init(&devicelist[19]);
-    arctis_nova_pro_wireless_init(&devicelist[20]);
-    gpro_x2_init(&devicelist[21]);
+    // Corsair
+    add_device(void_init);
+    // HyperX
+    add_device(calphaw_init);
+    add_device(cflight_init);
+    // Logitech
+    add_device(g430_init);
+    add_device(g432_init);
+    add_device(g533_init);
+    add_device(g535_init);
+    add_device(g930_init);
+    add_device(g933_935_init);
+    add_device(gpro_init);
+    add_device(gpro_x2_init);
+    add_device(zone_wired_init);
+    // SteelSeries
+    add_device(arctis_1_init);
+    add_device(arctis_7_init);
+    add_device(arctis_9_init);
+    add_device(arctis_pro_wireless_init);
+    // Roccat
+    add_device(elo71Air_init);
+    add_device(elo71USB_init);
+    // SteelSeries
+    add_device(arctis_nova_3_init);
+    add_device(arctis_nova_7_init);
+    add_device(arctis_7_plus_init);
+    add_device(arctis_nova_pro_wireless_init);
+
+    add_device(headsetcontrol_test_init);
+}
+
+void add_device(void (*init_func)(struct device**))
+{
+    // Reallocate memory to accommodate the new device
+    struct device** temp = realloc(devicelist, (num_devices + 1) * sizeof(struct device*));
+    if (temp == NULL) {
+        fprintf(stderr, "Failed to allocate memory for device list.\n");
+        abort();
+    }
+    devicelist = temp;
+
+    // Initialize the new device
+    init_func(&devicelist[num_devices]);
+    num_devices++;
 }
 
 int get_device(struct device* device_found, uint16_t idVendor, uint16_t idProduct)
 {
+    assert(num_devices > 0);
+
     // search for an implementation supporting one of the vendor+productid combination
-    for (int i = 0; i < NUMDEVICES; i++) {
+    for (int i = 0; i < num_devices; i++) {
         if (devicelist[i]->idVendor == idVendor) {
             // one device file can contain multiple product ids, iterate them
             for (int y = 0; y < devicelist[i]->numIdProducts; y++) {
@@ -78,7 +108,9 @@ int get_device(struct device* device_found, uint16_t idVendor, uint16_t idProduc
 
 int iterate_devices(int index, struct device** device_found)
 {
-    if (index < NUMDEVICES) {
+    assert(num_devices > 0);
+
+    if (index < num_devices) {
         *device_found = devicelist[index];
         return 0;
     } else {

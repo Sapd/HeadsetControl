@@ -9,50 +9,31 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
 
 ## Supported Headsets
 
-- HyperX Cloud Alpha Wireless
-  - Battery, Inactive time, Sidetone, Voice Prompts (only tested on Linux)
-- HyperX Cloud Flight Wireless
-  - Battery only (only tested on Linux)
-- Corsair **Void** (Most void-versions*)
-  - Sidetone, Battery (for Wireless), LED on/off, Notification Sound
-- Logitech G430
-  - No support in current version (Last working on macOS in commit 41be99379f)
-- Logitech G432
-  - Sidetone (only tested on Linux)
-- Logitech G433
-  - Sidetone (only tested on Linux)
-- Logitech G533
-  - Sidetone, Battery (for Wireless)
-- Logitech G535
-  - Sidetone, Battery, Inactive time (only tested on Linux)
-- Logitech G633 / G635 / G733 / G933 / G935
-  - Sidetone, Battery (for Wireless), LED on/off
-- Logitech G930
-  - Sidetone, Battery
-- SteelSeries Arctis 1, Arctis 1 for XBox
-  - Sidetone, Battery, Inactive time
-- SteelSeries Arctis Nova 3
-  - Sidetone, Equalizer Presets, Equalizer, Microphone Mute LED Brightness, Microphone Volume
-- SteelSeries Arctis (7 and Pro)
-  - Sidetone, Battery, Inactive time, Chat-Mix level, LED on/off (allows to turn off the blinking LED on the base-station)
-- SteelSeries Arctis 7+
-  - Sidetone, Battery, Chat-Mix level, Inactive time, Equalizer Presets, Equalizer
-- SteelSeries Arctis Nova 7
-  - Sidetone, Battery, Chat-Mix level, Inactive time, Equalizer Presets, Equalizer
-- SteelSeries Arctis 9
-  - Sidetone, Battery, Inactive time, Chat-Mix level
-- SteelSeries Arctis Pro Wireless
-  - Sidetone, Battery, Inactive time
-- SteelSeries Arctis Nova Pro Wireless
-  - Sidetone, Battery, Inactive time
-- Logitech G PRO
-  - Sidetone, Battery, Inactive time
-- Logitech G PRO X 2
-  - Sidetone, Inactive time
-- Logitech Zone Wired/Zone 750
-  - Sidetone, Voice prompts, Rotate to mute
-- Roccat Elo 7.1 Air
-  - LED on/off, Inactive time (Note for Linux: Sidetone is handled by sound driver => use AlsaMixer)
+| Device | sidetone | battery | notification sound | lights | inactive time | chatmix | voice prompts | rotate to mute | equalizer preset | equalizer | microphone mute led brightness | microphone volume |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Corsair Headset Device | x | x | x | x |   |   |   |   |   |   |   |   |
+| HyperX Cloud Alpha Wireless | x | x |   |   | x |   | x |   |   |   |   |   |
+| HyperX Cloud Flight Wireless |   | x |   |   |   |   |   |   |   |   |   |   |
+| Logitech G430 | x |   |   |   |   |   |   |   |   |   |   |   |
+| Logitech G432/G433 | x |   |   |   |   |   |   |   |   |   |   |   |
+| Logitech G533 | x | x |   |   | x |   |   |   |   |   |   |   |
+| Logitech G535 | x | x |   |   | x |   |   |   |   |   |   |   |
+| Logitech G930 | x | x |   |   |   |   |   |   |   |   |   |   |
+| Logitech G633/G635/G733/G933/G935 | x | x |   | x |   |   |   |   |   |   |   |   |
+| Logitech G PRO Series | x | x |   |   | x |   |   |   |   |   |   |   |
+| Logitech G PRO X 2 | x |   |   |   | x |   |   |   |   |   |   |   |
+| Logitech Zone Wired/Zone 750 | x |   |   |   |   |   | x | x |   |   |   |   |
+| SteelSeries Arctis (1/7X) Wireless | x | x |   |   | x |   |   |   |   |   |   |   |
+| SteelSeries Arctis (7/Pro) | x | x |   | x | x | x |   |   |   |   |   |   |
+| SteelSeries Arctis 9 | x | x |   |   | x | x |   |   |   |   |   |   |
+| SteelSeries Arctis Pro Wireless | x | x |   |   | x |   |   |   |   |   |   |   |
+| ROCCAT Elo 7.1 Air |   |   |   | x | x |   |   |   |   |   |   |   |
+| ROCCAT Elo 7.1 USB |   |   |   | x |   |   |   |   |   |   |   |   |
+| SteelSeries Arctis Nova 3 | x |   |   |   |   |   |   |   | x | x | x | x |
+| SteelSeries Arctis Nova 7 | x | x |   |   | x | x |   |   | x | x |   |   |
+| SteelSeries Arctis 7+ | x | x |   |   | x | x |   |   | x | x |   |   |
+| SteelSeries Arctis Nova Pro Wireless | x | x |   | x | x |   |   |   | x | x |   |   |
+| HeadsetControl Test device | x | x | x | x | x | x | x | x | x | x | x | x |
 
 For non-supported headsets on Linux: There is a chance that you can set the sidetone via AlsaMixer
 
@@ -66,7 +47,7 @@ Some headsets expose sidetone as audio-channel volume and as such can be changed
 
 ### Prerequisites
 
-You will need hidapi, c compilers and cmake. All usually installable via package managers.
+Before building, ensure you have the necessary dependencies installed, including HIDAPI, C compilers, and CMake. These dependencies can usually be installed via your system's package manager.
 
 #### Debian / Ubuntu
 
@@ -74,8 +55,9 @@ You will need hidapi, c compilers and cmake. All usually installable via package
 
 #### CentOS / RHEL (RedHat based)
 
-RHEL and CentOS also require the epel-repository: `yum install epel-release`. Please inform yourself about the consequences of activating the epel-repository.
+RHEL and CentOS also require the epel-repository.
 
+`yum install epel-release`
 `yum groupinstall "Development tools"`
 `yum install git cmake hidapi-devel`
 
@@ -106,18 +88,19 @@ RHEL and CentOS also require the epel-repository: `yum install epel-release`. Pl
 
 #### Mac OS X
 
-I recommend using [Homebrew](https://brew.sh).
+Recommendation: Use [Homebrew](https://brew.sh).
 
-You can automatically compile and install the latest version of the software, by using
-`brew install sapd/headsetcontrol/headsetcontrol --HEAD`.
+* To automatically compile and install the latest version:
+`brew install sapd/headsetcontrol/headsetcontrol --HEAD`
+* To manually compile, first install the dependencies:
+`brew install hidapi cmake`
 
-If you wish to compile it manually, you can install the dependencies with  `brew install hidapi cmake`.
-
-Also you have to download Xcode via the Mac App Store for the compilers.
+Note: Xcode must be downloaded via the Mac App Store for the compilers.
 
 #### Windows
 
-Windows support is a bit experimental and might not work in all cases. You can find binaries in the [releases](https://github.com/Sapd/HeadsetControl/releases) page, or compile instructions via MSYS2/MinGW in the [wiki](https://github.com/Sapd/HeadsetControl/wiki/Development#windows).
+* Binaries are available on the [releases](https://github.com/Sapd/HeadsetControl/releases) page.
+* For compilation instructions using MSYS2/MinGW refer to the [wiki](https://github.com/Sapd/HeadsetControl/wiki/Development#windows).
 
 ### Compiling
 
@@ -128,58 +111,49 @@ cmake ..
 make
 ```
 
-If you want to be able to call HeadsetControl from every folder type:
+To make `headsetcontrol` accessible globally, run:
 
 ```bash
-make install
+sudo make install
 ```
 
-This will copy the binary to a folder globally accessible via path.
+This command installs the binary in a location that is globally accessible via your system's PATH.
 
-### Access without root
+### Access Without Root (Linux only)
 
-Also in Linux, you need udev rules if you don't want to start the application with root. Those rules are generated via `headsetcontrol -u`. Typing `make install` on Linux generates and writes them automatically to /etc/udev/rules.d/.
+To use the application without root privileges on Linux, udev rules are required. These can be generated with:
 
-You can reload udev configuration without reboot via `sudo udevadm control --reload-rules && sudo udevadm trigger`
+```bash
+headsetcontrol -u
+```
+
+Running `sudo make install` will automatically generate and write these rules to /etc/udev/rules.d/. To apply the changes without rebooting, reload udev configuration:
+
+```bash
+sudo udevadm control --reload-rules && sudo udevadm trigger
+```
 
 ## Usage
 
-Type `headsetcontrol -h` to get all available options.\
-(Don't forget to prefix it with `./` when the application resides in the current folder)
+To view available options for your device, use:
 
-Type `headsetcontrol -?` to get a list of supported capabilities for the currently detected headset.
+```bash
+headsetcontrol -h
+```
 
-`headsetcontrol -s 128` sets the sidetone to 128 (REAL loud). You can silence it with `0`. I recommend a loudness of 16.
+For a complete list of all options, run:
 
-The following options don't work on all devices yet:
+```bash
+headsetcontrol --help-all
+```
 
-`headsetcontrol -b` check battery level. Returns a value from 0 to 100 or loading.
+To use headsetcontrol in scripts or other applications, explore:
 
-`headsetcontrol -n 0|1` sends a notification sound, made by the headset. 0 or 1 are currently supported as values.
+```bash
+headsetcontrol --output
+```
 
-`headsetcontrol -l 0|1` switches LED off/on (off almost doubles battery lifetime!).
-
-`headsetcontrol --short-output` cut unnecessary output, for reading by other scripts or applications.
-
-`headsetcontrol -i 0-90` sets inactive time in minutes, time must be between 0 and 90, 0 disables the feature.
-
-`headsetcontrol -m` retrieves the current chat-mix-dial level setting between 0 and 128. Below 64 is the game side and above is the chat side.
-
-`headsetcontrol -v 0|1` turn voice prompts on or off.
-
-`headsetcontrol -r 0|1` turn rotate to mute feature on or off.
-
-`headsetcontrol -u` Generates and outputs udev-rules for Linux.
-
-`headsetcontrol --dev` Advanced menu for developers, to send and/or receive custom data
-
-`headsetcontrol -p 0-3` sets equalizer preset, must be between 0 and 3, 0 is the default preset.
-
-`headsetcontrol -e string` sets equalizer to specified curve, string must contain band values specific to the device (hex or decimal) delimited by spaces, or commas, or new-lines e.g "0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18".
-
-##### Modifiers
-
-`--timeout 5000` Specifies a timeout for read-operations in milliseconds. Default is 5 seconds, 0 disables timeout.
+Note: When running the application from the current directory, prefix commands with `./`
 
 ### Third Party
 

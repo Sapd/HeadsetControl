@@ -40,6 +40,57 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror")
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # ------------------------------------------------------------------------------
+# Git version
+# ------------------------------------------------------------------------------
+
+execute_process(
+  COMMAND git describe --tags --dirty=-modified
+  OUTPUT_VARIABLE GIT_VERSION
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+# Configure a header file to pass the version number to the source code
+configure_file(
+  "${PROJECT_SOURCE_DIR}/src/version.h.in"
+  "${PROJECT_SOURCE_DIR}/src/version.h"
+  @ONLY
+)
+
+# ------------------------------------------------------------------------------
+# VA Copy check for asprintf
+# ------------------------------------------------------------------------------
+
+# Check for va_copy
+include(CheckCSourceCompiles)
+
+check_c_source_compiles("
+#include <stdarg.h>
+int main() {
+    va_list x, y;
+    va_copy(x, y);
+    return 0;
+}
+" HAVE_VA_COPY)
+
+if(HAVE_VA_COPY)
+    add_definitions(-DHAVE_VA_COPY=1)
+endif()
+
+# Check for __va_copy
+check_c_source_compiles("
+#include <stdarg.h>
+int main() {
+    va_list x, y;
+    __va_copy(x, y);
+    return 0;
+}
+" HAVE___VA_COPY)
+
+if(HAVE___VA_COPY)
+    add_definitions(-DHAVE___VA_COPY=1)
+endif()
+
+# ------------------------------------------------------------------------------
 # Clang format
 # ------------------------------------------------------------------------------
 
@@ -143,7 +194,7 @@ include (CTest)
 ## Simple test wether we can run the application (should basic hidapi functions, like enumerate, work)
 enable_testing()
 add_test(run_test headsetcontrol)
-set_tests_properties(run_test PROPERTIES PASS_REGULAR_EXPRESSION "No supported headset found")
+set_tests_properties(run_test PROPERTIES PASS_REGULAR_EXPRESSION "No supported device found;Found")
 # use make check to compile+test
 add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND}
                   DEPENDS headsetcontrol)
