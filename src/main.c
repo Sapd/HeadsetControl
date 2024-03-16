@@ -21,6 +21,7 @@
 #include "device.h"
 #include "device_registry.h"
 #include "hid_utility.h"
+#include "output.h"
 #include "utility.h"
 
 #include <hidapi.h>
@@ -35,13 +36,15 @@
 
 int hsc_device_timeout = 5000;
 
-// 0=false; 1=true
-static int short_output = 0;
+// 0=text; 1=short; 2=json
+static int output = 0;
+
+static t_output json_output;
 
 /// printf only when short output not specified
 #define PRINT_INFO(...)          \
     {                            \
-        if (!short_output) {     \
+        if (output == 0) {       \
             printf(__VA_ARGS__); \
         }                        \
     }
@@ -63,6 +66,14 @@ static int find_device(struct device* device_found)
 
         if (found == 0) {
             PRINT_INFO("Found %s!\n", device_found->device_name);
+            if (output == 2) {
+                char* device_name = malloc(strlen(device_found->device_name) + 2);
+                strcpy(device_name, "\"");
+                strcat(device_name, device_found->device_name);
+                strcat(device_name, "\"");
+                output_add(&json_output, new_entry("device", device_name));
+                free(device_name);
+            }
             break;
         }
 
@@ -185,14 +196,52 @@ static int handle_feature(struct device* device_found, hid_device** device_handl
     case CAP_BATTERY_STATUS:
         ret = device_found->request_battery(*device_handle);
 
-        if (ret < 0)
+        if (ret < 0) {
             break;
-        else if (ret == BATTERY_CHARGING)
-            short_output ? printf("-1") : printf("Battery: Charging\n");
-        else if (ret == BATTERY_UNAVAILABLE)
-            short_output ? printf("-2") : printf("Battery: Unavailable\n");
-        else
-            short_output ? printf("%d", ret) : printf("Battery: %d%%\n", ret);
+        }
+
+        else if (ret == BATTERY_CHARGING) {
+            switch (output) {
+            case 0:
+                printf("Battery: Charging\n");
+                break;
+            case 1:
+                printf("-1");
+                break;
+            case 2:
+                output_add(&json_output, new_entry("battery", "charging"));
+                break;
+            }
+        } else if (ret == BATTERY_UNAVAILABLE) {
+            switch (output) {
+            case 0:
+                printf("Battery: Unavailable\n");
+                break;
+            case 1:
+                printf("-2");
+                break;
+            case 2:
+                output_add(&json_output, new_entry("battery", "unavailable"));
+                break;
+            }
+        } else {
+            switch (output) {
+            case 0: {
+                printf("Battery: %d%%\n", ret);
+                break;
+            }
+            case 1: {
+                printf("%d", ret);
+                break;
+            }
+            case 2: {
+                char buffer[16];
+                sprintf(buffer, "%d", ret);
+                output_add(&json_output, new_entry("battery", buffer));
+                break;
+            }
+            }
+        }
 
         break;
 
@@ -216,10 +265,26 @@ static int handle_feature(struct device* device_found, hid_device** device_handl
     case CAP_CHATMIX_STATUS:
         ret = device_found->request_chatmix(*device_handle);
 
-        if (ret < 0)
+        if (ret < 0) {
             break;
+        }
 
-        short_output ? printf("%d", ret) : printf("Chat-Mix: %d\n", ret);
+        switch (output) {
+        case 0: {
+            printf("Chat-Mix: %d\n", ret);
+            break;
+        }
+        case 1: {
+            printf("%d", ret);
+            break;
+        }
+        case 2: {
+            char buffer[16];
+            sprintf(buffer, "%d", ret);
+            output_add(&json_output, new_entry("chatmix", buffer));
+            break;
+        }
+        }
         break;
 
     case CAP_VOICE_PROMPTS:
@@ -325,6 +390,7 @@ int main(int argc, char* argv[])
         { "microphone-mute-led-brightness", required_argument, NULL, 0 },
         { "microphone-volume", required_argument, NULL, 0 },
         { "inactive-time", required_argument, NULL, 'i' },
+        { "json-output", no_argument, NULL, 'j' },
         { "light", required_argument, NULL, 'l' },
         { "follow", optional_argument, NULL, 'f' },
         { "notificate", required_argument, NULL, 'n' },
@@ -344,7 +410,7 @@ int main(int argc, char* argv[])
     // describes the headsetcontrol device, when a headset was found
     static struct device device_found;
 
-    while ((c = getopt_long(argc, argv, "bchi:l:f::mn:r:s:uv:p:e:?", opts, &option_index)) != -1) {
+    while ((c = getopt_long(argc, argv, "bchi:jl:f::mn:r:s:uv:p:e:?", opts, &option_index)) != -1) {
         char* endptr = NULL; // for strtol
 
         switch (c) {
@@ -352,7 +418,7 @@ int main(int argc, char* argv[])
             request_battery = 1;
             break;
         case 'c':
-            short_output = 1;
+            output = 1;
             break;
         case 'e': {
             int size = get_float_data_from_parameter(optarg, read_buffer, BUFFERLENGTH);
@@ -391,6 +457,9 @@ int main(int argc, char* argv[])
                 printf("Usage: %s -i 0-90, 0 is off\n", argv[0]);
                 return 1;
             }
+            break;
+        case 'j':
+            output = 2;
             break;
         case 'l':
             lights = strtol(optarg, &endptr, 10);
@@ -455,6 +524,7 @@ int main(int argc, char* argv[])
             printf("  -n, --notificate soundid\tMakes the headset play a notifiation\n");
             printf("  -l, --light 0|1\t\tSwitch lights (0 = off, 1 = on)\n");
             printf("  -c, --short-output\t\tUse more machine-friendly output \n");
+            printf("  -j, --json-output\t\tUse json-format output \n");
             printf("  -i, --inactive-time time\tSets inactive time in minutes, time must be between 0 and 90, 0 disables the feature.\n");
             printf("  -m, --chatmix\t\t\tRetrieves the current chat-mix-dial level setting between 0 and 128. Below 64 is the game side and above is the chat side.\n");
             printf("  -v, --voice-prompt 0|1\tTurn voice prompts on or off (0 = off, 1 = on)\n");
@@ -502,7 +572,8 @@ int main(int argc, char* argv[])
                 }
                 break;
             } else if (strcmp(opts[option_index].name, "connected") == 0) {
-                short_output = 1;
+                if (output == 0)
+                    output = 1;
                 if (find_device(&device_found) != 0) {
                     return 1;
                 }
@@ -524,6 +595,10 @@ int main(int argc, char* argv[])
     } else {
         for (int index = optind; index < argc; index++)
             fprintf(stderr, "Non-option argument %s\n", argv[index]);
+    }
+
+    if (output == 2) {
+        json_output = new_output();
     }
 
     // Look for a supported device
@@ -607,17 +682,41 @@ loop_start:
     if (print_capabilities != -1) {
         PRINT_INFO("Supported capabilities:\n\n");
 
+        char json_string[256];
+        strcpy(json_string, "[");
+
         // go through all enum capabilities
         for (int i = 0; i < NUM_CAPABILITIES; i++) {
             // When the capability i is included in .capabilities
             if ((device_found.capabilities & B(i)) == B(i)) {
-                if (short_output) {
-                    printf("%c", capabilities_str_short[i]);
-                } else {
+                switch (output) {
+                case 0: {
                     printf("* %s\n", capabilities_str[i]);
+                    break;
+                }
+                case 1: {
+                    printf("%c", capabilities_str_short[i]);
+                    break;
+                }
+                case 2: {
+                    char buffer[64];
+                    sprintf(buffer, "\"%s\",", capabilities_str[i]);
+                    strcat(json_string, buffer);
+                    break;
+                }
                 }
             }
         }
+        if (output == 2) {
+            json_string[strlen(json_string) - 1] = ']';
+            output_add(&json_output, new_entry("capabilities", json_string));
+        }
+    }
+
+    if (output == 2) {
+        char* json = gen_output(&json_output);
+        printf("%s\n", json);
+        output_free(&json_output);
     }
 
     if (request_connected) {
