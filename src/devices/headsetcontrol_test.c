@@ -7,17 +7,12 @@
 
 static struct device device_headsetcontrol_test;
 
-static int headsetcontrol_test_send_sidetone(hid_device* device_handle, uint8_t num);
-static int headsetcontrol_test_request_battery(hid_device* device_handle);
-static int headsetcontrol_test_notification_sound(hid_device* device_handle, uint8_t soundid);
-static int headsetcontrol_test_lights(hid_device* device_handle, uint8_t on);
-
 #define TESTBYTES_SEND 32
 
 static const uint16_t PRODUCT_IDS[] = { PRODUCT_TESTDEVICE };
 
 static int headsetcontrol_test_send_sidetone(hid_device* device_handle, uint8_t num);
-static int headsetcontrol_test_request_battery(hid_device* device_handle);
+static BatteryInfo headsetcontrol_test_request_battery(hid_device* device_handle);
 static int headsetcontrol_test_notification_sound(hid_device* device_handle, uint8_t soundid);
 static int headsetcontrol_test_lights(hid_device* device_handle, uint8_t on);
 static int headsetcontrol_test_send_equalizer_preset(hid_device* device_handle, uint8_t num);
@@ -33,8 +28,8 @@ extern int test_profile;
 
 void headsetcontrol_test_init(struct device** device)
 {
-    if (test_profile < 0 || test_profile > 2) {
-        printf("test_profile must be between 0 and 2\n");
+    if (test_profile < 0 || test_profile > 6) {
+        printf("test_profile must be between 0 and 5\n");
         abort();
     }
 
@@ -78,13 +73,35 @@ static int headsetcontrol_test_send_sidetone(hid_device* device_handle, uint8_t 
     return TESTBYTES_SEND;
 }
 
-static int headsetcontrol_test_request_battery(hid_device* device_handle)
+static BatteryInfo headsetcontrol_test_request_battery(hid_device* device_handle)
 {
-    if (test_profile == 1) {
-        return -1;
+    BatteryInfo info = { .status = BATTERY_UNAVAILABLE, .level = -1 };
+
+    switch (test_profile) {
+    case 0:
+        info.status = BATTERY_AVAILABLE;
+        info.level  = 42;
+        break;
+    case 1:
+        info.status = BATTERY_UNAVAILABLE;
+        break;
+    case 2:
+        info.status = BATTERY_CHARGING;
+        info.level  = 50;
+        break;
+    case 3:
+        info.status = BATTERY_AVAILABLE;
+        info.level  = 64;
+        break;
+    case 4:
+        info.status = BATTERY_HIDERROR;
+        break;
+    case 5:
+        info.status = BATTERY_TIMEOUT;
+        break;
     }
 
-    return 64;
+    return info;
 }
 
 static int headsetcontrol_test_notification_sound(hid_device* device_handle, uint8_t soundid)

@@ -21,7 +21,7 @@ static struct device device_arctis;
 static const uint16_t PRODUCT_IDS[] = { ID_ARCTIS_PRO_WIRELESS };
 
 static int arctis_pro_wireless_send_sidetone(hid_device* device_handle, uint8_t num);
-static int arctis_pro_wireless_request_battery(hid_device* device_handle);
+static BatteryInfo arctis_pro_wireless_request_battery(hid_device* device_handle);
 static int arctis_pro_wireless_send_inactive_time(hid_device* device_handle, uint8_t num);
 
 int arctis_pro_wireless_read_device_status(hid_device* device_handle, unsigned char* data_read);
@@ -60,37 +60,51 @@ static int arctis_pro_wireless_send_sidetone(hid_device* device_handle, uint8_t 
     return ret;
 }
 
-static int arctis_pro_wireless_request_battery(hid_device* device_handle)
+static BatteryInfo arctis_pro_wireless_request_battery(hid_device* device_handle)
 {
     int r = 0;
     unsigned char data_read[2];
 
+    BatteryInfo info = { .status = BATTERY_UNAVAILABLE, .level = -1 };
+
     // First check if the headset is connected
     r = arctis_pro_wireless_read_device_status(device_handle, data_read);
-    if (r < 0)
-        return r;
+    if (r < 0) {
+        info.status = BATTERY_HIDERROR;
+        return info;
+    }
 
-    if (r == 0)
-        return HSC_READ_TIMEOUT;
+    if (r == 0) {
+        info.status = BATTERY_TIMEOUT;
+        return info;
+    }
 
     if (data_read[0] == HEADSET_OFFLINE)
-        return BATTERY_UNAVAILABLE;
+        return info;
 
     // If it is, request the battery level
     unsigned char data_request[31] = { 0x40, 0xAA };
     r                              = hid_write(device_handle, data_request, 31);
-    if (r < 0)
-        return r;
+    if (r < 0) {
+        info.status = BATTERY_HIDERROR;
+        return info;
+    }
 
     r = hid_read_timeout(device_handle, data_read, 1, hsc_device_timeout);
-    if (r < 0)
-        return r;
+    if (r < 0) {
+        info.status = BATTERY_HIDERROR;
+        return info;
+    }
 
-    if (r == 0)
-        return HSC_READ_TIMEOUT;
+    if (r == 0) {
+        info.status = BATTERY_TIMEOUT;
+        return info;
+    }
 
-    int bat = data_read[0];
-    return map(bat, BATTERY_MIN, BATTERY_MAX, 0, 100);
+    info.status = BATTERY_AVAILABLE;
+    int bat     = data_read[0];
+    info.level  = map(bat, BATTERY_MIN, BATTERY_MAX, 0, 100);
+    return info;
 }
 
 static int arctis_pro_wireless_send_inactive_time(hid_device* device_handle, uint8_t num)

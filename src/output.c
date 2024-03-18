@@ -35,8 +35,11 @@ const char* battery_status_to_string(enum battery_status status)
     case BATTERY_CHARGING:
         return "BATTERY_CHARGING";
     case BATTERY_AVAILABLE:
-        return "BATTERY_DISCHARGING";
-    // Add other cases as needed
+        return "BATTERY_AVAILABLE";
+    case BATTERY_HIDERROR:
+        return "BATTERY_ERROR";
+    case BATTERY_TIMEOUT:
+        return "BATTERY_TIMEOUT";
     default:
         return "UNKNOWN";
     }
@@ -180,12 +183,12 @@ void processFeatureRequests(HeadsetInfo* info, FeatureRequest* featureRequests, 
                 if (request->result.status == FEATURE_SUCCESS || request->result.status == FEATURE_INFO) {
                     info->has_battery_info = true;
 
-                    if (request->result.value == BATTERY_CHARGING) {
-                        info->battery_status = (enum battery_status)request->result.value;
-                        info->battery_level  = 0; // when charging sometimes battery can be reported anyways (even when inaccurate), but needs adjustment in device struct
-                    } else if (request->result.value == BATTERY_UNAVAILABLE) {
-                        info->battery_status = (enum battery_status)request->result.value;
-                        info->battery_level  = 0;
+                    if (request->result.status2 == BATTERY_CHARGING) {
+                        info->battery_status = (enum battery_status)request->result.status2;
+                        info->battery_level  = request->result.value;
+                    } else if (request->result.status2 == BATTERY_UNAVAILABLE) {
+                        info->battery_status = (enum battery_status)request->result.status2;
+                        info->battery_level  = -1;
                     } else {
                         info->battery_status = BATTERY_AVAILABLE;
                         info->battery_level  = request->result.value;

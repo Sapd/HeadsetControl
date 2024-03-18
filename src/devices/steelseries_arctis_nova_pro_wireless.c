@@ -50,7 +50,7 @@ enum {
 static const uint16_t PRODUCT_IDS[] = { ID_ARCTIS_NOVA_PRO_WIRELESS_BASE_STATION };
 
 static int set_sidetone(hid_device* device_handle, uint8_t num);
-static int get_battery(hid_device* device_handle);
+static BatteryInfo get_battery(hid_device* device_handle);
 static int set_lights(hid_device* device_handle, uint8_t on);
 static int set_inactive_time(hid_device* device_handle, uint8_t minutes);
 static int set_equalizer_preset(hid_device* device_handle, uint8_t num);
@@ -103,37 +103,46 @@ static int set_sidetone(hid_device* device_handle, uint8_t num)
     return save_state(device_handle);
 }
 
-static int get_battery(hid_device* device_handle)
+static BatteryInfo get_battery(hid_device* device_handle)
 {
     // read device info
     unsigned char data_read[STATUS_BUF_SIZE];
     int res = read_device_status(device_handle, data_read);
 
-    if (res < 0)
-        return res;
+    BatteryInfo info = { .status = BATTERY_UNAVAILABLE, .level = -1 };
 
-    if (res == 0)
-        return HSC_READ_TIMEOUT;
+    if (res < 0) {
+        info.status = BATTERY_HIDERROR;
+        return info;
+    }
+
+    if (res == 0) {
+        info.status = BATTERY_TIMEOUT;
+        return info;
+    }
 
     if (res < 16)
-        return HSC_ERROR;
+        return info;
 
     uint8_t status = data_read[15];
     switch (status) {
     case HEADSET_OFFLINE:
-        return BATTERY_UNAVAILABLE;
+        return info;
     case HEADSET_CABLE_CHARGING:
-        return BATTERY_CHARGING;
+        info.status = BATTERY_CHARGING;
+        break;
     case HEADSET_ONLINE:
+        info.status = BATTERY_AVAILABLE;
         break;
     default:
         fprintf(stderr, "Unknown headset status 0x%.2x.\n", status);
-        return HSC_ERROR;
+        return info;
     }
 
     int bat = data_read[6];
 
-    return map(bat, BATTERY_MIN, BATTERY_MAX, 0, 100);
+    info.level = map(bat, BATTERY_MIN, BATTERY_MAX, 0, 100);
+    return info;
 }
 
 static int set_lights(hid_device* device_handle, uint8_t on)

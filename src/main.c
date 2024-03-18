@@ -219,27 +219,37 @@ static FeatureResult handle_feature(struct device* device_found, hid_device** de
         ret = device_found->send_sidetone(*device_handle, *(int*)param);
         break;
 
-    case CAP_BATTERY_STATUS:
-        ret = device_found->request_battery(*device_handle);
+    case CAP_BATTERY_STATUS: {
+        BatteryInfo battery = device_found->request_battery(*device_handle);
 
-        if (ret >= 0) { // Assuming 0 or positive values are valid battery levels
+        result.status2 = battery.status;
+        if (battery.status == BATTERY_AVAILABLE) {
             result.status = FEATURE_SUCCESS;
-            result.value  = ret;
-            asprintf(&result.message, "Battery: %d%%", ret);
-        } else if (ret == BATTERY_CHARGING || ret == BATTERY_UNAVAILABLE) {
-            result.status = FEATURE_INFO;
-            result.value  = ret;
-            if (ret == BATTERY_CHARGING) {
-                result.message = strdup("Charging");
-            } else {
-                result.message = strdup("Unavailable");
-            }
-        } else { // Handle errors
+            result.value  = battery.level;
+            asprintf(&result.message, "Battery: %d%%", battery.level);
+        } else if (battery.status == BATTERY_CHARGING) {
+            result.status  = FEATURE_INFO;
+            result.value   = battery.level;
+            result.message = strdup("Charging");
+        } else if (battery.status == BATTERY_UNAVAILABLE) {
+            result.status  = FEATURE_INFO;
+            result.value   = BATTERY_UNAVAILABLE;
+            result.message = strdup("Battery status unavailable");
+        } else if (battery.status == BATTERY_TIMEOUT) {
             result.status  = FEATURE_ERROR;
-            result.value   = ret;
-            result.message = strdup("Error retrieving battery status");
+            result.value   = BATTERY_TIMEOUT;
+            result.message = strdup("Battery status request timed out");
+        } else { // Handle errors
+            result.status = FEATURE_ERROR;
+            result.value  = (int)battery.status;
+
+            if (device_found->idProduct != PRODUCT_TESTDEVICE)
+                asprintf(&result.message, "Error retrieving battery status. Error: %ls", hid_error(*device_handle));
+            else // dont call hid_error on test device
+                asprintf(&result.message, "Error retrieving battery status");
         }
         return result;
+    }
 
     case CAP_NOTIFICATION_SOUND:
         ret = device_found->notifcation_sound(*device_handle, *(int*)param);

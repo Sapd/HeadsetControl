@@ -18,7 +18,7 @@ static struct device device_g930;
 static const uint16_t PRODUCT_ID = 0x0a1f;
 
 static int g930_send_sidetone(hid_device* device_handle, uint8_t num);
-static int g930_request_battery(hid_device* device_handle);
+static BatteryInfo g930_request_battery(hid_device* device_handle);
 
 void g930_init(struct device** device)
 {
@@ -49,7 +49,7 @@ static int g930_send_sidetone(hid_device* device_handle, uint8_t num)
     return hid_send_feature_report(device_handle, data, MSG_SIZE);
 }
 
-static int g930_request_battery(hid_device* device_handle)
+static BatteryInfo g930_request_battery(hid_device* device_handle)
 {
     /*
         CREDIT GOES TO https://github.com/Roliga for the project
@@ -57,26 +57,32 @@ static int g930_request_battery(hid_device* device_handle)
         I've simply ported that implementation to this project!
     */
 
+    BatteryInfo info = { .status = BATTERY_UNAVAILABLE, .level = -1 };
+
     unsigned char buf[MSG_SIZE] = { 0xFF, 0x09, 0x00, 0xFD, 0xF4, 0x10, 0x05, 0xB1, 0xBF, 0xA0, 0x04 };
     for (int i = 11; i < MSG_SIZE; i++)
         buf[i] = 0;
 
     int res = hid_send_feature_report(device_handle, buf, MSG_SIZE);
     if (res < 0) {
-        return res;
+        info.status = BATTERY_HIDERROR;
+        return info;
     }
 
     for (int i = 0; i < 3; i++) {
         res = hid_get_feature_report(device_handle, buf, MSG_SIZE);
 
         if (res < 0) {
-            return res;
+            info.status = BATTERY_HIDERROR;
+            return info;
         }
 
         if (i < 2) {
             usleep(100000);
         }
     }
-    int batteryPercent = map((int)buf[13], BATTERY_MIN, BATTERY_MAX, 0, 100);
-    return batteryPercent;
+
+    info.status = BATTERY_AVAILABLE;
+    info.level  = map((int)buf[13], BATTERY_MIN, BATTERY_MAX, 0, 100);
+    return info;
 }

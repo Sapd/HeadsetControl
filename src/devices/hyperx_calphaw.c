@@ -28,7 +28,7 @@ static struct device device_calphaw;
 
 static const uint16_t PRODUCT_IDS[] = { ID_CALPHAW };
 
-static int calphaw_request_battery(hid_device* device_handle);
+static BatteryInfo calphaw_request_battery(hid_device* device_handle);
 static int calphaw_send_inactive_time(hid_device* device_handle, uint8_t num);
 static int calphaw_send_sidetone(hid_device* device_handle, uint8_t num);
 static int calphaw_switch_voice_prompts(hid_device* device_handle, uint8_t on);
@@ -100,28 +100,40 @@ int calphaw_request_charge(hid_device* device_handle)
     return HSC_ERROR;
 }
 
-static int calphaw_request_battery(hid_device* device_handle)
+static BatteryInfo calphaw_request_battery(hid_device* device_handle)
 {
-    if (calphaw_request_connection(device_handle) == 1)
-        return BATTERY_UNAVAILABLE;
+    BatteryInfo info = { .status = BATTERY_UNAVAILABLE, .level = -1 };
 
-    if (calphaw_request_charge(device_handle) == 1)
-        return BATTERY_CHARGING;
+    if (calphaw_request_connection(device_handle) == 1)
+        return info;
+
+    if (calphaw_request_charge(device_handle) == 1) {
+        info.status = BATTERY_CHARGING;
+        info.level = -1;
+        return info;
+    }
 
     int r = 0;
     // request battery info
     uint8_t data_request[31] = { 0x21, 0xbb, 0x0b }; // Data request reverse engineered by using USBPcap and Wireshark by @InfiniteLoop
 
     r = hid_write(device_handle, data_request, sizeof(data_request) / sizeof(data_request[0]));
-    if (r < 0)
-        return r;
+    if (r < 0) {
+        info.status = BATTERY_HIDERROR;
+        return info;
+    }
 
     uint8_t data_read[31];
     r = hid_read_timeout(device_handle, data_read, 20, TIMEOUT);
-    if (r < 0)
-        return r;
-    if (r == 0) // timeout
-        return HSC_ERROR;
+    if (r < 0) {
+        info.status = BATTERY_HIDERROR;
+        return info;
+    }
+
+    if (r == 0) { // timeout
+        info.status = BATTERY_TIMEOUT;
+        return info;
+    }
 
     if (r == 0xf || r == 0x14) {
 
@@ -135,10 +147,12 @@ static int calphaw_request_battery(hid_device* device_handle)
         uint32_t batteryVoltage = (data_read[4] << 8) | data_read[5]; // best assumtion this is voltage in mV
         printf("batteryVoltage: %d mV\n", batteryVoltage);
 #endif
-        return (int)(batteryPercentage);
+        info.status = BATTERY_AVAILABLE;
+        info.level  = (int)(batteryPercentage);
+        return info;
     }
 
-    return HSC_ERROR;
+    return info;
 }
 
 static int calphaw_send_inactive_time(hid_device* device_handle, uint8_t num)

@@ -19,7 +19,7 @@ static struct device device_g933_935;
 static const uint16_t PRODUCT_IDS[] = { ID_LOGITECH_G633, ID_LOGITECH_G635, ID_LOGITECH_G933, ID_LOGITECH_G935, ID_LOGITECH_G733, ID_LOGITECH_G733_2 };
 
 static int g933_935_send_sidetone(hid_device* device_handle, uint8_t num);
-static int g933_935_request_battery(hid_device* device_handle);
+static BatteryInfo g933_935_request_battery(hid_device* device_handle);
 static int g933_935_lights(hid_device* device_handle, uint8_t on);
 
 void g933_935_init(struct device** device)
@@ -52,7 +52,7 @@ static float estimate_battery_level(uint16_t voltage)
     return (float)(0.0000000037268473047 * pow(voltage, 4) - 0.00005605626214573775 * pow(voltage, 3) + 0.3156051902814949 * pow(voltage, 2) - 788.0937250298629 * voltage + 736315.3077118985);
 }
 
-static int g933_935_request_battery(hid_device* device_handle)
+static BatteryInfo g933_935_request_battery(hid_device* device_handle)
 {
     /*
         CREDIT GOES TO https://github.com/ashkitten/ for the project
@@ -61,25 +61,37 @@ static int g933_935_request_battery(hid_device* device_handle)
     */
 
     int r = 0;
+
+    BatteryInfo info = { .status = BATTERY_UNAVAILABLE, .level = -1 };
+
     // request battery voltage
     uint8_t data_request[HIDPP_LONG_MESSAGE_LENGTH] = { HIDPP_LONG_MESSAGE, HIDPP_DEVICE_RECEIVER, 0x08, 0x0a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
     r = hid_write(device_handle, data_request, sizeof(data_request) / sizeof(data_request[0]));
-    if (r < 0)
-        return r;
+    if (r < 0) {
+        info.status = BATTERY_HIDERROR;
+        return info;
+    }
 
     uint8_t data_read[7];
     r = hid_read_timeout(device_handle, data_read, 7, hsc_device_timeout);
-    if (r < 0)
-        return r;
+    if (r < 0) {
+        info.status = BATTERY_HIDERROR;
+        return info;
+    }
 
-    if (r == 0)
-        return HSC_READ_TIMEOUT;
+    if (r == 0) {
+        info.status = BATTERY_TIMEOUT;
+        return info;
+    }
 
     // 6th byte is state; 0x1 for idle, 0x3 for charging
     uint8_t state = data_read[6];
-    if (state == 0x03)
-        return BATTERY_CHARGING;
+    if (state == 0x03) {
+        info.status = BATTERY_CHARGING;
+    } else {
+        info.status = BATTERY_AVAILABLE;
+    }
 
 #ifdef DEBUG
     printf("G33 - g933_request_battery - b1: 0x%08x b2: 0x%08x\n", data_read[4], data_read[5]);
@@ -92,7 +104,8 @@ static int g933_935_request_battery(hid_device* device_handle)
     printf("G33 - g933_request_battery - Reported Voltage: %2f\n", (float)voltage);
 #endif
 
-    return (int)(roundf(estimate_battery_level(voltage)));
+    info.level = (int)(roundf(estimate_battery_level(voltage)));
+    return info;
 }
 
 static int g933_935_send_sidetone(hid_device* device_handle, uint8_t num)

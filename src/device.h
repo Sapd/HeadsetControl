@@ -71,7 +71,21 @@ enum battery_status {
     BATTERY_UNAVAILABLE = 65534,
     BATTERY_CHARGING    = 65535,
     BATTERY_AVAILABLE   = 65500,
+    BATTERY_HIDERROR,
+    BATTERY_TIMEOUT,
 };
+
+enum microphone_status {
+    MICROPHONE_UNKNOWN = 0,
+    MICROPHONE_UP,
+};
+
+typedef struct {
+    int level;
+    enum battery_status status;
+    // Often in battery status reports, the microphone status is also included
+    enum microphone_status microphone_status;
+} BatteryInfo;
 
 enum headsetcontrol_errors {
     HSC_ERROR         = -100,
@@ -91,6 +105,8 @@ typedef struct {
     FeatureStatus status;
     /// Can hold battery level, error codes, or special status codes
     int value;
+    /// Status depending on the feature (not used by all)
+    int status2;
     /// For error messages, "Charging", "Unavailable", etc. Should be free()d after use
     char* message;
 } FeatureResult;
@@ -163,7 +179,7 @@ struct device {
      *              BATTERY_LOADING when the battery is currently being loaded
      *              -1              HIDAPI error
      */
-    int (*request_battery)(hid_device* hid_device);
+    BatteryInfo (*request_battery)(hid_device* hid_device);
 
     /** @brief Function pointer for sending a notification sound to the headset
      *
