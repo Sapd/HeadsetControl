@@ -423,13 +423,13 @@ void print_help(char* programname, struct device* device_found, bool _show_all)
     if (show_rotate_to_mute || show_microphone_mute_led_brightness || show_microphone_volume) {
         printf("Microphone:\n");
         if (show_rotate_to_mute) {
-            printf("  -r, --rotate-to-mute [0|1]\t\tToggle rotate to mute (0 = off, 1 = on)\n");
+            printf("  -r, --rotate-to-mute [0|1]\t\t\tToggle rotate to mute (0 = off, 1 = on)\n");
         }
         if (show_microphone_mute_led_brightness) {
             printf("  --microphone-mute-led-brightness NUMBER\tSet mic mute LED brightness (0-3)\n");
         }
         if (show_microphone_volume) {
-            printf("  --microphone-volume NUMBER\t\tSet microphone volume (0-128)\n");
+            printf("  --microphone-volume NUMBER\t\t\tSet microphone volume (0-128)\n");
         }
         printf("\n");
     }
@@ -451,11 +451,16 @@ void print_help(char* programname, struct device* device_found, bool _show_all)
         printf("\n");
     }
 
-    printf("Examples:\n");
-    printf("  %s -b\t\tCheck the battery level\n", programname);
-    printf("  %s -s 64\tSet sidetone level to 64\n", programname);
-    printf("  %s -l 1 -v 1\tTurn on lights and voice prompts\n", programname);
-    printf("\n");
+    if (show_all || has_capability(device_found->capabilities, CAP_SIDETONE) || has_capability(device_found->capabilities, CAP_BATTERY_STATUS)) {
+        printf("Examples:\n");
+        if (has_capability(device_found->capabilities, CAP_BATTERY_STATUS))
+            printf("  %s -b\t\tCheck the battery level\n", programname);
+        if (has_capability(device_found->capabilities, CAP_SIDETONE))
+            printf("  %s -s 64\tSet sidetone level to 64\n", programname);
+        if (has_capability(device_found->capabilities, CAP_LIGHTS) && has_capability(device_found->capabilities, CAP_SIDETONE))
+            printf("  %s -l 1 -s 0\tTurn on lights and deactivate sidetone\n", programname);
+        printf("\n");
+    }
 
     if (!show_all && device_found)
         printf("\nHint:\tOptions were filtered to your device (%s)\n\tUse --help-all to show all options (including advanced ones)\n", device_found->device_name);
@@ -500,9 +505,6 @@ int main(int argc, char* argv[])
 
     OutputType output_format = OUTPUT_STANDARD;
     int test_device          = 0;
-
-    // Init all information of supported devices
-    init_devices();
 
 #define BUFFERLENGTH 1024
     float* read_buffer = calloc(BUFFERLENGTH, sizeof(float));
@@ -664,7 +666,12 @@ int main(int argc, char* argv[])
             }
             break;
         case '?':
-            print_capabilities = 1;
+            if (optopt == '?' || optopt == 0) {
+                print_capabilities = 1;
+            } else {
+                // User issued an invalid option (stdlib will make an error message automatically)
+                return 1;
+            }
             break;
         case 'h':
             should_print_help = 1;
@@ -720,6 +727,9 @@ int main(int argc, char* argv[])
             return 1;
         }
     }
+
+    // Init all information of supported devices
+    init_devices();
 
     free(read_buffer);
 
