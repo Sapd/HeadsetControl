@@ -447,6 +447,7 @@ void print_help(char* programname, struct device* device_found, bool _show_all)
         printf("  --readme-helper\t\tOutput table of device features for README.md\n");
         printf("  --test-device [profile]\tUse a built-in test device instead of a real one\n");
         printf("                         \t profile is an optional number for different tests\n");
+        printf("  --connected\t\t\tCheck if device connected (for scripting purposes)\n");
         printf("  -o, --output FORMAT\t\tOutput format (JSON, YAML, ENV, STANDARD)\n");
         printf("\n");
     }
@@ -490,6 +491,7 @@ int main(int argc, char* argv[])
     int sidetone_loudness                = -1;
     int request_battery                  = 0;
     int request_chatmix                  = 0;
+    int request_connected                = 0;
     int notification_sound               = -1;
     int lights                           = -1;
     int inactive_time                    = -1;
@@ -513,6 +515,7 @@ int main(int argc, char* argv[])
         { "battery", no_argument, NULL, 'b' },
         { "capabilities", no_argument, NULL, '?' },
         { "chatmix", no_argument, NULL, 'm' },
+        { "connected", no_argument, NULL, 0 },
         { "dev", no_argument, NULL, 0 },
         { "help", no_argument, NULL, 'h' },
         { "help-all", no_argument, NULL, 0 },
@@ -704,6 +707,9 @@ int main(int argc, char* argv[])
                     return 1;
                 }
                 // fall through
+            } else if (strcmp(opts[option_index].name, "connected") == 0) {
+                request_connected = 1;
+                break;
             } else if (strcmp(opts[option_index].name, "test-device") == 0) {
                 test_device = 1;
 
@@ -800,6 +806,40 @@ int main(int argc, char* argv[])
         }
     }
 
+    if (request_connected) {
+        if (test_device) {
+            printf("true\n");
+            return 0;
+        }
+
+        // Check if battery status can be read
+        // If it isn't supported, the device is
+        // probably wired meaning it is connected
+        int battery_error = 0;
+
+        if ((device_found.capabilities & B(CAP_BATTERY_STATUS)) == B(CAP_BATTERY_STATUS)) {
+            device_handle = dynamic_connect(&hid_path, device_handle, &device_found, CAP_BATTERY_STATUS);
+            if (!device_handle | !(device_handle))
+                return 1;
+
+            BatteryInfo info = device_found.request_battery(device_handle);
+
+            if (info.status != BATTERY_AVAILABLE) {
+                battery_error = 1;
+            }
+        }
+
+        terminate_hid(&device_handle, &hid_path);
+
+        if (battery_error != 0) {
+            printf("false\n");
+            return 1;
+        } else {
+            printf("true\n");
+            return 0;
+        }
+    }
+
     do {
         for (int i = 0; i < numFeatures; i++) {
             if (featureRequests[i].should_process) {
@@ -823,6 +863,7 @@ int main(int argc, char* argv[])
 
         if (follow)
             sleep(follow_sec);
+
     } while (follow);
 
     // Free memory from features
