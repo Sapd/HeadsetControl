@@ -109,7 +109,7 @@ static BatteryInfo calphaw_request_battery(hid_device* device_handle)
 
     if (calphaw_request_charge(device_handle) == 1) {
         info.status = BATTERY_CHARGING;
-        info.level = -1;
+        info.level  = -1;
         return info;
     }
 

@@ -158,8 +158,8 @@ void initializeHeadsetInfo(HeadsetInfo* info, struct device* device)
     for (int i = 0; i < NUM_CAPABILITIES; i++) {
         if (device->capabilities & B(i)) { // Check if the ith capability is supported
             info->capabilities_enum[info->capabilities_amount] = i;
-            info->capabilities[info->capabilities_amount]     = capabilities_str_enum[i];
-            info->capabilities_str[info->capabilities_amount] = capabilities_str[i];
+            info->capabilities[info->capabilities_amount]      = capabilities_str_enum[i];
+            info->capabilities_str[info->capabilities_amount]  = capabilities_str[i];
             info->capabilities_amount++;
         }
     }
