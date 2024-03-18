@@ -68,17 +68,17 @@ static void addError(HeadsetInfo* info, const char* source, const char* message)
  * @brief Adds an action to the HeadsetInfo struct
  *
  * @param info Headsetinfo struct
- * @param capbability Capability as enum
+ * @param capability Capability as enum
  * @param device Device name as string
  * @param status Status of the action
  * @param value Value of the action (not used currently)
  * @param error_message Error message if existing or NULL
  */
-static void addAction(HeadsetInfo* info, enum capabilities capbability, const char* device, Status status, int value, const char* error_message)
+static void addAction(HeadsetInfo* info, enum capabilities capability, const char* device, Status status, int value, const char* error_message)
 {
     if (info->action_count < MAX_ACTIONS) {
-        info->actions[info->action_count].capability     = capabilities_str_enum[capbability];
-        info->actions[info->action_count].capability_str = capabilities_str[capbability];
+        info->actions[info->action_count].capability     = capabilities_str_enum[capability];
+        info->actions[info->action_count].capability_str = capabilities_str[capability];
         info->actions[info->action_count].device         = strdup(device);
         info->actions[info->action_count].status         = status;
         info->actions[info->action_count].value          = 0; // currently not used
@@ -157,6 +157,7 @@ void initializeHeadsetInfo(HeadsetInfo* info, struct device* device)
 
     for (int i = 0; i < NUM_CAPABILITIES; i++) {
         if (device->capabilities & B(i)) { // Check if the ith capability is supported
+            info->capabilities_enum[info->capabilities_amount] = i;
             info->capabilities[info->capabilities_amount]     = capabilities_str_enum[i];
             info->capabilities_str[info->capabilities_amount] = capabilities_str[i];
             info->capabilities_amount++;
@@ -637,7 +638,7 @@ void output_standard(HeadsetControlStatus* status, HeadsetInfo* infos, bool prin
         if (print_capabilities) {
             printf("Capabilities:\n");
             for (int j = 0; j < info->capabilities_amount; j++) {
-                printf("* %s\n", capabilities_str[j]);
+                printf("* %s\n", info->capabilities_str[j]);
             }
 
             outputted = true;
@@ -707,7 +708,7 @@ void output_short(HeadsetControlStatus* status, HeadsetInfo* info, bool print_ca
 
         if (print_capabilities) {
             for (int j = 0; j < info->capabilities_amount; j++) {
-                printf("%c", capabilities_str_short[i]);
+                printf("%c", capabilities_str_short[info->capabilities_enum[j]]);
             }
 
             continue;

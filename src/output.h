@@ -61,6 +61,7 @@ typedef struct {
     char* device_name;
     wchar_t* vendor_name;
     wchar_t* product_name;
+    enum capabilities capabilities_enum[NUM_CAPABILITIES];
     const char* capabilities[NUM_CAPABILITIES];
     const char* capabilities_str[NUM_CAPABILITIES];
     int capabilities_amount;
