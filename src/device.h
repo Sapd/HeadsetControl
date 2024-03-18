@@ -68,9 +68,9 @@ struct capability_detail {
 /** @brief Flags for battery status
  */
 enum battery_status {
-    BATTERY_UNAVAILABLE = 65534,
-    BATTERY_CHARGING    = 65535,
-    BATTERY_AVAILABLE   = 65500,
+    BATTERY_UNAVAILABLE,
+    BATTERY_CHARGING,
+    BATTERY_AVAILABLE,
     BATTERY_HIDERROR,
     BATTERY_TIMEOUT,
 };
