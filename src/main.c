@@ -488,6 +488,7 @@ int main(int argc, char* argv[])
 
     int should_print_help                = 0;
     int should_print_help_all            = 0;
+    int print_udev_rules                 = 0;
     int sidetone_loudness                = -1;
     int request_battery                  = 0;
     int request_chatmix                  = 0;
@@ -658,9 +659,8 @@ int main(int argc, char* argv[])
             }
             break;
         case 'u':
-            fprintf(stderr, "Generating udev rules..\n\n");
-            print_udevrules();
-            return 0;
+            print_udev_rules = 1;
+            break;
         case 'v':
             voice_prompts = strtol(optarg, &endptr, 10);
             if (*endptr != '\0' || endptr == optarg || voice_prompts < 0 || voice_prompts > 1) {
@@ -735,9 +735,16 @@ int main(int argc, char* argv[])
     }
 
     // Init all information of supported devices
+    // Below getopt_long so that the testdevice has a chance to adjust parameters
     init_devices();
 
     free(read_buffer);
+
+    if (print_udev_rules == 1) {
+        fprintf(stderr, "Generating udev rules..\n\n");
+        print_udevrules();
+        return 0;
+    }
 
     if (dev_mode) {
         // use +1 to make sure the first parameter is some previous argument (which normally would be the name of the program)
