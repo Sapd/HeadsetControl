@@ -28,8 +28,8 @@ extern int test_profile;
 
 void headsetcontrol_test_init(struct device** device)
 {
-    if (test_profile < 0 || test_profile > 6) {
-        printf("test_profile must be between 0 and 5\n");
+    if (test_profile < 0 || test_profile > 10) {
+        printf("test_profile must be between 0 and 10\n");
         abort();
     }
 
@@ -42,7 +42,7 @@ void headsetcontrol_test_init(struct device** device)
     wcsncpy(device_headsetcontrol_test.device_hid_vendorname, L"HeadsetControl", sizeof(device_headsetcontrol_test.device_hid_vendorname) / sizeof(device_headsetcontrol_test.device_hid_vendorname[0]));
     wcsncpy(device_headsetcontrol_test.device_hid_productname, L"Test device", sizeof(device_headsetcontrol_test.device_hid_productname) / sizeof(device_headsetcontrol_test.device_hid_productname[0]));
 
-    if (test_profile != 2) {
+    if (test_profile != 10) {
         device_headsetcontrol_test.capabilities = B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_NOTIFICATION_SOUND) | B(CAP_LIGHTS) | B(CAP_INACTIVE_TIME) | B(CAP_CHATMIX_STATUS) | B(CAP_VOICE_PROMPTS) | B(CAP_ROTATE_TO_MUTE) | B(CAP_EQUALIZER_PRESET) | B(CAP_EQUALIZER) | B(CAP_MICROPHONE_MUTE_LED_BRIGHTNESS) | B(CAP_MICROPHONE_VOLUME);
     } else {
         device_headsetcontrol_test.capabilities = B(CAP_SIDETONE) | B(CAP_LIGHTS) | B(CAP_BATTERY_STATUS);
@@ -83,7 +83,7 @@ static BatteryInfo headsetcontrol_test_request_battery(hid_device* device_handle
         info.level  = 42;
         break;
     case 1:
-        info.status = BATTERY_UNAVAILABLE;
+        info.status = BATTERY_HIDERROR;
         break;
     case 2:
         info.status = BATTERY_CHARGING;
@@ -94,7 +94,7 @@ static BatteryInfo headsetcontrol_test_request_battery(hid_device* device_handle
         info.level  = 64;
         break;
     case 4:
-        info.status = BATTERY_HIDERROR;
+        info.status = BATTERY_UNAVAILABLE;
         break;
     case 5:
         info.status = BATTERY_TIMEOUT;
@@ -150,6 +150,8 @@ static int headsetcontrol_test_switch_rotate_to_mute(hid_device* device_handle, 
 static int headsetcontrol_test_request_chatmix(hid_device* device_handle)
 {
     if (test_profile == 1) {
+        return -1;
+    } else if (test_profile == 2) {
         return -1;
     }
 

@@ -42,3 +42,15 @@ body:
          ```
   
         </details>
+- type: checkboxes
+  id: newdevice
+  attributes:
+    label: New Device Implementation Checklist
+    description: Implementing a new device requires specific steps and tools (like WireShark) to capture and analyze device communications. This process typically can only be done by those who have physical access to the device.
+    options:
+      - label: I acknowledge that implementing a new device requires direct access to the device and familiarity with capturing and analyzing its communications. I have access to the device and am willing to contribute by capturing necessary data and/or attempting implementation.
+        required: true
+      - label: I have already attempted to capture device communications using WireShark or similar tools and am including my findings (successful or not) with this issue to assist in implementation efforts.
+        required: false
+      - label: I am seeking guidance on how to begin this process and am willing to collaborate with the community to add support for this device. I understand where to find resources (refer to the WIKI).
+        required: false

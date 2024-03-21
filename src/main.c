@@ -454,11 +454,11 @@ void print_help(char* programname, struct device* device_found, bool _show_all)
 
     if (show_all || has_capability(device_found->capabilities, CAP_SIDETONE) || has_capability(device_found->capabilities, CAP_BATTERY_STATUS)) {
         printf("Examples:\n");
-        if (has_capability(device_found->capabilities, CAP_BATTERY_STATUS))
+        if (show_all || has_capability(device_found->capabilities, CAP_BATTERY_STATUS))
             printf("  %s -b\t\tCheck the battery level\n", programname);
-        if (has_capability(device_found->capabilities, CAP_SIDETONE))
+        if (show_all || has_capability(device_found->capabilities, CAP_SIDETONE))
             printf("  %s -s 64\tSet sidetone level to 64\n", programname);
-        if (has_capability(device_found->capabilities, CAP_LIGHTS) && has_capability(device_found->capabilities, CAP_SIDETONE))
+        if (show_all || (has_capability(device_found->capabilities, CAP_LIGHTS) && has_capability(device_found->capabilities, CAP_SIDETONE)))
             printf("  %s -l 1 -s 0\tTurn on lights and deactivate sidetone\n", programname);
         printf("\n");
     }
@@ -722,6 +722,8 @@ int main(int argc, char* argv[])
                 }
                 // fall through
             } else if (strcmp(opts[option_index].name, "readme-helper") == 0) {
+                // We need to initialize it at this point
+                init_devices();
                 print_readmetable();
                 return 0;
             } else if (strcmp(opts[option_index].name, "help-all") == 0) {

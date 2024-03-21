@@ -37,7 +37,7 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
 
 For non-supported headsets on Linux: There is a chance that you can set the sidetone via AlsaMixer
 
-&ast; *If your Corsair headset is not recognized, see [Adding a corsair device](https://github.com/Sapd/HeadsetControl/wiki/Adding-a-Corsair-device).* HS80 and HS70 wired, RGB Elite, and Virtuso is not supported, but you can change its sidetone in Alsamixer.
+&ast; *If your Corsair headset is not recognized - or you have a very similar headset to an existing one, see [Adding a corsair device](https://github.com/Sapd/HeadsetControl/wiki/Adding-a-Corsair-device).* HS80 and HS70 wired, RGB Elite, and Virtuso is not supported, but you can change its sidetone in Alsamixer.
 
 For more features or other headsets, the protocol of the respective headset must be analyzed further. This can be done by capturing the USB traffic between the device and the original Windows software and analyzing it with WireShark or USBlyzer. For that, you can also use a virtual machine with USB passthrough. The [wiki](https://github.com/Sapd/HeadsetControl/wiki/Development) provides a tutorial.
 
@@ -86,25 +86,9 @@ RHEL and CentOS also require the epel-repository.
 
     `emerge -a app-misc/headsetcontrol`
 
-#### Mac OS X
-
-Recommendation: Use [Homebrew](https://brew.sh).
-
-* To automatically compile and install the latest version:
-`brew install sapd/headsetcontrol/headsetcontrol --HEAD`
-* To manually compile, first install the dependencies:
-`brew install hidapi cmake`
-
-Note: Xcode must be downloaded via the Mac App Store for the compilers.
-
-#### Windows
-
-* Binaries are available on the [releases](https://github.com/Sapd/HeadsetControl/releases) page.
-* For compilation instructions using MSYS2/MinGW refer to the [wiki](https://github.com/Sapd/HeadsetControl/wiki/Development#windows).
-
 ### Compiling
 
-```
+```bash
 git clone https://github.com/Sapd/HeadsetControl && cd HeadsetControl
 mkdir build && cd build
 cmake ..
@@ -115,23 +99,32 @@ To make `headsetcontrol` accessible globally, run:
 
 ```bash
 sudo make install
-```
 
-This command installs the binary in a location that is globally accessible via your system's PATH.
-
-### Access Without Root (Linux only)
-
-To use the application without root privileges on Linux, udev rules are required. These can be generated with:
-
-```bash
-headsetcontrol -u
-```
-
-Running `sudo make install` will automatically generate and write these rules to /etc/udev/rules.d/. To apply the changes without rebooting, reload udev configuration:
-
-```bash
+# On LINUX, to access without root reboot your computer or run
 sudo udevadm control --reload-rules && sudo udevadm trigger
 ```
+
+This command installs the binary in a location that is globally accessible via your system's PATH. On Linux it also runs `headsetcontrol -u` for generating udev files and stores them in `/etc/udev/rules.d/` (used to allow non-root access)
+
+### OS X
+
+Recommendation: Use [Homebrew](https://brew.sh).
+
+* To automatically compile and install the latest version:
+
+```bash
+brew install sapd/headsetcontrol/headsetcontrol --HEAD
+```
+
+* To manually compile, first install the dependencies:
+`brew install hidapi cmake`
+
+Note: Xcode must be downloaded via the Mac App Store for the compilers.
+
+### Windows
+
+* Binaries are available on the [releases](https://github.com/Sapd/HeadsetControl/releases) page.
+* For compilation instructions using MSYS2/MinGW refer to the [wiki](https://github.com/Sapd/HeadsetControl/wiki/Development#windows).
 
 ## Usage
 
@@ -152,6 +145,8 @@ To use headsetcontrol in scripts or other applications, explore:
 ```bash
 headsetcontrol --output
 ```
+
+(and the wiki article about [API development](https://github.com/Sapd/HeadsetControl/wiki/API-%E2%80%90-Building-Applications-on-top-of-HeadsetControl))
 
 Note: When running the application from the current directory, prefix commands with `./`
 
