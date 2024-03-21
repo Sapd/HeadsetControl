@@ -124,7 +124,7 @@ static void print_help()
 
     printf("  --send DATA\n"
            "\tSend data to specified device\n");
-    printf("  --send-report DATA\n"
+    printf("  --send-feature DATA\n"
            "\tSend a feature report to the device. The first byte is the reportid\n");
     printf("  --sleep microsecounds\n"
            "\tSleep for x microsecounds after sending\n");
@@ -132,8 +132,8 @@ static void print_help()
            "\tTry to receive data from device. Can be combined with --timeout\n");
     printf("  --timeout\n"
            "\t--timeout in millisecounds for --receive\n");
-    printf("  --receive-report [REPORTID]\n"
-           "\tTry to receive a report for REPORTID. 0 is the default id\n");
+    printf("  --receive-feature REPORTID\n"
+           "\tTry to receive a report for REPORTID.\n");
     printf("\n");
 
     printf("  --dev-help\n"
@@ -168,7 +168,7 @@ int dev_main(int argc, char* argv[])
     int receive       = 0;
     int receivereport = 0;
 
-    int timeout = 0;
+    int timeout = -1;
 
     int print_deviceinfo = 0;
 
@@ -188,7 +188,7 @@ int dev_main(int argc, char* argv[])
         { "send-feature", required_argument, NULL, 'f' },
         { "sleep", required_argument, NULL, 'm' },
         { "receive", no_argument, NULL, 'r' },
-        { "receive-feature", optional_argument, NULL, 'g' },
+        { "receive-feature", required_argument, NULL, 'g' },
         { "timeout", required_argument, NULL, 't' },
         { "dev-help", no_argument, NULL, 'h' },
         { 0, 0, 0, 0 }
@@ -199,7 +199,7 @@ int dev_main(int argc, char* argv[])
     optind = 1; // getopt_long requires resetting this variable, we already used it in main()
 
     int c;
-    while ((c = getopt_long(argc, argv, "d:i:lu:s:m:f:rgth", opts, &option_index)) != -1) {
+    while ((c = getopt_long(argc, argv, "d:i:lu:s:m:f:rg:th", opts, &option_index)) != -1) {
         switch (c) {
         case 'd': { // --device vendorid:productid
             int ret = get_two_ids(optarg, &vendorid, &productid);
@@ -289,7 +289,7 @@ int dev_main(int argc, char* argv[])
         }
         case 'g': { // --receive-feature [reportid]
             int reportid = 0;
-            reportid     = strtol(optarg, NULL, 0);
+            reportid     = strtol(optarg, NULL, 10);
 
             if (reportid > 255 || reportid < 0) {
                 fprintf(stderr, "The reportid for --receive-feature must be smaller than 255\n");
@@ -304,8 +304,8 @@ int dev_main(int argc, char* argv[])
         case 't': { // --timeout timeout
             timeout = strtol(optarg, NULL, 10);
 
-            if (timeout < 0) {
-                fprintf(stderr, "--timeout cannot be smaller than 0\n");
+            if (timeout < -1) {
+                fprintf(stderr, "--timeout cannot be smaller than -1\n");
                 return 1;
             }
             break;

@@ -30,7 +30,7 @@ static struct device device_cflight;
 
 static const uint16_t PRODUCT_IDS[] = { ID_CFLIGHT_OLD, ID_CFLIGHT_NEW };
 
-static int cflight_request_battery(hid_device* device_handle);
+static BatteryInfo cflight_request_battery(hid_device* device_handle);
 
 void cflight_init(struct device** device)
 {
@@ -56,7 +56,7 @@ static float estimate_battery_level(uint16_t voltage)
     return (float)(0.00000002547505 * pow(voltage, 4) - 0.0003900299 * pow(voltage, 3) + 2.238321 * pow(voltage, 2) - 5706.256 * voltage + 5452299);
 }
 
-static int cflight_request_battery(hid_device* device_handle)
+static BatteryInfo cflight_request_battery(hid_device* device_handle)
 {
     int r = 0;
     // request battery voltage
@@ -65,16 +65,21 @@ static int cflight_request_battery(hid_device* device_handle)
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
     r = hid_write(device_handle, data_request, sizeof(data_request) / sizeof(data_request[0]));
-    if (r < 0)
-        return r;
+    if (r < 0) {
+        BatteryInfo info = { .status = BATTERY_HIDERROR, .level = -1 };
+        return info;
+    }
 
     uint8_t data_read[20];
     r = hid_read_timeout(device_handle, data_read, 20, TIMEOUT);
-    if (r < 0)
-        return r;
-    if (r == 0) // timeout
-        return HSC_ERROR;
-
+    if (r < 0) {
+        BatteryInfo info = { .status = BATTERY_HIDERROR, .level = -1 };
+        return info;
+    }
+    if (r == 0) { // timeout
+        BatteryInfo info = { .status = BATTERY_TIMEOUT, .level = -1 };
+        return info;
+    }
     if (r == 0xf || r == 0x14) {
 
 #ifdef DEBUG
@@ -88,13 +93,17 @@ static int cflight_request_battery(hid_device* device_handle)
         printf("batteryVoltage: %d mV\n", batteryVoltage);
 #endif
 
-        if (batteryVoltage > 0x100B)
-            return BATTERY_CHARGING;
+        if (batteryVoltage > 0x100B) {
+            BatteryInfo info = { .status = BATTERY_CHARGING, .level = -1 };
+            return info;
+        }
 
-        return (int)(roundf(estimate_battery_level(batteryVoltage)));
+        BatteryInfo info = { .status = BATTERY_AVAILABLE, .level = (int)(roundf(estimate_battery_level((uint16_t)batteryVoltage))) };
+        return info;
     }
 
     // we've read other functionality here (other read length)
     // which is currently not supported
-    return HSC_ERROR;
+    BatteryInfo info = { .status = BATTERY_UNAVAILABLE, .level = -1 };
+    return info;
 }

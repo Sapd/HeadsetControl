@@ -14,7 +14,7 @@ static struct device device_arctis;
 static const uint16_t PRODUCT_IDS[] = { ID_ARCTIS_7, ID_ARCTIS_7_2019, ID_ARCTIS_PRO_2019, ID_ARCTIS_PRO_GAMEDAC };
 
 static int arctis_7_send_sidetone(hid_device* device_handle, uint8_t num);
-static int arctis_7_request_battery(hid_device* device_handle);
+static BatteryInfo arctis_7_request_battery(hid_device* device_handle);
 static int arctis_7_send_inactive_time(hid_device* device_handle, uint8_t num);
 static int arctis_7_request_chatmix(hid_device* device_handle);
 static int arctis_7_switch_lights(hid_device* device_handle, uint8_t on);
@@ -79,36 +79,47 @@ static int arctis_7_send_sidetone(hid_device* device_handle, uint8_t num)
     return ret;
 }
 
-static int arctis_7_request_battery(hid_device* device_handle)
+static BatteryInfo arctis_7_request_battery(hid_device* device_handle)
 {
-
     int r = 0;
+
+    BatteryInfo info = { .status = BATTERY_UNAVAILABLE, .level = -1 };
 
     // request battery status
     unsigned char data_request[2] = { 0x06, 0x18 };
 
     r = hid_write(device_handle, data_request, 2);
 
-    if (r < 0)
-        return r;
+    if (r < 0) {
+        info.status = BATTERY_HIDERROR;
+        return info;
+    }
 
     // read battery status
     unsigned char data_read[8];
 
     r = hid_read_timeout(device_handle, data_read, 8, hsc_device_timeout);
 
-    if (r < 0)
-        return r;
+    if (r < 0) {
+        info.status = BATTERY_HIDERROR;
+        return info;
+    }
 
-    if (r == 0)
-        return HSC_READ_TIMEOUT;
+    if (r == 0) {
+        info.status = BATTERY_TIMEOUT;
+        return info;
+    }
 
     int bat = data_read[2];
 
-    if (bat > 100)
-        return 100;
+    info.status = BATTERY_AVAILABLE;
 
-    return bat;
+    if (bat > 100)
+        info.level = 100;
+    else
+        info.level = bat;
+
+    return info;
 }
 
 static int arctis_7_send_inactive_time(hid_device* device_handle, uint8_t num)

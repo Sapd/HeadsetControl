@@ -64,7 +64,7 @@ static const int battery_estimate_voltages[]    = { 4175, 3817, 3766, 3730, 3664
 static const size_t battery_estimate_size       = 6;
 
 static int g535_send_sidetone(hid_device* device_handle, uint8_t num);
-static int g535_request_battery(hid_device* device_handle);
+static BatteryInfo g535_request_battery(hid_device* device_handle);
 static int g535_send_inactive_time(hid_device* device_handle, uint8_t num);
 
 void g535_init(struct device** device)
@@ -123,42 +123,50 @@ static int g535_send_sidetone(hid_device* device_handle, uint8_t num)
 }
 
 // inspired by logitech_g533.c
-static int g535_request_battery(hid_device* device_handle)
+static BatteryInfo g535_request_battery(hid_device* device_handle)
 {
     int ret = 0;
+
+    BatteryInfo info = { .status = BATTERY_UNAVAILABLE, .level = -1 };
 
     // request battery voltage
     uint8_t buf[HIDPP_LONG_MESSAGE_LENGTH] = { HIDPP_LONG_MESSAGE, HIDPP_DEVICE_RECEIVER, 0x05, 0x0d, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
     ret = hid_send_feature_report(device_handle, buf, sizeof(buf) / sizeof(buf[0]));
     if (ret < 0) {
-        return ret;
+        info.status = BATTERY_HIDERROR;
+        return info;
     }
 
     ret = hid_read_timeout(device_handle, buf, HIDPP_LONG_MESSAGE_LENGTH, hsc_device_timeout);
     if (ret < 0) {
-        return ret;
+        info.status = BATTERY_HIDERROR;
+        return info;
     }
 
     if (ret == 0) {
-        return HSC_READ_TIMEOUT;
+        info.status = BATTERY_TIMEOUT;
+        return info;
     }
 
     // Headset offline
     if (buf[2] == 0xFF) {
-        return BATTERY_UNAVAILABLE;
+        return info;
     }
 
     // 7th byte is state; 0x01 for idle, 0x03 for charging
     uint8_t state = buf[6];
     if (state == 0x03) {
-        return BATTERY_CHARGING;
+        info.status = BATTERY_CHARGING;
+    } else {
+        info.status = BATTERY_AVAILABLE;
     }
 
     // actual voltage is byte 4 and byte 5 combined together
     const uint16_t voltage = (buf[4] << 8) | buf[5];
 
-    return spline_battery_level(battery_estimate_percentages, battery_estimate_voltages, battery_estimate_size, voltage);
+    info.level = spline_battery_level(battery_estimate_percentages, battery_estimate_voltages, battery_estimate_size, voltage);
+    return info;
 }
 
 static int g535_send_inactive_time(hid_device* device_handle, uint8_t num)

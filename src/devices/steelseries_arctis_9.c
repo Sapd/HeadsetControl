@@ -18,7 +18,7 @@ static struct device device_arctis;
 static const uint16_t PRODUCT_IDS[] = { ID_ARCTIS_9 };
 
 static int arctis_9_send_sidetone(hid_device* device_handle, uint8_t num);
-static int arctis_9_request_battery(hid_device* device_handle);
+static BatteryInfo arctis_9_request_battery(hid_device* device_handle);
 static int arctis_9_send_inactive_time(hid_device* device_handle, uint8_t num);
 static int arctis_9_request_chatmix(hid_device* device_handle);
 
@@ -80,27 +80,37 @@ static int arctis_9_send_sidetone(hid_device* device_handle, uint8_t num)
     return ret;
 }
 
-static int arctis_9_request_battery(hid_device* device_handle)
+static BatteryInfo arctis_9_request_battery(hid_device* device_handle)
 {
     // read device info
     unsigned char data_read[12];
     int r = arctis_9_read_device_status(device_handle, data_read);
 
-    if (r < 0)
-        return r;
+    BatteryInfo info = { .status = BATTERY_UNAVAILABLE, .level = -1 };
 
-    if (r == 0)
-        return HSC_READ_TIMEOUT;
+    if (r < 0) {
+        info.status = BATTERY_HIDERROR;
+        return info;
+    }
+
+    if (r == 0) {
+        info.status = BATTERY_TIMEOUT;
+        return info;
+    }
 
     if (data_read[4] == 0x01)
-        return BATTERY_CHARGING;
+        info.status = BATTERY_CHARGING;
+    else
+        info.status = BATTERY_AVAILABLE;
 
     int bat = data_read[3];
 
     if (bat > BATTERY_MAX)
-        return 100;
+        info.level = 100;
+    else
+        info.level = map(bat, BATTERY_MIN, BATTERY_MAX, 0, 100);
 
-    return map(bat, BATTERY_MIN, BATTERY_MAX, 0, 100);
+    return info;
 }
 
 static int arctis_9_send_inactive_time(hid_device* device_handle, uint8_t num)

@@ -16,7 +16,7 @@ static struct device device_arctis;
 static const uint16_t PRODUCT_IDS[] = { ID_ARCTIS_1, ID_ARCTIS_1_XBOX, ID_ARCTIS_7X };
 
 static int arctis_1_send_sidetone(hid_device* device_handle, uint8_t num);
-static int arctis_1_request_battery(hid_device* device_handle);
+static BatteryInfo arctis_1_request_battery(hid_device* device_handle);
 static int arctis_1_send_inactive_time(hid_device* device_handle, uint8_t num);
 
 static int arctis_1_save_state(hid_device* device_handle);
@@ -73,38 +73,50 @@ static int arctis_1_send_sidetone(hid_device* device_handle, uint8_t num)
     return ret;
 }
 
-static int arctis_1_request_battery(hid_device* device_handle)
+static BatteryInfo arctis_1_request_battery(hid_device* device_handle)
 {
     int r = 0;
+
+    BatteryInfo info = { .status = BATTERY_UNAVAILABLE, .level = -1 };
 
     // request battery status
     unsigned char data_request[2] = { 0x06, 0x12 };
 
     r = hid_write(device_handle, data_request, 2);
 
-    if (r < 0)
-        return r;
+    if (r < 0) {
+        info.status = BATTERY_HIDERROR;
+        return info;
+    }
 
     // read battery status
     unsigned char data_read[8];
 
     r = hid_read_timeout(device_handle, data_read, 8, hsc_device_timeout);
 
-    if (r < 0)
-        return r;
+    if (r < 0) {
+        info.status = BATTERY_HIDERROR;
+        return info;
+    }
 
-    if (r == 0)
-        return HSC_READ_TIMEOUT;
+    if (r == 0) {
+        info.status = BATTERY_TIMEOUT;
+        return info;
+    }
 
     if (data_read[2] == 0x01)
-        return BATTERY_UNAVAILABLE;
+        return info;
 
     int bat = data_read[3];
 
-    if (bat > 100)
-        return 100;
+    info.status = BATTERY_AVAILABLE;
 
-    return bat;
+    if (bat > 100)
+        info.level = 100;
+    else
+        info.level = bat;
+
+    return info;
 }
 
 static int arctis_1_send_inactive_time(hid_device* device_handle, uint8_t num)

@@ -32,7 +32,7 @@ static int arctis_7_plus_send_sidetone(hid_device* device_handle, uint8_t num);
 static int arctis_7_plus_send_inactive_time(hid_device* device_handle, uint8_t num);
 static int arctis_7_plus_send_equalizer_preset(hid_device* device_handle, uint8_t num);
 static int arctis_7_plus_send_equalizer(hid_device* device_handle, struct equalizer_settings* settings);
-static int arctis_7_plus_request_battery(hid_device* device_handle);
+static BatteryInfo arctis_7_plus_request_battery(hid_device* device_handle);
 static int arctis_7_plus_request_chatmix(hid_device* device_handle);
 
 int arctis_7_plus_read_device_status(hid_device* device_handle, unsigned char* data_read);
@@ -94,30 +94,39 @@ static int arctis_7_plus_send_inactive_time(hid_device* device_handle, uint8_t n
     return hid_write(device_handle, data, MSG_SIZE);
 }
 
-static int arctis_7_plus_request_battery(hid_device* device_handle)
+static BatteryInfo arctis_7_plus_request_battery(hid_device* device_handle)
 {
     // read device info
     unsigned char data_read[STATUS_BUF_SIZE];
     int r = arctis_7_plus_read_device_status(device_handle, data_read);
 
-    if (r < 0)
-        return r;
+    BatteryInfo info = { .status = BATTERY_UNAVAILABLE, .level = -1 };
 
-    if (r == 0)
-        return HSC_READ_TIMEOUT;
+    if (r < 0) {
+        info.status = BATTERY_HIDERROR;
+        return info;
+    }
+
+    if (r == 0) {
+        info.status = BATTERY_TIMEOUT;
+        return info;
+    }
 
     if (data_read[1] == HEADSET_OFFLINE)
-        return BATTERY_UNAVAILABLE;
+        return info;
 
+    info.status = BATTERY_AVAILABLE;
     if (data_read[3] == 0x01)
-        return BATTERY_CHARGING;
+        info.status = BATTERY_CHARGING;
 
     int bat = data_read[2];
 
     if (bat > BATTERY_MAX)
-        return 100;
+        info.level = 100;
+    else
+        info.level = map(bat, BATTERY_MIN, BATTERY_MAX, 0, 100);
 
-    return map(bat, BATTERY_MIN, BATTERY_MAX, 0, 100);
+    return info;
 }
 
 static int arctis_7_plus_request_chatmix(hid_device* device_handle)
