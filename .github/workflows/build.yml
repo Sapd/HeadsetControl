@@ -20,7 +20,9 @@ jobs:
             triplet: x64-osx
             INSTALL_DEPS: brew install hidapi
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: lukka/get-cmake@latest
 
       - name: Install Dependencies
