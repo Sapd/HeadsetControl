@@ -76,6 +76,8 @@ static void addError(HeadsetInfo* info, const char* source, const char* message)
  */
 static void addAction(HeadsetInfo* info, enum capabilities capability, const char* device, Status status, int value, const char* error_message)
 {
+    UNUSED(value);
+
     if (info->action_count < MAX_ACTIONS) {
         info->actions[info->action_count].capability     = capabilities_str_enum[capability];
         info->actions[info->action_count].capability_str = capabilities_str[capability];
@@ -105,7 +107,13 @@ void output(DeviceList* deviceList, bool print_capabilities, OutputType output)
     int num_devices = deviceList ? deviceList->num_devices : 0;
 
     HeadsetControlStatus status = initializeStatus(num_devices);
-    HeadsetInfo* infos          = calloc(num_devices, sizeof(HeadsetInfo));
+    HeadsetInfo* infos          = NULL;
+    if (num_devices > 0) {
+        infos = calloc(num_devices, sizeof(HeadsetInfo));
+    }
+
+    // Supress static analysis warning
+    assert(infos != NULL && status.device_count > 0 || infos == NULL && status.device_count == 0);
 
     // Iterate through all devices
     for (int deviceIndex = 0; deviceIndex < num_devices; deviceIndex++) {
@@ -286,7 +294,7 @@ void output_json(HeadsetControlStatus* status, HeadsetInfo* infos)
     json_print_key_value("hidapi_version", status->hid_version, 2);
     printf(",\n");
 
-    if (infos->action_count > 0) {
+    if (infos && infos->action_count > 0) {
         printf("  \"actions\": [\n");
         for (int i = 0; i < infos->action_count; i++) {
             printf("    {\n");
@@ -454,7 +462,7 @@ void output_yaml(HeadsetControlStatus* status, HeadsetInfo* infos)
     yaml_print("api_version", status->api_version, 0);
     yaml_print("hidapi_version", status->hid_version, 0);
 
-    if (infos->action_count > 0) {
+    if (infos && infos->action_count > 0) {
         yaml_print("actions", "", 0);
 
         for (int i = 0; i < infos->action_count; i++) {
@@ -533,11 +541,11 @@ const char* env_format_key(const char* str)
 {
     static char result[128];
     int i = 0, j = 0;
-    while (str[i] != '\0' && j < sizeof(result) - 1) {
+    while (str[i] != '\0' && j < (int)(sizeof(result) - 1)) {
         if (str[i] == ' ' || str[i] == '-') {
             result[j++] = '_';
         } else {
-            result[j++] = toupper((unsigned char)str[i]);
+            result[j++] = (unsigned char)toupper((unsigned char)str[i]);
         }
         i++;
     }
@@ -552,29 +560,33 @@ void output_env(HeadsetControlStatus* status, HeadsetInfo* infos)
     env_print("HEADSETCONTROL_API_VERSION", status->api_version);
     env_print("HEADSETCONTROL_HIDAPI_VERSION", status->hid_version);
 
-    env_printint("ACTION_COUNT", infos->action_count);
-    for (int i = 0; i < infos->action_count; i++) {
-        char prefix[64];
-        sprintf(prefix, "ACTION_%d", i);
+    if (infos) {
+        env_printint("ACTION_COUNT", infos->action_count);
+        for (int i = 0; i < infos->action_count; i++) {
+            char prefix[64];
+            sprintf(prefix, "ACTION_%d", i);
 
-        char key[128];
+            char key[128];
 
-        sprintf(key, "%s_CAPABILITY", prefix);
-        env_print(key, infos->actions[i].capability);
-        sprintf(key, "%s_DEVICE", prefix);
-        env_print(key, infos->actions[i].device);
-        sprintf(key, "%s_STATUS", prefix);
-        env_print(key, status_to_string(infos->actions[i].status));
+            sprintf(key, "%s_CAPABILITY", prefix);
+            env_print(key, infos->actions[i].capability);
+            sprintf(key, "%s_DEVICE", prefix);
+            env_print(key, infos->actions[i].device);
+            sprintf(key, "%s_STATUS", prefix);
+            env_print(key, status_to_string(infos->actions[i].status));
 
-        if (infos->actions[i].value > 0) {
-            sprintf(key, "%s_VALUE", prefix);
-            env_printint(key, infos->actions[i].value);
+            if (infos->actions[i].value > 0) {
+                sprintf(key, "%s_VALUE", prefix);
+                env_printint(key, infos->actions[i].value);
+            }
+
+            if (infos->actions[i].error_message != NULL && strlen(infos->actions[i].error_message) > 0) {
+                sprintf(key, "%s_ERROR_MESSAGE", prefix);
+                env_print(key, infos->actions[i].error_message);
+            }
         }
-
-        if (infos->actions[i].error_message != NULL && strlen(infos->actions[i].error_message) > 0) {
-            sprintf(key, "%s_ERROR_MESSAGE", prefix);
-            env_print(key, infos->actions[i].error_message);
-        }
+    } else {
+        env_printint("ACTION_COUNT", 0);
     }
 
     env_printint("DEVICE_COUNT", status->device_count);

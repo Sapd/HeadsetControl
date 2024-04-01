@@ -58,9 +58,9 @@ static inline bool has_capability(int device_capabilities, enum capabilities cap
 
 struct capability_detail {
     // Usage page, only used when usageid is not 0; HID Protocol specific
-    int usagepage;
+    uint16_t usagepage;
     // Used instead of interface when not 0, and only used on Windows currently; HID Protocol specific
-    int usageid;
+    uint16_t usageid;
     /// Interface ID - zero means first enumerated interface!
     int interface;
 };
@@ -117,7 +117,6 @@ typedef struct {
     void* param;
     bool should_process;
     FeatureResult result;
-    const char* name;
 } FeatureRequest;
 
 /** @brief Defines equalizer custom setings

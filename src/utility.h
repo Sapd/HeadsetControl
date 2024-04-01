@@ -2,6 +2,9 @@
 
 #include <stdarg.h>
 
+// For unused variables
+#define UNUSED(x) (void)x;
+
 /** @brief Maps a value x from a given range to another range
  *
  *  The input x is mapped from the range in_min and in_max

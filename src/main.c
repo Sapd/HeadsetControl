@@ -216,7 +216,7 @@ static FeatureResult handle_feature(struct device* device_found, hid_device** de
 
     switch (cap) {
     case CAP_SIDETONE:
-        ret = device_found->send_sidetone(*device_handle, *(int*)param);
+        ret = device_found->send_sidetone(*device_handle, (uint8_t) * (int*)param);
         break;
 
     case CAP_BATTERY_STATUS: {
@@ -252,15 +252,15 @@ static FeatureResult handle_feature(struct device* device_found, hid_device** de
     }
 
     case CAP_NOTIFICATION_SOUND:
-        ret = device_found->notifcation_sound(*device_handle, *(int*)param);
+        ret = device_found->notifcation_sound(*device_handle, (uint8_t) * (int*)param);
         break;
 
     case CAP_LIGHTS:
-        ret = device_found->switch_lights(*device_handle, *(int*)param);
+        ret = device_found->switch_lights(*device_handle, (uint8_t) * (int*)param);
         break;
 
     case CAP_INACTIVE_TIME:
-        ret = device_found->send_inactive_time(*device_handle, *(int*)param);
+        ret = device_found->send_inactive_time(*device_handle, (uint8_t) * (int*)param);
         break;
 
     case CAP_CHATMIX_STATUS:
@@ -279,15 +279,15 @@ static FeatureResult handle_feature(struct device* device_found, hid_device** de
         return result;
 
     case CAP_VOICE_PROMPTS:
-        ret = device_found->switch_voice_prompts(*device_handle, *(int*)param);
+        ret = device_found->switch_voice_prompts(*device_handle, (uint8_t) * (int*)param);
         break;
 
     case CAP_ROTATE_TO_MUTE:
-        ret = device_found->switch_rotate_to_mute(*device_handle, *(int*)param);
+        ret = device_found->switch_rotate_to_mute(*device_handle, (uint8_t) * (int*)param);
         break;
 
     case CAP_EQUALIZER_PRESET:
-        ret = device_found->send_equalizer_preset(*device_handle, *(int*)param);
+        ret = device_found->send_equalizer_preset(*device_handle, (uint8_t) * (int*)param);
         break;
 
     case CAP_EQUALIZER:
@@ -295,15 +295,16 @@ static FeatureResult handle_feature(struct device* device_found, hid_device** de
         break;
 
     case CAP_MICROPHONE_MUTE_LED_BRIGHTNESS:
-        ret = device_found->send_microphone_mute_led_brightness(*device_handle, *(int*)param);
+        ret = device_found->send_microphone_mute_led_brightness(*device_handle, (uint8_t) * (int*)param);
         break;
 
     case CAP_MICROPHONE_VOLUME:
-        ret = device_found->send_microphone_volume(*device_handle, *(int*)param);
+        ret = device_found->send_microphone_volume(*device_handle, (uint8_t) * (int*)param);
         break;
 
     case NUM_CAPABILITIES:
         ret = -99; // silence warning
+        UNUSED(ret);
 
         assert(0);
         break;
@@ -472,6 +473,7 @@ volatile sig_atomic_t follow = false;
 
 void interruptHandler(int signal_number)
 {
+    UNUSED(signal_number);
     follow = false;
 }
 
@@ -673,6 +675,7 @@ int main(int argc, char* argv[])
                 print_capabilities = 1;
             } else {
                 // User issued an invalid option (stdlib will make an error message automatically)
+                free(read_buffer);
                 return 1;
             }
             break;
@@ -732,6 +735,7 @@ int main(int argc, char* argv[])
             break;
         default:
             fprintf(stderr, "Invalid argument %c\n", c);
+            free(read_buffer);
             return 1;
         }
     }
@@ -788,18 +792,18 @@ int main(int argc, char* argv[])
 #endif
 
     FeatureRequest featureRequests[] = {
-        { CAP_SIDETONE, CAPABILITYTYPE_ACTION, &sidetone_loudness, sidetone_loudness != -1 },
-        { CAP_LIGHTS, CAPABILITYTYPE_ACTION, &lights, lights != -1 },
-        { CAP_NOTIFICATION_SOUND, CAPABILITYTYPE_ACTION, &notification_sound, notification_sound != -1 },
-        { CAP_BATTERY_STATUS, CAPABILITYTYPE_INFO, &request_battery, request_battery == 1 },
-        { CAP_INACTIVE_TIME, CAPABILITYTYPE_ACTION, &inactive_time, inactive_time != -1 },
-        { CAP_CHATMIX_STATUS, CAPABILITYTYPE_INFO, &request_chatmix, request_chatmix == 1 },
-        { CAP_VOICE_PROMPTS, CAPABILITYTYPE_ACTION, &voice_prompts, voice_prompts != -1 },
-        { CAP_ROTATE_TO_MUTE, CAPABILITYTYPE_ACTION, &rotate_to_mute, rotate_to_mute != -1 },
-        { CAP_EQUALIZER_PRESET, CAPABILITYTYPE_ACTION, &equalizer_preset, equalizer_preset != -1 },
-        { CAP_MICROPHONE_MUTE_LED_BRIGHTNESS, CAPABILITYTYPE_ACTION, &microphone_mute_led_brightness, microphone_mute_led_brightness != -1 },
-        { CAP_MICROPHONE_VOLUME, CAPABILITYTYPE_ACTION, &microphone_volume, microphone_volume != -1 },
-        { CAP_EQUALIZER, CAPABILITYTYPE_ACTION, equalizer, equalizer != NULL },
+        { CAP_SIDETONE, CAPABILITYTYPE_ACTION, &sidetone_loudness, sidetone_loudness != -1, {} },
+        { CAP_LIGHTS, CAPABILITYTYPE_ACTION, &lights, lights != -1, {} },
+        { CAP_NOTIFICATION_SOUND, CAPABILITYTYPE_ACTION, &notification_sound, notification_sound != -1, {} },
+        { CAP_BATTERY_STATUS, CAPABILITYTYPE_INFO, &request_battery, request_battery == 1, {} },
+        { CAP_INACTIVE_TIME, CAPABILITYTYPE_ACTION, &inactive_time, inactive_time != -1, {} },
+        { CAP_CHATMIX_STATUS, CAPABILITYTYPE_INFO, &request_chatmix, request_chatmix == 1, {} },
+        { CAP_VOICE_PROMPTS, CAPABILITYTYPE_ACTION, &voice_prompts, voice_prompts != -1, {} },
+        { CAP_ROTATE_TO_MUTE, CAPABILITYTYPE_ACTION, &rotate_to_mute, rotate_to_mute != -1, {} },
+        { CAP_EQUALIZER_PRESET, CAPABILITYTYPE_ACTION, &equalizer_preset, equalizer_preset != -1, {} },
+        { CAP_MICROPHONE_MUTE_LED_BRIGHTNESS, CAPABILITYTYPE_ACTION, &microphone_mute_led_brightness, microphone_mute_led_brightness != -1, {} },
+        { CAP_MICROPHONE_VOLUME, CAPABILITYTYPE_ACTION, &microphone_volume, microphone_volume != -1, {} },
+        { CAP_EQUALIZER, CAPABILITYTYPE_ACTION, equalizer, equalizer != NULL, {} },
     };
     int numFeatures = sizeof(featureRequests) / sizeof(featureRequests[0]);
     assert(numFeatures == NUM_CAPABILITIES);
@@ -828,7 +832,7 @@ int main(int argc, char* argv[])
 
         if ((device_found.capabilities & B(CAP_BATTERY_STATUS)) == B(CAP_BATTERY_STATUS)) {
             device_handle = dynamic_connect(&hid_path, device_handle, &device_found, CAP_BATTERY_STATUS);
-            if (!device_handle | !(device_handle))
+            if (!device_handle)
                 return 1;
 
             BatteryInfo info = device_found.request_battery(device_handle);
