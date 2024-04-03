@@ -86,6 +86,22 @@ RHEL and CentOS also require the epel-repository.
 
     `emerge -a app-misc/headsetcontrol`
 
+#### NixOS
+
+`headsetcontrol` is included in nixpkgs. To use it without installing, use:
+
+`nix run nixpkgs#headsetcontrol`
+
+To install it globally, add the following to your `configuration.nix`:
+```nix
+environment.systemPackages = [ pkgs.headsetcontrol ];
+```
+
+For the udev rules, add the following to your `configuration.nix`:
+```nix
+services.udev.packages = [ pkgs.headsetcontrol ];
+```
+
 ### Compiling
 
 ```bash
