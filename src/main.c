@@ -303,6 +303,7 @@ static FeatureResult handle_feature(struct device* device_found, hid_device** de
         break;
 
     case NUM_CAPABILITIES:
+    default:
         ret = -99; // silence warning
         UNUSED(ret);
 
