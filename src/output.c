@@ -155,8 +155,8 @@ HeadsetControlStatus initializeStatus(int num_devices)
 void initializeHeadsetInfo(HeadsetInfo* info, struct device* device)
 {
     info->status = STATUS_SUCCESS;
-    asprintf(&info->idVendor, "0x%04x", device->idVendor);
-    asprintf(&info->idProduct, "0x%04x", device->idProduct);
+    _asprintf(&info->idVendor, "0x%04x", device->idVendor);
+    _asprintf(&info->idProduct, "0x%04x", device->idProduct);
     info->device_name  = device->device_name;
     info->vendor_name  = device->device_hid_vendorname;
     info->product_name = device->device_hid_productname;

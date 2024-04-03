@@ -94,4 +94,4 @@ int get_float_data_from_parameter(char* input, float* dest, size_t len);
 
 int vasprintf(char** str, const char* fmt, va_list ap);
 
-int asprintf(char** str, const char* fmt, ...);
+int _asprintf(char** str, const char* fmt, ...);

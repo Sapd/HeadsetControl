@@ -194,7 +194,7 @@ static FeatureResult handle_feature(struct device* device_found, hid_device** de
     if ((device_found->capabilities & B(cap)) == 0) {
         result.status = FEATURE_ERROR;
         result.value  = -1;
-        asprintf(&result.message, "This headset doesn't support %s", capabilities_str[cap]);
+        _asprintf(&result.message, "This headset doesn't support %s", capabilities_str[cap]);
         return result;
     }
 
@@ -205,7 +205,7 @@ static FeatureResult handle_feature(struct device* device_found, hid_device** de
         if (!device_handle | !(*device_handle)) {
             result.status = FEATURE_DEVICE_FAILED_OPEN;
             result.value  = 0;
-            asprintf(&result.message, "Could not open device. Error: %ls", hid_error(*device_handle));
+            _asprintf(&result.message, "Could not open device. Error: %ls", hid_error(*device_handle));
             return result;
         }
     } else {
@@ -226,7 +226,7 @@ static FeatureResult handle_feature(struct device* device_found, hid_device** de
         if (battery.status == BATTERY_AVAILABLE) {
             result.status = FEATURE_SUCCESS;
             result.value  = battery.level;
-            asprintf(&result.message, "Battery: %d%%", battery.level);
+            _asprintf(&result.message, "Battery: %d%%", battery.level);
         } else if (battery.status == BATTERY_CHARGING) {
             result.status  = FEATURE_INFO;
             result.value   = battery.level;
@@ -244,9 +244,9 @@ static FeatureResult handle_feature(struct device* device_found, hid_device** de
             result.value  = (int)battery.status;
 
             if (device_found->idProduct != PRODUCT_TESTDEVICE)
-                asprintf(&result.message, "Error retrieving battery status. Error: %ls", hid_error(*device_handle));
+                _asprintf(&result.message, "Error retrieving battery status. Error: %ls", hid_error(*device_handle));
             else // dont call hid_error on test device
-                asprintf(&result.message, "Error retrieving battery status");
+                _asprintf(&result.message, "Error retrieving battery status");
         }
         return result;
     }
@@ -269,7 +269,7 @@ static FeatureResult handle_feature(struct device* device_found, hid_device** de
         if (ret >= 0) {
             result.status = FEATURE_SUCCESS;
             result.value  = ret;
-            asprintf(&result.message, "Chat-Mix: %d", ret);
+            _asprintf(&result.message, "Chat-Mix: %d", ret);
         } else {
             result.status  = FEATURE_ERROR;
             result.value   = ret;
@@ -324,19 +324,19 @@ static FeatureResult handle_feature(struct device* device_found, hid_device** de
 
     switch (ret) {
     case HSC_READ_TIMEOUT:
-        asprintf(&result.message, "Failed to set/request %s, because of timeout", capabilities_str[cap]);
+        _asprintf(&result.message, "Failed to set/request %s, because of timeout", capabilities_str[cap]);
         break;
     case HSC_ERROR:
-        asprintf(&result.message, "Failed to set/request %s. HeadsetControl Error", capabilities_str[cap]);
+        _asprintf(&result.message, "Failed to set/request %s. HeadsetControl Error", capabilities_str[cap]);
         break;
     case HSC_OUT_OF_BOUNDS:
-        asprintf(&result.message, "Failed to set/request %s. Provided parameter out of boundaries", capabilities_str[cap]);
+        _asprintf(&result.message, "Failed to set/request %s. Provided parameter out of boundaries", capabilities_str[cap]);
         break;
     default: // Must be a HID error
         if (device_found->idProduct != PRODUCT_TESTDEVICE)
-            asprintf(&result.message, "Failed to set/request %s. Error: %d: %ls", capabilities_str[cap], ret, hid_error(*device_handle));
+            _asprintf(&result.message, "Failed to set/request %s. Error: %d: %ls", capabilities_str[cap], ret, hid_error(*device_handle));
         else // dont call hid_error on test device, it will confuse users/devs because it will show success
-            asprintf(&result.message, "Failed to set/request %s. Error: %d", capabilities_str[cap], ret);
+            _asprintf(&result.message, "Failed to set/request %s. Error: %d", capabilities_str[cap], ret);
 
         break;
     }

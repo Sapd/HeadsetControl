@@ -198,7 +198,7 @@ fail:
     return (-1);
 }
 
-int asprintf(char** str, const char* fmt, ...)
+int _asprintf(char** str, const char* fmt, ...)
 {
     va_list ap;
     int ret;
