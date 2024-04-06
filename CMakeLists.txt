@@ -36,7 +36,7 @@ IF (WIN32)
 	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-Bstatic,--whole-archive -lwinpthread -Wl,--no-whole-archive")
 ENDIF()
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # ------------------------------------------------------------------------------
