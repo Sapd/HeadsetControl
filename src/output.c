@@ -147,8 +147,14 @@ HeadsetControlStatus initializeStatus(int num_devices)
     status.version              = VERSION;
     status.api_version          = APIVERSION;
     status.name                 = HEADSETCONTROL_NAME;
-    status.hid_version          = hid_version_str();
-    status.device_count         = num_devices;
+#if defined(HID_API_VERSION_MAJOR)
+    // The `hid_version_str()` function is available
+    status.hid_version = hid_version_str();
+#else
+    // `hid_version_str()` is not available, return a general version string or number
+    status.hid_version = "0.0.0";
+#endif
+    status.device_count = num_devices;
     return status;
 }
 
