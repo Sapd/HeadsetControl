@@ -392,7 +392,7 @@ void print_help(char* programname, struct device* device_found, bool _show_all)
             printf("  -i, --inactive-time MINUTES\tSet inactive time (0-90 minutes, 0 disables)\n");
         }
         if (show_chatmix_status) {
-            printf("  -m, --chatmix LEVEL\t\tGet chat-mix-dial level (0-128, <64 for game, >64 for chat)\n");
+            printf("  -m, --chatmix\t\t\tGet chat-mix-dial level (0-128, <64 for game, >64 for chat)\n");
         }
         if (show_notification_sound) {
             printf("  -n, --notificate SOUNDID\tPlay notification sound (SOUNDID depends on device)\n");
