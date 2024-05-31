@@ -11,7 +11,7 @@
 static struct device device_arctis;
 
 #define ID_ARCTIS_NOVA_7           0x2202
-#define ID_ARCTIS_NOVA_7x          0x2258
+#define ID_ARCTIS_NOVA_7x          0x2206
 #define ID_ARCTIS_NOVA_7p          0x220a
 #define ID_ARCTIS_NOVA_7_DIABLO_IV 0x223a
 
