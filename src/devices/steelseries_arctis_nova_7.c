@@ -35,6 +35,11 @@ static int arctis_nova_7_send_equalizer_preset(hid_device* device_handle, uint8_
 static int arctis_nova_7_send_equalizer(hid_device* device_handle, struct equalizer_settings* settings);
 static BatteryInfo arctis_nova_7_request_battery(hid_device* device_handle);
 static int arctis_nova_7_request_chatmix(hid_device* device_handle);
+static int arctis_nova_7_bluetooth_when_powered_on(hid_device* device_handle, uint8_t num);
+static int arctis_nova_7_bluetooth_call_volume(hid_device* device_handle, uint8_t num);
+static int arctis_nova_7_mic_light(hid_device* device_handle, uint8_t num);
+static int arctis_nova_7_mic_volume(hid_device* device_handle, uint8_t num);
+static int arctis_nova_7_volume_limiter(hid_device* device_handle, uint8_t num);
 
 int arctis_nova_7_read_device_status(hid_device* device_handle, unsigned char* data_read);
 
@@ -46,20 +51,30 @@ void arctis_nova_7_init(struct device** device)
 
     strncpy(device_arctis.device_name, "SteelSeries Arctis Nova 7", sizeof(device_arctis.device_name));
 
-    device_arctis.capabilities                             = B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_CHATMIX_STATUS) | B(CAP_INACTIVE_TIME) | B(CAP_EQUALIZER) | B(CAP_EQUALIZER_PRESET);
-    device_arctis.capability_details[CAP_SIDETONE]         = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
-    device_arctis.capability_details[CAP_BATTERY_STATUS]   = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
-    device_arctis.capability_details[CAP_CHATMIX_STATUS]   = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
-    device_arctis.capability_details[CAP_INACTIVE_TIME]    = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
-    device_arctis.capability_details[CAP_EQUALIZER_PRESET] = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
-    device_arctis.capability_details[CAP_EQUALIZER]        = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
+    device_arctis.capabilities                                           = B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_CHATMIX_STATUS) | B(CAP_INACTIVE_TIME) | B(CAP_EQUALIZER) | B(CAP_EQUALIZER_PRESET) | B(CAP_MICROPHONE_MUTE_LED_BRIGHTNESS) | B(CAP_MICROPHONE_VOLUME) | B(CAP_VOLUME_LIMITER) | B(CAP_BT_WHEN_POWERED_ON) | B(CAP_BT_CALL_VOLUME);
+    device_arctis.capability_details[CAP_SIDETONE]                       = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
+    device_arctis.capability_details[CAP_BATTERY_STATUS]                 = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
+    device_arctis.capability_details[CAP_CHATMIX_STATUS]                 = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
+    device_arctis.capability_details[CAP_INACTIVE_TIME]                  = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
+    device_arctis.capability_details[CAP_EQUALIZER_PRESET]               = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
+    device_arctis.capability_details[CAP_EQUALIZER]                      = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
+    device_arctis.capability_details[CAP_MICROPHONE_MUTE_LED_BRIGHTNESS] = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
+    device_arctis.capability_details[CAP_MICROPHONE_VOLUME]              = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
+    device_arctis.capability_details[CAP_VOLUME_LIMITER]                 = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
+    device_arctis.capability_details[CAP_BT_WHEN_POWERED_ON]             = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
+    device_arctis.capability_details[CAP_BT_CALL_VOLUME]                 = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
 
-    device_arctis.send_sidetone         = &arctis_nova_7_send_sidetone;
-    device_arctis.request_battery       = &arctis_nova_7_request_battery;
-    device_arctis.request_chatmix       = &arctis_nova_7_request_chatmix;
-    device_arctis.send_inactive_time    = &arctis_nova_7_send_inactive_time;
-    device_arctis.send_equalizer_preset = &arctis_nova_7_send_equalizer_preset;
-    device_arctis.send_equalizer        = &arctis_nova_7_send_equalizer;
+    device_arctis.send_sidetone                       = &arctis_nova_7_send_sidetone;
+    device_arctis.request_battery                     = &arctis_nova_7_request_battery;
+    device_arctis.request_chatmix                     = &arctis_nova_7_request_chatmix;
+    device_arctis.send_inactive_time                  = &arctis_nova_7_send_inactive_time;
+    device_arctis.send_equalizer_preset               = &arctis_nova_7_send_equalizer_preset;
+    device_arctis.send_equalizer                      = &arctis_nova_7_send_equalizer;
+    device_arctis.send_microphone_mute_led_brightness = &arctis_nova_7_mic_light;
+    device_arctis.send_microphone_volume              = &arctis_nova_7_mic_volume;
+    device_arctis.send_volume_limiter                 = &arctis_nova_7_volume_limiter;
+    device_arctis.send_bluetooth_when_powered_on      = &arctis_nova_7_bluetooth_when_powered_on;
+    device_arctis.send_bluetooth_call_volume          = &arctis_nova_7_bluetooth_call_volume;
 
     *device = &device_arctis;
 }
@@ -227,19 +242,22 @@ int arctis_nova_7_read_device_status(hid_device* device_handle, unsigned char* d
     return hid_read_timeout(device_handle, data_read, STATUS_BUF_SIZE, hsc_device_timeout);
 }
 
-/*
-static int arctis_nova_7_enable_bluetooth_when_powered_on(hid_device* device_handle, uint8_t num)
+static int arctis_nova_7_bluetooth_when_powered_on(hid_device* device_handle, uint8_t num)
 {
-    unsigned char data[MSG_SIZE] = { 0x00, 0xb2, num};
-    return hid_write(device_handle, data, MSG_SIZE);
+    unsigned char data[MSG_SIZE]  = { 0x00, 0xb2, num };
+    unsigned char data2[MSG_SIZE] = { 0x00, 0x09, 0 };
+    if (hid_write(device_handle, data, MSG_SIZE) >= 0) {
+        return hid_write(device_handle, data2, MSG_SIZE);
+    }
+    return HSC_READ_TIMEOUT;
 }
 
-static int arctis_nova_7_bluetooth_call(hid_device* device_handle, uint8_t num)
+static int arctis_nova_7_bluetooth_call_volume(hid_device* device_handle, uint8_t num)
 {
     // 0x00 do nothing
     // 0x01 lower volume by 12db
     // 0x02 mute game during call
-    unsigned char data[MSG_SIZE] = { 0x00, 0xb3, num};
+    unsigned char data[MSG_SIZE] = { 0x00, 0xb3, num };
     return hid_write(device_handle, data, MSG_SIZE);
 }
 
@@ -249,7 +267,7 @@ static int arctis_nova_7_mic_light(hid_device* device_handle, uint8_t num)
     // 0x01
     // 0x02
     // 0x03 max
-    unsigned char data[MSG_SIZE] = { 0x00, 0xae, num};
+    unsigned char data[MSG_SIZE] = { 0x00, 0xae, num };
     return hid_write(device_handle, data, MSG_SIZE);
 }
 
@@ -258,7 +276,10 @@ static int arctis_nova_7_mic_volume(hid_device* device_handle, uint8_t num)
     // 0x00 off
     // step + 0x01
     // 0x07 max
-    unsigned char data[MSG_SIZE] = { 0x00, 0x37, num};
+    num = num / 16;
+    if (num == 8)
+        num--;
+    unsigned char data[MSG_SIZE] = { 0x00, 0x37, num };
     return hid_write(device_handle, data, MSG_SIZE);
 }
 
@@ -266,7 +287,6 @@ static int arctis_nova_7_volume_limiter(hid_device* device_handle, uint8_t num)
 {
     // 0x00 off
     // 0x01 on
-    unsigned char data[MSG_SIZE] = { 0x00, 0x3a, num};
+    unsigned char data[MSG_SIZE] = { 0x00, 0x3a, num };
     return hid_write(device_handle, data, MSG_SIZE);
 }
-*/

@@ -302,6 +302,18 @@ static FeatureResult handle_feature(struct device* device_found, hid_device** de
         ret = device_found->send_microphone_volume(*device_handle, (uint8_t) * (int*)param);
         break;
 
+    case CAP_VOLUME_LIMITER:
+        ret = device_found->send_volume_limiter(*device_handle, (uint8_t) * (int*)param);
+        break;
+
+    case CAP_BT_WHEN_POWERED_ON:
+        ret = device_found->send_bluetooth_when_powered_on(*device_handle, (uint8_t) * (int*)param);
+        break;
+
+    case CAP_BT_CALL_VOLUME:
+        ret = device_found->send_bluetooth_call_volume(*device_handle, (uint8_t) * (int*)param);
+        break;
+
     case NUM_CAPABILITIES:
     default:
         ret = -99; // silence warning
@@ -385,6 +397,7 @@ void print_help(char* programname, struct device* device_found, bool _show_all)
     bool show_inactive_time      = show_all || has_capability(device_found->capabilities, CAP_INACTIVE_TIME);
     bool show_chatmix_status     = show_all || has_capability(device_found->capabilities, CAP_CHATMIX_STATUS);
     bool show_notification_sound = show_all || has_capability(device_found->capabilities, CAP_NOTIFICATION_SOUND);
+    bool show_volume_limiter     = show_all || has_capability(device_found->capabilities, CAP_VOLUME_LIMITER);
 
     if (show_inactive_time || show_chatmix_status || show_notification_sound) {
         printf("Features:\n");
@@ -396,6 +409,9 @@ void print_help(char* programname, struct device* device_found, bool _show_all)
         }
         if (show_notification_sound) {
             printf("  -n, --notificate SOUNDID\tPlay notification sound (SOUNDID depends on device)\n");
+        }
+        if (show_volume_limiter) {
+            printf("  --volume-limiter [0|1]\tTurn Volume limiter off (0) or on (1)\n");
         }
         printf("\n");
     }
@@ -432,6 +448,22 @@ void print_help(char* programname, struct device* device_found, bool _show_all)
         }
         if (show_microphone_volume) {
             printf("  --microphone-volume NUMBER\t\t\tSet microphone volume (0-128)\n");
+        }
+        printf("\n");
+    }
+    // ------
+
+    // ------ Category: Bluetooth
+    bool show_bt_when_powered_on = show_all || has_capability(device_found->capabilities, CAP_BT_WHEN_POWERED_ON);
+    bool show_bt_call_volume     = show_all || has_capability(device_found->capabilities, CAP_BT_CALL_VOLUME);
+
+    if (show_bt_when_powered_on || show_bt_call_volume) {
+        printf("Bluetooth:\n");
+        if (show_bt_when_powered_on) {
+            printf("  --bt-when-powered-on [0|1]\tToggle bluetooth turning off (0) or on (1) when turning on headpohnes\n");
+        }
+        if (show_bt_call_volume) {
+            printf("  --bt-call-volume NUMBER\tSet headphones volume during a bluetooth call by lowering pc volume (0-2)\n");
         }
         printf("\n");
     }
@@ -505,6 +537,9 @@ int main(int argc, char* argv[])
     int equalizer_preset                 = -1;
     int microphone_mute_led_brightness   = -1;
     int microphone_volume                = -1;
+    int volume_limiter                   = -1;
+    int bt_when_powered_on               = -1;
+    int bt_call_volume                   = -1;
     int dev_mode                         = 0;
     unsigned follow_sec                  = 2;
     struct equalizer_settings* equalizer = NULL;
@@ -517,6 +552,9 @@ int main(int argc, char* argv[])
 
     struct option opts[] = {
         { "battery", no_argument, NULL, 'b' },
+        { "bt-call-volume", required_argument, NULL, 0 },
+        { "bt-when-powered-on", required_argument, NULL, 0 },
+        { "volume-limiter", required_argument, NULL, 0 },
         { "capabilities", no_argument, NULL, '?' },
         { "chatmix", no_argument, NULL, 'm' },
         { "connected", no_argument, NULL, 0 },
@@ -537,6 +575,7 @@ int main(int argc, char* argv[])
         { "short-output", no_argument, NULL, 'c' },
         { "timeout", required_argument, NULL, 0 },
         { "voice-prompt", required_argument, NULL, 'v' },
+        { "volume-limiter", required_argument, NULL, 0 },
         { "test-device", optional_argument, NULL, 0 },
         { "readme-helper", no_argument, NULL, 0 },
         { 0, 0, 0, 0 }
@@ -711,6 +750,30 @@ int main(int argc, char* argv[])
                     return 1;
                 }
                 // fall through
+            } else if (strcmp(opts[option_index].name, "volume-limiter") == 0) {
+                volume_limiter = strtol(optarg, &endptr, 10);
+
+                if (*endptr != '\0' || endptr == optarg || volume_limiter < 0 || volume_limiter > 1) {
+                    fprintf(stderr, "Usage: %s --volume-limiter 0-1\n", argv[0]);
+                    return 1;
+                }
+                // fall through
+            } else if (strcmp(opts[option_index].name, "bt-when-powered-on") == 0) {
+                bt_when_powered_on = strtol(optarg, &endptr, 10);
+
+                if (*endptr != '\0' || endptr == optarg || bt_when_powered_on < 0 || bt_when_powered_on > 1) {
+                    fprintf(stderr, "Usage: %s --bt-when-powered-on 0-1\n", argv[0]);
+                    return 1;
+                }
+                // fall through
+            } else if (strcmp(opts[option_index].name, "bt-call-volume") == 0) {
+                bt_call_volume = strtol(optarg, &endptr, 10);
+
+                if (*endptr != '\0' || endptr == optarg || bt_call_volume < 0 || bt_call_volume > 2) {
+                    fprintf(stderr, "Usage: %s --bt-call-volume 0-2\n", argv[0]);
+                    return 1;
+                }
+                // fall through
             } else if (strcmp(opts[option_index].name, "connected") == 0) {
                 request_connected = 1;
                 break;
@@ -805,6 +868,9 @@ int main(int argc, char* argv[])
         { CAP_MICROPHONE_MUTE_LED_BRIGHTNESS, CAPABILITYTYPE_ACTION, &microphone_mute_led_brightness, microphone_mute_led_brightness != -1, {} },
         { CAP_MICROPHONE_VOLUME, CAPABILITYTYPE_ACTION, &microphone_volume, microphone_volume != -1, {} },
         { CAP_EQUALIZER, CAPABILITYTYPE_ACTION, equalizer, equalizer != NULL, {} },
+        { CAP_VOLUME_LIMITER, CAPABILITYTYPE_ACTION, &volume_limiter, volume_limiter != -1, {} },
+        { CAP_BT_WHEN_POWERED_ON, CAPABILITYTYPE_ACTION, &bt_when_powered_on, bt_when_powered_on != -1, {} },
+        { CAP_BT_CALL_VOLUME, CAPABILITYTYPE_ACTION, &bt_call_volume, bt_call_volume != -1, {} }
     };
     int numFeatures = sizeof(featureRequests) / sizeof(featureRequests[0]);
     assert(numFeatures == NUM_CAPABILITIES);
