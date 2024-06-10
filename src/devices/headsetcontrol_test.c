@@ -23,6 +23,9 @@ static int headsetcontrol_test_switch_voice_prompts(hid_device* device_handle, u
 static int headsetcontrol_test_switch_rotate_to_mute(hid_device* device_handle, uint8_t on);
 static int headsetcontrol_test_request_chatmix(hid_device* device_handle);
 static int headsetcontrol_test_set_inactive_time(hid_device* device_handle, uint8_t minutes);
+static int headsetcontrol_test_volume_limiter(hid_device* device_handle, uint8_t num);
+static int headsetcontrol_test_bluetooth_when_powered_on(hid_device* device_handle, uint8_t num);
+static int headsetcontrol_test_bluetooth_call_volume(hid_device* device_handle, uint8_t num);
 
 extern int test_profile;
 
@@ -43,7 +46,7 @@ void headsetcontrol_test_init(struct device** device)
     wcsncpy(device_headsetcontrol_test.device_hid_productname, L"Test device", sizeof(device_headsetcontrol_test.device_hid_productname) / sizeof(device_headsetcontrol_test.device_hid_productname[0]));
 
     if (test_profile != 10) {
-        device_headsetcontrol_test.capabilities = B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_NOTIFICATION_SOUND) | B(CAP_LIGHTS) | B(CAP_INACTIVE_TIME) | B(CAP_CHATMIX_STATUS) | B(CAP_VOICE_PROMPTS) | B(CAP_ROTATE_TO_MUTE) | B(CAP_EQUALIZER_PRESET) | B(CAP_EQUALIZER) | B(CAP_MICROPHONE_MUTE_LED_BRIGHTNESS) | B(CAP_MICROPHONE_VOLUME);
+        device_headsetcontrol_test.capabilities = B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_NOTIFICATION_SOUND) | B(CAP_LIGHTS) | B(CAP_INACTIVE_TIME) | B(CAP_CHATMIX_STATUS) | B(CAP_VOICE_PROMPTS) | B(CAP_ROTATE_TO_MUTE) | B(CAP_EQUALIZER_PRESET) | B(CAP_EQUALIZER) | B(CAP_MICROPHONE_MUTE_LED_BRIGHTNESS) | B(CAP_MICROPHONE_VOLUME) | B(CAP_VOLUME_LIMITER) | B(CAP_BT_WHEN_POWERED_ON) | B(CAP_BT_CALL_VOLUME);
     } else {
         device_headsetcontrol_test.capabilities = B(CAP_SIDETONE) | B(CAP_LIGHTS) | B(CAP_BATTERY_STATUS);
     }
@@ -60,6 +63,9 @@ void headsetcontrol_test_init(struct device** device)
     device_headsetcontrol_test.send_equalizer                      = &headsetcontrol_test_send_equalizer;
     device_headsetcontrol_test.send_microphone_mute_led_brightness = &headsetcontrol_test_send_microphone_mute_led_brightness;
     device_headsetcontrol_test.send_microphone_volume              = &headsetcontrol_test_send_microphone_volume;
+    device_headsetcontrol_test.send_volume_limiter                 = &headsetcontrol_test_volume_limiter;
+    device_headsetcontrol_test.send_bluetooth_when_powered_on      = &headsetcontrol_test_bluetooth_when_powered_on;
+    device_headsetcontrol_test.send_bluetooth_call_volume          = &headsetcontrol_test_bluetooth_call_volume;
 
     *device = &device_headsetcontrol_test;
 }
@@ -159,6 +165,21 @@ static int headsetcontrol_test_request_chatmix(hid_device* device_handle)
 }
 
 static int headsetcontrol_test_set_inactive_time(hid_device* device_handle, uint8_t minutes)
+{
+    return TESTBYTES_SEND;
+}
+
+static int headsetcontrol_test_volume_limiter(hid_device* device_handle, uint8_t num)
+{
+    return TESTBYTES_SEND;
+}
+
+static int headsetcontrol_test_bluetooth_when_powered_on(hid_device* device_handle, uint8_t num)
+{
+    return TESTBYTES_SEND;
+}
+
+static int headsetcontrol_test_bluetooth_call_volume(hid_device* device_handle, uint8_t num)
 {
     return TESTBYTES_SEND;
 }

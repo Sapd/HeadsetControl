@@ -13,7 +13,10 @@ const char* const capabilities_str[NUM_CAPABILITIES]
           [CAP_EQUALIZER_PRESET]               = "equalizer preset",
           [CAP_EQUALIZER]                      = "equalizer",
           [CAP_MICROPHONE_MUTE_LED_BRIGHTNESS] = "microphone mute led brightness",
-          [CAP_MICROPHONE_VOLUME]              = "microphone volume"
+          [CAP_MICROPHONE_VOLUME]              = "microphone volume",
+          [CAP_VOLUME_LIMITER]                 = "volume limiter",
+          [CAP_BT_WHEN_POWERED_ON]             = "bluetooth when powered on",
+          [CAP_BT_CALL_VOLUME]                 = "bluetooth call volume"
       };
 
 const char* const capabilities_str_enum[NUM_CAPABILITIES]
@@ -29,7 +32,10 @@ const char* const capabilities_str_enum[NUM_CAPABILITIES]
           [CAP_EQUALIZER_PRESET]               = "CAP_EQUALIZER_PRESET",
           [CAP_EQUALIZER]                      = "CAP_EQUALIZER",
           [CAP_MICROPHONE_MUTE_LED_BRIGHTNESS] = "CAP_MICROPHONE_MUTE_LED_BRIGHTNESS",
-          [CAP_MICROPHONE_VOLUME]              = "CAP_MICROPHONE_VOLUME"
+          [CAP_MICROPHONE_VOLUME]              = "CAP_MICROPHONE_VOLUME",
+          [CAP_VOLUME_LIMITER]                 = "CAP_VOLUME_LIMITER",
+          [CAP_BT_WHEN_POWERED_ON]             = "CAP_BT_WHEN_POWERED_ON",
+          [CAP_BT_CALL_VOLUME]                 = "CAP_BT_CALL_VOLUME"
       };
 
 const char capabilities_str_short[NUM_CAPABILITIES]
@@ -45,5 +51,8 @@ const char capabilities_str_short[NUM_CAPABILITIES]
           [CAP_EQUALIZER_PRESET]               = 'p',
           [CAP_EQUALIZER]                      = 'e',
           [CAP_MICROPHONE_MUTE_LED_BRIGHTNESS] = 't',
-          [CAP_MICROPHONE_VOLUME]              = 'o'
+          [CAP_MICROPHONE_VOLUME]              = 'o',
+          [CAP_VOLUME_LIMITER]                 = 'g',
+          [CAP_BT_WHEN_POWERED_ON]             = 'h',
+          [CAP_BT_CALL_VOLUME]                 = 'j'
       };

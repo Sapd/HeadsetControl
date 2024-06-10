@@ -36,6 +36,9 @@ enum capabilities {
     CAP_EQUALIZER,
     CAP_MICROPHONE_MUTE_LED_BRIGHTNESS,
     CAP_MICROPHONE_VOLUME,
+    CAP_VOLUME_LIMITER,
+    CAP_BT_WHEN_POWERED_ON,
+    CAP_BT_CALL_VOLUME,
     NUM_CAPABILITIES
 };
 
@@ -322,4 +325,50 @@ struct device {
      *              -1                 HIDAPI error
      */
     int (*send_microphone_volume)(hid_device* hid_device, uint8_t num);
+
+    /** @brief Function pointer for setting headset volume limiter
+     *
+     *  Forwards the request to the device specific implementation
+     *
+     *  @param  device_handle   The hidapi handle. Must be the same
+     *                          device as defined here (same ids)
+     *  @param  on              1 if it should be turned on; 0 otherwise
+     *
+     *  @returns    > 0                on success
+     *              HSC_OUT_OF_BOUNDS  on preset parameter out of range
+     *                                 specific to this hardware
+     *              -1                 HIDAPI error
+     */
+    int (*send_volume_limiter)(hid_device* hid_device, uint8_t on);
+
+    /** @brief Function pointer for setting headset bluetooth when powered on
+     *
+     *  Forwards the request to the device specific implementation
+     *
+     *  @param  device_handle   The hidapi handle. Must be the same
+     *                          device as defined here (same ids)
+     *  @param  on              1 if it should be turned on; 0 otherwise
+     *
+     *  @returns    > 0                on success
+     *              HSC_OUT_OF_BOUNDS  on preset parameter out of range
+     *                                 specific to this hardware
+     *              -1                 HIDAPI error
+     */
+    int (*send_bluetooth_when_powered_on)(hid_device* hid_device, uint8_t num);
+
+    /** @brief Function pointer for setting headset bluetooth call volume
+     *
+     *  Forwards the request to the device specific implementation
+     *
+     *  @param  device_handle   The hidapi handle. Must be the same
+     *                          device as defined here (same ids)
+     *  @param  num             The volume number during a bluetooth
+     *                          call, between 0 - 2
+     *
+     *  @returns    > 0                on success
+     *              HSC_OUT_OF_BOUNDS  on volume parameter out of range
+     *                                 specific to this hardware
+     *              -1                 HIDAPI error
+     */
+    int (*send_bluetooth_call_volume)(hid_device* hid_device, uint8_t num);
 };
