@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-const char* APIVERSION          = "1.0";
+const char* APIVERSION          = "1.1";
 const char* HEADSETCONTROL_NAME = "HeadsetControl";
 
 // Function to convert enum to string
@@ -726,7 +726,8 @@ void output_short(HeadsetControlStatus* status, HeadsetInfo* info, bool print_ca
 
         if (print_capabilities) {
             for (int j = 0; j < info->capabilities_amount; j++) {
-                printf("%c", capabilities_str_short[info->capabilities_enum[j]]);
+                if (capabilities_str_short[info->capabilities_enum[j]] != '\0')
+                    printf("%c", capabilities_str_short[info->capabilities_enum[j]]);
             }
 
             continue;
