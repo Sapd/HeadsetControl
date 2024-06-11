@@ -52,7 +52,8 @@ const char capabilities_str_short[NUM_CAPABILITIES]
           [CAP_EQUALIZER]                      = 'e',
           [CAP_MICROPHONE_MUTE_LED_BRIGHTNESS] = 't',
           [CAP_MICROPHONE_VOLUME]              = 'o',
-          [CAP_VOLUME_LIMITER]                 = 'g',
-          [CAP_BT_WHEN_POWERED_ON]             = 'h',
-          [CAP_BT_CALL_VOLUME]                 = 'j'
+          // new capabilities since short output was deprecated
+          [CAP_VOLUME_LIMITER]     = '\0',
+          [CAP_BT_WHEN_POWERED_ON] = '\0',
+          [CAP_BT_CALL_VOLUME]     = '\0'
       };

@@ -9,32 +9,32 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
 
 ## Supported Headsets
 
-| Device | sidetone | battery | notification sound | lights | inactive time | chatmix | voice prompts | rotate to mute | equalizer preset | equalizer | microphone mute led brightness | microphone volume |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Corsair Headset Device | x | x | x | x |   |   |   |   |   |   |   |   |
-| HyperX Cloud Alpha Wireless | x | x |   |   | x |   | x |   |   |   |   |   |
-| HyperX Cloud Flight Wireless |   | x |   |   |   |   |   |   |   |   |   |   |
-| HyperX Cloud 3 | x |   |   |   |   |   |   |   |   |   |   |   |
-| Logitech G430 | x |   |   |   |   |   |   |   |   |   |   |   |
-| Logitech G432/G433 | x |   |   |   |   |   |   |   |   |   |   |   |
-| Logitech G533 | x | x |   |   | x |   |   |   |   |   |   |   |
-| Logitech G535 | x | x |   |   | x |   |   |   |   |   |   |   |
-| Logitech G930 | x | x |   |   |   |   |   |   |   |   |   |   |
-| Logitech G633/G635/G733/G933/G935 | x | x |   | x |   |   |   |   |   |   |   |   |
-| Logitech G PRO Series | x | x |   |   | x |   |   |   |   |   |   |   |
-| Logitech G PRO X 2 | x |   |   |   | x |   |   |   |   |   |   |   |
-| Logitech Zone Wired/Zone 750 | x |   |   |   |   |   | x | x |   |   |   |   |
-| SteelSeries Arctis (1/7X) Wireless | x | x |   |   | x |   |   |   |   |   |   |   |
-| SteelSeries Arctis (7/Pro) | x | x |   | x | x | x |   |   |   |   |   |   |
-| SteelSeries Arctis 9 | x | x |   |   | x | x |   |   |   |   |   |   |
-| SteelSeries Arctis Pro Wireless | x | x |   |   | x |   |   |   |   |   |   |   |
-| ROCCAT Elo 7.1 Air |   |   |   | x | x |   |   |   |   |   |   |   |
-| ROCCAT Elo 7.1 USB |   |   |   | x |   |   |   |   |   |   |   |   |
-| SteelSeries Arctis Nova 3 | x |   |   |   |   |   |   |   | x | x | x | x |
-| SteelSeries Arctis Nova 7 | x | x |   |   | x | x |   |   | x | x |   |   |
-| SteelSeries Arctis 7+ | x | x |   |   | x | x |   |   | x | x |   |   |
-| SteelSeries Arctis Nova Pro Wireless | x | x |   | x | x |   |   |   | x | x |   |   |
-| HeadsetControl Test device | x | x | x | x | x | x | x | x | x | x | x | x |
+| Device | sidetone | battery | notification sound | lights | inactive time | chatmix | voice prompts | rotate to mute | equalizer preset | equalizer | microphone mute led brightness | microphone volume | volume limiter | bluetooth when powered on | bluetooth call volume |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Corsair Headset Device | x | x | x | x |   |   |   |   |   |   |   |   |   |   |   |
+| HyperX Cloud Alpha Wireless | x | x |   |   | x |   | x |   |   |   |   |   |   |   |   |
+| HyperX Cloud Flight Wireless |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |
+| HyperX Cloud 3 | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
+| Logitech G430 | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
+| Logitech G432/G433 | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
+| Logitech G533 | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |
+| Logitech G535 | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |
+| Logitech G930 | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |
+| Logitech G633/G635/G733/G933/G935 | x | x |   | x |   |   |   |   |   |   |   |   |   |   |   |
+| Logitech G PRO Series | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |
+| Logitech G PRO X 2 | x |   |   |   | x |   |   |   |   |   |   |   |   |   |   |
+| Logitech Zone Wired/Zone 750 | x |   |   |   |   |   | x | x |   |   |   |   |   |   |   |
+| SteelSeries Arctis (1/7X) Wireless | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |
+| SteelSeries Arctis (7/Pro) | x | x |   | x | x | x |   |   |   |   |   |   |   |   |   |
+| SteelSeries Arctis 9 | x | x |   |   | x | x |   |   |   |   |   |   |   |   |   |
+| SteelSeries Arctis Pro Wireless | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |
+| ROCCAT Elo 7.1 Air |   |   |   | x | x |   |   |   |   |   |   |   |   |   |   |
+| ROCCAT Elo 7.1 USB |   |   |   | x |   |   |   |   |   |   |   |   |   |   |   |
+| SteelSeries Arctis Nova 3 | x |   |   |   |   |   |   |   | x | x | x | x |   |   |   |
+| SteelSeries Arctis Nova 7 | x | x |   |   | x | x |   |   | x | x | x | x | x | x | x |
+| SteelSeries Arctis 7+ | x | x |   |   | x | x |   |   | x | x |   |   |   |   |   |
+| SteelSeries Arctis Nova Pro Wireless | x | x |   | x | x |   |   |   | x | x |   |   |   |   |   |
+| HeadsetControl Test device | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x |
 
 For non-supported headsets on Linux: There is a chance that you can set the sidetone via AlsaMixer
 

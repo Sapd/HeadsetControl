@@ -554,7 +554,6 @@ int main(int argc, char* argv[])
         { "battery", no_argument, NULL, 'b' },
         { "bt-call-volume", required_argument, NULL, 0 },
         { "bt-when-powered-on", required_argument, NULL, 0 },
-        { "volume-limiter", required_argument, NULL, 0 },
         { "capabilities", no_argument, NULL, '?' },
         { "chatmix", no_argument, NULL, 'm' },
         { "connected", no_argument, NULL, 0 },
