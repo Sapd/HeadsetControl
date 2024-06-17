@@ -9,22 +9,21 @@ static struct device device_headsetcontrol_test;
 
 #define TESTBYTES_SEND 32
 
-#define EQUALIZER_BANDS_COUNT      10
-#define EQUALIZER_BASELINE         0
-#define EQUALIZER_BAND_MIN         -10
-#define EQUALIZER_BAND_MAX         +10
-#define EQUALIZER_PRESETS_COUNT    2
+#define EQUALIZER_BANDS_COUNT   10
+#define EQUALIZER_BASELINE      0
+#define EQUALIZER_STEP          0.5
+#define EQUALIZER_BAND_MIN      -10
+#define EQUALIZER_BAND_MAX      +10
+#define EQUALIZER_PRESETS_COUNT 2
 
-static const uint16_t PRODUCT_IDS[] = { PRODUCT_TESTDEVICE };
-static EqualizerInfo EQUALIZER = { EQUALIZER_BANDS_COUNT, EQUALIZER_BASELINE, EQUALIZER_BAND_MIN, EQUALIZER_BAND_MAX};
-static int flat[EQUALIZER_BANDS_COUNT] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-static int random[EQUALIZER_BANDS_COUNT] = { 6, -8, 1, 7, -1, -7, -9, 0, 9, 10 };
+static const uint16_t PRODUCT_IDS[]       = { PRODUCT_TESTDEVICE };
+static EqualizerInfo EQUALIZER            = { EQUALIZER_BANDS_COUNT, EQUALIZER_BASELINE, EQUALIZER_STEP, EQUALIZER_BAND_MIN, EQUALIZER_BAND_MAX };
+static float flat[EQUALIZER_BANDS_COUNT]    = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+static float random[EQUALIZER_BANDS_COUNT]  = { 6, -8, 1.5, 7, -1, -7.5, -9, 0, 9, 10 };
 static EqualizerPresets EQUALIZER_PRESETS = {
     EQUALIZER_PRESETS_COUNT,
-    {
-        { "flat", flat },
-        { "random", random }
-    }
+    { { "flat", flat },
+        { "random", random } }
 };
 
 static int headsetcontrol_test_send_sidetone(hid_device* device_handle, uint8_t num);

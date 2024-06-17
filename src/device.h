@@ -93,20 +93,20 @@ typedef struct {
 typedef struct {
     int bands_count;
     int bands_baseline;
+    float bands_step;
     int bands_min;
     int bands_max;
 } EqualizerInfo;
 
 typedef struct {
     char* name;
-    int* values;
+    float* values;
 } EqualizerPreset;
 
 typedef struct {
     int count;
     EqualizerPreset presets[];
 } EqualizerPresets;
-
 
 enum headsetcontrol_errors {
     HSC_ERROR         = -100,
@@ -146,7 +146,7 @@ struct equalizer_settings {
     /// The size of the bands array
     int size;
     /// The equalizer frequency bands values
-    float bands_values[];
+    float* bands_values;
 };
 
 /** @brief Defines the basic data of a device
@@ -166,7 +166,7 @@ struct device {
     /// Name of device, used as information for the user
     char device_name[64];
 
-    //Equalizer Infos
+    // Equalizer Infos
     EqualizerInfo* equalizer;
     EqualizerPresets* eqaulizer_presets;
 

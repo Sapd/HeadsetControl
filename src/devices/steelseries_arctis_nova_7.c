@@ -22,12 +22,27 @@ static struct device device_arctis;
 #define HEADSET_OFFLINE 0x00
 #define STATUS_BUF_SIZE 8
 
-#define EQUALIZER_BANDS_SIZE 10
-#define EQUALIZER_BASELINE   0x14
-#define EQUALIZER_BAND_MIN   -10
-#define EQUALIZER_BAND_MAX   +10
+#define EQUALIZER_BANDS_COUNT   10
+#define EQUALIZER_BASELINE      0
+#define EQUALIZER_BAND_MIN      -10
+#define EQUALIZER_BAND_MAX      +10
+#define EQUALIZER_PRESETS_COUNT 2
 
 static const uint16_t PRODUCT_IDS[] = { ID_ARCTIS_NOVA_7, ID_ARCTIS_NOVA_7x, ID_ARCTIS_NOVA_7x_v2, ID_ARCTIS_NOVA_7p, ID_ARCTIS_NOVA_7_DIABLO_IV };
+
+float flat[MSG_SIZE]   = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+float bass[MSG_SIZE]   = { 3.5, 5.5, 4, 1, -1.5, -1.5, -1, -1, -1, -1 };
+float focus[MSG_SIZE]  = { -5, -3.5, -1, -3.5, -2.5, 4, 6, -3.5, 0 };
+float smiley[MSG_SIZE] = { 3, 3.5, 1.5, -1.5, -4, -4, -2.5, 1.5, 3, 4 };
+
+static EqualizerInfo EQUALIZER            = { EQUALIZER_BANDS_COUNT, 0, EQUALIZER_BAND_MIN, EQUALIZER_BAND_MAX };
+static EqualizerPresets EQUALIZER_PRESETS = {
+    EQUALIZER_PRESETS_COUNT,
+    { { "flat", flat },
+        { "bass", bass },
+        { "focus", focus },
+        { "smiley", smiley } }
+};
 
 static int arctis_nova_7_send_sidetone(hid_device* device_handle, uint8_t num);
 static int arctis_nova_7_send_inactive_time(hid_device* device_handle, uint8_t num);
@@ -48,6 +63,8 @@ void arctis_nova_7_init(struct device** device)
     device_arctis.idVendor            = VENDOR_STEELSERIES;
     device_arctis.idProductsSupported = PRODUCT_IDS;
     device_arctis.numIdProducts       = sizeof(PRODUCT_IDS) / sizeof(PRODUCT_IDS[0]);
+    device_arctis.equalizer           = &EQUALIZER;
+    device_arctis.eqaulizer_presets   = &EQUALIZER_PRESETS;
 
     strncpy(device_arctis.device_name, "SteelSeries Arctis Nova 7", sizeof(device_arctis.device_name));
 
@@ -184,35 +201,46 @@ static int arctis_nova_7_send_equalizer_preset(hid_device* device_handle, uint8_
 {
     // This headset supports only 4 presets:
     // flat (default), bass boost, smiley, focus
+    struct equalizer_settings preset;
+    preset.size = EQUALIZER_BANDS_COUNT;
 
     switch (num) {
     case 0: {
-        uint8_t flat[MSG_SIZE] = { 0x0, 0x33, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x0 };
-        return hid_write(device_handle, flat, MSG_SIZE);
+        preset.bands_values = flat;
+        break;
+        // uint8_t flat[MSG_SIZE] = { 0x0, 0x33, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x0 };
+        // return hid_write(device_handle, flat, MSG_SIZE);
     }
     case 1: {
-        uint8_t bass[MSG_SIZE] = { 0x0, 0x33, 0x1b, 0x1f, 0x1c, 0x16, 0x11, 0x11, 0x12, 0x12, 0x12, 0x12, 0x0 };
-        return hid_write(device_handle, bass, MSG_SIZE);
+        preset.bands_values = bass;
+        break;
+        // uint8_t bass[MSG_SIZE] = { 0x0, 0x33, 0x1b, 0x1f, 0x1c, 0x16, 0x11, 0x11, 0x12, 0x12, 0x12, 0x12, 0x0 };
+        // return hid_write(device_handle, bass, MSG_SIZE);
     }
     case 2: {
-        uint8_t smiley[MSG_SIZE] = { 0x0, 0x33, 0x0a, 0x0d, 0x12, 0x0d, 0x0f, 0x1c, 0x20, 0x1b, 0x0d, 0x14, 0x0 };
-        return hid_write(device_handle, smiley, MSG_SIZE);
+        preset.bands_values = focus;
+        break;
+        // uint8_t focus[MSG_SIZE] = { 0x0, 0x33, 0x1a, 0x1b, 0x17, 0x11, 0x0c, 0x0c, 0x0f, 0x17, 0x1a, 0x1c, 0x0 };
+        // return hid_write(device_handle, focus, MSG_SIZE);
     }
     case 3: {
-        uint8_t focus[MSG_SIZE] = { 0x0, 0x33, 0x1a, 0x1b, 0x17, 0x11, 0x0c, 0x0c, 0x0f, 0x17, 0x1a, 0x1c, 0x0 };
-        return hid_write(device_handle, focus, MSG_SIZE);
+        preset.bands_values = smiley;
+        break;
+        // uint8_t smiley[MSG_SIZE] = { 0x0, 0x33, 0x0a, 0x0d, 0x12, 0x0d, 0x0f, 0x1c, 0x20, 0x1b, 0x0d, 0x14, 0x0 };
+        // return hid_write(device_handle, smiley, MSG_SIZE);
     }
     default: {
         printf("Device only supports 0-3 range for presets.\n");
         return HSC_OUT_OF_BOUNDS;
     }
     }
+    return arctis_nova_7_send_equalizer(device_handle, &preset);
 }
 
 static int arctis_nova_7_send_equalizer(hid_device* device_handle, struct equalizer_settings* settings)
 {
-    if (settings->size != EQUALIZER_BANDS_SIZE) {
-        printf("Device only supports %d bands.\n", EQUALIZER_BANDS_SIZE);
+    if (settings->size != EQUALIZER_BANDS_COUNT) {
+        printf("Device only supports %d bands.\n", EQUALIZER_BANDS_COUNT);
         return HSC_OUT_OF_BOUNDS;
     }
 
@@ -224,7 +252,7 @@ static int arctis_nova_7_send_equalizer(hid_device* device_handle, struct equali
             return HSC_OUT_OF_BOUNDS;
         }
 
-        data[i + 2] = (uint8_t)(EQUALIZER_BASELINE + band_value);
+        data[i + 2] = (uint8_t)(0x14 + band_value);
     }
     data[settings->size + 3] = 0x0;
 
