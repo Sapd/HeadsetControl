@@ -73,6 +73,11 @@ typedef struct {
     bool has_chatmix_info;
     int chatmix;
 
+    bool has_equalizer_info;
+    EqualizerInfo* equalizer;
+    bool has_equalizer_presets_info;
+    EqualizerPresets* equalizer_presets;
+
     Action actions[MAX_ACTIONS];
     int action_count;
 

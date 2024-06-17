@@ -48,6 +48,7 @@ enum {
 };
 
 static const uint16_t PRODUCT_IDS[] = { ID_ARCTIS_NOVA_PRO_WIRELESS_BASE_STATION };
+static EqualizerInfo EQUALIZER      = { EQUALIZER_BANDS_SIZE, 0, 0.5, EQUALIZER_BAND_MIN, EQUALIZER_BAND_MAX };
 
 static int set_sidetone(hid_device* device_handle, uint8_t num);
 static BatteryInfo get_battery(hid_device* device_handle);
@@ -64,6 +65,7 @@ void arctis_nova_pro_wireless_init(struct device** device)
     device_arctis.idVendor            = VENDOR_STEELSERIES;
     device_arctis.idProductsSupported = PRODUCT_IDS;
     device_arctis.numIdProducts       = sizeof(PRODUCT_IDS) / sizeof(PRODUCT_IDS[0]);
+    device_arctis.equalizer           = &EQUALIZER;
 
     strncpy(device_arctis.device_name, "SteelSeries Arctis Nova Pro Wireless", sizeof(device_arctis.device_name));
 

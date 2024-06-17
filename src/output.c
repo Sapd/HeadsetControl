@@ -167,6 +167,11 @@ void initializeHeadsetInfo(HeadsetInfo* info, struct device* device)
     info->vendor_name  = device->device_hid_vendorname;
     info->product_name = device->device_hid_productname;
 
+    info->equalizer                  = device->equalizer;
+    info->equalizer_presets          = device->eqaulizer_presets,
+    info->has_equalizer_info         = info->equalizer != NULL;
+    info->has_equalizer_presets_info = info->equalizer_presets != NULL;
+
     info->capabilities_amount = 0;
 
     for (int i = 0; i < NUM_CAPABILITIES; i++) {
@@ -376,6 +381,34 @@ void output_json(HeadsetControlStatus* status, HeadsetInfo* infos)
             printf(",\n");
             printf("        \"level\": %d\n", info->battery_level);
             printf("      }");
+        }
+
+        if (info->has_equalizer_info) {
+            printf(",\n      \"equalizer\": {\n");
+            printf("        \"bands\": %d,\n", info->equalizer->bands_count);
+            printf("        \"baseline\": %d,\n", info->equalizer->bands_baseline);
+            printf("        \"step\": %.1f,\n", info->equalizer->bands_step);
+            printf("        \"min\": %d,\n", info->equalizer->bands_min);
+            printf("        \"max\": %d\n", info->equalizer->bands_max);
+            printf("      }");
+
+            if (info->has_equalizer_presets_info) {
+                printf(",\n      \"equalizer_presets_count\": %d", info->equalizer_presets->count);
+                printf(",\n      \"equalizer_presets\": {\n");
+                for (int i = 0; i < info->equalizer_presets->count; i++) {
+                    EqualizerPreset* presets = info->equalizer_presets->presets;
+                    printf("        \"%s\": [ ", presets[i].name);
+                    for (int j = 0; j < info->equalizer->bands_count; j++) {
+                        printf("%.1f", presets[i].values[j]);
+                        if (j < info->equalizer->bands_count - 1)
+                            printf(", ");
+                    }
+                    printf(" ]");
+                    if (i < info->equalizer_presets->count - 1)
+                        printf(",\n");
+                }
+                printf("\n      }");
+            }
         }
 
         if (info->has_chatmix_info) {
