@@ -90,6 +90,24 @@ typedef struct {
     enum microphone_status microphone_status;
 } BatteryInfo;
 
+typedef struct {
+    int bands_count;
+    int bands_baseline;
+    int bands_min;
+    int bands_max;
+} EqualizerInfo;
+
+typedef struct {
+    char* name;
+    int* values;
+} EqualizerPreset;
+
+typedef struct {
+    int count;
+    EqualizerPreset presets[];
+} EqualizerPresets;
+
+
 enum headsetcontrol_errors {
     HSC_ERROR         = -100,
     HSC_READ_TIMEOUT  = -101,
@@ -147,6 +165,10 @@ struct device {
 
     /// Name of device, used as information for the user
     char device_name[64];
+
+    //Equalizer Infos
+    EqualizerInfo* equalizer;
+    EqualizerPresets* eqaulizer_presets;
 
     wchar_t device_hid_vendorname[64];
     wchar_t device_hid_productname[64];
