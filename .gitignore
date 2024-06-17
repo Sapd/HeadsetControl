@@ -7,5 +7,6 @@ cmake-build-debug/
 
 .vscode/*
 *.code-workspace
+*.cache/
 
 .DS_Store

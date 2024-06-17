@@ -17,6 +17,7 @@ static struct device device_arctis;
 
 static const uint16_t PRODUCT_IDS[]      = { ID_ARCTIS_NOVA_3 };
 static const uint8_t SAVE_DATA[MSG_SIZE] = { 0x06, 0x09 }; // Command to save settings to headset
+static EqualizerInfo EQUALIZER           = { EQUALIZER_BANDS_SIZE, 0, 0.5, EQUALIZER_BAND_MIN, EQUALIZER_BAND_MAX };
 
 static int arctis_nova_3_send_sidetone(hid_device* device_handle, uint8_t num);
 static int arctis_nova_3_send_equalizer_preset(hid_device* device_handle, uint8_t num);
@@ -29,6 +30,7 @@ void arctis_nova_3_init(struct device** device)
     device_arctis.idVendor            = VENDOR_STEELSERIES;
     device_arctis.idProductsSupported = PRODUCT_IDS;
     device_arctis.numIdProducts       = sizeof(PRODUCT_IDS) / sizeof(PRODUCT_IDS[0]);
+    device_arctis.equalizer           = &EQUALIZER;
 
     strncpy(device_arctis.device_name, "SteelSeries Arctis Nova 3", sizeof(device_arctis.device_name));
 

@@ -605,8 +605,9 @@ int main(int argc, char* argv[])
                 return 1;
             }
 
-            equalizer       = malloc(sizeof(struct equalizer_settings) + size * sizeof(float));
-            equalizer->size = size;
+            equalizer               = malloc(sizeof(struct equalizer_settings));
+            equalizer->size         = size;
+            equalizer->bands_values = malloc(sizeof(float) * size);
             for (int i = 0; i < size; i++) {
                 equalizer->bands_values[i] = read_buffer[i];
             }
@@ -950,6 +951,9 @@ int main(int argc, char* argv[])
         free(featureRequests[i].result.message);
     }
 
+    if (equalizer != NULL) {
+        free(equalizer->bands_values);
+    }
     free(equalizer);
 
     terminate_hid(&device_handle, &hid_path);
