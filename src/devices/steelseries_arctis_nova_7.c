@@ -24,9 +24,10 @@ static struct device device_arctis;
 
 #define EQUALIZER_BANDS_COUNT   10
 #define EQUALIZER_BASELINE      0
+#define EQUALIZER_STEP          0.5
 #define EQUALIZER_BAND_MIN      -10
 #define EQUALIZER_BAND_MAX      +10
-#define EQUALIZER_PRESETS_COUNT 2
+#define EQUALIZER_PRESETS_COUNT 4
 
 static const uint16_t PRODUCT_IDS[] = { ID_ARCTIS_NOVA_7, ID_ARCTIS_NOVA_7x, ID_ARCTIS_NOVA_7x_v2, ID_ARCTIS_NOVA_7p, ID_ARCTIS_NOVA_7_DIABLO_IV };
 
@@ -35,7 +36,7 @@ float bass[MSG_SIZE]   = { 3.5, 5.5, 4, 1, -1.5, -1.5, -1, -1, -1, -1 };
 float focus[MSG_SIZE]  = { -5, -3.5, -1, -3.5, -2.5, 4, 6, -3.5, 0 };
 float smiley[MSG_SIZE] = { 3, 3.5, 1.5, -1.5, -4, -4, -2.5, 1.5, 3, 4 };
 
-static EqualizerInfo EQUALIZER            = { EQUALIZER_BANDS_COUNT, 0, EQUALIZER_BAND_MIN, EQUALIZER_BAND_MAX };
+static EqualizerInfo EQUALIZER            = { EQUALIZER_BANDS_COUNT, EQUALIZER_BASELINE, EQUALIZER_STEP, EQUALIZER_BAND_MIN, EQUALIZER_BAND_MAX };
 static EqualizerPresets EQUALIZER_PRESETS = {
     EQUALIZER_PRESETS_COUNT,
     { { "flat", flat },
