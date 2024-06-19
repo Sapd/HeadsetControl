@@ -395,17 +395,17 @@ void output_json(HeadsetControlStatus* status, HeadsetInfo* infos)
             if (info->has_equalizer_presets_info) {
                 printf(",\n      \"equalizer_presets_count\": %d", info->equalizer_presets->count);
                 printf(",\n      \"equalizer_presets\": {\n");
-                for (int i = 0; i < info->equalizer_presets->count; i++)
-                {
+                for (int i = 0; i < info->equalizer_presets->count; i++) {
                     EqualizerPreset* presets = info->equalizer_presets->presets;
                     printf("        \"%s\": [ ", presets[i].name);
-                    for (int j = 0; j < info->equalizer->bands_count; j++)
-                    {
+                    for (int j = 0; j < info->equalizer->bands_count; j++) {
                         printf("%.1f", presets[i].values[j]);
-                        if (j < info->equalizer->bands_count - 1) printf(", ");
+                        if (j < info->equalizer->bands_count - 1)
+                            printf(", ");
                     }
                     printf(" ]");
-                    if (i < info->equalizer_presets->count - 1) printf(",\n");
+                    if (i < info->equalizer_presets->count - 1)
+                        printf(",\n");
                 }
                 printf("\n      }");
             }
