@@ -167,9 +167,9 @@ void initializeHeadsetInfo(HeadsetInfo* info, struct device* device)
     info->vendor_name  = device->device_hid_vendorname;
     info->product_name = device->device_hid_productname;
 
-    info->equalizer = device->equalizer;
-    info->equalizer_presets = device->eqaulizer_presets,
-    info->has_equalizer_info = info->equalizer != NULL;
+    info->equalizer                  = device->equalizer;
+    info->equalizer_presets          = device->eqaulizer_presets,
+    info->has_equalizer_info         = info->equalizer != NULL;
     info->has_equalizer_presets_info = info->equalizer_presets != NULL;
 
     info->capabilities_amount = 0;
