@@ -605,8 +605,8 @@ int main(int argc, char* argv[])
                 return 1;
             }
 
-            equalizer       = malloc(sizeof(struct equalizer_settings));
-            equalizer->size = size;
+            equalizer               = malloc(sizeof(struct equalizer_settings));
+            equalizer->size         = size;
             equalizer->bands_values = malloc(sizeof(float) * size);
             for (int i = 0; i < size; i++) {
                 equalizer->bands_values[i] = read_buffer[i];
