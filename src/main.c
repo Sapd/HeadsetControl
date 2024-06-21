@@ -951,7 +951,9 @@ int main(int argc, char* argv[])
         free(featureRequests[i].result.message);
     }
 
-    free(equalizer->bands_values);
+    if (equalizer != NULL) {
+        free(equalizer->bands_values);
+    }
     free(equalizer);
 
     terminate_hid(&device_handle, &hid_path);
