@@ -9,7 +9,22 @@ static struct device device_headsetcontrol_test;
 
 #define TESTBYTES_SEND 32
 
-static const uint16_t PRODUCT_IDS[] = { PRODUCT_TESTDEVICE };
+#define EQUALIZER_BANDS_COUNT   10
+#define EQUALIZER_BASELINE      0
+#define EQUALIZER_STEP          0.5
+#define EQUALIZER_BAND_MIN      -10
+#define EQUALIZER_BAND_MAX      +10
+#define EQUALIZER_PRESETS_COUNT 2
+
+static const uint16_t PRODUCT_IDS[]               = { PRODUCT_TESTDEVICE };
+static EqualizerInfo EQUALIZER                    = { EQUALIZER_BANDS_COUNT, EQUALIZER_BASELINE, EQUALIZER_STEP, EQUALIZER_BAND_MIN, EQUALIZER_BAND_MAX };
+static float preset_flat[EQUALIZER_BANDS_COUNT]   = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+static float preset_random[EQUALIZER_BANDS_COUNT] = { 6, -8, 1.5, 7, -1, -7.5, -9, 0, 9, 10 };
+static EqualizerPresets EQUALIZER_PRESETS         = {
+    EQUALIZER_PRESETS_COUNT,
+    { { "flat", preset_flat },
+                { "random", preset_random } }
+};
 
 static int headsetcontrol_test_send_sidetone(hid_device* device_handle, uint8_t num);
 static BatteryInfo headsetcontrol_test_request_battery(hid_device* device_handle);
@@ -39,6 +54,8 @@ void headsetcontrol_test_init(struct device** device)
     device_headsetcontrol_test.idVendor            = VENDOR_TESTDEVICE;
     device_headsetcontrol_test.idProductsSupported = PRODUCT_IDS;
     device_headsetcontrol_test.numIdProducts       = 1;
+    device_headsetcontrol_test.equalizer           = &EQUALIZER;
+    device_headsetcontrol_test.eqaulizer_presets   = &EQUALIZER_PRESETS;
 
     strncpy(device_headsetcontrol_test.device_name, "HeadsetControl Test device", sizeof(device_headsetcontrol_test.device_name));
     // normally filled by hid in main.c
