@@ -21,6 +21,7 @@
 #include "devices/steelseries_arctis_7_plus.h"
 #include "devices/steelseries_arctis_9.h"
 #include "devices/steelseries_arctis_nova_3.h"
+#include "devices/steelseries_arctis_nova_5.h"
 #include "devices/steelseries_arctis_nova_7.h"
 #include "devices/steelseries_arctis_nova_pro_wireless.h"
 #include "devices/steelseries_arctis_pro_wireless.h"
@@ -64,6 +65,7 @@ void init_devices()
     add_device(elo71USB_init);
     // SteelSeries
     add_device(arctis_nova_3_init);
+    add_device(arctis_nova_5_init);
     add_device(arctis_nova_7_init);
     add_device(arctis_7_plus_init);
     add_device(arctis_nova_pro_wireless_init);
