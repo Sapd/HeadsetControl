@@ -27,6 +27,8 @@ set(SOURCE_FILES ${SOURCE_FILES}
     ${CMAKE_CURRENT_SOURCE_DIR}/steelseries_arctis_9.h
     ${CMAKE_CURRENT_SOURCE_DIR}/steelseries_arctis_nova_3.h
     ${CMAKE_CURRENT_SOURCE_DIR}/steelseries_arctis_nova_3.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/steelseries_arctis_nova_5.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/steelseries_arctis_nova_5.c
     ${CMAKE_CURRENT_SOURCE_DIR}/steelseries_arctis_nova_7.h
     ${CMAKE_CURRENT_SOURCE_DIR}/steelseries_arctis_nova_7.c
     ${CMAKE_CURRENT_SOURCE_DIR}/steelseries_arctis_nova_pro_wireless.c
