@@ -106,9 +106,9 @@ static void print_readmetable()
     }
     printf("\n");
 
-    printf("| --- | ");
+    printf("| --- |");
     for (int j = 0; j < NUM_CAPABILITIES; j++) {
-        printf("--- | ");
+        printf(" --- |");
     }
     printf("\n");
 
