@@ -19,8 +19,8 @@ enum {
 };
 
 enum {
-    HEADSET_CHARGING               = 0x01,
-    HEADSET_OFFLINE                = 0x02,
+    HEADSET_CHARGING = 0x01,
+    HEADSET_OFFLINE  = 0x02,
 };
 
 static const uint16_t PRODUCT_IDS[]
