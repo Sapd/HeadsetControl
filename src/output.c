@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-const char* APIVERSION          = "1.1";
+const char* APIVERSION          = "1.2";
 const char* HEADSETCONTROL_NAME = "HeadsetControl";
 
 // Function to convert enum to string
@@ -485,12 +485,38 @@ const char* yaml_replace_spaces_with_dash(const char* str)
     return result;
 }
 
-void yaml_print_listitem(const char* value, int indent)
+void yaml_print_listitem(const char* value, int indent, bool newline)
 {
-    for (int i = 0; i < indent; i++) {
+    if (newline) {
+        for (int i = 0; i < indent; i++) {
+            putchar(' ');
+        }
+    }
+
+    printf("- %s", value);
+
+    if (newline) {
+        putchar('\n');
+    } else {
         putchar(' ');
     }
-    printf("- %s\n", value);
+}
+
+void yaml_print_listitemfloat(const float value, int indent, bool newline)
+{
+    if (newline) {
+        for (int i = 0; i < indent; i++) {
+            putchar(' ');
+        }
+    }
+
+    printf("- %.1f", value);
+
+    if (newline) {
+        putchar('\n');
+    } else {
+        putchar(' ');
+    }
 }
 
 void output_yaml(HeadsetControlStatus* status, HeadsetInfo* infos)
@@ -532,18 +558,46 @@ void output_yaml(HeadsetControlStatus* status, HeadsetInfo* infos)
 
         yaml_print("capabilities", "", 4);
         for (int j = 0; j < info->capabilities_amount; j++) {
-            yaml_print_listitem(info->capabilities[j], 6);
+            yaml_print_listitem(info->capabilities[j], 6, true);
         }
 
         yaml_print("capabilities_str", "", 4);
         for (int j = 0; j < info->capabilities_amount; j++) {
-            yaml_print_listitem(info->capabilities_str[j], 6);
+            yaml_print_listitem(info->capabilities_str[j], 6, true);
         }
 
         if (info->has_battery_info) {
             yaml_print("battery", "", 4);
             yaml_print("status", battery_status_to_string(info->battery_status), 6);
             yaml_printint("level", info->battery_level, 6);
+        }
+
+        if (info->has_equalizer_info) {
+            yaml_print("equalizer", "", 4);
+            yaml_printint("bands", info->equalizer->bands_count, 6);
+            yaml_printint("baseline", info->equalizer->bands_baseline, 6);
+            yaml_printint("step", info->equalizer->bands_step, 6);
+            yaml_printint("min", info->equalizer->bands_min, 6);
+            yaml_printint("max", info->equalizer->bands_max, 6);
+
+            if (info->has_equalizer_presets_info) {
+                yaml_printint("equalizer_presets_count", info->equalizer_presets->count, 4);
+                yaml_print("equalizer_presets", "", 4);
+                for (int i = 0; i < info->equalizer_presets->count; i++) {
+                    EqualizerPreset* presets = info->equalizer_presets->presets;
+
+                    yaml_print_listitem(presets[i].name, 6, true);
+
+                    // Spaces for the list
+                    for (int i = 0; i < 8; i++) {
+                        putchar(' ');
+                    }
+                    for (int j = 0; j < info->equalizer->bands_count; j++) {
+                        yaml_print_listitemfloat(presets[i].values[j], 8, false);
+                    }
+                    putchar('\n');
+                }
+            }
         }
 
         if (info->has_chatmix_info) {

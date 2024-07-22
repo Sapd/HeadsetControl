@@ -85,6 +85,13 @@ int get_byte_data_from_parameter(char* input, unsigned char* dest, size_t len)
 {
     const char* delim = " ,{}\n\r";
 
+    // Make a copy of the input string to avoid modifying the original
+    char* input_copy = strdup(input);
+    if (input_copy == NULL) {
+        // Memory allocation failed
+        return -1;
+    }
+
     // For each token in the string, parse and store in buf[].
     char* token = strtok(input, delim);
     int i       = 0;
