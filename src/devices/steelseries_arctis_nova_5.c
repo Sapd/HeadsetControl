@@ -1,6 +1,8 @@
 #include "../device.h"
 
 #include <hidapi.h>
+#include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 
 static struct device device_arctis;
@@ -22,6 +24,12 @@ enum {
     HEADSET_CHARGING = 0x01,
     HEADSET_OFFLINE  = 0x02,
 };
+enum {
+    EQUALIZER_BANDS_COUNT = 10,
+    EQUALIZER_BAND_MIN    = -10,
+    EQUALIZER_BAND_MAX    = 10,
+    EQUALIZER_BAND_BASE   = 0x14,
+};
 
 static const uint16_t PRODUCT_IDS[]
     = { ID_ARCTIS_NOVA_5_BASE_STATION };
@@ -34,6 +42,8 @@ static int set_mic_mute_led_brightness(hid_device* device_handle, uint8_t num);
 static int set_mic_volume(hid_device* device_handle, uint8_t num);
 static int set_inactive_time(hid_device* device_handle, uint8_t num);
 static int set_volume_limiter(hid_device* device_handle, uint8_t num);
+static int set_eq_preset(hid_device* device_handle, uint8_t num);
+static int set_eq(hid_device* device_handle, struct equalizer_settings* settings);
 static BatteryInfo get_battery(hid_device* device_handle);
 
 static int read_device_status(hid_device* device_handle, unsigned char* data_read);
@@ -47,13 +57,15 @@ void arctis_nova_5_init(struct device** device)
 
     strncpy(device_arctis.device_name, "SteelSeries Arctis Nova 5", sizeof(device_arctis.device_name));
 
-    device_arctis.capabilities                                           = B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_MICROPHONE_MUTE_LED_BRIGHTNESS) | B(CAP_MICROPHONE_VOLUME) | B(CAP_INACTIVE_TIME) | B(CAP_VOLUME_LIMITER);
+    device_arctis.capabilities                                           = B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_MICROPHONE_MUTE_LED_BRIGHTNESS) | B(CAP_MICROPHONE_VOLUME) | B(CAP_INACTIVE_TIME) | B(CAP_VOLUME_LIMITER) | B(CAP_EQUALIZER_PRESET) | B(CAP_EQUALIZER);
     device_arctis.capability_details[CAP_SIDETONE]                       = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
     device_arctis.capability_details[CAP_BATTERY_STATUS]                 = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
     device_arctis.capability_details[CAP_MICROPHONE_MUTE_LED_BRIGHTNESS] = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
     device_arctis.capability_details[CAP_MICROPHONE_VOLUME]              = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
     device_arctis.capability_details[CAP_INACTIVE_TIME]                  = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
     device_arctis.capability_details[CAP_VOLUME_LIMITER]                 = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
+    device_arctis.capability_details[CAP_EQUALIZER_PRESET]               = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
+    device_arctis.capability_details[CAP_EQUALIZER]                      = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
 
     device_arctis.send_sidetone                       = &set_sidetone;
     device_arctis.send_microphone_mute_led_brightness = &set_mic_mute_led_brightness;
@@ -61,6 +73,8 @@ void arctis_nova_5_init(struct device** device)
     device_arctis.request_battery                     = &get_battery;
     device_arctis.send_inactive_time                  = &set_inactive_time;
     device_arctis.send_volume_limiter                 = &set_volume_limiter;
+    device_arctis.send_equalizer_preset               = &set_eq_preset;
+    device_arctis.send_equalizer                      = &set_eq;
     *device                                           = &device_arctis;
 }
 
@@ -208,6 +222,106 @@ static int set_volume_limiter(hid_device* device_handle, uint8_t num)
     unsigned char data[MSG_SIZE] = { 0x0, 0x27, num };
     int r                        = hid_write(device_handle, data, MSG_SIZE);
 
+    if (r < 0)
+        return r;
+
+    return save_state(device_handle);
+}
+
+static int set_eq_preset(hid_device* device_handle, uint8_t num)
+{
+    struct equalizer_settings preset;
+    preset.size                         = EQUALIZER_BANDS_COUNT;
+    float flat[EQUALIZER_BANDS_COUNT]   = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+    float bass[EQUALIZER_BANDS_COUNT]   = { 3.5f, 5.5f, 4, 1, -1.5f, -1.5f, -1, -1, -1, -1 };
+    float focus[EQUALIZER_BANDS_COUNT]  = { -5, -3.5f, -1, -3.5f, -2.5f, 4, 6, -3.5f, 0 };
+    float smiley[EQUALIZER_BANDS_COUNT] = { 3, 3.5f, 1.5f, -1.5f, -4, -4, -2.5f, 1.5f, 3, 4 };
+    switch (num) {
+    case 0: {
+        preset.bands_values = &flat[0];
+        break;
+    }
+    case 1: {
+        preset.bands_values = &bass[0];
+        break;
+    }
+    case 2: {
+        preset.bands_values = &focus[0];
+        break;
+    }
+    case 3: {
+        preset.bands_values = &smiley[0];
+        break;
+    }
+    default:
+        printf("Preset %d out of bounds\n", num);
+        return HSC_OUT_OF_BOUNDS;
+    }
+    return set_eq(device_handle, &preset);
+}
+
+/**
+ * This headset is using a Peaking EQ with configurable frequency center of a EQ band, gain and a quality factor
+ */
+static int set_eq(hid_device* device_handle, struct equalizer_settings* settings)
+{
+    if (settings->size != EQUALIZER_BANDS_COUNT) {
+        printf("Device only supports %d bands.\n", EQUALIZER_BANDS_COUNT);
+        return HSC_OUT_OF_BOUNDS;
+    }
+    uint8_t data[MSG_SIZE] = { 0x0, 0x33 };
+
+    /**
+     * constains the eq band frequencies used in "default" well known profiles used in presets
+     */
+    const unsigned char band_freq_le[2 * EQUALIZER_BANDS_COUNT] = {
+        0x20,
+        0x0,
+        0x40,
+        0x0,
+        0x7d,
+        0x0,
+        0xfa,
+        0x0,
+        0xf4,
+        0x1,
+        0xe8,
+        0x3,
+        0xd0,
+        0x7,
+        0xa0,
+        0xf,
+        0x40,
+        0x1f,
+        0x80,
+        0x3e,
+    };
+
+    for (size_t i = 0; i < settings->size; i++) {
+        float band_value = settings->bands_values[i];
+        if (band_value < EQUALIZER_BAND_MIN || band_value > EQUALIZER_BAND_MAX) {
+            printf("Device only supports bands ranging from %d to %d.\n", EQUALIZER_BAND_MIN, EQUALIZER_BAND_MAX);
+            return HSC_OUT_OF_BOUNDS;
+        }
+        uint8_t raw_gain_value = (uint8_t)(EQUALIZER_BAND_BASE + band_value * 2);
+        uint8_t gain_flag      = 0x01;
+        if (raw_gain_value != EQUALIZER_BAND_BASE) {
+            if (i == 0) {
+                gain_flag = 0x04;
+            } else if (i == (settings->size - 1)) {
+                gain_flag = 0x05;
+            }
+        }
+        data[2 + 6 * i + 0] = band_freq_le[2 * i];
+        data[2 + 6 * i + 1] = band_freq_le[2 * i + 1];
+        data[2 + 6 * i + 2] = gain_flag;
+        data[2 + 6 * i + 3] = raw_gain_value;
+        // use a default quality factor of 1.414 (approximated sqrt(2)) multiplied by 1000 to have a fixed 16 bit number number
+        data[2 + 6 * i + 4] = 0x86;
+        data[2 + 6 * i + 5] = 0x5;
+    }
+
+    int r = hid_write(device_handle, data, MSG_SIZE);
     if (r < 0)
         return r;
 
