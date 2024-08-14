@@ -7,7 +7,10 @@
 
 static struct device device_arctis;
 
-enum { ID_ARCTIS_NOVA_5_BASE_STATION = 0x2232 };
+enum {
+    ID_ARCTIS_NOVA_5_BASE_STATION = 0x2232,
+    ID_ARCTIS_NOVA_5X_BASE_STATION = 0x2253,
+};
 
 enum {
     MSG_SIZE        = 64,
@@ -32,7 +35,7 @@ enum {
 };
 
 static const uint16_t PRODUCT_IDS[]
-    = { ID_ARCTIS_NOVA_5_BASE_STATION };
+    = { ID_ARCTIS_NOVA_5_BASE_STATION, ID_ARCTIS_NOVA_5X_BASE_STATION };
 
 static const uint8_t SAVE_DATA1[MSG_SIZE] = { 0x0, 0x09 }; // Command1 to save settings to headset
 static const uint8_t SAVE_DATA2[MSG_SIZE] = { 0x0, 0x35, 0x01 }; // Command2 to save settings to headset
