@@ -31,7 +31,7 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
 | ROCCAT Elo 7.1 Air |   |   |   | x | x |   |   |   |   |   |   |   |   |   |   |
 | ROCCAT Elo 7.1 USB |   |   |   | x |   |   |   |   |   |   |   |   |   |   |   |
 | SteelSeries Arctis Nova 3 | x |   |   |   |   |   |   |   | x | x | x | x |   |   |   |
-| SteelSeries Arctis Nova 5 | x | x |   |   | x |   |   |   | x | x | x | x | x |   |   |
+| SteelSeries Arctis Nova (5/5X) | x | x |   |   | x | x |   |   | x | x | x | x | x |   |   |
 | SteelSeries Arctis Nova 7 | x | x |   |   | x | x |   |   | x | x | x | x | x | x | x |
 | SteelSeries Arctis 7+ | x | x |   |   | x | x |   |   | x | x |   |   |   |   |   |
 | SteelSeries Arctis Nova Pro Wireless | x | x |   | x | x |   |   |   | x | x |   |   |   |   |   |
