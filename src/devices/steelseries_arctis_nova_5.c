@@ -9,7 +9,7 @@
 static struct device device_arctis;
 
 enum {
-    ID_ARCTIS_NOVA_5_BASE_STATION = 0x2232,
+    ID_ARCTIS_NOVA_5_BASE_STATION  = 0x2232,
     ID_ARCTIS_NOVA_5X_BASE_STATION = 0x2253,
 };
 
