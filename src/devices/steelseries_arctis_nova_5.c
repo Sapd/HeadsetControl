@@ -1,4 +1,5 @@
 #include "../device.h"
+#include "../utility.h"
 
 #include <hidapi.h>
 #include <stdint.h>
@@ -7,7 +8,10 @@
 
 static struct device device_arctis;
 
-enum { ID_ARCTIS_NOVA_5_BASE_STATION = 0x2232 };
+enum {
+    ID_ARCTIS_NOVA_5_BASE_STATION  = 0x2232,
+    ID_ARCTIS_NOVA_5X_BASE_STATION = 0x2253,
+};
 
 enum {
     MSG_SIZE        = 64,
@@ -32,7 +36,7 @@ enum {
 };
 
 static const uint16_t PRODUCT_IDS[]
-    = { ID_ARCTIS_NOVA_5_BASE_STATION };
+    = { ID_ARCTIS_NOVA_5_BASE_STATION, ID_ARCTIS_NOVA_5X_BASE_STATION };
 
 static const uint8_t SAVE_DATA1[MSG_SIZE] = { 0x0, 0x09 }; // Command1 to save settings to headset
 static const uint8_t SAVE_DATA2[MSG_SIZE] = { 0x0, 0x35, 0x01 }; // Command2 to save settings to headset
@@ -45,6 +49,7 @@ static int set_volume_limiter(hid_device* device_handle, uint8_t num);
 static int set_eq_preset(hid_device* device_handle, uint8_t num);
 static int set_eq(hid_device* device_handle, struct equalizer_settings* settings);
 static BatteryInfo get_battery(hid_device* device_handle);
+static int get_chatmix(hid_device* device_handle);
 
 static int read_device_status(hid_device* device_handle, unsigned char* data_read);
 static int save_state(hid_device* device_handle);
@@ -55,11 +60,12 @@ void arctis_nova_5_init(struct device** device)
     device_arctis.idProductsSupported = PRODUCT_IDS;
     device_arctis.numIdProducts       = sizeof(PRODUCT_IDS) / sizeof(PRODUCT_IDS[0]);
 
-    strncpy(device_arctis.device_name, "SteelSeries Arctis Nova 5", sizeof(device_arctis.device_name));
+    strncpy(device_arctis.device_name, "SteelSeries Arctis Nova (5/5X)", sizeof(device_arctis.device_name));
 
-    device_arctis.capabilities                                           = B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_MICROPHONE_MUTE_LED_BRIGHTNESS) | B(CAP_MICROPHONE_VOLUME) | B(CAP_INACTIVE_TIME) | B(CAP_VOLUME_LIMITER) | B(CAP_EQUALIZER_PRESET) | B(CAP_EQUALIZER);
+    device_arctis.capabilities                                           = B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_CHATMIX_STATUS) | B(CAP_MICROPHONE_MUTE_LED_BRIGHTNESS) | B(CAP_MICROPHONE_VOLUME) | B(CAP_INACTIVE_TIME) | B(CAP_VOLUME_LIMITER) | B(CAP_EQUALIZER_PRESET) | B(CAP_EQUALIZER);
     device_arctis.capability_details[CAP_SIDETONE]                       = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
     device_arctis.capability_details[CAP_BATTERY_STATUS]                 = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
+    device_arctis.capability_details[CAP_CHATMIX_STATUS]                 = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
     device_arctis.capability_details[CAP_MICROPHONE_MUTE_LED_BRIGHTNESS] = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
     device_arctis.capability_details[CAP_MICROPHONE_VOLUME]              = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
     device_arctis.capability_details[CAP_INACTIVE_TIME]                  = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
@@ -71,6 +77,7 @@ void arctis_nova_5_init(struct device** device)
     device_arctis.send_microphone_mute_led_brightness = &set_mic_mute_led_brightness;
     device_arctis.send_microphone_volume              = &set_mic_volume;
     device_arctis.request_battery                     = &get_battery;
+    device_arctis.request_chatmix                     = &get_chatmix;
     device_arctis.send_inactive_time                  = &set_inactive_time;
     device_arctis.send_volume_limiter                 = &set_volume_limiter;
     device_arctis.send_equalizer_preset               = &set_eq_preset;
@@ -208,6 +215,36 @@ static BatteryInfo get_battery(hid_device* device_handle)
     info.level = data_read[BATTERY_LEVEL_BYTE];
 
     return info;
+}
+
+static int get_chatmix(hid_device* device_handle)
+{
+    // modified from SteelSeries Arctis Nova 7
+    // max chat 0x00, 0x64
+    // max game 0x64, 0x00
+    // neutral 0x64, 0x64
+    // read device info
+    unsigned char data_read[STATUS_BUF_SIZE];
+    int r = read_device_status(device_handle, data_read);
+
+    if (r < 0)
+        return r;
+
+    if (r == 0)
+        return HSC_READ_TIMEOUT;
+
+    // it's a slider, but setting for game and chat
+    // are reported as separate values, we combine
+    // them back into one setting of the slider
+
+    // the two values are between 0 and 100,
+    // we translate that to a value from 0 to 128
+    // with "64" being in the middle
+
+    int game = map(data_read[5], 0, 100, 0, 64);
+    int chat = map(data_read[6], 0, 100, 0, -64);
+
+    return 64 - (chat + game);
 }
 
 static int set_inactive_time(hid_device* device_handle, uint8_t num)
