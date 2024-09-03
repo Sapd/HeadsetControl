@@ -182,7 +182,7 @@ The following additional software can be used to enable control via a GUI
 
 #### Windows
 
-[HeadsetControl-GUI](https://github.com/nicola02nb/HeadsetControl-GUI)  a simply GUI tool to manage your headset and check battery status. (Qt C++ based)
+[HeadsetControl-GUI](https://github.com/LeoKlaus/HeadsetControl-GUI)  a simply GUI tool to manage your headset and check battery status. (Qt C++ based)
 
 [HeadsetControl-SystemTray](https://github.com/zampierilucas/HeadsetControl-SystemTray) adds a system tray icon, displaying the current amount of battery. (Python based)
 
