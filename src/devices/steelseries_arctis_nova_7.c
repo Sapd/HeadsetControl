@@ -161,16 +161,10 @@ static BatteryInfo arctis_nova_7_request_battery(hid_device* device_handle)
 
     int bat = data_read[2];
 
-    if (bat >= BATTERY_MAX)
+    if (bat > BATTERY_MAX)
         info.level = 100;
-    else if (bat == 0x3)
-        info.level = 50;
-    else if (bat == 0x2)
-        info.level = 15;
-    else if (bat == 0x1)
-        info.level = 5;
     else
-        info.level = 0;
+        info.level = map(bat, BATTERY_MIN, BATTERY_MAX, 0, 100);
 
     return info;
 }
