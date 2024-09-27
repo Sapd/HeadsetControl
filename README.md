@@ -24,7 +24,7 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
 | Logitech G PRO Series | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |
 | Logitech G PRO X 2 | x |   |   |   | x |   |   |   |   |   |   |   |   |   |   |
 | Logitech Zone Wired/Zone 750 | x |   |   |   |   |   | x | x |   |   |   |   |   |   |   |
-| SteelSeries Arctis (1/7X) Wireless | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |
+| SteelSeries Arctis (1/7X/7P) Wireless | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |
 | SteelSeries Arctis (7/Pro) | x | x |   | x | x | x |   |   |   |   |   |   |   |   |   |
 | SteelSeries Arctis 9 | x | x |   |   | x | x |   |   |   |   |   |   |   |   |   |
 | SteelSeries Arctis Pro Wireless | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |
