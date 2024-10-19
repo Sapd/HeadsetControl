@@ -24,7 +24,7 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
 | Logitech G PRO Series | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |
 | Logitech G PRO X 2 | x |   |   |   | x |   |   |   |   |   |   |   |   |   |   |
 | Logitech Zone Wired/Zone 750 | x |   |   |   |   |   | x | x |   |   |   |   |   |   |   |
-| SteelSeries Arctis (1/7X) Wireless | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |
+| SteelSeries Arctis (1/7X/7P) Wireless | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |
 | SteelSeries Arctis (7/Pro) | x | x |   | x | x | x |   |   |   |   |   |   |   |   |   |
 | SteelSeries Arctis 9 | x | x |   |   | x | x |   |   |   |   |   |   |   |   |   |
 | SteelSeries Arctis Pro Wireless | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |
@@ -182,7 +182,7 @@ The following additional software can be used to enable control via a GUI
 
 #### Windows
 
-[HeadsetControl-GUI](https://github.com/nicola02nb/HeadsetControl-GUI)  a simply GUI tool to manage your headset and check battery status. (Qt C++ based)
+[HeadsetControl-GUI](https://github.com/LeoKlaus/HeadsetControl-GUI)  a simply GUI tool to manage your headset and check battery status. (Qt C++ based)
 
 [HeadsetControl-SystemTray](https://github.com/zampierilucas/HeadsetControl-SystemTray) adds a system tray icon, displaying the current amount of battery. (Python based)
 
