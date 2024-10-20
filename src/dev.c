@@ -137,7 +137,6 @@ static void print_help()
     printf("  --repeat SECS\n"
            "\tRepeat command every SECS.\n");
     printf("\n");
-    
 
     printf("  --dev-help\n"
            "\tThis menu\n");
@@ -378,7 +377,7 @@ int dev_main(int argc, char* argv[])
         return 1;
     }
 
-    do{
+    do {
         if (send) {
             int ret = hid_write(device_handle, (const unsigned char*)sendbuffer, send);
 
@@ -437,7 +436,7 @@ int dev_main(int argc, char* argv[])
             }
         }
         sleep(repeat_seconds);
-    }while(repeat_seconds);
+    } while (repeat_seconds);
 
     terminate_hid(&device_handle, &hid_path);
 
