@@ -15,8 +15,9 @@ static struct device device_g933_935;
 #define ID_LOGITECH_G935   0x0a87
 #define ID_LOGITECH_G733   0x0ab5
 #define ID_LOGITECH_G733_2 0x0afe
+#define ID_LOGITECH_G733_3 0x0b1f
 
-static const uint16_t PRODUCT_IDS[] = { ID_LOGITECH_G633, ID_LOGITECH_G635, ID_LOGITECH_G933, ID_LOGITECH_G935, ID_LOGITECH_G733, ID_LOGITECH_G733_2 };
+static const uint16_t PRODUCT_IDS[] = { ID_LOGITECH_G633, ID_LOGITECH_G635, ID_LOGITECH_G933, ID_LOGITECH_G935, ID_LOGITECH_G733, ID_LOGITECH_G733_2, ID_LOGITECH_G733_3 };
 
 static int g933_935_send_sidetone(hid_device* device_handle, uint8_t num);
 static BatteryInfo g933_935_request_battery(hid_device* device_handle);
