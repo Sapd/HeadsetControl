@@ -134,6 +134,8 @@ static void print_help()
            "\t--timeout in millisecounds for --receive\n");
     printf("  --receive-feature REPORTID\n"
            "\tTry to receive a report for REPORTID.\n");
+    printf("  --repeat SECS\n"
+           "\tRepeat command every SECS.\n");
     printf("\n");
 
     printf("  --dev-help\n"
@@ -163,12 +165,14 @@ int dev_main(int argc, char* argv[])
     int send         = 0;
     int send_feature = 0;
 
-    int sleep = -1;
+    int sleep_time = -1;
 
     int receive       = 0;
     int receivereport = 0;
 
     int timeout = -1;
+
+    int repeat_seconds = 0;
 
     int print_deviceinfo = 0;
 
@@ -191,6 +195,7 @@ int dev_main(int argc, char* argv[])
         { "receive-feature", required_argument, NULL, 'g' },
         { "timeout", required_argument, NULL, 't' },
         { "dev-help", no_argument, NULL, 'h' },
+        { "repeat", required_argument, NULL, 0 },
         { 0, 0, 0, 0 }
     };
 
@@ -274,9 +279,9 @@ int dev_main(int argc, char* argv[])
             break;
         }
         case 'm': { // --sleep
-            sleep = strtol(optarg, NULL, 10);
+            sleep_time = strtol(optarg, NULL, 10);
 
-            if (sleep < 0) {
+            if (sleep_time < 0) {
                 fprintf(stderr, "--sleep must be positive\n");
                 return 1;
             }
@@ -307,6 +312,17 @@ int dev_main(int argc, char* argv[])
             if (timeout < -1) {
                 fprintf(stderr, "--timeout cannot be smaller than -1\n");
                 return 1;
+            }
+            break;
+        }
+        case 0: {
+            if (strcmp(opts[option_index].name, "repeat") == 0) { // --repeat SECS
+                repeat_seconds = strtol(optarg, NULL, 10);
+
+                if (repeat_seconds < 1) {
+                    fprintf(stderr, "--repeat SECS cannot be smaller than 1\n");
+                    return 1;
+                }
             }
             break;
         }
@@ -361,63 +377,66 @@ int dev_main(int argc, char* argv[])
         return 1;
     }
 
-    if (send) {
-        int ret = hid_write(device_handle, (const unsigned char*)sendbuffer, send);
+    do {
+        if (send) {
+            int ret = hid_write(device_handle, (const unsigned char*)sendbuffer, send);
 
-        if (ret < 0) {
-            fprintf(stderr, "Failed to send data. Error: %d: %ls\n", ret, hid_error(device_handle));
-            terminate_hid(&device_handle, &hid_path);
-            return 1;
-        }
-    }
-
-    if (send_feature) {
-        int ret = hid_send_feature_report(device_handle, (const unsigned char*)sendreportbuffer, send_feature);
-
-        if (ret < 0) {
-            fprintf(stderr, "Failed to send data. Error: %d: %ls\n", ret, hid_error(device_handle));
-            terminate_hid(&device_handle, &hid_path);
-            return 1;
-        }
-    }
-
-    if (sleep >= 0) { // also allow 0 as a minimum sleep
-        usleep(sleep * 1000);
-    }
-
-    if (receive) {
-        int read = hid_read_timeout(device_handle, receivebuffer, BUFFERLENGTH, timeout);
-
-        if (read < 0) {
-            fprintf(stderr, "Failed to read. Error: %d: %ls\n", read, hid_error(device_handle));
-            terminate_hid(&device_handle, &hid_path);
-            return 1;
-        } else if (read == 0) {
-            fprintf(stderr, "No data to read\n");
-        } else {
-            for (int i = 0; i < read; i++) {
-                printf("%#04x ", receivebuffer[i]);
+            if (ret < 0) {
+                fprintf(stderr, "Failed to send data. Error: %d: %ls\n", ret, hid_error(device_handle));
+                terminate_hid(&device_handle, &hid_path);
+                return 1;
             }
-            printf("\n");
         }
-    }
 
-    if (receivereport) {
-        int read = hid_get_feature_report(device_handle, receivereportbuffer, BUFFERLENGTH);
+        if (send_feature) {
+            int ret = hid_send_feature_report(device_handle, (const unsigned char*)sendreportbuffer, send_feature);
 
-        if (read < 0) {
-            fprintf(stderr, "Failed to read. Error: %d: %ls\n", read, hid_error(device_handle));
-            terminate_hid(&device_handle, &hid_path);
-            return 1;
-        } else if (read == 0) {
-            fprintf(stderr, "No data to read\n");
-        } else {
-            for (int i = 0; i < read; i++) {
-                printf("%#04x ", receivereportbuffer[i]);
+            if (ret < 0) {
+                fprintf(stderr, "Failed to send data. Error: %d: %ls\n", ret, hid_error(device_handle));
+                terminate_hid(&device_handle, &hid_path);
+                return 1;
             }
-            printf("\n");
         }
-    }
+
+        if (sleep_time >= 0) { // also allow 0 as a minimum sleep
+            usleep(sleep_time * 1000);
+        }
+
+        if (receive) {
+            int read = hid_read_timeout(device_handle, receivebuffer, BUFFERLENGTH, timeout);
+
+            if (read < 0) {
+                fprintf(stderr, "Failed to read. Error: %d: %ls\n", read, hid_error(device_handle));
+                terminate_hid(&device_handle, &hid_path);
+                return 1;
+            } else if (read == 0) {
+                fprintf(stderr, "No data to read\n");
+            } else {
+                for (int i = 0; i < read; i++) {
+                    printf("%#04x ", receivebuffer[i]);
+                }
+                printf("\n");
+            }
+        }
+
+        if (receivereport) {
+            int read = hid_get_feature_report(device_handle, receivereportbuffer, BUFFERLENGTH);
+
+            if (read < 0) {
+                fprintf(stderr, "Failed to read. Error: %d: %ls\n", read, hid_error(device_handle));
+                terminate_hid(&device_handle, &hid_path);
+                return 1;
+            } else if (read == 0) {
+                fprintf(stderr, "No data to read\n");
+            } else {
+                for (int i = 0; i < read; i++) {
+                    printf("%#04x ", receivereportbuffer[i]);
+                }
+                printf("\n");
+            }
+        }
+        sleep(repeat_seconds);
+    } while (repeat_seconds);
 
     terminate_hid(&device_handle, &hid_path);
 
