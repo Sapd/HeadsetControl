@@ -1,0 +1,119 @@
+name: Continuos build workflow
+
+on:
+  workflow_dispatch:
+    inputs: {}
+  push:
+    branches: [master]
+    paths:
+      - "cmake_modules/**"
+      - "src/**"
+      - "CMakeLists.txt"
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: git base-devel mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-hidapi make
+      - name: Build
+        run: |
+          mkdir build
+          cd build
+          cmake -G"MSYS Makefiles" ..
+          make
+      - name: Zip binaries folder
+        run: |
+          $zipFile = "headsetcontrol-windows-x86_64.zip"
+          $folder = "build/headsetcontrol.exe"
+          Compress-Archive -Path $folder -DestinationPath $zipFile
+        shell: powershell
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: headsetcontrol-windows-x86_64
+          path: headsetcontrol-windows-x86_64.zip
+
+  build-macos:
+    runs-on: macos-latest
+    env:
+      buildDir: "${{ github.workspace }}/build"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: lukka/get-cmake@latest
+      - name: Install Dependencies
+        run: brew install hidapi
+      - name: Run CMake with Ninja
+        uses: lukka/run-cmake@v3
+        id: runcmake
+        with:
+          cmakeListsTxtPath: "${{ github.workspace }}/CMakeLists.txt"
+          buildWithCMakeArgs: "-- -v"
+          buildDirectory: ${{ env.buildDir }}
+      - name: Zip build artifacts
+        run: |
+          cd ${{ env.buildDir }}
+          zip -r headsetcontrol-macos-x86_64.zip headsetcontrol
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: headsetcontrol-macos-x86_64
+          path: ${{ env.buildDir }}/headsetcontrol-macos-x86_64.zip
+
+  build-linux:
+    runs-on: ubuntu-latest
+    env:
+      buildDir: "${{ github.workspace }}/build"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: lukka/get-cmake@latest
+      - name: Install Dependencies
+        run: sudo apt-get -y install libhidapi-dev
+      - name: Run CMake with Ninja
+        uses: lukka/run-cmake@v3
+        id: runcmake
+        with:
+          cmakeListsTxtPath: "${{ github.workspace }}/CMakeLists.txt"
+          buildWithCMakeArgs: "-- -v"
+          buildDirectory: ${{ env.buildDir }}
+      - name: Zip build artifacts
+        run: |
+          cd ${{ env.buildDir }}
+          zip -r headsetcontrol-linux-x86_64.zip headsetcontrol
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: headsetcontrol-linux-x86_64
+          path: ${{ env.buildDir }}/headsetcontrol-linux-x86_64.zip
+
+  create-release:
+    needs: [build-windows, build-macos, build-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download Windows Artifact
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - name: Deploy continuous
+        uses: crowbarmaster/GH-Automatic-Releases@latest
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "continuous"
+          prerelease: true
+          title: 'Continuous Build'
+          files: |
+            headsetcontrol-*
