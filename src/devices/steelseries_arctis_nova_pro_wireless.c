@@ -6,7 +6,8 @@
 
 static struct device device_arctis;
 
-enum { ID_ARCTIS_NOVA_PRO_WIRELESS_BASE_STATION = 0x12e0 };
+enum { ID_ARCTIS_NOVA_PRO_WIRELESS_BASE_STATION = 0x12e0,
+    ID_ARCTIS_NOVA_PRO_WIRELESS_X_BASE_STATION  = 0x12e5 };
 
 enum {
     MSG_SIZE        = 31,
@@ -47,7 +48,7 @@ enum {
     EQUALIZER_BAND_MAX      = +10,
 };
 
-static const uint16_t PRODUCT_IDS[] = { ID_ARCTIS_NOVA_PRO_WIRELESS_BASE_STATION };
+static const uint16_t PRODUCT_IDS[] = { ID_ARCTIS_NOVA_PRO_WIRELESS_BASE_STATION, ID_ARCTIS_NOVA_PRO_WIRELESS_X_BASE_STATION };
 static EqualizerInfo EQUALIZER      = { EQUALIZER_BANDS_SIZE, 0, 0.5, EQUALIZER_BAND_MIN, EQUALIZER_BAND_MAX };
 
 static int set_sidetone(hid_device* device_handle, uint8_t num);
