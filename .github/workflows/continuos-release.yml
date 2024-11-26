@@ -1,0 +1,99 @@
+name: Continuos build workflow
+
+on:
+  workflow_dispatch:
+    inputs: {}
+  push:
+    branches: [master]
+    paths:
+      - "cmake_modules/**"
+      - "src/**"
+      - "CMakeLists.txt"
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+        include:
+          - os: windows-latest
+            os_name: windows
+            architecture: x86_64
+            shell: msys2 {0}
+            msystem: MINGW64
+            install: base-devel mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-hidapi make zip
+          - os: ubuntu-latest
+            os_name: linux
+            architecture: x86_64
+            shell: bash
+            install: sudo apt-get -y install libhidapi-dev
+          - os: macos-latest
+            os_name: macos
+            architecture: x86_64
+            shell: bash
+            install: brew install hidapi
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup environment
+        if: matrix.os_name == 'windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{ matrix.msystem }}
+          update: true
+          install: ${{ matrix.install }}
+
+      - name: Install dependencies
+        if: matrix.os_name != 'windows'
+        run: ${{ matrix.install }}
+
+      - name: Build
+        if: matrix.os_name == 'windows'
+        run: |
+          mkdir build
+          cd build
+          cmake -G"MSYS Makefiles" ..
+          make
+
+      - name: Run CMake with Ninja
+        if: matrix.os_name != 'windows'
+        uses: lukka/run-cmake@v3
+        id: runcmake
+        with:
+          cmakeListsTxtPath: "${{ github.workspace }}/CMakeLists.txt"
+          buildWithCMakeArgs: "-- -v"
+          buildDirectory: ${{ github.workspace }}/build
+
+      - name: Zip build artifacts
+        run: |
+          cd build
+          zip -r headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip headsetcontrol
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}
+          path: build/headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip
+
+  create-release:
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download Windows Artifact
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - name: Deploy continuous
+        uses: crowbarmaster/GH-Automatic-Releases@latest
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "continuous"
+          prerelease: true
+          title: 'Continuous Build'
+          files: |
+            headsetcontrol-*
