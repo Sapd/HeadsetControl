@@ -40,29 +40,64 @@ int test_profile = 0;
 
 int hsc_device_timeout = 5000;
 
-/**
- *  This function iterates through all HID devices.
- *
- *  @return 0 when a supported device is found
- */
-static int find_device(struct device* device_found, int test_device)
-{
-    if (test_device)
-        return get_device(device_found, VENDOR_TESTDEVICE, PRODUCT_TESTDEVICE);
+typedef struct DeviceListNode {
+  struct device* element;
+  struct DeviceListNode* next;
+} DeviceListNode;
 
+static int find_devices(DeviceList** device_list, int test_device)
+{
+    if (test_device){
+        DeviceList* device_element = malloc(sizeof(DeviceList));
+        device_element->device = malloc(sizeof(struct device));
+        if(!get_device(device_element->device, VENDOR_TESTDEVICE, PRODUCT_TESTDEVICE)){
+            *device_list = device_element;
+            return 1;
+        } else {
+            free(device_element->device);
+            free(device_element);
+            return 0;
+        }
+    }
     struct hid_device_info* devs;
     struct hid_device_info* cur_dev;
-    int found = -1;
+    int found = 0;
     devs      = hid_enumerate(0x0, 0x0);
     cur_dev   = devs;
+
+    DeviceListNode* head = malloc(sizeof(DeviceListNode));
+    DeviceListNode* devices_found = head;
+    devices_found->element = malloc(sizeof (struct device));
+    struct device* last_device = NULL;
     while (cur_dev) {
-        found = get_device(device_found, cur_dev->vendor_id, cur_dev->product_id);
-
-        if (found == 0) {
-            break;
+        if(last_device != NULL && last_device->idVendor == cur_dev->vendor_id && last_device->idProduct == cur_dev->product_id){
+            cur_dev = cur_dev->next;
+            continue;
         }
-
+        if (!get_device(devices_found->element, cur_dev->vendor_id, cur_dev->product_id)) {
+            found ++;
+            last_device = devices_found->element;
+            devices_found->next = malloc(sizeof(struct DeviceListNode));
+            devices_found = devices_found->next;
+            devices_found->element = malloc(sizeof(struct device));
+        }
         cur_dev = cur_dev->next;
+    }
+    free(devices_found->element);
+    free(devices_found);
+
+    *device_list = malloc(sizeof(DeviceList) * found);
+    devices_found = head;
+    for(int i = 0; i < found; i++){
+        DeviceList* device_element = *device_list + i;
+        device_element->device = devices_found->element;
+        device_element->num_devices = found - i;
+        device_element->featureRequests = NULL;
+        device_element->size = 0;
+
+        devices_found = devices_found->next;
+        free(head);
+        head = devices_found;
     }
     hid_free_enumeration(devs);
 
@@ -365,6 +400,10 @@ void print_help(char* programname, struct device* device_found, bool _show_all)
     // printf("Usage: %s [options]\n", programname);
     // printf("Options:\n");
 
+    printf("Select device:\n");
+    printf("  -d, --device INDEX\t\t\tSelects to which device send actions from 0 to N-1 (N = # of connected devices)\n");
+    printf("\n");
+
     if (show_all || has_capability(device_found->capabilities, CAP_SIDETONE)) {
         printf("Sidetone:\n");
         printf("  -s, --sidetone LEVEL\t\tSet sidetone level (0-128)\n");
@@ -521,6 +560,8 @@ int main(int argc, char* argv[])
 {
     int c;
 
+    int selected_device = 0;
+
     int should_print_help                = 0;
     int should_print_help_all            = 0;
     int print_udev_rules                 = 0;
@@ -551,6 +592,7 @@ int main(int argc, char* argv[])
     float* read_buffer = calloc(BUFFERLENGTH, sizeof(float));
 
     struct option opts[] = {
+        { "device", required_argument, NULL, 'd' },
         { "battery", no_argument, NULL, 'b' },
         { "bt-call-volume", required_argument, NULL, 0 },
         { "bt-when-powered-on", required_argument, NULL, 0 },
@@ -582,10 +624,17 @@ int main(int argc, char* argv[])
 
     int option_index = 0;
 
-    while ((c = getopt_long(argc, argv, "bchi:l:f::mn:o::r:s:uv:p:e:?", opts, &option_index)) != -1) {
+    while ((c = getopt_long(argc, argv, "d:bchi:l:f::mn:o::r:s:uv:p:e:?", opts, &option_index)) != -1) {
         char* endptr = NULL; // for strtol
 
         switch (c) {
+        case 'd':
+            selected_device = strtol(optarg, &endptr, 10);
+
+            if (*endptr != '\0' || endptr == optarg || selected_device < 0) {
+                fprintf(stderr, "Usage: %s -d 0-N (N = Number of connected devices - 1)\n", argv[0]);
+                return 1;
+            }
         case 'b':
             request_battery = 1;
             break;
@@ -824,20 +873,31 @@ int main(int argc, char* argv[])
             fprintf(stderr, "Non-option argument %s\n", argv[index]);
     }
 
+    DeviceList* devices_found = NULL;
     // describes the headsetcontrol device, when a headset was found
-    static struct device device_found;
+    struct device* device_selected = NULL;
 
     // Look for a supported device
-    int headset_available = find_device(&device_found, test_device);
+    int headset_available = find_devices(&devices_found, test_device);
+
+    // User selected a device-index that is out of bounds
+    if(selected_device < 0 || headset_available < selected_device) {
+        fprintf(stderr, "Usage: %s -d 0-N (N = Number of connected devices - 1)\n", argv[0]);
+        return 1;
+    }
+    // User selected a device-index that is available
+    if( headset_available > 0 ){
+        device_selected = devices_found[selected_device].device;
+    }
 
     if (should_print_help || should_print_help_all) {
-        if (headset_available == 0)
-            print_help(argv[0], &device_found, should_print_help_all);
+        if (headset_available > 0)
+            print_help(argv[0], device_selected, should_print_help_all);
         else
             print_help(argv[0], NULL, should_print_help_all);
 
         return 0;
-    } else if (headset_available != 0) {
+    } else if (headset_available == 0) {
         output(NULL, false, output_format);
         return 1;
     }
@@ -879,7 +939,7 @@ int main(int argc, char* argv[])
     if (output_format == OUTPUT_YAML || output_format == OUTPUT_JSON || output_format == OUTPUT_ENV) {
         for (int i = 0; i < numFeatures; i++) {
             if (featureRequests[i].type == CAPABILITYTYPE_INFO && !featureRequests[i].should_process) {
-                if ((device_found.capabilities & B(featureRequests[i].cap)) == B(featureRequests[i].cap)) {
+                if ((device_selected->capabilities & B(featureRequests[i].cap)) == B(featureRequests[i].cap)) {
                     featureRequests[i].should_process = true;
                 }
             }
@@ -897,12 +957,12 @@ int main(int argc, char* argv[])
         // probably wired meaning it is connected
         int battery_error = 0;
 
-        if ((device_found.capabilities & B(CAP_BATTERY_STATUS)) == B(CAP_BATTERY_STATUS)) {
-            device_handle = dynamic_connect(&hid_path, device_handle, &device_found, CAP_BATTERY_STATUS);
+        if ((device_selected->capabilities & B(CAP_BATTERY_STATUS)) == B(CAP_BATTERY_STATUS)) {
+            device_handle = dynamic_connect(&hid_path, device_handle, device_selected, CAP_BATTERY_STATUS);
             if (!device_handle)
                 return 1;
 
-            BatteryInfo info = device_found.request_battery(device_handle);
+            BatteryInfo info = device_selected->request_battery(device_handle);
 
             if (info.status != BATTERY_AVAILABLE) {
                 battery_error = 1;
@@ -924,7 +984,7 @@ int main(int argc, char* argv[])
         for (int i = 0; i < numFeatures; i++) {
             if (featureRequests[i].should_process) {
                 // Assuming handle_feature now returns FeatureResult
-                featureRequests[i].result = handle_feature(&device_found, &device_handle, &hid_path, featureRequests[i].cap, featureRequests[i].param);
+                featureRequests[i].result = handle_feature(device_selected, &device_handle, &hid_path, featureRequests[i].cap, featureRequests[i].param);
             } else {
                 // Populate with a default "not processed" result
                 featureRequests[i].result.status  = FEATURE_NOT_PROCESSED;
@@ -933,13 +993,10 @@ int main(int argc, char* argv[])
             }
         }
 
-        DeviceList deviceList;
-        deviceList.device          = &device_found;
-        deviceList.num_devices     = 1;
-        deviceList.featureRequests = featureRequests;
-        deviceList.size            = numFeatures;
+        devices_found[selected_device].featureRequests = featureRequests;
+        devices_found[selected_device].size            = numFeatures;
 
-        output(&deviceList, print_capabilities != -1, output_format);
+        output(devices_found, print_capabilities != -1, output_format);
 
         if (follow)
             sleep(follow_sec);
@@ -955,6 +1012,12 @@ int main(int argc, char* argv[])
         free(equalizer->bands_values);
     }
     free(equalizer);
+
+    for(int i=0;i<headset_available;i++)
+    {
+        free(devices_found[i].device);
+    }
+    free(devices_found);
 
     terminate_hid(&device_handle, &hid_path);
     return 0;
