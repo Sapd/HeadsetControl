@@ -730,25 +730,25 @@ void output_standard(HeadsetControlStatus* status, HeadsetInfo* infos, bool prin
         printf("No supported device found\n");
         return;
     }
-
     bool outputted = false;
+
+    printf("Found %d supported device(s):\n", status->device_count);
 
     for (int i = 0; i < status->device_count; i++) {
         HeadsetInfo* info = &infos[i];
         if (info->product_name != NULL && wcslen(info->product_name) > 0)
-            printf("Found %s (%ls)!\n\n", info->device_name, info->product_name);
+            printf("[%d]%s (%ls)\n", i, info->device_name, info->product_name);
         else
-            printf("Found %s!\n\n", info->device_name);
+            printf("[%d]%s\n", i, info->device_name);
 
         if (print_capabilities) {
-            printf("Capabilities:\n");
+            printf("\tCapabilities:\n");
             for (int j = 0; j < info->capabilities_amount; j++) {
-                printf("* %s\n", info->capabilities_str[j]);
+                printf("\t* %s\n", info->capabilities_str[j]);
             }
 
             outputted = true;
-
-            printf("\nHint: Use --help while the device is connected to get a filtered list of parameters\n");
+            printf("\n");
             continue;
         }
 
@@ -772,22 +772,23 @@ void output_standard(HeadsetControlStatus* status, HeadsetInfo* infos, bool prin
 
             outputted = true;
         }
-
-        break; // list info only one device supported for now
+    }
+    if(print_capabilities){
+        printf("Hint: Use --help while the device is connected to get a filtered list of parameters\n");
     }
 
     for (int i = 0; i < infos->action_count; i++) {
         outputted = true;
 
         if (infos->actions[i].status == STATUS_SUCCESS) {
-            printf("Successfully set %s!\n", infos->actions[i].capability_str);
+            printf("\nSuccessfully set %s!\n", infos->actions[i].capability_str);
         } else {
             printf("%s\n", infos->actions[i].error_message);
         }
     }
 
     if (!outputted) {
-        printf("HeadsetControl (%s) written by Sapd (Denis Arnst)\n\thttps://github.com/Sapd/HeadsetControl\n\n", VERSION);
+        printf("\nHeadsetControl (%s) written by Sapd (Denis Arnst)\n\thttps://github.com/Sapd/HeadsetControl\n\n", VERSION);
         printf("You didn't set any arguments, so nothing happened.\nUse -h for help.\n");
     }
 }
