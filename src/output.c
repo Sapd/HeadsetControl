@@ -773,7 +773,7 @@ void output_standard(HeadsetControlStatus* status, HeadsetInfo* infos, bool prin
             outputted = true;
         }
     }
-    if(print_capabilities){
+    if (print_capabilities) {
         printf("Hint: Use --help while the device is connected to get a filtered list of parameters\n");
     }
 
