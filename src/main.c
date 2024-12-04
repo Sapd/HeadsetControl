@@ -41,16 +41,16 @@ int test_profile = 0;
 int hsc_device_timeout = 5000;
 
 typedef struct DeviceListNode {
-  struct device* element;
-  struct DeviceListNode* next;
+    struct device* element;
+    struct DeviceListNode* next;
 } DeviceListNode;
 
 static int find_devices(DeviceList** device_list, int test_device)
 {
-    if (test_device){
+    if (test_device) {
         DeviceList* device_element = malloc(sizeof(DeviceList));
-        device_element->device = malloc(sizeof(struct device));
-        if(!get_device(device_element->device, VENDOR_TESTDEVICE, PRODUCT_TESTDEVICE)){
+        device_element->device     = malloc(sizeof(struct device));
+        if (!get_device(device_element->device, VENDOR_TESTDEVICE, PRODUCT_TESTDEVICE)) {
             *device_list = device_element;
             return 1;
         } else {
@@ -65,20 +65,20 @@ static int find_devices(DeviceList** device_list, int test_device)
     devs      = hid_enumerate(0x0, 0x0);
     cur_dev   = devs;
 
-    DeviceListNode* head = malloc(sizeof(DeviceListNode));
+    DeviceListNode* head          = malloc(sizeof(DeviceListNode));
     DeviceListNode* devices_found = head;
-    devices_found->element = malloc(sizeof (struct device));
-    struct device* last_device = NULL;
+    devices_found->element        = malloc(sizeof(struct device));
+    struct device* last_device    = NULL;
     while (cur_dev) {
-        if(last_device != NULL && last_device->idVendor == cur_dev->vendor_id && last_device->idProduct == cur_dev->product_id){
+        if (last_device != NULL && last_device->idVendor == cur_dev->vendor_id && last_device->idProduct == cur_dev->product_id) {
             cur_dev = cur_dev->next;
             continue;
         }
         if (!get_device(devices_found->element, cur_dev->vendor_id, cur_dev->product_id)) {
-            found ++;
-            last_device = devices_found->element;
-            devices_found->next = malloc(sizeof(struct DeviceListNode));
-            devices_found = devices_found->next;
+            found++;
+            last_device            = devices_found->element;
+            devices_found->next    = malloc(sizeof(struct DeviceListNode));
+            devices_found          = devices_found->next;
             devices_found->element = malloc(sizeof(struct device));
         }
         cur_dev = cur_dev->next;
@@ -86,14 +86,14 @@ static int find_devices(DeviceList** device_list, int test_device)
     free(devices_found->element);
     free(devices_found);
 
-    *device_list = malloc(sizeof(DeviceList) * found);
+    *device_list  = malloc(sizeof(DeviceList) * found);
     devices_found = head;
-    for(int i = 0; i < found; i++){
-        DeviceList* device_element = *device_list + i;
-        device_element->device = devices_found->element;
-        device_element->num_devices = found - i;
+    for (int i = 0; i < found; i++) {
+        DeviceList* device_element      = *device_list + i;
+        device_element->device          = devices_found->element;
+        device_element->num_devices     = found - i;
         device_element->featureRequests = NULL;
-        device_element->size = 0;
+        device_element->size            = 0;
 
         devices_found = devices_found->next;
         free(head);
@@ -881,12 +881,12 @@ int main(int argc, char* argv[])
     int headset_available = find_devices(&devices_found, test_device);
 
     // User selected a device-index that is out of bounds
-    if(selected_device < 0 || headset_available < selected_device) {
+    if (selected_device < 0 || headset_available < selected_device) {
         fprintf(stderr, "Usage: %s -d 0-N (N = Number of connected devices - 1)\n", argv[0]);
         return 1;
     }
     // User selected a device-index that is available
-    if( headset_available > 0 ){
+    if (headset_available > 0) {
         device_selected = devices_found[selected_device].device;
     }
 
@@ -1013,8 +1013,7 @@ int main(int argc, char* argv[])
     }
     free(equalizer);
 
-    for(int i=0;i<headset_available;i++)
-    {
+    for (int i = 0; i < headset_available; i++) {
         free(devices_found[i].device);
     }
     free(devices_found);
