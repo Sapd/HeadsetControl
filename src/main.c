@@ -873,6 +873,7 @@ int main(int argc, char* argv[])
             fprintf(stderr, "Non-option argument %s\n", argv[index]);
     }
 
+    // The array list of compatible devices
     DeviceList* devices_found = NULL;
     // describes the headsetcontrol device, when a headset was found
     struct device* device_selected = NULL;

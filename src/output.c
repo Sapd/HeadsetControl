@@ -305,33 +305,39 @@ void output_json(HeadsetControlStatus* status, HeadsetInfo* infos)
     json_print_key_value("hidapi_version", status->hid_version, 2);
     printf(",\n");
 
-    if (infos && infos->action_count > 0) {
-        printf("  \"actions\": [\n");
-        for (int i = 0; i < infos->action_count; i++) {
-            printf("    {\n");
+    if (infos != NULL) {
+        for (int j = 0; j < status->device_count; j++) {
+            HeadsetInfo* info = &infos[j];
+            if (info->action_count > 0) {
+                printf("  \"actions\": [\n");
+                for (int i = 0; i < info->action_count; i++) {
+                    printf("    {\n");
 
-            json_print_key_value("capability", infos->actions[i].capability, 6);
-            printf(",\n");
-            json_print_key_value("device", infos->actions[i].device, 6);
-            printf(",\n");
-            json_print_key_value("status", status_to_string(infos->actions[i].status), 6);
+                    json_print_key_value("capability", info->actions[i].capability, 6);
+                    printf(",\n");
+                    json_print_key_value("device", info->actions[i].device, 6);
+                    printf(",\n");
+                    json_print_key_value("status", status_to_string(info->actions[i].status), 6);
 
-            if (infos->actions[i].value > 0) {
-                printf(",\n");
-                json_printint_key_value("value", infos->actions[i].value, 6);
-            }
+                    if (info->actions[i].value > 0) {
+                        printf(",\n");
+                        json_printint_key_value("value", info->actions[i].value, 6);
+                    }
 
-            if (infos->actions[i].error_message != NULL && strlen(infos->actions[i].error_message) > 0) {
-                printf(",\n");
-                json_print_key_value("error_message", infos->actions[i].error_message, 6);
-            }
+                    if (info->actions[i].error_message != NULL && strlen(info->actions[i].error_message) > 0) {
+                        printf(",\n");
+                        json_print_key_value("error_message", info->actions[i].error_message, 6);
+                    }
 
-            printf("\n    }");
-            if (i < infos->action_count - 1) {
-                printf(",\n");
+                    printf("\n    }");
+                    if (i < info->action_count - 1) {
+                        printf(",\n");
+                    }
+                }
+                printf("\n  ],\n");
+                break;
             }
         }
-        printf("\n  ],\n");
     }
 
     // For integers, direct printing is still simplest
@@ -527,17 +533,22 @@ void output_yaml(HeadsetControlStatus* status, HeadsetInfo* infos)
     yaml_print("api_version", status->api_version, 0);
     yaml_print("hidapi_version", status->hid_version, 0);
 
-    if (infos && infos->action_count > 0) {
-        yaml_print("actions", "", 0);
-
-        for (int i = 0; i < infos->action_count; i++) {
-            yaml_print("- capability", infos->actions[i].capability, 2);
-            yaml_print("device", infos->actions[i].device, 4);
-            yaml_print("status", status_to_string(infos->actions[i].status), 4);
-            if (infos->actions[i].value > 0)
-                yaml_printint("value", infos->actions[i].value, 4);
-            if (infos->actions[i].error_message != NULL && strlen(infos->actions[i].error_message) > 0) {
-                yaml_print("error_message", infos->actions[i].error_message, 4);
+    if (infos != NULL) {
+        for (int j = 0; j < status->device_count; j++) {
+            HeadsetInfo* info = &infos[j];
+            if (info->action_count > 0) {
+                yaml_print("actions", "", 0);
+                for (int i = 0; i < info->action_count; i++) {
+                    yaml_print("- capability", info->actions[i].capability, 2);
+                    yaml_print("device", info->actions[i].device, 4);
+                    yaml_print("status", status_to_string(info->actions[i].status), 4);
+                    if (info->actions[i].value > 0)
+                        yaml_printint("value", info->actions[i].value, 4);
+                    if (info->actions[i].error_message != NULL && strlen(info->actions[i].error_message) > 0) {
+                        yaml_print("error_message", info->actions[i].error_message, 4);
+                    }
+                }
+                break;
             }
         }
     }
@@ -653,29 +664,35 @@ void output_env(HeadsetControlStatus* status, HeadsetInfo* infos)
     env_print("HEADSETCONTROL_API_VERSION", status->api_version);
     env_print("HEADSETCONTROL_HIDAPI_VERSION", status->hid_version);
 
-    if (infos) {
-        env_printint("ACTION_COUNT", infos->action_count);
-        for (int i = 0; i < infos->action_count; i++) {
-            char prefix[64];
-            sprintf(prefix, "ACTION_%d", i);
+    if (infos != NULL) {
+        for (int j = 0; j < status->device_count; j++) {
+            HeadsetInfo* info = &infos[j];
+            if (info->action_count > 0) {
+                env_printint("ACTION_COUNT", info->action_count);
+                for (int i = 0; i < info->action_count; i++) {
+                    char prefix[64];
+                    sprintf(prefix, "ACTION_%d", i);
 
-            char key[128];
+                    char key[128];
 
-            sprintf(key, "%s_CAPABILITY", prefix);
-            env_print(key, infos->actions[i].capability);
-            sprintf(key, "%s_DEVICE", prefix);
-            env_print(key, infos->actions[i].device);
-            sprintf(key, "%s_STATUS", prefix);
-            env_print(key, status_to_string(infos->actions[i].status));
+                    sprintf(key, "%s_CAPABILITY", prefix);
+                    env_print(key, info->actions[i].capability);
+                    sprintf(key, "%s_DEVICE", prefix);
+                    env_print(key, info->actions[i].device);
+                    sprintf(key, "%s_STATUS", prefix);
+                    env_print(key, status_to_string(info->actions[i].status));
 
-            if (infos->actions[i].value > 0) {
-                sprintf(key, "%s_VALUE", prefix);
-                env_printint(key, infos->actions[i].value);
-            }
+                    if (info->actions[i].value > 0) {
+                        sprintf(key, "%s_VALUE", prefix);
+                        env_printint(key, info->actions[i].value);
+                    }
 
-            if (infos->actions[i].error_message != NULL && strlen(infos->actions[i].error_message) > 0) {
-                sprintf(key, "%s_ERROR_MESSAGE", prefix);
-                env_print(key, infos->actions[i].error_message);
+                    if (info->actions[i].error_message != NULL && strlen(info->actions[i].error_message) > 0) {
+                        sprintf(key, "%s_ERROR_MESSAGE", prefix);
+                        env_print(key, info->actions[i].error_message);
+                    }
+                }
+                break;
             }
         }
     } else {
@@ -777,13 +794,16 @@ void output_standard(HeadsetControlStatus* status, HeadsetInfo* infos, bool prin
         printf("Hint: Use --help while the device is connected to get a filtered list of parameters\n");
     }
 
-    for (int i = 0; i < infos->action_count; i++) {
-        outputted = true;
+    for (int j = 0; j < status->device_count; j++) {
+        HeadsetInfo* info = &infos[j];
+        for (int i = 0; i < info->action_count; i++) {
+            outputted = true;
 
-        if (infos->actions[i].status == STATUS_SUCCESS) {
-            printf("\nSuccessfully set %s!\n", infos->actions[i].capability_str);
-        } else {
-            printf("%s\n", infos->actions[i].error_message);
+            if (info->actions[i].status == STATUS_SUCCESS) {
+                printf("\nSuccessfully set %s!", info->actions[i].capability_str);
+            } else {
+                printf("\n%s", info->actions[i].error_message);
+            }
         }
     }
 
