@@ -50,7 +50,6 @@ static int find_devices(DeviceList** device_list, int test_device)
     DeviceListNode* devices_found = malloc(sizeof(DeviceListNode));
     devices_found->element        = malloc(sizeof(struct device));
     DeviceListNode* curr_node     = devices_found;
-
     int found = 0;
 
     // Adding test device
@@ -65,19 +64,27 @@ static int find_devices(DeviceList** device_list, int test_device)
 
     struct hid_device_info* devs;
     struct hid_device_info* cur_dev;
-    struct device* last_device = NULL;
     devs                       = hid_enumerate(0x0, 0x0);
     cur_dev                    = devs;
+    bool already_found          = false;
 
     // Iterate through all devices and the compatible to device_found list
     while (cur_dev) {
-        if (false && last_device != NULL && last_device->idVendor == cur_dev->vendor_id && last_device->idProduct == cur_dev->product_id) {
+        already_found = false;
+        DeviceListNode* temp_node = devices_found;
+        while (temp_node != curr_node) {
+            if (temp_node->element->idVendor == cur_dev->vendor_id && temp_node->element->idProduct == cur_dev->product_id) {
+                already_found = true;
+                break;
+            }
+            temp_node = temp_node->next;
+        }
+        if (already_found) {
             cur_dev = cur_dev->next;
             continue;
         }
         if (!get_device(curr_node->element, cur_dev->vendor_id, cur_dev->product_id)) {
             found++;
-            last_device              = curr_node->element;
             curr_node->next          = malloc(sizeof(struct DeviceListNode));
             curr_node->next->element = malloc(sizeof(struct device));
             curr_node                = curr_node->next;
