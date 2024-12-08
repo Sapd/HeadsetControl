@@ -69,7 +69,7 @@ int check_range(int number, int low, int high)
  * @param id2 the secound it
  * @return int 0 if successfull, or 1 if not two ids provided
  */
-static int get_two_ids(char* input, int* id1, int* id2)
+int get_two_ids(char* input, int* id1, int* id2)
 {
     const char* delim = " :.,";
 
