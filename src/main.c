@@ -882,14 +882,12 @@ int main(int argc, char* argv[])
     int headset_available = find_devices(&devices_found, test_device);
 
     // User selected a device-index that is out of bounds
-    if (selected_device < 0 || headset_available < selected_device) {
+    if (selected_device < 0 || selected_device >= headset_available) {
         fprintf(stderr, "Usage: %s -d 0-N (N = Number of connected devices - 1)\n", argv[0]);
         return 1;
     }
     // User selected a device-index that is available
-    if (headset_available > 0) {
-        device_selected = devices_found[selected_device].device;
-    }
+    device_selected = devices_found[selected_device].device;
 
     if (should_print_help || should_print_help_all) {
         if (headset_available > 0)
