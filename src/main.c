@@ -948,29 +948,30 @@ int main(int argc, char* argv[])
     }
 
     if (request_connected) {
-        if (test_device) {
-            printf("true\n");
-            return 0;
-        }
-
+        int is_test_device = selected_device == 0 && test_device;
         // Check if battery status can be read
         // If it isn't supported, the device is
         // probably wired meaning it is connected
         int battery_error = 0;
+        BatteryInfo info;
 
         if ((device_selected->capabilities & B(CAP_BATTERY_STATUS)) == B(CAP_BATTERY_STATUS)) {
-            device_handle = dynamic_connect(&hid_path, device_handle, device_selected, CAP_BATTERY_STATUS);
-            if (!device_handle)
-                return 1;
-
-            BatteryInfo info = device_selected->request_battery(device_handle);
+            if (!is_test_device) {
+                device_handle = dynamic_connect(&hid_path, device_handle, device_selected, CAP_BATTERY_STATUS);
+                if (!device_handle) {
+                    fprintf(stderr, "Error while getting device handle.\n");
+                    return 1;
+                }
+                info = device_selected->request_battery(device_handle);
+                terminate_hid(&device_handle, &hid_path);
+            } else {
+                info = device_selected->request_battery(device_handle);
+            }
 
             if (info.status != BATTERY_AVAILABLE) {
                 battery_error = 1;
             }
         }
-
-        terminate_hid(&device_handle, &hid_path);
 
         if (battery_error != 0) {
             printf("false\n");
