@@ -66,8 +66,8 @@ static int find_devices(DeviceList** device_list, int test_device)
     struct hid_device_info* devs;
     struct hid_device_info* cur_dev;
     struct device* last_device = NULL;
-    devs    = hid_enumerate(0x0, 0x0);
-    cur_dev = devs;
+    devs                       = hid_enumerate(0x0, 0x0);
+    cur_dev                    = devs;
 
     // Iterate through all devices and the compatible to device_found list
     while (cur_dev) {
@@ -562,7 +562,9 @@ int main(int argc, char* argv[])
 {
     int c;
 
-    int selected_device = 0;
+    int selected_device     = 0;
+    int selected_device_id1 = -1;
+    int selected_device_id2 = -1;
 
     int should_print_help                = 0;
     int should_print_help_all            = 0;
@@ -630,13 +632,17 @@ int main(int argc, char* argv[])
         char* endptr = NULL; // for strtol
 
         switch (c) {
-        case 'd':
-            selected_device = strtol(optarg, &endptr, 10);
-
-            if (*endptr != '\0' || endptr == optarg || selected_device < 0) {
-                fprintf(stderr, "Usage: %s -d 0-N (N = Number of connected devices - 1)\n", argv[0]);
-                return 1;
+        case 'd': {
+            int parsed_correctly = get_two_ids(optarg, &selected_device_id1, &selected_device_id2);
+            if (parsed_correctly == 1) {
+                selected_device = strtol(optarg, &endptr, 10);
+                if (*endptr != '\0' || endptr == optarg || selected_device < 0) {
+                    fprintf(stderr, "Usage: %s -d [0-N] | [vendorid:deviceid] (N = Number of connected devices - 1)\n", argv[0]);
+                    return 1;
+                }
             }
+            break;
+        }
         case 'b':
             request_battery = 1;
             break;
@@ -877,7 +883,7 @@ int main(int argc, char* argv[])
 
     // The array list of compatible devices
     DeviceList* devices_found = NULL;
-    // describes the headsetcontrol device, when a headset was found
+    // Describes the headsetcontrol device, when a headset was found
     struct device* device_selected = NULL;
 
     // Look for a supported device
@@ -887,6 +893,15 @@ int main(int argc, char* argv[])
     if (selected_device < 0 || selected_device >= headset_available) {
         fprintf(stderr, "Usage: %s -d 0-N (N = Number of connected devices - 1)\n", argv[0]);
         return 1;
+    }
+
+    if (selected_device_id1 != -1 && selected_device_id2 != -1) {
+        for (int i = 0; i < headset_available; i++) {
+            if (devices_found[i].device->idVendor == selected_device_id1 && devices_found[i].device->idProduct == selected_device_id2) {
+                selected_device = i;
+                break;
+            }
+        }
     }
     // User selected a device-index that is available
     device_selected = devices_found[selected_device].device;
