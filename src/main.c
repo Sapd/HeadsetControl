@@ -47,57 +47,59 @@ typedef struct DeviceListNode {
 
 static int find_devices(DeviceList** device_list, int test_device)
 {
+    DeviceListNode* devices_found = malloc(sizeof(DeviceListNode));
+    devices_found->element        = malloc(sizeof(struct device));
+    DeviceListNode* curr_node     = devices_found;
+
+    int found = 0;
+
+    // Adding test device
     if (test_device) {
-        DeviceList* device_element = malloc(sizeof(DeviceList));
-        device_element->device     = malloc(sizeof(struct device));
-        if (!get_device(device_element->device, VENDOR_TESTDEVICE, PRODUCT_TESTDEVICE)) {
-            *device_list = device_element;
-            return 1;
-        } else {
-            free(device_element->device);
-            free(device_element);
-            return 0;
+        if (!get_device(devices_found->element, VENDOR_TESTDEVICE, PRODUCT_TESTDEVICE)) {
+            curr_node->next          = malloc(sizeof(struct DeviceListNode));
+            curr_node->next->element = malloc(sizeof(struct device));
+            curr_node                = devices_found->next;
+            found++;
         }
     }
+
     struct hid_device_info* devs;
     struct hid_device_info* cur_dev;
-    int found = 0;
-    devs      = hid_enumerate(0x0, 0x0);
-    cur_dev   = devs;
+    struct device* last_device = NULL;
+    devs    = hid_enumerate(0x0, 0x0);
+    cur_dev = devs;
 
-    DeviceListNode* head          = malloc(sizeof(DeviceListNode));
-    DeviceListNode* devices_found = head;
-    devices_found->element        = malloc(sizeof(struct device));
-    struct device* last_device    = NULL;
+    // Iterate through all devices and the compatible to device_found list
     while (cur_dev) {
-        if (last_device != NULL && last_device->idVendor == cur_dev->vendor_id && last_device->idProduct == cur_dev->product_id) {
+        if (false && last_device != NULL && last_device->idVendor == cur_dev->vendor_id && last_device->idProduct == cur_dev->product_id) {
             cur_dev = cur_dev->next;
             continue;
         }
-        if (!get_device(devices_found->element, cur_dev->vendor_id, cur_dev->product_id)) {
+        if (!get_device(curr_node->element, cur_dev->vendor_id, cur_dev->product_id)) {
             found++;
-            last_device            = devices_found->element;
-            devices_found->next    = malloc(sizeof(struct DeviceListNode));
-            devices_found          = devices_found->next;
-            devices_found->element = malloc(sizeof(struct device));
+            last_device              = curr_node->element;
+            curr_node->next          = malloc(sizeof(struct DeviceListNode));
+            curr_node->next->element = malloc(sizeof(struct device));
+            curr_node                = curr_node->next;
         }
         cur_dev = cur_dev->next;
     }
-    free(devices_found->element);
-    free(devices_found);
+    free(curr_node->element);
+    free(curr_node);
 
-    *device_list  = malloc(sizeof(DeviceList) * found);
-    devices_found = head;
+    // Copy by address the found devices to the device_list
+    *device_list = malloc(sizeof(DeviceList) * found);
+    curr_node    = devices_found;
     for (int i = 0; i < found; i++) {
         DeviceList* device_element      = *device_list + i;
-        device_element->device          = devices_found->element;
+        device_element->device          = curr_node->element;
         device_element->num_devices     = found - i;
         device_element->featureRequests = NULL;
         device_element->size            = 0;
 
-        devices_found = devices_found->next;
-        free(head);
-        head = devices_found;
+        curr_node = curr_node->next;
+        free(devices_found);
+        devices_found = curr_node;
     }
     hid_free_enumeration(devs);
 
