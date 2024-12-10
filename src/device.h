@@ -394,3 +394,14 @@ struct device {
      */
     int (*send_bluetooth_call_volume)(hid_device* hid_device, uint8_t num);
 };
+
+/**
+ * @brief Node structure for a linked list of devices.
+ *
+ * This structure represents a node in a linked list where each node contains a pointer to a device
+ * and a pointer to the next node in the list.
+ */
+typedef struct DeviceListNode {
+    struct device* element;
+    struct DeviceListNode* next;
+} DeviceListNode;

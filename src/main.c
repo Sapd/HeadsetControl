@@ -40,11 +40,16 @@ int test_profile = 0;
 
 int hsc_device_timeout = 5000;
 
-typedef struct DeviceListNode {
-    struct device* element;
-    struct DeviceListNode* next;
-} DeviceListNode;
-
+/**
+ * @brief Finds and initializes a list of devices.
+ *
+ * This function allocates a list of devices.
+ * If the test_device flag is set, it attempts to add a test device to the list.
+ *
+ * @param device_list A pointer to the list of devices to be populated.
+ * @param test_device A flag indicating whether to add a test device to the list.
+ * @return The number of devices found and added to the list.
+ */
 static int find_devices(DeviceList** device_list, int test_device)
 {
     DeviceListNode* devices_found = malloc(sizeof(DeviceListNode));
