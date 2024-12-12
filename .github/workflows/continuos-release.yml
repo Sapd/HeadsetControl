@@ -71,7 +71,7 @@ jobs:
       - name: Zip build artifacts
         run: |
           cd build
-          zip -r headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip headsetcontrol
+          zip -r headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip headsetcontrol*
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
