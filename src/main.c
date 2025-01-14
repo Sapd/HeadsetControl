@@ -415,7 +415,8 @@ void print_help(char* programname, struct device* device_found, bool _show_all)
     // printf("Options:\n");
 
     printf("Select device:\n");
-    printf("  -d, --device INDEX\t\t\tSelects to which device send actions from 0 to N-1 (N = # of connected devices)\n");
+    printf("  -d, --device INDEX|vendorid:productid\n");
+    printf("\t\t\t\tSpecify either an index (0 to N-1) or a vendor ID and product ID separated by a colon.\n");
     printf("\n");
 
     if (show_all || has_capability(device_found->capabilities, CAP_SIDETONE)) {

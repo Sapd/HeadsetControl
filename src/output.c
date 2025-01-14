@@ -754,9 +754,9 @@ void output_standard(HeadsetControlStatus* status, HeadsetInfo* infos, bool prin
     for (int i = 0; i < status->device_count; i++) {
         HeadsetInfo* info = &infos[i];
         if (info->product_name != NULL && wcslen(info->product_name) > 0)
-            printf("[%d]%s (%ls)\n", i, info->device_name, info->product_name);
+            printf(" [%d] %s (%ls)\n", i, info->device_name, info->product_name);
         else
-            printf("[%d]%s\n", i, info->device_name);
+            printf(" [%d] %s\n", i, info->device_name);
 
         if (print_capabilities) {
             printf("\tCapabilities:\n");
