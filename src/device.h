@@ -34,6 +34,7 @@ enum capabilities {
     CAP_ROTATE_TO_MUTE,
     CAP_EQUALIZER_PRESET,
     CAP_EQUALIZER,
+    CAP_PARAMETRIC_EQUALIZER,
     CAP_MICROPHONE_MUTE_LED_BRIGHTNESS,
     CAP_MICROPHONE_VOLUME,
     CAP_VOLUME_LIMITER,
@@ -99,6 +100,19 @@ typedef struct {
 } EqualizerPreset;
 
 typedef struct {
+    int bands_count;
+    float gain_base; // default/base gain
+    float gain_step;
+    float gain_min;
+    float gain_max;
+    float q_factor_min; // q factor
+    float q_factor_max;
+    int freq_min; // frequency
+    int freq_max;
+    int filter_types; // bitmap containing available filter types
+} ParametricEqualizerInfo;
+
+typedef struct {
     int count;
     EqualizerPreset presets[];
 } EqualizerPresets;
@@ -107,6 +121,7 @@ enum headsetcontrol_errors {
     HSC_ERROR         = -100,
     HSC_READ_TIMEOUT  = -101,
     HSC_OUT_OF_BOUNDS = -102,
+    HSC_INVALID_ARG   = -103,
 };
 
 typedef enum {
@@ -135,13 +150,43 @@ typedef struct {
     FeatureResult result;
 } FeatureRequest;
 
-/** @brief Defines equalizer custom setings
+/** @brief Defines equalizer custom settings
  */
 struct equalizer_settings {
     /// The size of the bands array
     int size;
     /// The equalizer frequency bands values
     float* bands_values;
+};
+
+typedef enum {
+    EQ_FILTER_LOWSHELF,
+    EQ_FILTER_LOWPASS,
+    EQ_FILTER_PEAKING,
+    EQ_FILTER_HIGHPASS,
+    EQ_FILTER_HIGHSHELF,
+    NUM_EQ_FILTER_TYPES
+} EqualizerFilterType;
+
+/// Enum name of every parametric equalizer filter type
+extern const char* const equalizer_filter_type_str[NUM_EQ_FILTER_TYPES];
+
+/** @brief Defines parametric equalizer custom settings
+ */
+struct parametric_equalizer_settings {
+    /// The size of the bands array
+    int size;
+    /// The equalizer bands
+    struct parametric_equalizer_band* bands;
+};
+
+/** @brief Defines parameteric equalizer band
+ */
+struct parametric_equalizer_band {
+    float frequency;
+    float gain;
+    float q_factor;
+    EqualizerFilterType type;
 };
 
 /** @brief Defines the basic data of a device
@@ -163,7 +208,8 @@ struct device {
 
     // Equalizer Infos
     EqualizerInfo* equalizer;
-    EqualizerPresets* eqaulizer_presets;
+    EqualizerPresets* equalizer_presets;
+    ParametricEqualizerInfo* parametric_equalizer;
 
     wchar_t device_hid_vendorname[64];
     wchar_t device_hid_productname[64];
@@ -312,6 +358,24 @@ struct device {
      *              -1                 HIDAPI error
      */
     int (*send_equalizer)(hid_device* hid_device, struct equalizer_settings* settings);
+
+    /** @brief Function pointer for setting headset parametric equalizer
+     *
+     *  Forwards the request to the device specific implementation
+     *
+     *  @param  device_handle   The hidapi handle. Must be the same
+     *                          device as defined here (same ids)
+     *  @param  settings        The parametric equalizer settings containing
+     *                          the filter values
+     *
+     *  @returns    > 0                on success
+     *              HSC_OUT_OF_BOUNDS  on equalizer settings size out of range
+     *                                 specific to this hardware
+     *              HSC_INVALID_ARG    on equalizer filter type invalid/unsupported
+     *                                 specific to this hardware
+     *              -1                 HIDAPI error
+     */
+    int (*send_parametric_equalizer)(hid_device* hid_device, struct parametric_equalizer_settings* settings);
 
     /** @brief Function pointer for setting headset microphone mute LED brightness
      *

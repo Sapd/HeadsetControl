@@ -7,6 +7,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "device.h"
 #include "utility.h"
 
 int map(int x, int in_min, int in_max, int out_min, int out_max)

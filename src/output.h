@@ -77,6 +77,8 @@ typedef struct {
     EqualizerInfo* equalizer;
     bool has_equalizer_presets_info;
     EqualizerPresets* equalizer_presets;
+    bool has_parametric_equalizer_info;
+    ParametricEqualizerInfo* parametric_equalizer;
 
     Action actions[MAX_ACTIONS];
     int action_count;
