@@ -928,6 +928,7 @@ int main(int argc, char* argv[])
     // We open connection to HID devices on demand
     hid_device* device_handle = NULL;
     char* hid_path            = NULL;
+    FeatureRequest* feature_requests[headset_available];
 
     // Initialize signal handler for CTRL + C
 #ifdef _WIN32
@@ -960,16 +961,30 @@ int main(int argc, char* argv[])
 
     // For specific output types, like YAML, we will do all actions - even when not specified - to aggreate all information
     if (output_format == OUTPUT_YAML || output_format == OUTPUT_JSON || output_format == OUTPUT_ENV) {
-        for (int i = 0; i < numFeatures; i++) {
-            if (featureRequests[i].type == CAPABILITYTYPE_INFO && !featureRequests[i].should_process) {
-                if ((device_selected->capabilities & B(featureRequests[i].cap)) == B(featureRequests[i].cap)) {
-                    featureRequests[i].should_process = true;
+        for(int i=0; i<headset_available; i++) {
+            feature_requests[i] = memcpy(malloc(sizeof(featureRequests)), featureRequests, sizeof(featureRequests));
+            for(int j=0; j<numFeatures; j++){
+                if (feature_requests[i][j].type == CAPABILITYTYPE_INFO && !feature_requests[i][j].should_process) {
+                    if ((devices_found[i].device->capabilities & B(feature_requests[i][j].cap)) == B(feature_requests[i][j].cap)) {
+                        feature_requests[i][j].should_process = true;
+                        feature_requests[i][j].result = handle_feature(devices_found[i].device, &device_handle, &hid_path, feature_requests[i][j].cap, feature_requests[i][j].param);
+                    }
                 }
             }
+            devices_found[i].featureRequests = feature_requests[i];
+            devices_found[i].size = numFeatures;
+
+            terminate_hid(&device_handle, &hid_path);
+            device_handle = NULL;
+            hid_path = NULL;
         }
     }
 
     if (request_connected) {
+        if(device_selected == NULL) {
+            fprintf(stderr, "Error: No device has been selected.\n");
+            return 1;
+        }
         int is_test_device = selected_device == 0 && test_device;
         // Check if battery status can be read
         // If it isn't supported, the device is
@@ -1005,20 +1020,22 @@ int main(int argc, char* argv[])
     }
 
     do {
-        for (int i = 0; i < numFeatures; i++) {
-            if (featureRequests[i].should_process) {
-                // Assuming handle_feature now returns FeatureResult
-                featureRequests[i].result = handle_feature(device_selected, &device_handle, &hid_path, featureRequests[i].cap, featureRequests[i].param);
-            } else {
-                // Populate with a default "not processed" result
-                featureRequests[i].result.status  = FEATURE_NOT_PROCESSED;
-                featureRequests[i].result.message = strdup("Not processed");
-                featureRequests[i].result.value   = 0;
+        if (device_selected != NULL) {
+            for (int i = 0; i < numFeatures; i++) {
+                if (featureRequests[i].should_process) {
+                    // Assuming handle_feature now returns FeatureResult
+                    featureRequests[i].result = handle_feature(device_selected, &device_handle, &hid_path, featureRequests[i].cap, featureRequests[i].param);
+                } else {
+                    // Populate with a default "not processed" result
+                    featureRequests[i].result.status  = FEATURE_NOT_PROCESSED;
+                    featureRequests[i].result.message = strdup("Not processed");
+                    featureRequests[i].result.value   = 0;
+                }
             }
-        }
 
-        devices_found[selected_device].featureRequests = featureRequests;
-        devices_found[selected_device].size            = numFeatures;
+            devices_found[selected_device].featureRequests = featureRequests;
+            devices_found[selected_device].size            = numFeatures;
+        }
 
         output(devices_found, print_capabilities != -1, output_format);
 
