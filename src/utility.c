@@ -145,6 +145,8 @@ int get_two_ids(char* input, int* id1, int* id2)
     char* str = (char*)malloc(sz + 1);
     strcpy(str, input);
 
+    int v1,v2;
+
     char* token = strtok(input, delim);
     int i       = 0;
     while (token) {
@@ -152,9 +154,9 @@ int get_two_ids(char* input, int* id1, int* id2)
         long int val = strtol(token, &endptr, 0);
 
         if (i == 0)
-            *id1 = val;
+            v1 = val;
         else if (i == 1)
-            *id2 = val;
+            v2 = val;
 
         i++;
         token = strtok(NULL, delim);
@@ -164,6 +166,9 @@ int get_two_ids(char* input, int* id1, int* id2)
 
     if (i != 2) // not exactly supplied two ids
         return 1;
+
+    *id1 = v1;
+    *id2 = v2;
 
     return 0;
 }
