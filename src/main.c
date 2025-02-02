@@ -165,7 +165,7 @@ static void print_readmetable()
         printf("| %s |", device_found->device_name);
 
         for (int j = 0; j < NUM_CAPABILITIES; j++) {
-            if (has_capability(device_found->capabilities, j)) {
+            if (device_has_capability(device_found, j)) {
                 printf(" x |");
             } else {
                 printf("   |");
@@ -405,10 +405,8 @@ static FeatureResult handle_feature(struct device* device_found, hid_device** de
     return result;
 }
 
-void print_help(char* programname, struct device* device_found, bool _show_all)
+void print_help(char* programname, struct device* device_found, bool show_all)
 {
-    bool show_all = !device_found || _show_all;
-
     printf("HeadsetControl by Sapd (Denis Arnst)\n\thttps://github.com/Sapd/HeadsetControl\n\n");
     printf("Version: %s\n\n", VERSION);
     // printf("Usage: %s [options]\n", programname);
@@ -419,21 +417,21 @@ void print_help(char* programname, struct device* device_found, bool _show_all)
     printf("\t\t\t\tSpecify either an index (0 to N-1) or a vendor ID and product ID separated by a colon.\n");
     printf("\n");
 
-    if (show_all || has_capability(device_found->capabilities, CAP_SIDETONE)) {
+    if (show_all || device_has_capability(device_found, CAP_SIDETONE)) {
         printf("Sidetone:\n");
         printf("  -s, --sidetone LEVEL\t\tSet sidetone level (0-128)\n");
         printf("\n");
     }
 
-    if (show_all || has_capability(device_found->capabilities, CAP_BATTERY_STATUS)) {
+    if (show_all || device_has_capability(device_found, CAP_BATTERY_STATUS)) {
         printf("Battery:\n");
         printf("  -b, --battery\t\t\tCheck battery level\n");
         printf("\n");
     }
 
     // ------ Category: lights and notifications
-    bool show_lights        = show_all || has_capability(device_found->capabilities, CAP_LIGHTS);
-    bool show_voice_prompts = show_all || has_capability(device_found->capabilities, CAP_VOICE_PROMPTS);
+    bool show_lights        = show_all || device_has_capability(device_found, CAP_LIGHTS);
+    bool show_voice_prompts = show_all || device_has_capability(device_found, CAP_VOICE_PROMPTS);
 
     if (show_lights || show_voice_prompts) {
         printf("%s:\n", (show_lights && show_voice_prompts) ? "Lights and Voice Prompts" : (show_lights ? "Lights" : "Voice Prompts"));
@@ -448,10 +446,10 @@ void print_help(char* programname, struct device* device_found, bool _show_all)
     // ------
 
     // ------ Category: Features
-    bool show_inactive_time      = show_all || has_capability(device_found->capabilities, CAP_INACTIVE_TIME);
-    bool show_chatmix_status     = show_all || has_capability(device_found->capabilities, CAP_CHATMIX_STATUS);
-    bool show_notification_sound = show_all || has_capability(device_found->capabilities, CAP_NOTIFICATION_SOUND);
-    bool show_volume_limiter     = show_all || has_capability(device_found->capabilities, CAP_VOLUME_LIMITER);
+    bool show_inactive_time      = show_all || device_has_capability(device_found, CAP_INACTIVE_TIME);
+    bool show_chatmix_status     = show_all || device_has_capability(device_found, CAP_CHATMIX_STATUS);
+    bool show_notification_sound = show_all || device_has_capability(device_found, CAP_NOTIFICATION_SOUND);
+    bool show_volume_limiter     = show_all || device_has_capability(device_found, CAP_VOLUME_LIMITER);
 
     if (show_inactive_time || show_chatmix_status || show_notification_sound) {
         printf("Features:\n");
@@ -472,8 +470,8 @@ void print_help(char* programname, struct device* device_found, bool _show_all)
     // ------
 
     // ------ Category: Equalizer
-    bool show_equalizer        = show_all || has_capability(device_found->capabilities, CAP_EQUALIZER);
-    bool show_equalizer_preset = show_all || has_capability(device_found->capabilities, CAP_EQUALIZER_PRESET);
+    bool show_equalizer        = show_all || device_has_capability(device_found, CAP_EQUALIZER);
+    bool show_equalizer_preset = show_all || device_has_capability(device_found, CAP_EQUALIZER_PRESET);
 
     if (show_equalizer || show_equalizer_preset) {
         printf("Equalizer:\n");
@@ -488,9 +486,9 @@ void print_help(char* programname, struct device* device_found, bool _show_all)
     // ------
 
     // ------ Category: Microphone
-    bool show_rotate_to_mute                 = show_all || has_capability(device_found->capabilities, CAP_ROTATE_TO_MUTE);
-    bool show_microphone_mute_led_brightness = show_all || has_capability(device_found->capabilities, CAP_MICROPHONE_MUTE_LED_BRIGHTNESS);
-    bool show_microphone_volume              = show_all || has_capability(device_found->capabilities, CAP_MICROPHONE_VOLUME);
+    bool show_rotate_to_mute                 = show_all || device_has_capability(device_found, CAP_ROTATE_TO_MUTE);
+    bool show_microphone_mute_led_brightness = show_all || device_has_capability(device_found, CAP_MICROPHONE_MUTE_LED_BRIGHTNESS);
+    bool show_microphone_volume              = show_all || device_has_capability(device_found, CAP_MICROPHONE_VOLUME);
 
     if (show_rotate_to_mute || show_microphone_mute_led_brightness || show_microphone_volume) {
         printf("Microphone:\n");
@@ -508,8 +506,8 @@ void print_help(char* programname, struct device* device_found, bool _show_all)
     // ------
 
     // ------ Category: Bluetooth
-    bool show_bt_when_powered_on = show_all || has_capability(device_found->capabilities, CAP_BT_WHEN_POWERED_ON);
-    bool show_bt_call_volume     = show_all || has_capability(device_found->capabilities, CAP_BT_CALL_VOLUME);
+    bool show_bt_when_powered_on = show_all || device_has_capability(device_found, CAP_BT_WHEN_POWERED_ON);
+    bool show_bt_call_volume     = show_all || device_has_capability(device_found, CAP_BT_CALL_VOLUME);
 
     if (show_bt_when_powered_on || show_bt_call_volume) {
         printf("Bluetooth:\n");
@@ -540,19 +538,19 @@ void print_help(char* programname, struct device* device_found, bool _show_all)
         printf("\n");
     }
 
-    if (show_all || has_capability(device_found->capabilities, CAP_SIDETONE) || has_capability(device_found->capabilities, CAP_BATTERY_STATUS)) {
+    if (show_all || device_has_capability(device_found, CAP_SIDETONE) || device_has_capability(device_found, CAP_BATTERY_STATUS)) {
         printf("Examples:\n");
-        if (show_all || has_capability(device_found->capabilities, CAP_BATTERY_STATUS))
+        if (show_all || device_has_capability(device_found, CAP_BATTERY_STATUS))
             printf("  %s -b\t\tCheck the battery level\n", programname);
-        if (show_all || has_capability(device_found->capabilities, CAP_SIDETONE))
+        if (show_all || device_has_capability(device_found, CAP_SIDETONE))
             printf("  %s -s 64\tSet sidetone level to 64\n", programname);
-        if (show_all || (has_capability(device_found->capabilities, CAP_LIGHTS) && has_capability(device_found->capabilities, CAP_SIDETONE)))
+        if (show_all || (device_has_capability(device_found, CAP_LIGHTS) && device_has_capability(device_found, CAP_SIDETONE)))
             printf("  %s -l 1 -s 0\tTurn on lights and deactivate sidetone\n", programname);
         printf("\n");
     }
 
     if (!show_all && device_found)
-        printf("\nHint:\tOptions were filtered to your device (%s)\n\tUse --help-all to show all options (including advanced ones)\n", device_found->device_name);
+        printf("Hint:\tOptions were filtered to your device (%s)\n\tUse --help-all to show all options (including advanced ones)\n", device_found->device_name);
 }
 
 // for --follow
@@ -575,7 +573,7 @@ int main(int argc, char* argv[])
 {
     int c;
 
-    int selected_device     = 0;
+    int selected_device     = -1;
     int selected_device_id1 = -1;
     int selected_device_id2 = -1;
 
@@ -902,12 +900,6 @@ int main(int argc, char* argv[])
     // Look for a supported device
     int headset_available = find_devices(&devices_found, test_device);
 
-    // User selected a device-index that is out of bounds
-    if (selected_device != 0 && (selected_device < 0 || selected_device >= headset_available)) {
-        fprintf(stderr, "Usage: %s -d [0-N] | [vendorid:deviceid] (N = Number of connected devices - 1)\n", argv[0]);
-        return 1;
-    }
-
     if (selected_device_id1 != -1 && selected_device_id2 != -1) {
         for (int i = 0; i < headset_available; i++) {
             if (devices_found[i].device->idVendor == selected_device_id1 && devices_found[i].device->idProduct == selected_device_id2) {
@@ -916,15 +908,17 @@ int main(int argc, char* argv[])
             }
         }
     }
-    // User selected a device-index that is available
-    device_selected = devices_found[selected_device].device;
+    // Check user selected a device-index that is out of bounds
+    if (selected_device >= headset_available) {
+        fprintf(stderr, "Device index out of bounds\n");
+        return 1;
+    } else if (selected_device != -1) {
+        // User selected a device-index that is available
+        device_selected = devices_found[selected_device].device;
+    }
 
     if (should_print_help || should_print_help_all) {
-        if (headset_available > 0)
-            print_help(argv[0], device_selected, should_print_help_all);
-        else
-            print_help(argv[0], NULL, should_print_help_all);
-
+        print_help(argv[0], device_selected, should_print_help_all);
         return 0;
     } else if (headset_available == 0) {
         output(NULL, false, output_format);

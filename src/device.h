@@ -54,11 +54,6 @@ extern const char capabilities_str_short[NUM_CAPABILITIES];
 /// Enum name of every capability
 extern const char* const capabilities_str_enum[NUM_CAPABILITIES];
 
-static inline bool has_capability(int device_capabilities, enum capabilities cap)
-{
-    return (device_capabilities & B(cap)) == B(cap);
-}
-
 struct capability_detail {
     // Usage page, only used when usageid is not 0; HID Protocol specific
     uint16_t usagepage;
@@ -405,3 +400,5 @@ typedef struct DeviceListNode {
     struct device* element;
     struct DeviceListNode* next;
 } DeviceListNode;
+
+bool device_has_capability(struct device* device, enum capabilities cap);
