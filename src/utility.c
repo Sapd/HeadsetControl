@@ -145,7 +145,7 @@ int get_two_ids(char* input, int* id1, int* id2)
     char* str = (char*)malloc(sz + 1);
     strcpy(str, input);
 
-    int v1,v2;
+    int v1, v2;
 
     char* token = strtok(input, delim);
     int i       = 0;

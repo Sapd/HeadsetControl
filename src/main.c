@@ -271,7 +271,7 @@ static FeatureResult handle_feature(struct device* device_found, hid_device** de
 
     switch (cap) {
     case CAP_SIDETONE:
-        ret = device_found->send_sidetone(*device_handle, (uint8_t)*(int*)param);
+        ret = device_found->send_sidetone(*device_handle, (uint8_t) * (int*)param);
         break;
 
     case CAP_BATTERY_STATUS: {
@@ -307,15 +307,15 @@ static FeatureResult handle_feature(struct device* device_found, hid_device** de
     }
 
     case CAP_NOTIFICATION_SOUND:
-        ret = device_found->notifcation_sound(*device_handle, (uint8_t)*(int*)param);
+        ret = device_found->notifcation_sound(*device_handle, (uint8_t) * (int*)param);
         break;
 
     case CAP_LIGHTS:
-        ret = device_found->switch_lights(*device_handle, (uint8_t)*(int*)param);
+        ret = device_found->switch_lights(*device_handle, (uint8_t) * (int*)param);
         break;
 
     case CAP_INACTIVE_TIME:
-        ret = device_found->send_inactive_time(*device_handle, (uint8_t)*(int*)param);
+        ret = device_found->send_inactive_time(*device_handle, (uint8_t) * (int*)param);
         break;
 
     case CAP_CHATMIX_STATUS:
@@ -334,15 +334,15 @@ static FeatureResult handle_feature(struct device* device_found, hid_device** de
         return result;
 
     case CAP_VOICE_PROMPTS:
-        ret = device_found->switch_voice_prompts(*device_handle, (uint8_t)*(int*)param);
+        ret = device_found->switch_voice_prompts(*device_handle, (uint8_t) * (int*)param);
         break;
 
     case CAP_ROTATE_TO_MUTE:
-        ret = device_found->switch_rotate_to_mute(*device_handle, (uint8_t)*(int*)param);
+        ret = device_found->switch_rotate_to_mute(*device_handle, (uint8_t) * (int*)param);
         break;
 
     case CAP_EQUALIZER_PRESET:
-        ret = device_found->send_equalizer_preset(*device_handle, (uint8_t)*(int*)param);
+        ret = device_found->send_equalizer_preset(*device_handle, (uint8_t) * (int*)param);
         break;
 
     case CAP_EQUALIZER:
@@ -350,23 +350,23 @@ static FeatureResult handle_feature(struct device* device_found, hid_device** de
         break;
 
     case CAP_MICROPHONE_MUTE_LED_BRIGHTNESS:
-        ret = device_found->send_microphone_mute_led_brightness(*device_handle, (uint8_t)*(int*)param);
+        ret = device_found->send_microphone_mute_led_brightness(*device_handle, (uint8_t) * (int*)param);
         break;
 
     case CAP_MICROPHONE_VOLUME:
-        ret = device_found->send_microphone_volume(*device_handle, (uint8_t)*(int*)param);
+        ret = device_found->send_microphone_volume(*device_handle, (uint8_t) * (int*)param);
         break;
 
     case CAP_VOLUME_LIMITER:
-        ret = device_found->send_volume_limiter(*device_handle, (uint8_t)*(int*)param);
+        ret = device_found->send_volume_limiter(*device_handle, (uint8_t) * (int*)param);
         break;
 
     case CAP_BT_WHEN_POWERED_ON:
-        ret = device_found->send_bluetooth_when_powered_on(*device_handle, (uint8_t)*(int*)param);
+        ret = device_found->send_bluetooth_when_powered_on(*device_handle, (uint8_t) * (int*)param);
         break;
 
     case CAP_BT_CALL_VOLUME:
-        ret = device_found->send_bluetooth_call_volume(*device_handle, (uint8_t)*(int*)param);
+        ret = device_found->send_bluetooth_call_volume(*device_handle, (uint8_t) * (int*)param);
         break;
 
     case NUM_CAPABILITIES:
@@ -579,7 +579,7 @@ int main(int argc, char* argv[])
 {
     int c;
 
-    int selected_vendor_id = 0;
+    int selected_vendor_id  = 0;
     int selected_product_id = 0;
 
     int should_print_help                = 0;
@@ -962,19 +962,19 @@ int main(int argc, char* argv[])
 
     FeatureRequest* feature_requests[headset_available];
     for (int i = 0; i < headset_available; i++) {
-        feature_requests[i] = memcpy(malloc(sizeof(featureRequests)), featureRequests, sizeof(featureRequests));
+        feature_requests[i]              = memcpy(malloc(sizeof(featureRequests)), featureRequests, sizeof(featureRequests));
         devices_found[i].featureRequests = feature_requests[i];
-        devices_found[i].size = numFeatures;
+        devices_found[i].size            = numFeatures;
     }
 
     // For specific output types, like YAML, we will do all actions - even when not specified - to aggreate all information
     if (output_format == OUTPUT_YAML || output_format == OUTPUT_JSON || output_format == OUTPUT_ENV) {
-        for(int i=0; i<headset_available; i++) {
-            for(int j=0; j<numFeatures; j++){
+        for (int i = 0; i < headset_available; i++) {
+            for (int j = 0; j < numFeatures; j++) {
                 if (feature_requests[i][j].type == CAPABILITYTYPE_INFO && !feature_requests[i][j].should_process) {
                     if ((devices_found[i].device->capabilities & B(feature_requests[i][j].cap)) == B(feature_requests[i][j].cap)) {
                         feature_requests[i][j].should_process = true;
-                        feature_requests[i][j].result = handle_feature(devices_found[i].device, &device_handle, &hid_path, feature_requests[i][j].cap, feature_requests[i][j].param);
+                        feature_requests[i][j].result         = handle_feature(devices_found[i].device, &device_handle, &hid_path, feature_requests[i][j].cap, feature_requests[i][j].param);
                     }
                 }
             }
@@ -983,12 +983,12 @@ int main(int argc, char* argv[])
     }
 
     if (request_connected) {
-        if(device_selected == NULL) {
+        if (device_selected == NULL) {
             fprintf(stderr, "Error: No device has been selected.\n");
             return 1;
         }
         struct device* device = device_selected->device;
-        int is_test_device = test_device && device->idVendor == VENDOR_TESTDEVICE && device->idProduct == PRODUCT_TESTDEVICE;
+        int is_test_device    = test_device && device->idVendor == VENDOR_TESTDEVICE && device->idProduct == PRODUCT_TESTDEVICE;
         // Check if battery status can be read
         // If it isn't supported, the device is
         // probably wired meaning it is connected
@@ -1018,7 +1018,7 @@ int main(int argc, char* argv[])
         } else {
             printf("true\n");
         }
-    } else{
+    } else {
         do {
             if (device_selected != NULL) {
                 FeatureRequest* deviceFeatureRequests = device_selected->featureRequests;
@@ -1049,7 +1049,7 @@ int main(int argc, char* argv[])
     free(equalizer);
 
     for (int i = 0; i < headset_available; i++) {
-        if (output_format != OUTPUT_STANDARD){
+        if (output_format != OUTPUT_STANDARD) {
             // Free memory from features
             for (int j = 0; j < numFeatures; j++) {
                 free(devices_found[i].featureRequests[j].result.message);
