@@ -651,7 +651,7 @@ int main(int argc, char* argv[])
         case 'd': {
             int parsed_correctly = get_two_ids(optarg, &selected_vendor_id, &selected_product_id);
             if (parsed_correctly == 1) {
-                fprintf(stderr, "Usage: %s -d [vendorid:deviceid] (N = Number of connected devices - 1)\n", argv[0]);
+                fprintf(stderr, "Usage: %s -d, --device [vendorid:deviceid]\n", argv[0]);
                 return 1;
             }
             break;
@@ -930,7 +930,6 @@ int main(int argc, char* argv[])
     // We open connection to HID devices on demand
     hid_device* device_handle = NULL;
     char* hid_path            = NULL;
-    FeatureRequest* feature_requests[headset_available];
 
     // Initialize signal handler for CTRL + C
 #ifdef _WIN32
@@ -961,10 +960,16 @@ int main(int argc, char* argv[])
     int numFeatures = sizeof(featureRequests) / sizeof(featureRequests[0]);
     assert(numFeatures == NUM_CAPABILITIES);
 
+    FeatureRequest* feature_requests[headset_available];
+    for (int i = 0; i < headset_available; i++) {
+        feature_requests[i] = memcpy(malloc(sizeof(featureRequests)), featureRequests, sizeof(featureRequests));
+        devices_found[i].featureRequests = feature_requests[i];
+        devices_found[i].size = numFeatures;
+    }
+
     // For specific output types, like YAML, we will do all actions - even when not specified - to aggreate all information
     if (output_format == OUTPUT_YAML || output_format == OUTPUT_JSON || output_format == OUTPUT_ENV) {
         for(int i=0; i<headset_available; i++) {
-            feature_requests[i] = memcpy(malloc(sizeof(featureRequests)), featureRequests, sizeof(featureRequests));
             for(int j=0; j<numFeatures; j++){
                 if (feature_requests[i][j].type == CAPABILITYTYPE_INFO && !feature_requests[i][j].should_process) {
                     if ((devices_found[i].device->capabilities & B(feature_requests[i][j].cap)) == B(feature_requests[i][j].cap)) {
@@ -973,9 +978,6 @@ int main(int argc, char* argv[])
                     }
                 }
             }
-            devices_found[i].featureRequests = feature_requests[i];
-            devices_found[i].size = numFeatures;
-
             terminate_device_hid(&device_handle, &hid_path);
         }
     }
@@ -1013,39 +1015,32 @@ int main(int argc, char* argv[])
 
         if (battery_error != 0) {
             printf("false\n");
-            return 1;
         } else {
             printf("true\n");
-            return 0;
         }
-    }
-
-    do {
-        if (device_selected != NULL) {
-            FeatureRequest* deviceFeatureRequests = device_selected->featureRequests;
-            for (int i = 0; i < numFeatures; i++) {
-                if (deviceFeatureRequests[i].should_process) {
-                    // Assuming handle_feature now returns FeatureResult
-                    deviceFeatureRequests[i].result = handle_feature(device_selected->device, &device_handle, &hid_path, deviceFeatureRequests[i].cap, deviceFeatureRequests[i].param);
-                } else {
-                    // Populate with a default "not processed" result
-                    deviceFeatureRequests[i].result.status  = FEATURE_NOT_PROCESSED;
-                    deviceFeatureRequests[i].result.message = strdup("Not processed");
-                    deviceFeatureRequests[i].result.value   = 0;
+    } else{
+        do {
+            if (device_selected != NULL) {
+                FeatureRequest* deviceFeatureRequests = device_selected->featureRequests;
+                for (int i = 0; i < numFeatures; i++) {
+                    if (deviceFeatureRequests[i].should_process) {
+                        // Assuming handle_feature now returns FeatureResult
+                        deviceFeatureRequests[i].result = handle_feature(device_selected->device, &device_handle, &hid_path, deviceFeatureRequests[i].cap, deviceFeatureRequests[i].param);
+                    } else {
+                        // Populate with a default "not processed" result
+                        deviceFeatureRequests[i].result.status  = FEATURE_NOT_PROCESSED;
+                        deviceFeatureRequests[i].result.message = strdup("Not processed");
+                        deviceFeatureRequests[i].result.value   = 0;
+                    }
                 }
             }
-        }
 
-        output(devices_found, print_capabilities != -1, output_format);
+            output(devices_found, print_capabilities != -1, output_format);
 
-        if (follow)
-            sleep(follow_sec);
+            if (follow)
+                sleep(follow_sec);
 
-    } while (follow);
-
-    // Free memory from features
-    for (int i = 0; i < numFeatures; i++) {
-        //free(devices_found[device_index].featureRequests[i].result.message);
+        } while (follow);
     }
 
     if (equalizer != NULL) {
@@ -1054,8 +1049,13 @@ int main(int argc, char* argv[])
     free(equalizer);
 
     for (int i = 0; i < headset_available; i++) {
-        if (output_format != OUTPUT_STANDARD)
-            free(feature_requests[i]);
+        if (output_format != OUTPUT_STANDARD){
+            // Free memory from features
+            for (int j = 0; j < numFeatures; j++) {
+                free(devices_found[i].featureRequests[j].result.message);
+            }
+        }
+        free(devices_found[i].featureRequests);
         free(devices_found[i].device);
     }
 
