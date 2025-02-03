@@ -40,6 +40,12 @@ int test_profile = 0;
 
 int hsc_device_timeout = 5000;
 
+typedef struct {
+    int vendor_id;
+    int product_id;
+    int test_device;
+} SearchParameters;
+
 /**
  * @brief Finds and initializes a list of devices.
  *
@@ -50,7 +56,7 @@ int hsc_device_timeout = 5000;
  * @param test_device A flag indicating whether to add a test device to the list.
  * @return The number of devices found and added to the list.
  */
-static int find_devices(DeviceList** device_list, int test_device)
+static int find_devices(DeviceList** device_list, SearchParameters parameters)
 {
     DeviceListNode* devices_found = malloc(sizeof(DeviceListNode));
     devices_found->element        = malloc(sizeof(struct device));
@@ -58,7 +64,7 @@ static int find_devices(DeviceList** device_list, int test_device)
     int found                     = 0;
 
     // Adding test device
-    if (test_device) {
+    if (parameters.test_device) {
         if (!get_device(devices_found->element, VENDOR_TESTDEVICE, PRODUCT_TESTDEVICE)) {
             curr_node->next          = malloc(sizeof(struct DeviceListNode));
             curr_node->next->element = malloc(sizeof(struct device));
@@ -69,7 +75,7 @@ static int find_devices(DeviceList** device_list, int test_device)
 
     struct hid_device_info* devs;
     struct hid_device_info* cur_dev;
-    devs               = hid_enumerate(0x0, 0x0);
+    devs               = hid_enumerate(parameters.vendor_id, parameters.product_id);
     cur_dev            = devs;
     bool already_found = false;
 
@@ -265,7 +271,7 @@ static FeatureResult handle_feature(struct device* device_found, hid_device** de
 
     switch (cap) {
     case CAP_SIDETONE:
-        ret = device_found->send_sidetone(*device_handle, (uint8_t) * (int*)param);
+        ret = device_found->send_sidetone(*device_handle, (uint8_t)*(int*)param);
         break;
 
     case CAP_BATTERY_STATUS: {
@@ -301,15 +307,15 @@ static FeatureResult handle_feature(struct device* device_found, hid_device** de
     }
 
     case CAP_NOTIFICATION_SOUND:
-        ret = device_found->notifcation_sound(*device_handle, (uint8_t) * (int*)param);
+        ret = device_found->notifcation_sound(*device_handle, (uint8_t)*(int*)param);
         break;
 
     case CAP_LIGHTS:
-        ret = device_found->switch_lights(*device_handle, (uint8_t) * (int*)param);
+        ret = device_found->switch_lights(*device_handle, (uint8_t)*(int*)param);
         break;
 
     case CAP_INACTIVE_TIME:
-        ret = device_found->send_inactive_time(*device_handle, (uint8_t) * (int*)param);
+        ret = device_found->send_inactive_time(*device_handle, (uint8_t)*(int*)param);
         break;
 
     case CAP_CHATMIX_STATUS:
@@ -328,15 +334,15 @@ static FeatureResult handle_feature(struct device* device_found, hid_device** de
         return result;
 
     case CAP_VOICE_PROMPTS:
-        ret = device_found->switch_voice_prompts(*device_handle, (uint8_t) * (int*)param);
+        ret = device_found->switch_voice_prompts(*device_handle, (uint8_t)*(int*)param);
         break;
 
     case CAP_ROTATE_TO_MUTE:
-        ret = device_found->switch_rotate_to_mute(*device_handle, (uint8_t) * (int*)param);
+        ret = device_found->switch_rotate_to_mute(*device_handle, (uint8_t)*(int*)param);
         break;
 
     case CAP_EQUALIZER_PRESET:
-        ret = device_found->send_equalizer_preset(*device_handle, (uint8_t) * (int*)param);
+        ret = device_found->send_equalizer_preset(*device_handle, (uint8_t)*(int*)param);
         break;
 
     case CAP_EQUALIZER:
@@ -344,23 +350,23 @@ static FeatureResult handle_feature(struct device* device_found, hid_device** de
         break;
 
     case CAP_MICROPHONE_MUTE_LED_BRIGHTNESS:
-        ret = device_found->send_microphone_mute_led_brightness(*device_handle, (uint8_t) * (int*)param);
+        ret = device_found->send_microphone_mute_led_brightness(*device_handle, (uint8_t)*(int*)param);
         break;
 
     case CAP_MICROPHONE_VOLUME:
-        ret = device_found->send_microphone_volume(*device_handle, (uint8_t) * (int*)param);
+        ret = device_found->send_microphone_volume(*device_handle, (uint8_t)*(int*)param);
         break;
 
     case CAP_VOLUME_LIMITER:
-        ret = device_found->send_volume_limiter(*device_handle, (uint8_t) * (int*)param);
+        ret = device_found->send_volume_limiter(*device_handle, (uint8_t)*(int*)param);
         break;
 
     case CAP_BT_WHEN_POWERED_ON:
-        ret = device_found->send_bluetooth_when_powered_on(*device_handle, (uint8_t) * (int*)param);
+        ret = device_found->send_bluetooth_when_powered_on(*device_handle, (uint8_t)*(int*)param);
         break;
 
     case CAP_BT_CALL_VOLUME:
-        ret = device_found->send_bluetooth_call_volume(*device_handle, (uint8_t) * (int*)param);
+        ret = device_found->send_bluetooth_call_volume(*device_handle, (uint8_t)*(int*)param);
         break;
 
     case NUM_CAPABILITIES:
@@ -413,8 +419,8 @@ void print_help(char* programname, struct device* device_found, bool show_all)
     // printf("Options:\n");
 
     printf("Select device:\n");
-    printf("  -d, --device INDEX|vendorid:productid\n");
-    printf("\t\t\t\tSpecify either an index (0 to N-1) or a vendor ID and product ID separated by a colon.\n");
+    printf("  -d, --device vendorid:productid\n");
+    printf("\t\t\t\tVendor ID and product ID separated by a colon.\n");
     printf("\n");
 
     if (show_all || device_has_capability(device_found, CAP_SIDETONE)) {
@@ -573,9 +579,8 @@ int main(int argc, char* argv[])
 {
     int c;
 
-    int selected_device     = -1;
-    int selected_device_id1 = -1;
-    int selected_device_id2 = -1;
+    int selected_vendor_id = 0;
+    int selected_product_id = 0;
 
     int should_print_help                = 0;
     int should_print_help_all            = 0;
@@ -644,13 +649,10 @@ int main(int argc, char* argv[])
 
         switch (c) {
         case 'd': {
-            int parsed_correctly = get_two_ids(optarg, &selected_device_id1, &selected_device_id2);
+            int parsed_correctly = get_two_ids(optarg, &selected_vendor_id, &selected_product_id);
             if (parsed_correctly == 1) {
-                selected_device = strtol(optarg, &endptr, 10);
-                if (*endptr != '\0' || endptr == optarg || selected_device < 0) {
-                    fprintf(stderr, "Usage: %s -d [0-N] | [vendorid:deviceid] (N = Number of connected devices - 1)\n", argv[0]);
-                    return 1;
-                }
+                fprintf(stderr, "Usage: %s -d [vendorid:deviceid] (N = Number of connected devices - 1)\n", argv[0]);
+                return 1;
             }
             break;
         }
@@ -895,30 +897,30 @@ int main(int argc, char* argv[])
     // The array list of compatible devices
     DeviceList* devices_found = NULL;
     // Describes the headsetcontrol device, when a headset was found
-    struct device* device_selected = NULL;
+    DeviceList* device_selected = NULL;
+    // Search parameters for the devices
+    SearchParameters search_parameters = { selected_vendor_id, selected_product_id, test_device };
 
     // Look for a supported device
-    int headset_available = find_devices(&devices_found, test_device);
+    int headset_available = find_devices(&devices_found, search_parameters);
 
-    if (selected_device_id1 != -1 && selected_device_id2 != -1) {
+    // Check if the user specified a vendorId and productId
+    if (selected_vendor_id != 0 && selected_product_id != 0) {
+        // Find the device with the specified vendorId and productId
         for (int i = 0; i < headset_available; i++) {
-            if (devices_found[i].device->idVendor == selected_device_id1 && devices_found[i].device->idProduct == selected_device_id2) {
-                selected_device = i;
+            if (devices_found[i].device->idVendor == selected_vendor_id && devices_found[i].device->idProduct == selected_product_id) {
+                device_selected = devices_found + i;
                 break;
             }
         }
     }
-    // Check user selected a device-index that is out of bounds
-    if (selected_device >= headset_available) {
-        fprintf(stderr, "Device index out of bounds\n");
-        return 1;
-    } else if (selected_device != -1) {
-        // User selected a device-index that is available
-        device_selected = devices_found[selected_device].device;
-    }
 
     if (should_print_help || should_print_help_all) {
-        print_help(argv[0], device_selected, should_print_help_all);
+        if (device_selected == NULL) {
+            print_help(argv[0], NULL, should_print_help_all);
+        } else {
+            print_help(argv[0], device_selected->device, should_print_help_all);
+        }
         return 0;
     } else if (headset_available == 0) {
         output(NULL, false, output_format);
@@ -974,9 +976,7 @@ int main(int argc, char* argv[])
             devices_found[i].featureRequests = feature_requests[i];
             devices_found[i].size = numFeatures;
 
-            terminate_hid(&device_handle, &hid_path);
-            device_handle = NULL;
-            hid_path = NULL;
+            terminate_device_hid(&device_handle, &hid_path);
         }
     }
 
@@ -985,24 +985,25 @@ int main(int argc, char* argv[])
             fprintf(stderr, "Error: No device has been selected.\n");
             return 1;
         }
-        int is_test_device = selected_device == 0 && test_device;
+        struct device* device = device_selected->device;
+        int is_test_device = test_device && device->idVendor == VENDOR_TESTDEVICE && device->idProduct == PRODUCT_TESTDEVICE;
         // Check if battery status can be read
         // If it isn't supported, the device is
         // probably wired meaning it is connected
         int battery_error = 0;
         BatteryInfo info;
 
-        if ((device_selected->capabilities & B(CAP_BATTERY_STATUS)) == B(CAP_BATTERY_STATUS)) {
+        if (device_has_capability(device, CAP_BATTERY_STATUS)) {
             if (!is_test_device) {
-                device_handle = dynamic_connect(&hid_path, device_handle, device_selected, CAP_BATTERY_STATUS);
+                device_handle = dynamic_connect(&hid_path, device_handle, device, CAP_BATTERY_STATUS);
                 if (!device_handle) {
                     fprintf(stderr, "Error while getting device handle.\n");
                     return 1;
                 }
-                info = device_selected->request_battery(device_handle);
+                info = device->request_battery(device_handle);
                 terminate_hid(&device_handle, &hid_path);
             } else {
-                info = device_selected->request_battery(device_handle);
+                info = device->request_battery(device_handle);
             }
 
             if (info.status != BATTERY_AVAILABLE) {
@@ -1021,20 +1022,18 @@ int main(int argc, char* argv[])
 
     do {
         if (device_selected != NULL) {
+            FeatureRequest* deviceFeatureRequests = device_selected->featureRequests;
             for (int i = 0; i < numFeatures; i++) {
-                if (featureRequests[i].should_process) {
+                if (deviceFeatureRequests[i].should_process) {
                     // Assuming handle_feature now returns FeatureResult
-                    featureRequests[i].result = handle_feature(device_selected, &device_handle, &hid_path, featureRequests[i].cap, featureRequests[i].param);
+                    deviceFeatureRequests[i].result = handle_feature(device_selected->device, &device_handle, &hid_path, deviceFeatureRequests[i].cap, deviceFeatureRequests[i].param);
                 } else {
                     // Populate with a default "not processed" result
-                    featureRequests[i].result.status  = FEATURE_NOT_PROCESSED;
-                    featureRequests[i].result.message = strdup("Not processed");
-                    featureRequests[i].result.value   = 0;
+                    deviceFeatureRequests[i].result.status  = FEATURE_NOT_PROCESSED;
+                    deviceFeatureRequests[i].result.message = strdup("Not processed");
+                    deviceFeatureRequests[i].result.value   = 0;
                 }
             }
-
-            devices_found[selected_device].featureRequests = featureRequests;
-            devices_found[selected_device].size            = numFeatures;
         }
 
         output(devices_found, print_capabilities != -1, output_format);
@@ -1046,7 +1045,7 @@ int main(int argc, char* argv[])
 
     // Free memory from features
     for (int i = 0; i < numFeatures; i++) {
-        free(featureRequests[i].result.message);
+        //free(devices_found[device_index].featureRequests[i].result.message);
     }
 
     if (equalizer != NULL) {
@@ -1055,9 +1054,10 @@ int main(int argc, char* argv[])
     free(equalizer);
 
     for (int i = 0; i < headset_available; i++) {
+        if (output_format != OUTPUT_STANDARD)
+            free(feature_requests[i]);
         free(devices_found[i].device);
     }
-    free(devices_found);
 
     terminate_hid(&device_handle, &hid_path);
     return 0;
