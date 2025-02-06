@@ -57,3 +57,10 @@ const char capabilities_str_short[NUM_CAPABILITIES]
           [CAP_BT_WHEN_POWERED_ON] = '\0',
           [CAP_BT_CALL_VOLUME]     = '\0'
       };
+
+bool device_has_capability(struct device* device, enum capabilities cap)
+{
+    if (device == NULL)
+        return false;
+    return (device->capabilities & B(cap)) == B(cap);
+}

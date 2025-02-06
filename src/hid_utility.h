@@ -26,6 +26,11 @@
 char* get_hid_path(uint16_t vid, uint16_t pid, int iid, uint16_t usagepageid, uint16_t usageid);
 
 /**
+ *  Helper freeing HID data.
+ */
+void terminate_device_hid(hid_device** handle, char** path);
+
+/**
  *  Helper freeing HID data and terminating HID usage.
  */
 /* This function is explicitly called terminate_hid to avoid HIDAPI clashes. */
