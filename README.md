@@ -67,6 +67,11 @@ RHEL and CentOS also require the epel-repository.
 
 `dnf install cmake hidapi-devel g++`
 
+#### openSUSE
+
+`zypper in -t pattern devel_basis`
+`zypper in cmake libhidapi-devel`
+
 #### Sabayon
 
 `equo i hidapi cmake`
