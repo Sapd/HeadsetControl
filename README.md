@@ -59,8 +59,8 @@ Before building, ensure you have the necessary dependencies installed, including
 
 RHEL and CentOS also require the epel-repository.
 
-`yum install epel-release`
-`yum groupinstall "Development tools"`
+`yum install epel-release`  
+`yum groupinstall "Development tools"`  
 `yum install git cmake hidapi-devel`
 
 #### Fedora
@@ -69,7 +69,7 @@ RHEL and CentOS also require the epel-repository.
 
 #### openSUSE
 
-`zypper in -t pattern devel_basis`
+`zypper in -t pattern devel_basis`  
 `zypper in cmake libhidapi-devel`
 
 #### Sabayon
