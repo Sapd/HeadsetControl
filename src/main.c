@@ -904,6 +904,10 @@ int main(int argc, char* argv[])
     // Look for a supported device
     int headset_available = find_devices(&devices_found, search_parameters);
 
+    if (headset_available == 1) {
+        device_selected = devices_found;
+    }
+
     // Check if the user specified a vendorId and productId
     if (selected_vendor_id != 0 && selected_product_id != 0) {
         // Find the device with the specified vendorId and productId
