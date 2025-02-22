@@ -976,6 +976,8 @@ int main(int argc, char* argv[])
                         feature_requests[i][j].should_process = true;
                         feature_requests[i][j].result         = handle_feature(devices_found[i].device, &device_handle, &hid_path, feature_requests[i][j].cap, feature_requests[i][j].param);
                     }
+                } else if(feature_requests[i][j].type == CAPABILITYTYPE_ACTION && feature_requests[i][j].should_process && devices_found+i != device_selected) {
+                    feature_requests[i][j].should_process = false;
                 }
             }
             terminate_device_hid(&device_handle, &hid_path);
