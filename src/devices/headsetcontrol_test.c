@@ -16,6 +16,17 @@ static struct device device_headsetcontrol_test;
 #define EQUALIZER_BAND_MAX      +10
 #define EQUALIZER_PRESETS_COUNT 2
 
+// parametric equalizer
+#define EQUALIZER_GAIN_BASE    20
+#define EQUALIZER_GAIN_STEP    0.5
+#define EQUALIZER_GAIN_MIN     -10
+#define EQUALIZER_GAIN_MAX     10
+#define EQUALIZER_Q_FACTOR_MIN 0.2
+#define EQUALIZER_Q_FACTOR_MAX 10.0
+#define EQUALIZER_FREQ_MIN     20
+#define EQUALIZER_FREQ_MAX     20000
+#define EQUALIZER_FILTERS      (B(EQ_FILTER_LOWSHELF) | B(EQ_FILTER_LOWPASS) | B(EQ_FILTER_PEAKING) | B(EQ_FILTER_HIGHPASS) | B(EQ_FILTER_HIGHSHELF))
+
 static const uint16_t PRODUCT_IDS[]               = { PRODUCT_TESTDEVICE };
 static EqualizerInfo EQUALIZER                    = { EQUALIZER_BANDS_COUNT, EQUALIZER_BASELINE, EQUALIZER_STEP, EQUALIZER_BAND_MIN, EQUALIZER_BAND_MAX };
 static float preset_flat[EQUALIZER_BANDS_COUNT]   = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
@@ -24,6 +35,10 @@ static EqualizerPresets EQUALIZER_PRESETS         = {
     EQUALIZER_PRESETS_COUNT,
     { { "flat", preset_flat },
                 { "random", preset_random } }
+};
+static ParametricEqualizerInfo PARAMETRIC_EQUALIZER = {
+    EQUALIZER_BANDS_COUNT, EQUALIZER_GAIN_BASE, EQUALIZER_GAIN_STEP, EQUALIZER_GAIN_MIN, EQUALIZER_GAIN_MAX,
+    EQUALIZER_Q_FACTOR_MIN, EQUALIZER_Q_FACTOR_MAX, EQUALIZER_FREQ_MIN, EQUALIZER_FREQ_MAX, EQUALIZER_FILTERS
 };
 
 static int headsetcontrol_test_send_sidetone(hid_device* device_handle, uint8_t num);
@@ -52,11 +67,12 @@ void headsetcontrol_test_init(struct device** device)
         abort();
     }
 
-    device_headsetcontrol_test.idVendor            = VENDOR_TESTDEVICE;
-    device_headsetcontrol_test.idProductsSupported = PRODUCT_IDS;
-    device_headsetcontrol_test.numIdProducts       = 1;
-    device_headsetcontrol_test.equalizer           = &EQUALIZER;
-    device_headsetcontrol_test.equalizer_presets   = &EQUALIZER_PRESETS;
+    device_headsetcontrol_test.idVendor             = VENDOR_TESTDEVICE;
+    device_headsetcontrol_test.idProductsSupported  = PRODUCT_IDS;
+    device_headsetcontrol_test.numIdProducts        = 1;
+    device_headsetcontrol_test.equalizer            = &EQUALIZER;
+    device_headsetcontrol_test.equalizer_presets    = &EQUALIZER_PRESETS;
+    device_headsetcontrol_test.parametric_equalizer = &PARAMETRIC_EQUALIZER;
 
     strncpy(device_headsetcontrol_test.device_name, "HeadsetControl Test device", sizeof(device_headsetcontrol_test.device_name));
     // normally filled by hid in main.c
