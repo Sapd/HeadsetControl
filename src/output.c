@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-const char* APIVERSION          = "1.2";
+const char* APIVERSION          = "1.3";
 const char* HEADSETCONTROL_NAME = "HeadsetControl";
 
 // Function to convert enum to string
@@ -423,26 +423,31 @@ void output_json(HeadsetControlStatus* status, HeadsetInfo* infos)
             printf(",\n      \"parametric_equalizer\": {\n");
             printf("        \"bands\": %d,\n", info->parametric_equalizer->bands_count);
             printf("        \"gain\": {\n");
-            printf("            \"step\": %g,\n", info->parametric_equalizer->gain_step);
-            printf("            \"min\": %g,\n", info->parametric_equalizer->gain_min);
-            printf("            \"max\": %g,\n", info->parametric_equalizer->gain_max);
-            printf("            \"base\": %g\n", info->parametric_equalizer->gain_base);
+            printf("          \"step\": %g,\n", info->parametric_equalizer->gain_step);
+            printf("          \"min\": %g,\n", info->parametric_equalizer->gain_min);
+            printf("          \"max\": %g,\n", info->parametric_equalizer->gain_max);
+            printf("          \"base\": %g\n", info->parametric_equalizer->gain_base);
             printf("        },\n");
             printf("        \"q_factor\": {\n");
-            printf("            \"min\": %g,\n", info->parametric_equalizer->q_factor_min);
-            printf("            \"max\": %g\n", info->parametric_equalizer->q_factor_max);
+            printf("          \"min\": %g,\n", info->parametric_equalizer->q_factor_min);
+            printf("          \"max\": %g\n", info->parametric_equalizer->q_factor_max);
             printf("        },\n");
             printf("        \"frequency\": {\n");
-            printf("            \"min\": %d,\n", info->parametric_equalizer->freq_min);
-            printf("            \"max\": %d\n", info->parametric_equalizer->freq_max);
+            printf("          \"min\": %d,\n", info->parametric_equalizer->freq_min);
+            printf("          \"max\": %d\n", info->parametric_equalizer->freq_max);
             printf("        },\n");
-            printf("        \"filter_types:\" [\n");
+            printf("        \"filter_types\": [\n");
+            int first = true;
             for (int i = 0; i < NUM_EQ_FILTER_TYPES; i++) {
                 if (has_capability(info->parametric_equalizer->filter_types, i)) {
-                    printf("            \"%s\",\n", equalizer_filter_type_str[i]);
+                    if (!first) { // print first without a leading comma
+                        printf(",\n");
+                    }
+                    printf("          \"%s\"", equalizer_filter_type_str[i]);
+                    first = 0;
                 }
             }
-            printf("        ]\n");
+            printf("\n        ]\n");
             printf("      }");
         }
 
