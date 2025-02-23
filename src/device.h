@@ -401,4 +401,6 @@ typedef struct DeviceListNode {
     struct DeviceListNode* next;
 } DeviceListNode;
 
+bool device_check_ids(struct device* device, uint16_t vid, uint16_t pid);
+
 bool device_has_capability(struct device* device, enum capabilities cap);

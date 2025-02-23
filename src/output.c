@@ -335,7 +335,6 @@ void output_json(HeadsetControlStatus* status, HeadsetInfo* infos)
                     }
                 }
                 printf("\n  ],\n");
-                break;
             }
         }
     }
@@ -548,7 +547,6 @@ void output_yaml(HeadsetControlStatus* status, HeadsetInfo* infos)
                         yaml_print("error_message", info->actions[i].error_message, 4);
                     }
                 }
-                break;
             }
         }
     }
@@ -692,7 +690,6 @@ void output_env(HeadsetControlStatus* status, HeadsetInfo* infos)
                         env_print(key, info->actions[i].error_message);
                     }
                 }
-                break;
             }
         }
     } else {
