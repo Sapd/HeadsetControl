@@ -452,7 +452,7 @@ static int nova_5_write_device_band(struct parametric_equalizer_band* filter, ui
             return HSC_OUT_OF_BOUNDS;
         }
     }
-    if (!has_capability(EQUALIZER_FILTERS, filter->type)) {
+    if (!has_capability(EQUALIZER_FILTERS, (int)filter->type)) {
         printf("Unsupported filter type.\n");
         return HSC_ERROR;
     }
