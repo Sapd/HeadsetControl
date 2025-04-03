@@ -137,6 +137,42 @@ int get_float_data_from_parameter(char* input, float* dest, size_t len)
     return i;
 }
 
+int get_two_ids(char* input, int* id1, int* id2)
+{
+    const char* delim = " :.,";
+
+    size_t sz = strlen(input);
+    char* str = (char*)malloc(sz + 1);
+    strcpy(str, input);
+
+    int v1, v2;
+
+    char* token = strtok(input, delim);
+    int i       = 0;
+    while (token) {
+        char* endptr;
+        long int val = strtol(token, &endptr, 0);
+
+        if (i == 0)
+            v1 = val;
+        else if (i == 1)
+            v2 = val;
+
+        i++;
+        token = strtok(NULL, delim);
+    }
+
+    free(str);
+
+    if (i != 2) // not exactly supplied two ids
+        return 1;
+
+    *id1 = v1;
+    *id2 = v2;
+
+    return 0;
+}
+
 // ----------------- asprintf / vasprintf -----------------
 /*
  * Copyright (c) 2004 Darren Tucker.

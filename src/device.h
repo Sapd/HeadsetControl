@@ -54,11 +54,6 @@ extern const char capabilities_str_short[NUM_CAPABILITIES];
 /// Enum name of every capability
 extern const char* const capabilities_str_enum[NUM_CAPABILITIES];
 
-static inline bool has_capability(int device_capabilities, enum capabilities cap)
-{
-    return (device_capabilities & B(cap)) == B(cap);
-}
-
 struct capability_detail {
     // Usage page, only used when usageid is not 0; HID Protocol specific
     uint16_t usagepage;
@@ -394,3 +389,18 @@ struct device {
      */
     int (*send_bluetooth_call_volume)(hid_device* hid_device, uint8_t num);
 };
+
+/**
+ * @brief Node structure for a linked list of devices.
+ *
+ * This structure represents a node in a linked list where each node contains a pointer to a device
+ * and a pointer to the next node in the list.
+ */
+typedef struct DeviceListNode {
+    struct device* element;
+    struct DeviceListNode* next;
+} DeviceListNode;
+
+bool device_check_ids(struct device* device, uint16_t vid, uint16_t pid);
+
+bool device_has_capability(struct device* device, enum capabilities cap);
