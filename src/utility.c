@@ -7,6 +7,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "device.h"
 #include "utility.h"
 
 int map(int x, int in_min, int in_max, int out_min, int out_max)
@@ -135,6 +136,136 @@ int get_float_data_from_parameter(char* input, float* dest, size_t len)
     }
 
     return i;
+}
+
+/**
+ * Converts a filter type string to the corresponding EqualizerFilterType enum
+ * Returns HSC_INVALID_ARG if the string does not match a known filter type.
+ */
+static EqualizerFilterType parse_eq_filter_type(const char* input)
+{
+    for (int i = 0; i < NUM_EQ_FILTER_TYPES; i++) {
+        if (strcmp(input, equalizer_filter_type_str[i]) == 0) {
+            return i;
+        }
+    }
+
+    return HSC_INVALID_ARG;
+}
+
+/**
+ * Parses a equalizer band string into a struct parametric_equalizer_band.
+ *
+ * Expected band_str format: "float,float,float,string"
+ * Expected fields:          "frequency,gain,q-factor,filter-type"
+ *
+ * Returns HSC_INVALID_ARG if the string can't be parsed.
+ */
+static int parse_parametric_equalizer_band(const char* band_str, struct parametric_equalizer_band* out_band)
+{
+    const char* delim = " ,";
+
+    // Make a modifiable copy of input, because strtok modifies the string.
+    char* tmp = strdup(band_str);
+    if (!tmp) {
+        return -1;
+    }
+
+    // parse freq, gain, q_factor, type
+    char* token = strtok(tmp, delim);
+    if (!token) {
+        free(tmp);
+        return HSC_INVALID_ARG;
+    }
+    out_band->frequency = strtof(token, NULL);
+
+    token = strtok(NULL, delim);
+    if (!token) {
+        free(tmp);
+        return HSC_INVALID_ARG;
+    }
+    out_band->gain = strtof(token, NULL);
+
+    token = strtok(NULL, delim);
+    if (!token) {
+        free(tmp);
+        return HSC_INVALID_ARG;
+    }
+    out_band->q_factor = strtof(token, NULL);
+
+    token = strtok(NULL, delim);
+    if (!token) {
+        free(tmp);
+        return HSC_INVALID_ARG;
+    }
+
+    out_band->type = parse_eq_filter_type(token);
+    if ((int)out_band->type == HSC_INVALID_ARG) {
+        printf("Couldn't parse filter type: %s\n", token);
+        free(tmp);
+        return HSC_INVALID_ARG;
+    }
+
+    free(tmp);
+    return 0;
+}
+
+/**
+ * Parses the full parametric equalizer string that can contain multiple band
+ * definitions separated by ';' into a parametric_equalizer_settings object.
+ *
+ * Example of input format:
+ *     "100.0,3.5,1.0,lowshelf;500.0,-2.0,1.2,peaking;2000.0,5.0,0.7,highshelf"
+ */
+struct parametric_equalizer_settings* parse_parametric_equalizer_settings(const char* input)
+{
+    struct parametric_equalizer_settings* settings = malloc(sizeof(struct parametric_equalizer_settings));
+    settings->size                                 = 0;
+    settings->bands                                = NULL;
+
+    if (!input || !*input || (strcmp(input, "reset") == 0)) {
+        // Return empty if null/empty or reset of bands requested.
+        // The device implementation is responsible for resetting
+        // all remaining bands that are not provided by the user (all in this case).
+        return settings;
+    }
+
+    // create a modifiable copy of the input
+    char* input_copy = strdup(input);
+    if (!input_copy) {
+        return settings;
+    }
+
+    // Count how many bands we have by counting the number of semicolons + 1
+    int band_count = 1;
+    for (const char* p = input; *p; ++p) {
+        if (*p == ';') {
+            band_count++;
+        }
+    }
+
+    // Allocate space for bands
+    struct parametric_equalizer_band* bands = (struct parametric_equalizer_band*)calloc(band_count, sizeof(struct parametric_equalizer_band));
+
+    if (!bands) {
+        free(input_copy);
+        return settings;
+    }
+
+    // Tokenize by ';' and parse each band definition
+    char* context  = NULL;
+    char* band_str = strtok_r(input_copy, ";", &context);
+    int i          = 0;
+    while (band_str && i < band_count) {
+        parse_parametric_equalizer_band(band_str, &bands[i++]);
+        band_str = strtok_r(NULL, ";", &context);
+    }
+
+    settings->size  = i;
+    settings->bands = bands;
+
+    free(input_copy);
+    return settings;
 }
 
 int get_two_ids(char* input, int* id1, int* id2)

@@ -349,6 +349,10 @@ static FeatureResult handle_feature(struct device* device_found, hid_device** de
         ret = device_found->send_equalizer(*device_handle, (struct equalizer_settings*)param);
         break;
 
+    case CAP_PARAMETRIC_EQUALIZER:
+        ret = device_found->send_parametric_equalizer(*device_handle, (struct parametric_equalizer_settings*)param);
+        break;
+
     case CAP_MICROPHONE_MUTE_LED_BRIGHTNESS:
         ret = device_found->send_microphone_mute_led_brightness(*device_handle, (uint8_t) * (int*)param);
         break;
@@ -398,6 +402,9 @@ static FeatureResult handle_feature(struct device* device_found, hid_device** de
         break;
     case HSC_OUT_OF_BOUNDS:
         _asprintf(&result.message, "Failed to set/request %s. Provided parameter out of boundaries", capabilities_str[cap]);
+        break;
+    case HSC_INVALID_ARG:
+        _asprintf(&result.message, "Failed to set/request %s. Provided parameter invalid", capabilities_str[cap]);
         break;
     default: // Must be a HID error
         if (device_found->idProduct != PRODUCT_TESTDEVICE)
@@ -476,8 +483,9 @@ void print_help(char* programname, struct device* device_found, bool show_all)
     // ------
 
     // ------ Category: Equalizer
-    bool show_equalizer        = show_all || device_has_capability(device_found, CAP_EQUALIZER);
-    bool show_equalizer_preset = show_all || device_has_capability(device_found, CAP_EQUALIZER_PRESET);
+    bool show_equalizer            = show_all || device_has_capability(device_found, CAP_EQUALIZER);
+    bool show_equalizer_preset     = show_all || device_has_capability(device_found, CAP_EQUALIZER_PRESET);
+    bool show_parametric_equalizer = show_all || device_has_capability(device_found, CAP_PARAMETRIC_EQUALIZER);
 
     if (show_equalizer || show_equalizer_preset) {
         printf("Equalizer:\n");
@@ -487,6 +495,26 @@ void print_help(char* programname, struct device* device_found, bool show_all)
         if (show_equalizer_preset) {
             printf("  -p, --equalizer-preset NUMBER\tSet equalizer preset (0-3, 0 for default)\n");
         }
+        printf("\n");
+    }
+
+    if (show_parametric_equalizer) {
+        // TODO parametric equalizer
+        printf("Parametric Equalizer:\n");
+        printf("  --parametric-equalizer STRING\t\tSet equalizer bands (bands separated by semicolon)\n");
+        printf("      Band format:\t\t\tFREQUENCY,GAIN,Q_FACTOR,FILTER_TYPE\n");
+        printf("      Availabe filter types:\t\t");
+        for (int i = 0; i < NUM_EQ_FILTER_TYPES; i++) {
+            if (show_all || has_capability(device_found->parametric_equalizer->filter_types, i)) {
+                printf("%s, ", equalizer_filter_type_str[i]);
+            }
+        }
+        printf("\n\n");
+        printf("      Examples:\t--parametric-equalizer\t'300,3.5,1.5,peaking;14000,-2,1.414,highshelf'\n");
+        printf("      \t\t\t\t\tSets a 300Hz +3.5dB Q1.5 peaking filter\n\t\t\t\t\tand a 14kHz -2dB Q1.414 highshelf filter\n");
+        printf("\n");
+        printf("      \t\t--parametric-equalizer\treset\n");
+        printf("      \t\t\t\t\tResets/disables all bands");
         printf("\n");
     }
     // ------
@@ -579,31 +607,33 @@ int main(int argc, char* argv[])
 {
     int c;
 
+
     int selected_vendor_id  = 0;
     int selected_product_id = 0;
 
-    int should_print_help                = 0;
-    int should_print_help_all            = 0;
-    int print_udev_rules                 = 0;
-    int sidetone_loudness                = -1;
-    int request_battery                  = 0;
-    int request_chatmix                  = 0;
-    int request_connected                = 0;
-    int notification_sound               = -1;
-    int lights                           = -1;
-    int inactive_time                    = -1;
-    int voice_prompts                    = -1;
-    int rotate_to_mute                   = -1;
-    int print_capabilities               = -1;
-    int equalizer_preset                 = -1;
-    int microphone_mute_led_brightness   = -1;
-    int microphone_volume                = -1;
-    int volume_limiter                   = -1;
-    int bt_when_powered_on               = -1;
-    int bt_call_volume                   = -1;
-    int dev_mode                         = 0;
-    unsigned follow_sec                  = 2;
-    struct equalizer_settings* equalizer = NULL;
+    int should_print_help                                      = 0;
+    int should_print_help_all                                  = 0;
+    int print_udev_rules                                       = 0;
+    int sidetone_loudness                                      = -1;
+    int request_battery                                        = 0;
+    int request_chatmix                                        = 0;
+    int request_connected                                      = 0;
+    int notification_sound                                     = -1;
+    int lights                                                 = -1;
+    int inactive_time                                          = -1;
+    int voice_prompts                                          = -1;
+    int rotate_to_mute                                         = -1;
+    int print_capabilities                                     = -1;
+    int equalizer_preset                                       = -1;
+    int microphone_mute_led_brightness                         = -1;
+    int microphone_volume                                      = -1;
+    int volume_limiter                                         = -1;
+    int bt_when_powered_on                                     = -1;
+    int bt_call_volume                                         = -1;
+    int dev_mode                                               = 0;
+    unsigned follow_sec                                        = 2;
+    struct equalizer_settings* equalizer                       = NULL;
+    struct parametric_equalizer_settings* parametric_equalizer = NULL;
 
     OutputType output_format = OUTPUT_STANDARD;
     int test_device          = 0;
@@ -624,6 +654,7 @@ int main(int argc, char* argv[])
         { "help-all", no_argument, NULL, 0 },
         { "equalizer", required_argument, NULL, 'e' },
         { "equalizer-preset", required_argument, NULL, 'p' },
+        { "parametric-equalizer", required_argument, NULL, 0 },
         { "microphone-mute-led-brightness", required_argument, NULL, 0 },
         { "microphone-volume", required_argument, NULL, 0 },
         { "inactive-time", required_argument, NULL, 'i' },
@@ -858,6 +889,16 @@ int main(int argc, char* argv[])
                     }
                 }
                 // fall through
+            } else if (strcmp(opts[option_index].name, "parametric-equalizer") == 0) {
+                parametric_equalizer = parse_parametric_equalizer_settings(optarg);
+
+                for (int i = 0; i < parametric_equalizer->size; i++) {
+                    if ((int)parametric_equalizer->bands[i].type == HSC_INVALID_ARG) {
+                        fprintf(stderr, "Unknown filter type specified to --parametric-equalizer\n");
+                        return 1;
+                    }
+                }
+                // fall through
             } else if (strcmp(opts[option_index].name, "readme-helper") == 0) {
                 // We need to initialize it at this point
                 init_devices();
@@ -953,6 +994,7 @@ int main(int argc, char* argv[])
         { CAP_MICROPHONE_MUTE_LED_BRIGHTNESS, CAPABILITYTYPE_ACTION, &microphone_mute_led_brightness, microphone_mute_led_brightness != -1, {} },
         { CAP_MICROPHONE_VOLUME, CAPABILITYTYPE_ACTION, &microphone_volume, microphone_volume != -1, {} },
         { CAP_EQUALIZER, CAPABILITYTYPE_ACTION, equalizer, equalizer != NULL, {} },
+        { CAP_PARAMETRIC_EQUALIZER, CAPABILITYTYPE_ACTION, parametric_equalizer, parametric_equalizer != NULL, {} },
         { CAP_VOLUME_LIMITER, CAPABILITYTYPE_ACTION, &volume_limiter, volume_limiter != -1, {} },
         { CAP_BT_WHEN_POWERED_ON, CAPABILITYTYPE_ACTION, &bt_when_powered_on, bt_when_powered_on != -1, {} },
         { CAP_BT_CALL_VOLUME, CAPABILITYTYPE_ACTION, &bt_call_volume, bt_call_volume != -1, {} }
@@ -1056,8 +1098,13 @@ int main(int argc, char* argv[])
 
     if (equalizer != NULL) {
         free(equalizer->bands_values);
+        free(equalizer);
     }
-    free(equalizer);
+
+    if (parametric_equalizer != NULL) {
+        free(parametric_equalizer->bands);
+        free(parametric_equalizer);
+    }
 
     for (int i = 0; i < headset_available; i++) {
         if (output_format != OUTPUT_STANDARD) {

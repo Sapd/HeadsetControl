@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-const char* APIVERSION          = "1.2";
+const char* APIVERSION          = "1.3";
 const char* HEADSETCONTROL_NAME = "HeadsetControl";
 
 // Function to convert enum to string
@@ -168,9 +168,12 @@ void initializeHeadsetInfo(HeadsetInfo* info, struct device* device)
     info->product_name = device->device_hid_productname;
 
     info->equalizer                  = device->equalizer;
-    info->equalizer_presets          = device->eqaulizer_presets,
+    info->equalizer_presets          = device->equalizer_presets,
     info->has_equalizer_info         = info->equalizer != NULL;
     info->has_equalizer_presets_info = info->equalizer_presets != NULL;
+
+    info->parametric_equalizer          = device->parametric_equalizer,
+    info->has_parametric_equalizer_info = info->parametric_equalizer != NULL;
 
     info->capabilities_amount = 0;
 
@@ -416,6 +419,38 @@ void output_json(HeadsetControlStatus* status, HeadsetInfo* infos)
             }
         }
 
+        if (info->has_parametric_equalizer_info) {
+            printf(",\n      \"parametric_equalizer\": {\n");
+            printf("        \"bands\": %d,\n", info->parametric_equalizer->bands_count);
+            printf("        \"gain\": {\n");
+            printf("          \"step\": %g,\n", info->parametric_equalizer->gain_step);
+            printf("          \"min\": %g,\n", info->parametric_equalizer->gain_min);
+            printf("          \"max\": %g,\n", info->parametric_equalizer->gain_max);
+            printf("          \"base\": %g\n", info->parametric_equalizer->gain_base);
+            printf("        },\n");
+            printf("        \"q_factor\": {\n");
+            printf("          \"min\": %g,\n", info->parametric_equalizer->q_factor_min);
+            printf("          \"max\": %g\n", info->parametric_equalizer->q_factor_max);
+            printf("        },\n");
+            printf("        \"frequency\": {\n");
+            printf("          \"min\": %d,\n", info->parametric_equalizer->freq_min);
+            printf("          \"max\": %d\n", info->parametric_equalizer->freq_max);
+            printf("        },\n");
+            printf("        \"filter_types\": [\n");
+            int first = true;
+            for (int i = 0; i < NUM_EQ_FILTER_TYPES; i++) {
+                if (has_capability(info->parametric_equalizer->filter_types, i)) {
+                    if (!first) { // print first without a leading comma
+                        printf(",\n");
+                    }
+                    printf("          \"%s\"", equalizer_filter_type_str[i]);
+                    first = 0;
+                }
+            }
+            printf("\n        ]\n");
+            printf("      }");
+        }
+
         if (info->has_chatmix_info) {
             printf(",\n      \"chatmix\": %d", info->chatmix);
         }
@@ -469,6 +504,14 @@ void yaml_printint(const char* key, const int value, int indent)
         putchar(' ');
     }
     printf("%s: %d\n", yaml_replace_spaces_with_dash(key), value);
+}
+
+void yaml_printfloat(const char* key, const float value, int indent)
+{
+    for (int i = 0; i < indent; i++) {
+        putchar(' ');
+    }
+    printf("%s: %g\n", yaml_replace_spaces_with_dash(key), value);
 }
 
 const char* yaml_replace_spaces_with_dash(const char* str)
@@ -605,6 +648,28 @@ void output_yaml(HeadsetControlStatus* status, HeadsetInfo* infos)
                         yaml_print_listitemfloat(presets[i].values[j], 8, false);
                     }
                     putchar('\n');
+                }
+            }
+        }
+
+        if (info->has_parametric_equalizer_info) {
+            yaml_print("parametric_equalizer", "", 4);
+            yaml_printint("bands", info->parametric_equalizer->bands_count, 6);
+            yaml_print("gain", "", 6);
+            yaml_printfloat("step", info->parametric_equalizer->gain_step, 8);
+            yaml_printfloat("min", info->parametric_equalizer->gain_min, 8);
+            yaml_printfloat("max", info->parametric_equalizer->gain_max, 8);
+            yaml_printfloat("base", info->parametric_equalizer->gain_base, 8);
+            yaml_print("q_factor", "", 6);
+            yaml_printfloat("min", info->parametric_equalizer->q_factor_min, 8);
+            yaml_printfloat("max", info->parametric_equalizer->q_factor_max, 8);
+            yaml_print("frequency", "", 6);
+            yaml_printint("min", info->parametric_equalizer->freq_min, 8);
+            yaml_printint("max", info->parametric_equalizer->freq_max, 8);
+            yaml_print("filter_types", "", 6);
+            for (int i = 0; i < NUM_EQ_FILTER_TYPES; i++) {
+                if (has_capability(info->parametric_equalizer->filter_types, i)) {
+                    yaml_print_listitem(equalizer_filter_type_str[i], 8, true);
                 }
             }
         }

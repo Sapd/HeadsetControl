@@ -92,6 +92,8 @@ int get_byte_data_from_parameter(char* input, unsigned char* dest, size_t len);
  */
 int get_float_data_from_parameter(char* input, float* dest, size_t len);
 
+struct parametric_equalizer_settings* parse_parametric_equalizer_settings(const char* input);
+
 /**
  * @brief Accept an string input like 123:456 and splits them into two ids
  *

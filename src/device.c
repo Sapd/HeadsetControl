@@ -12,6 +12,7 @@ const char* const capabilities_str[NUM_CAPABILITIES]
           [CAP_ROTATE_TO_MUTE]                 = "rotate to mute",
           [CAP_EQUALIZER_PRESET]               = "equalizer preset",
           [CAP_EQUALIZER]                      = "equalizer",
+          [CAP_PARAMETRIC_EQUALIZER]           = "parametric equalizer",
           [CAP_MICROPHONE_MUTE_LED_BRIGHTNESS] = "microphone mute led brightness",
           [CAP_MICROPHONE_VOLUME]              = "microphone volume",
           [CAP_VOLUME_LIMITER]                 = "volume limiter",
@@ -31,6 +32,7 @@ const char* const capabilities_str_enum[NUM_CAPABILITIES]
           [CAP_ROTATE_TO_MUTE]                 = "CAP_ROTATE_TO_MUTE",
           [CAP_EQUALIZER_PRESET]               = "CAP_EQUALIZER_PRESET",
           [CAP_EQUALIZER]                      = "CAP_EQUALIZER",
+          [CAP_PARAMETRIC_EQUALIZER]           = "CAP_PARAMETRIC_EQUALIZER",
           [CAP_MICROPHONE_MUTE_LED_BRIGHTNESS] = "CAP_MICROPHONE_MUTE_LED_BRIGHTNESS",
           [CAP_MICROPHONE_VOLUME]              = "CAP_MICROPHONE_VOLUME",
           [CAP_VOLUME_LIMITER]                 = "CAP_VOLUME_LIMITER",
@@ -50,12 +52,23 @@ const char capabilities_str_short[NUM_CAPABILITIES]
           [CAP_ROTATE_TO_MUTE]                 = 'r',
           [CAP_EQUALIZER_PRESET]               = 'p',
           [CAP_EQUALIZER]                      = 'e',
+          [CAP_PARAMETRIC_EQUALIZER]           = 'q',
           [CAP_MICROPHONE_MUTE_LED_BRIGHTNESS] = 't',
           [CAP_MICROPHONE_VOLUME]              = 'o',
           // new capabilities since short output was deprecated
           [CAP_VOLUME_LIMITER]     = '\0',
           [CAP_BT_WHEN_POWERED_ON] = '\0',
           [CAP_BT_CALL_VOLUME]     = '\0'
+      };
+
+const char* const equalizer_filter_type_str[NUM_EQ_FILTER_TYPES]
+    = {
+          [EQ_FILTER_LOWSHELF]  = "lowshelf",
+          [EQ_FILTER_LOWPASS]   = "lowpass",
+          [EQ_FILTER_PEAKING]   = "peaking",
+          [EQ_FILTER_HIGHPASS]  = "highpass",
+          [EQ_FILTER_HIGHSHELF] = "highshelf"
+
       };
 
 bool device_check_ids(struct device* device, uint16_t vid, uint16_t pid)
@@ -68,4 +81,9 @@ bool device_has_capability(struct device* device, enum capabilities cap)
     if (device == NULL)
         return false;
     return (device->capabilities & B(cap)) == B(cap);
+}
+
+bool has_capability(int capabilities, enum capabilities cap)
+{
+    return (capabilities & B(cap)) == B(cap);
 }
