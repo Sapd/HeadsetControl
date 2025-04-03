@@ -57,3 +57,30 @@ const char capabilities_str_short[NUM_CAPABILITIES]
           [CAP_BT_WHEN_POWERED_ON] = '\0',
           [CAP_BT_CALL_VOLUME]     = '\0'
       };
+
+const char* const equalizer_filter_type_str[NUM_EQ_FILTER_TYPES]
+    = {
+          [EQ_FILTER_LOWSHELF]  = "lowshelf",
+          [EQ_FILTER_LOWPASS]   = "lowpass",
+          [EQ_FILTER_PEAKING]   = "peaking",
+          [EQ_FILTER_HIGHPASS]  = "highpass",
+          [EQ_FILTER_HIGHSHELF] = "highshelf"
+
+      };
+
+bool device_check_ids(struct device* device, uint16_t vid, uint16_t pid)
+{
+    return device->idVendor == vid && device->idProduct == pid;
+}
+
+bool device_has_capability(struct device* device, enum capabilities cap)
+{
+    if (device == NULL)
+        return false;
+    return (device->capabilities & B(cap)) == B(cap);
+}
+
+bool has_capability(int capabilities, enum capabilities cap)
+{
+    return (capabilities & B(cap)) == B(cap);
+}

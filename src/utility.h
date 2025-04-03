@@ -92,6 +92,18 @@ int get_byte_data_from_parameter(char* input, unsigned char* dest, size_t len);
  */
 int get_float_data_from_parameter(char* input, float* dest, size_t len);
 
+struct parametric_equalizer_settings* parse_parametric_equalizer_settings(const char* input);
+
+/**
+ * @brief Accept an string input like 123:456 and splits them into two ids
+ *
+ * @param input input string
+ * @param id1 the first (left) id
+ * @param id2 the secound it
+ * @return int 0 if successfull, or 1 if not two ids provided
+ */
+int get_two_ids(char* input, int* id1, int* id2);
+
 int vasprintf(char** str, const char* fmt, va_list ap);
 
 int _asprintf(char** str, const char* fmt, ...);

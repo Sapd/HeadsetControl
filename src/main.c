@@ -40,29 +40,84 @@ int test_profile = 0;
 
 int hsc_device_timeout = 5000;
 
+typedef struct {
+    int vendor_id;
+    int product_id;
+    int test_device;
+} SearchParameters;
+
 /**
- *  This function iterates through all HID devices.
+ * @brief Finds and initializes a list of devices.
  *
- *  @return 0 when a supported device is found
+ * This function allocates a list of devices.
+ * If the test_device flag is set, it attempts to add a test device to the list.
+ *
+ * @param device_list A pointer to the list of devices to be populated.
+ * @param test_device A flag indicating whether to add a test device to the list.
+ * @return The number of devices found and added to the list.
  */
-static int find_device(struct device* device_found, int test_device)
+static int find_devices(DeviceList** device_list, SearchParameters parameters)
 {
-    if (test_device)
-        return get_device(device_found, VENDOR_TESTDEVICE, PRODUCT_TESTDEVICE);
+    DeviceListNode* devices_found = malloc(sizeof(DeviceListNode));
+    devices_found->element        = malloc(sizeof(struct device));
+    DeviceListNode* curr_node     = devices_found;
+    int found                     = 0;
+
+    // Adding test device
+    if (parameters.test_device) {
+        if (!get_device(devices_found->element, VENDOR_TESTDEVICE, PRODUCT_TESTDEVICE)) {
+            curr_node->next          = malloc(sizeof(struct DeviceListNode));
+            curr_node->next->element = malloc(sizeof(struct device));
+            curr_node                = devices_found->next;
+            found++;
+        }
+    }
 
     struct hid_device_info* devs;
     struct hid_device_info* cur_dev;
-    int found = -1;
-    devs      = hid_enumerate(0x0, 0x0);
-    cur_dev   = devs;
+    devs               = hid_enumerate(parameters.vendor_id, parameters.product_id);
+    cur_dev            = devs;
+    bool already_found = false;
+
+    // Iterate through all devices and the compatible to device_found list
     while (cur_dev) {
-        found = get_device(device_found, cur_dev->vendor_id, cur_dev->product_id);
-
-        if (found == 0) {
-            break;
+        already_found             = false;
+        DeviceListNode* temp_node = devices_found;
+        while (temp_node != curr_node) {
+            if (temp_node->element->idVendor == cur_dev->vendor_id && temp_node->element->idProduct == cur_dev->product_id) {
+                already_found = true;
+                break;
+            }
+            temp_node = temp_node->next;
         }
-
+        if (already_found) {
+            cur_dev = cur_dev->next;
+            continue;
+        }
+        if (!get_device(curr_node->element, cur_dev->vendor_id, cur_dev->product_id)) {
+            found++;
+            curr_node->next          = malloc(sizeof(struct DeviceListNode));
+            curr_node->next->element = malloc(sizeof(struct device));
+            curr_node                = curr_node->next;
+        }
         cur_dev = cur_dev->next;
+    }
+    free(curr_node->element);
+    free(curr_node);
+
+    // Copy by address the found devices to the device_list
+    *device_list = malloc(sizeof(DeviceList) * found);
+    curr_node    = devices_found;
+    for (int i = 0; i < found; i++) {
+        DeviceList* device_element      = *device_list + i;
+        device_element->device          = curr_node->element;
+        device_element->num_devices     = found - i;
+        device_element->featureRequests = NULL;
+        device_element->size            = 0;
+
+        curr_node = curr_node->next;
+        free(devices_found);
+        devices_found = curr_node;
     }
     hid_free_enumeration(devs);
 
@@ -116,7 +171,7 @@ static void print_readmetable()
         printf("| %s |", device_found->device_name);
 
         for (int j = 0; j < NUM_CAPABILITIES; j++) {
-            if (has_capability(device_found->capabilities, j)) {
+            if (device_has_capability(device_found, j)) {
                 printf(" x |");
             } else {
                 printf("   |");
@@ -356,30 +411,33 @@ static FeatureResult handle_feature(struct device* device_found, hid_device** de
     return result;
 }
 
-void print_help(char* programname, struct device* device_found, bool _show_all)
+void print_help(char* programname, struct device* device_found, bool show_all)
 {
-    bool show_all = !device_found || _show_all;
-
     printf("HeadsetControl by Sapd (Denis Arnst)\n\thttps://github.com/Sapd/HeadsetControl\n\n");
     printf("Version: %s\n\n", VERSION);
     // printf("Usage: %s [options]\n", programname);
     // printf("Options:\n");
 
-    if (show_all || has_capability(device_found->capabilities, CAP_SIDETONE)) {
+    printf("Select device:\n");
+    printf("  -d, --device vendorid:productid\n");
+    printf("\t\t\t\tVendor ID and product ID separated by a colon.\n");
+    printf("\n");
+
+    if (show_all || device_has_capability(device_found, CAP_SIDETONE)) {
         printf("Sidetone:\n");
         printf("  -s, --sidetone LEVEL\t\tSet sidetone level (0-128)\n");
         printf("\n");
     }
 
-    if (show_all || has_capability(device_found->capabilities, CAP_BATTERY_STATUS)) {
+    if (show_all || device_has_capability(device_found, CAP_BATTERY_STATUS)) {
         printf("Battery:\n");
         printf("  -b, --battery\t\t\tCheck battery level\n");
         printf("\n");
     }
 
     // ------ Category: lights and notifications
-    bool show_lights        = show_all || has_capability(device_found->capabilities, CAP_LIGHTS);
-    bool show_voice_prompts = show_all || has_capability(device_found->capabilities, CAP_VOICE_PROMPTS);
+    bool show_lights        = show_all || device_has_capability(device_found, CAP_LIGHTS);
+    bool show_voice_prompts = show_all || device_has_capability(device_found, CAP_VOICE_PROMPTS);
 
     if (show_lights || show_voice_prompts) {
         printf("%s:\n", (show_lights && show_voice_prompts) ? "Lights and Voice Prompts" : (show_lights ? "Lights" : "Voice Prompts"));
@@ -394,10 +452,10 @@ void print_help(char* programname, struct device* device_found, bool _show_all)
     // ------
 
     // ------ Category: Features
-    bool show_inactive_time      = show_all || has_capability(device_found->capabilities, CAP_INACTIVE_TIME);
-    bool show_chatmix_status     = show_all || has_capability(device_found->capabilities, CAP_CHATMIX_STATUS);
-    bool show_notification_sound = show_all || has_capability(device_found->capabilities, CAP_NOTIFICATION_SOUND);
-    bool show_volume_limiter     = show_all || has_capability(device_found->capabilities, CAP_VOLUME_LIMITER);
+    bool show_inactive_time      = show_all || device_has_capability(device_found, CAP_INACTIVE_TIME);
+    bool show_chatmix_status     = show_all || device_has_capability(device_found, CAP_CHATMIX_STATUS);
+    bool show_notification_sound = show_all || device_has_capability(device_found, CAP_NOTIFICATION_SOUND);
+    bool show_volume_limiter     = show_all || device_has_capability(device_found, CAP_VOLUME_LIMITER);
 
     if (show_inactive_time || show_chatmix_status || show_notification_sound) {
         printf("Features:\n");
@@ -418,8 +476,9 @@ void print_help(char* programname, struct device* device_found, bool _show_all)
     // ------
 
     // ------ Category: Equalizer
-    bool show_equalizer        = show_all || has_capability(device_found->capabilities, CAP_EQUALIZER);
-    bool show_equalizer_preset = show_all || has_capability(device_found->capabilities, CAP_EQUALIZER_PRESET);
+    bool show_equalizer            = show_all || device_has_capability(device_found, CAP_EQUALIZER);
+    bool show_equalizer_preset     = show_all || device_has_capability(device_found, CAP_EQUALIZER_PRESET);
+    bool show_parametric_equalizer = show_all || device_has_capability(device_found, CAP_PARAMETRIC_EQUALIZER);
 
     if (show_equalizer || show_equalizer_preset) {
         printf("Equalizer:\n");
@@ -434,9 +493,9 @@ void print_help(char* programname, struct device* device_found, bool _show_all)
     // ------
 
     // ------ Category: Microphone
-    bool show_rotate_to_mute                 = show_all || has_capability(device_found->capabilities, CAP_ROTATE_TO_MUTE);
-    bool show_microphone_mute_led_brightness = show_all || has_capability(device_found->capabilities, CAP_MICROPHONE_MUTE_LED_BRIGHTNESS);
-    bool show_microphone_volume              = show_all || has_capability(device_found->capabilities, CAP_MICROPHONE_VOLUME);
+    bool show_rotate_to_mute                 = show_all || device_has_capability(device_found, CAP_ROTATE_TO_MUTE);
+    bool show_microphone_mute_led_brightness = show_all || device_has_capability(device_found, CAP_MICROPHONE_MUTE_LED_BRIGHTNESS);
+    bool show_microphone_volume              = show_all || device_has_capability(device_found, CAP_MICROPHONE_VOLUME);
 
     if (show_rotate_to_mute || show_microphone_mute_led_brightness || show_microphone_volume) {
         printf("Microphone:\n");
@@ -454,8 +513,8 @@ void print_help(char* programname, struct device* device_found, bool _show_all)
     // ------
 
     // ------ Category: Bluetooth
-    bool show_bt_when_powered_on = show_all || has_capability(device_found->capabilities, CAP_BT_WHEN_POWERED_ON);
-    bool show_bt_call_volume     = show_all || has_capability(device_found->capabilities, CAP_BT_CALL_VOLUME);
+    bool show_bt_when_powered_on = show_all || device_has_capability(device_found, CAP_BT_WHEN_POWERED_ON);
+    bool show_bt_call_volume     = show_all || device_has_capability(device_found, CAP_BT_CALL_VOLUME);
 
     if (show_bt_when_powered_on || show_bt_call_volume) {
         printf("Bluetooth:\n");
@@ -486,19 +545,19 @@ void print_help(char* programname, struct device* device_found, bool _show_all)
         printf("\n");
     }
 
-    if (show_all || has_capability(device_found->capabilities, CAP_SIDETONE) || has_capability(device_found->capabilities, CAP_BATTERY_STATUS)) {
+    if (show_all || device_has_capability(device_found, CAP_SIDETONE) || device_has_capability(device_found, CAP_BATTERY_STATUS)) {
         printf("Examples:\n");
-        if (show_all || has_capability(device_found->capabilities, CAP_BATTERY_STATUS))
+        if (show_all || device_has_capability(device_found, CAP_BATTERY_STATUS))
             printf("  %s -b\t\tCheck the battery level\n", programname);
-        if (show_all || has_capability(device_found->capabilities, CAP_SIDETONE))
+        if (show_all || device_has_capability(device_found, CAP_SIDETONE))
             printf("  %s -s 64\tSet sidetone level to 64\n", programname);
-        if (show_all || (has_capability(device_found->capabilities, CAP_LIGHTS) && has_capability(device_found->capabilities, CAP_SIDETONE)))
+        if (show_all || (device_has_capability(device_found, CAP_LIGHTS) && device_has_capability(device_found, CAP_SIDETONE)))
             printf("  %s -l 1 -s 0\tTurn on lights and deactivate sidetone\n", programname);
         printf("\n");
     }
 
     if (!show_all && device_found)
-        printf("\nHint:\tOptions were filtered to your device (%s)\n\tUse --help-all to show all options (including advanced ones)\n", device_found->device_name);
+        printf("Hint:\tOptions were filtered to your device (%s)\n\tUse --help-all to show all options (including advanced ones)\n", device_found->device_name);
 }
 
 // for --follow
@@ -520,6 +579,10 @@ void interruptHandler(int signal_number)
 int main(int argc, char* argv[])
 {
     int c;
+
+
+    int selected_vendor_id  = 0;
+    int selected_product_id = 0;
 
     int should_print_help                = 0;
     int should_print_help_all            = 0;
@@ -543,6 +606,7 @@ int main(int argc, char* argv[])
     int dev_mode                         = 0;
     unsigned follow_sec                  = 2;
     struct equalizer_settings* equalizer = NULL;
+    struct parametric_equalizer_settings* parametric_equalizer = NULL;
 
     OutputType output_format = OUTPUT_STANDARD;
     int test_device          = 0;
@@ -551,6 +615,7 @@ int main(int argc, char* argv[])
     float* read_buffer = calloc(BUFFERLENGTH, sizeof(float));
 
     struct option opts[] = {
+        { "device", required_argument, NULL, 'd' },
         { "battery", no_argument, NULL, 'b' },
         { "bt-call-volume", required_argument, NULL, 0 },
         { "bt-when-powered-on", required_argument, NULL, 0 },
@@ -582,10 +647,18 @@ int main(int argc, char* argv[])
 
     int option_index = 0;
 
-    while ((c = getopt_long(argc, argv, "bchi:l:f::mn:o::r:s:uv:p:e:?", opts, &option_index)) != -1) {
+    while ((c = getopt_long(argc, argv, "d:bchi:l:f::mn:o::r:s:uv:p:e:?", opts, &option_index)) != -1) {
         char* endptr = NULL; // for strtol
 
         switch (c) {
+        case 'd': {
+            int parsed_correctly = get_two_ids(optarg, &selected_vendor_id, &selected_product_id);
+            if (parsed_correctly == 1) {
+                fprintf(stderr, "Usage: %s -d, --device [vendorid:deviceid]\n", argv[0]);
+                return 1;
+            }
+            break;
+        }
         case 'b':
             request_battery = 1;
             break;
@@ -824,27 +897,42 @@ int main(int argc, char* argv[])
             fprintf(stderr, "Non-option argument %s\n", argv[index]);
     }
 
-    // describes the headsetcontrol device, when a headset was found
-    static struct device device_found;
+    // The array list of compatible devices
+    DeviceList* devices_found = NULL;
+    // Describes the headsetcontrol device, when a headset was found
+    DeviceList* device_selected = NULL;
+    // Search parameters for the devices
+    SearchParameters search_parameters = { selected_vendor_id, selected_product_id, test_device };
 
     // Look for a supported device
-    int headset_available = find_device(&device_found, test_device);
+    int headset_available = find_devices(&devices_found, search_parameters);
+
+    if (headset_available == 1) {
+        device_selected = devices_found;
+    } else if (selected_vendor_id != 0 && selected_product_id != 0) {
+        for (int i = 0; i < headset_available; i++) {
+            if (device_check_ids(devices_found[i].device, selected_vendor_id, selected_product_id)) {
+                device_selected = devices_found + i;
+                break;
+            }
+        }
+    }
 
     if (should_print_help || should_print_help_all) {
-        if (headset_available == 0)
-            print_help(argv[0], &device_found, should_print_help_all);
-        else
+        if (device_selected == NULL) {
             print_help(argv[0], NULL, should_print_help_all);
-
+        } else {
+            print_help(argv[0], device_selected->device, should_print_help_all);
+        }
         return 0;
-    } else if (headset_available != 0) {
+    } else if (headset_available == 0) {
         output(NULL, false, output_format);
         return 1;
     }
 
     // We open connection to HID devices on demand
-    hid_device* device_handle = NULL;
-    char* hid_path            = NULL;
+    hid_device* device_handles[headset_available];
+    char* hid_paths[headset_available];
 
     // Initialize signal handler for CTRL + C
 #ifdef _WIN32
@@ -875,80 +963,98 @@ int main(int argc, char* argv[])
     int numFeatures = sizeof(featureRequests) / sizeof(featureRequests[0]);
     assert(numFeatures == NUM_CAPABILITIES);
 
-    // For specific output types, like YAML, we will do all actions - even when not specified - to aggreate all information
-    if (output_format == OUTPUT_YAML || output_format == OUTPUT_JSON || output_format == OUTPUT_ENV) {
-        for (int i = 0; i < numFeatures; i++) {
-            if (featureRequests[i].type == CAPABILITYTYPE_INFO && !featureRequests[i].should_process) {
-                if ((device_found.capabilities & B(featureRequests[i].cap)) == B(featureRequests[i].cap)) {
-                    featureRequests[i].should_process = true;
+    // Initialize all handles, hid_paths and feature requests for all devices
+    FeatureRequest* feature_requests[headset_available];
+    for (int i = 0; i < headset_available; i++) {
+        device_handles[i]                = NULL;
+        hid_paths[i]                     = NULL;
+        feature_requests[i]              = memcpy(malloc(sizeof(featureRequests)), featureRequests, sizeof(featureRequests));
+        devices_found[i].featureRequests = feature_requests[i];
+        devices_found[i].size            = numFeatures;
+    }
+
+    bool isExtendedOutput = output_format == OUTPUT_YAML || output_format == OUTPUT_JSON || output_format == OUTPUT_ENV;
+    for (int i = 0; i < headset_available; i++) {
+        for (int j = 0; j < numFeatures; j++) {
+            // For specific output types, like YAML, we will do all actions - even when not specified - to aggreate all information
+            if (isExtendedOutput && feature_requests[i][j].type == CAPABILITYTYPE_INFO && !feature_requests[i][j].should_process) {
+                if (device_has_capability(devices_found[i].device, feature_requests[i][j].cap)) {
+                    feature_requests[i][j].should_process = true;
+                    feature_requests[i][j].result         = handle_feature(devices_found[i].device, &device_handles[i], &hid_paths[i], feature_requests[i][j].cap, feature_requests[i][j].param);
+                }
+            } else if (feature_requests[i][j].type == CAPABILITYTYPE_ACTION && feature_requests[i][j].should_process) {
+                if (headset_available > 1) {
+                    if (selected_vendor_id == 0 && selected_product_id == 0) {
+                        feature_requests[i][j].result.status  = FEATURE_NOT_PROCESSED;
+                        feature_requests[i][j].result.message = strdup("Not processed, multiple devices detected,you need to specify a device with -d");
+                        feature_requests[i][j].result.value   = -1;
+                    } else if (!device_check_ids(devices_found[i].device, selected_vendor_id, selected_product_id)) {
+                        feature_requests[i][j].should_process = false;
+                    }
                 }
             }
         }
     }
 
     if (request_connected) {
-        if (test_device) {
-            printf("true\n");
-            return 0;
+        if (device_selected == NULL) {
+            fprintf(stderr, "Error: No device has been selected.\n");
+            return 1;
         }
-
+        int selected_device_index = device_selected - devices_found;
+        hid_device* device_handle = device_handles[selected_device_index];
+        char* hid_path            = hid_paths[selected_device_index];
+        struct device* device     = device_selected->device;
+        int is_test_device        = test_device && device->idVendor == VENDOR_TESTDEVICE && device->idProduct == PRODUCT_TESTDEVICE;
         // Check if battery status can be read
         // If it isn't supported, the device is
         // probably wired meaning it is connected
         int battery_error = 0;
+        BatteryInfo info;
 
-        if ((device_found.capabilities & B(CAP_BATTERY_STATUS)) == B(CAP_BATTERY_STATUS)) {
-            device_handle = dynamic_connect(&hid_path, device_handle, &device_found, CAP_BATTERY_STATUS);
-            if (!device_handle)
-                return 1;
-
-            BatteryInfo info = device_found.request_battery(device_handle);
+        if (device_has_capability(device, CAP_BATTERY_STATUS)) {
+            if (!is_test_device) {
+                device_handle = dynamic_connect(&hid_path, device_handle, device, CAP_BATTERY_STATUS);
+                if (!device_handle) {
+                    fprintf(stderr, "Error while getting device handle.\n");
+                    return 1;
+                }
+                info = device->request_battery(device_handle);
+            } else {
+                info = device->request_battery(device_handle);
+            }
 
             if (info.status != BATTERY_AVAILABLE) {
                 battery_error = 1;
             }
         }
 
-        terminate_hid(&device_handle, &hid_path);
-
         if (battery_error != 0) {
             printf("false\n");
-            return 1;
         } else {
             printf("true\n");
-            return 0;
         }
-    }
-
-    do {
-        for (int i = 0; i < numFeatures; i++) {
-            if (featureRequests[i].should_process) {
-                // Assuming handle_feature now returns FeatureResult
-                featureRequests[i].result = handle_feature(&device_found, &device_handle, &hid_path, featureRequests[i].cap, featureRequests[i].param);
-            } else {
-                // Populate with a default "not processed" result
-                featureRequests[i].result.status  = FEATURE_NOT_PROCESSED;
-                featureRequests[i].result.message = strdup("Not processed");
-                featureRequests[i].result.value   = 0;
+    } else {
+        do {
+            // Process all features for all devices
+            for (int i = 0; i < headset_available; i++) {
+                if (!device_check_ids(devices_found[i].device, selected_vendor_id, selected_product_id))
+                    continue;
+                FeatureRequest* deviceFeatureRequests = devices_found[i].featureRequests;
+                for (int j = 0; j < numFeatures; j++) {
+                    if (deviceFeatureRequests[j].should_process && deviceFeatureRequests[j].result.status != FEATURE_NOT_PROCESSED) {
+                        // Assuming handle_feature now returns FeatureResult
+                        deviceFeatureRequests[j].result = handle_feature(devices_found[i].device, &device_handles[i], &hid_paths[i], deviceFeatureRequests[j].cap, deviceFeatureRequests[j].param);
+                    }
+                }
             }
-        }
 
-        DeviceList deviceList;
-        deviceList.device          = &device_found;
-        deviceList.num_devices     = 1;
-        deviceList.featureRequests = featureRequests;
-        deviceList.size            = numFeatures;
+            output(devices_found, print_capabilities != -1, output_format);
 
-        output(&deviceList, print_capabilities != -1, output_format);
+            if (follow)
+                sleep(follow_sec);
 
-        if (follow)
-            sleep(follow_sec);
-
-    } while (follow);
-
-    // Free memory from features
-    for (int i = 0; i < numFeatures; i++) {
-        free(featureRequests[i].result.message);
+        } while (follow);
     }
 
     if (equalizer != NULL) {
@@ -956,6 +1062,18 @@ int main(int argc, char* argv[])
     }
     free(equalizer);
 
-    terminate_hid(&device_handle, &hid_path);
+    for (int i = 0; i < headset_available; i++) {
+        if (output_format != OUTPUT_STANDARD) {
+            // Free memory from features
+            for (int j = 0; j < numFeatures; j++) {
+                free(devices_found[i].featureRequests[j].result.message);
+            }
+        }
+        terminate_device_hid(&device_handles[i], &hid_paths[i]);
+        free(devices_found[i].featureRequests);
+        free(devices_found[i].device);
+    }
+
+    hid_exit();
     return 0;
 }
