@@ -607,7 +607,6 @@ int main(int argc, char* argv[])
 {
     int c;
 
-
     int selected_vendor_id  = 0;
     int selected_product_id = 0;
 
@@ -938,7 +937,7 @@ int main(int argc, char* argv[])
     // The array list of compatible devices
     DeviceList* devices_found = NULL;
     // Describes the headsetcontrol device, when a headset was found
-    DeviceList* device_selected = NULL;
+    DeviceList* selected_device = NULL;
     // Search parameters for the devices
     SearchParameters search_parameters = { selected_vendor_id, selected_product_id, test_device };
 
@@ -946,21 +945,23 @@ int main(int argc, char* argv[])
     int headset_available = find_devices(&devices_found, search_parameters);
 
     if (headset_available == 1) {
-        device_selected = devices_found;
+        selected_device     = devices_found;
+        selected_product_id = selected_device->device->idProduct;
+        selected_vendor_id  = selected_device->device->idVendor;
     } else if (selected_vendor_id != 0 && selected_product_id != 0) {
         for (int i = 0; i < headset_available; i++) {
             if (device_check_ids(devices_found[i].device, selected_vendor_id, selected_product_id)) {
-                device_selected = devices_found + i;
+                selected_device = devices_found + i;
                 break;
             }
         }
     }
 
     if (should_print_help || should_print_help_all) {
-        if (device_selected == NULL) {
+        if (selected_device == NULL) {
             print_help(argv[0], NULL, should_print_help_all);
         } else {
-            print_help(argv[0], device_selected->device, should_print_help_all);
+            print_help(argv[0], selected_device->device, should_print_help_all);
         }
         return 0;
     } else if (headset_available == 0) {
@@ -1036,14 +1037,14 @@ int main(int argc, char* argv[])
     }
 
     if (request_connected) {
-        if (device_selected == NULL) {
+        if (selected_device == NULL) {
             fprintf(stderr, "Error: No device has been selected.\n");
             return 1;
         }
-        int selected_device_index = device_selected - devices_found;
+        int selected_device_index = selected_device - devices_found;
         hid_device* device_handle = device_handles[selected_device_index];
         char* hid_path            = hid_paths[selected_device_index];
-        struct device* device     = device_selected->device;
+        struct device* device     = selected_device->device;
         int is_test_device        = test_device && device->idVendor == VENDOR_TESTDEVICE && device->idProduct == PRODUCT_TESTDEVICE;
         // Check if battery status can be read
         // If it isn't supported, the device is
