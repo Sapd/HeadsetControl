@@ -47,10 +47,10 @@ int spline_battery_level(const int p[], const int v[], const size_t size, uint16
 /**
  * @brief This function calculates the estimate batttery level in percent.
  *
- * To find the terms representing the polynominal discarge curve of the
+ * To find the terms representing the polynomial discharge curve of the
  * battery an solver like https://arachnoid.com/polysolve/ can be used.
  *
- * @param terms polynominal terms for the battery discharge curve
+ * @param terms polynomial terms for the battery discharge curve
  * @param numterms number of terms
  * @param voltage readings
  * @return battery level in percent
@@ -99,8 +99,8 @@ struct parametric_equalizer_settings* parse_parametric_equalizer_settings(const 
  *
  * @param input input string
  * @param id1 the first (left) id
- * @param id2 the secound it
- * @return int 0 if successfull, or 1 if not two ids provided
+ * @param id2 the second it
+ * @return int 0 if successful, or 1 if not two ids provided
  */
 int get_two_ids(char* input, int* id1, int* id2);
 

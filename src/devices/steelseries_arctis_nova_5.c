@@ -81,7 +81,7 @@ static uint8_t EQUALIZER_FILTER_MAP[NUM_EQ_FILTER_TYPES] = {
 };
 
 static int nova_5_send_sidetone(hid_device* device_handle, uint8_t num);
-static int nova_5_send_microhpone_mute_led_brightness(hid_device* device_handle, uint8_t num);
+static int nova_5_send_microphone_mute_led_brightness(hid_device* device_handle, uint8_t num);
 static int nova_5_send_microphone_volume(hid_device* device_handle, uint8_t num);
 static int nova_5_send_inactive_time(hid_device* device_handle, uint8_t num);
 static int nova_5_send_volume_limiter(hid_device* device_handle, uint8_t num);
@@ -119,7 +119,7 @@ void arctis_nova_5_init(struct device** device)
     device_arctis.capability_details[CAP_EQUALIZER]                      = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
 
     device_arctis.send_sidetone                       = &nova_5_send_sidetone;
-    device_arctis.send_microphone_mute_led_brightness = &nova_5_send_microhpone_mute_led_brightness;
+    device_arctis.send_microphone_mute_led_brightness = &nova_5_send_microphone_mute_led_brightness;
     device_arctis.send_microphone_volume              = &nova_5_send_microphone_volume;
     device_arctis.request_battery                     = &nova_5_get_battery;
     device_arctis.request_chatmix                     = &nova_5_get_chatmix;
@@ -203,7 +203,7 @@ static int nova_5_send_microphone_volume(hid_device* device_handle, uint8_t num)
     return nova_5_save_state(device_handle);
 }
 
-static int nova_5_send_microhpone_mute_led_brightness(hid_device* device_handle, uint8_t num)
+static int nova_5_send_microphone_mute_led_brightness(hid_device* device_handle, uint8_t num)
 {
     // Off = 0x00
     // low = 0x01
@@ -351,7 +351,7 @@ static int nova_5_send_equalizer(hid_device* device_handle, struct equalizer_set
     uint8_t data[MSG_SIZE] = { 0x0, 0x33 };
 
     /**
-     * constains the eq band frequencies used in "default" well known profiles used in presets
+     * contains the eq band frequencies used in "default" well known profiles used in presets
      */
     const unsigned char band_freq_le[2 * EQUALIZER_BANDS_COUNT] = {
         0x20,

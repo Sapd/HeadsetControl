@@ -257,7 +257,7 @@ struct device {
      *  @returns    > 0         success
      *              -1          HIDAPI error
      */
-    int (*notifcation_sound)(hid_device* hid_device, uint8_t soundid);
+    int (*notification_sound)(hid_device* hid_device, uint8_t soundid);
 
     /** @brief Function pointer for turning light on or off of the headset
      *

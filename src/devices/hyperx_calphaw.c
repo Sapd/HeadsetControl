@@ -144,7 +144,7 @@ static BatteryInfo calphaw_request_battery(hid_device* device_handle)
         uint8_t batteryPercentage = data_read[3];
 
 #ifdef DEBUG
-        uint32_t batteryVoltage = (data_read[4] << 8) | data_read[5]; // best assumtion this is voltage in mV
+        uint32_t batteryVoltage = (data_read[4] << 8) | data_read[5]; // best assumption this is voltage in mV
         printf("batteryVoltage: %d mV\n", batteryVoltage);
 #endif
         info.status = BATTERY_AVAILABLE;

@@ -112,7 +112,7 @@ void output(DeviceList* deviceList, bool print_capabilities, OutputType output)
         infos = calloc(num_devices, sizeof(HeadsetInfo));
     }
 
-    // Supress static analysis warning
+    // Suppress static analysis warning
     assert((infos != NULL && status.device_count > 0) || (infos == NULL && status.device_count == 0));
 
     // Iterate through all devices

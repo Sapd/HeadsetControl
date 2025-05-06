@@ -184,7 +184,7 @@ static void print_readmetable()
 /**
  * @brief Checks if an existing connection exists, and either uses it, or closes it and creates a new one
  *
- * A device - depending on the feature - needs differend Endpoints/Connections
+ * A device - depending on the feature - needs different Endpoints/Connections
  * Instead of opening and keeping track of multiple connections, we close and open connections no demand
  *
  *
@@ -193,7 +193,7 @@ static void print_readmetable()
  * @param device_handle an existing device handle or NULL if none yet
  * @param device headsetcontrol struct, containing vendor and productid
  * @param cap which capability to use, to determine interfaceid and usageids
- * @return hid_device pointer if successfull, or NULL (error in hid_error)
+ * @return hid_device pointer if successful, or NULL (error in hid_error)
  */
 static hid_device* dynamic_connect(char** existing_hid_path, hid_device* device_handle,
     struct device* device, enum capabilities cap)
@@ -307,7 +307,7 @@ static FeatureResult handle_feature(struct device* device_found, hid_device** de
     }
 
     case CAP_NOTIFICATION_SOUND:
-        ret = device_found->notifcation_sound(*device_handle, (uint8_t) * (int*)param);
+        ret = device_found->notification_sound(*device_handle, (uint8_t) * (int*)param);
         break;
 
     case CAP_LIGHTS:
@@ -503,7 +503,7 @@ void print_help(char* programname, struct device* device_found, bool show_all)
         printf("Parametric Equalizer:\n");
         printf("  --parametric-equalizer STRING\t\tSet equalizer bands (bands separated by semicolon)\n");
         printf("      Band format:\t\t\tFREQUENCY,GAIN,Q_FACTOR,FILTER_TYPE\n");
-        printf("      Availabe filter types:\t\t");
+        printf("      Available filter types:\t\t");
         for (int i = 0; i < NUM_EQ_FILTER_TYPES; i++) {
             if (show_all || has_capability(device_found->parametric_equalizer->filter_types, i)) {
                 printf("%s, ", equalizer_filter_type_str[i]);
@@ -1016,7 +1016,7 @@ int main(int argc, char* argv[])
     bool isExtendedOutput = output_format == OUTPUT_YAML || output_format == OUTPUT_JSON || output_format == OUTPUT_ENV;
     for (int i = 0; i < headset_available; i++) {
         for (int j = 0; j < numFeatures; j++) {
-            // For specific output types, like YAML, we will do all actions - even when not specified - to aggreate all information
+            // For specific output types, like YAML, we will do all actions - even when not specified - to aggregate all information
             if (isExtendedOutput && feature_requests[i][j].type == CAPABILITYTYPE_INFO && !feature_requests[i][j].should_process) {
                 if (device_has_capability(devices_found[i].device, feature_requests[i][j].cap)) {
                     feature_requests[i][j].should_process = true;
