@@ -191,7 +191,7 @@ endif()
 
 include (CTest)
 
-## Simple test wether we can run the application (should basic hidapi functions, like enumerate, work)
+## Simple test whether we can run the application (should basic hidapi functions, like enumerate, work)
 enable_testing()
 add_test(run_test headsetcontrol)
 set_tests_properties(run_test PROPERTIES PASS_REGULAR_EXPRESSION "No supported device found;Found")
