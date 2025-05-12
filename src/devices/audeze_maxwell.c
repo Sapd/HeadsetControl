@@ -10,6 +10,7 @@ static struct device device_maxwell;
 static const uint16_t PRODUCT_IDS[] = { ID_MAXWELL };
 
 static int audeze_maxwell_send_sidetone(hid_device* device_handle, uint8_t num);
+static int audeze_maxwell_send_inactive_time(hid_device* device_handle, uint8_t num);
 // static BatteryInfo audeze_maxwell_get_battery(hid_device* device_handle);
 
 #define MSG_SIZE 62
@@ -22,11 +23,13 @@ void audeze_maxwell_init(struct device** device)
 
     strncpy(device_maxwell.device_name, "Audeze Maxwell", sizeof(device_maxwell.device_name));
 
-    device_maxwell.capabilities = B(CAP_SIDETONE);
+    device_maxwell.capabilities = B(CAP_SIDETONE) | B(CAP_INACTIVE_TIME);
     device_maxwell.capability_details[CAP_SIDETONE] = (struct capability_detail) { .usagepage = 0xff13, .usageid = 0x1, .interface = 1 };
+    device_maxwell.capability_details[CAP_INACTIVE_TIME] = (struct capability_detail) { .usagepage = 0xff13, .usageid = 0x1, .interface = 1 };
     // device_audeze_maxwell.capability_details[CAP_BATTERY_STATUS] = (struct capability_detail) { .usagepage = 0xff13, .usageid = 0x1, .interface = 1 };
 
     device_maxwell.send_sidetone = &audeze_maxwell_send_sidetone;
+    device_maxwell.send_inactive_time = &audeze_maxwell_send_inactive_time;
     // device_audeze_maxwell.request_battery = &audeze_maxwell_get_battery;
 
     *device = &device_maxwell;
@@ -59,7 +62,49 @@ static int audeze_maxwell_send_sidetone(hid_device* device_handle, uint8_t num)
     // Audeze HQ changes the byte at index 11, but it has no effect, it’s always toggleable regardless of what’s sent.
     uint8_t on_off = num == 0 ? 0x0 : 0x1;
 
-    unsigned char data_request[MSG_SIZE] = {0x6, 0x9, 0x80, 0x5, 0x5a, 0x5, 0x0, 0x82, 0x2c, 0x7, 0x0, on_off, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
+    unsigned char data_request[MSG_SIZE] = {0x6, 0x9, 0x80, 0x5, 0x5a, 0x5, 0x0, 0x82, 0x2c, 0x7, 0x0, on_off};
+
+    return hid_write(device_handle, data_request, MSG_SIZE);
+}
+
+// Audeze HQ supports up to 6 hours of idle time, but the send_inactive_time API caps it at 90 minutes.
+int audeze_maxwell_send_inactive_time(hid_device* device_handle, uint8_t num)
+{
+    unsigned char data_request[MSG_SIZE] = {0x6, 0x10, 0x80, 0x5, 0x5a, 0xc, 0x0, 0x82, 0x2c, 0x1, 0x0};
+
+    // If num is 0, the inactive time flag is set to 0x00, disabling the automatic shutdown feature.
+    if (num > 0) {
+        uint16_t minutes = 360;
+
+        if (num <= 5) {
+            minutes = 5;
+        } else if (num <= 10) {
+            minutes = 10;
+        } else if (num <= 15) {
+            minutes = 15;
+        } else if (num <= 30) {
+            minutes = 30;
+        } else if (num <= 45) {
+            minutes = 45;
+        } else if (num <= 60) {
+            minutes = 60;
+        } else if (num <= 90) {
+            minutes = 90;
+        }  else if (num <= 120) {
+            minutes = 120;
+        }  else if (num <= 240) {
+            minutes = 240;
+        }
+
+        uint16_t seconds = minutes * 60;
+
+        data_request[11] = 0x01;                  // Inactive time flag
+        data_request[13] =  seconds       & 0xFF; // LSB seconds
+        data_request[14] = (seconds >> 8) & 0xFF; // MSB seconds
+        data_request[15] = 0x01;                  // Constant Flag
+        data_request[17] = data_request[13];      // LSB Again
+        data_request[18] = data_request[14];      // MSB Again
+    }
 
     return hid_write(device_handle, data_request, MSG_SIZE);
 }
