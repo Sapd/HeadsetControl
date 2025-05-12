@@ -1,5 +1,6 @@
 #include "device_registry.h"
 
+#include "devices/audeze_maxwell.h"
 #include "devices/corsair_void.h"
 #include "devices/headsetcontrol_test.h"
 #include "devices/hyperx_calphaw.h"
@@ -39,6 +40,8 @@ void add_device(void (*init_func)(struct device**));
 
 void init_devices()
 {
+    // Audeze
+    add_device(audeze_maxwell_init);
     // Corsair
     add_device(void_init);
     // HyperX
