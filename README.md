@@ -11,7 +11,7 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
 
 | Device | sidetone | battery | notification sound | lights | inactive time | chatmix | voice prompts | rotate to mute | equalizer preset | equalizer | parametric equalizer | microphone mute led brightness | microphone volume | volume limiter | bluetooth when powered on | bluetooth call volume |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Audeze Maxwell | x |   |   |   | x |   |   |   |   |   |   |   |   |   |   |   |
+| Audeze Maxwell | x |   |   |   | x |   |   |   |   |   |   |   |   | x |   |   |
 | Corsair Headset Device | x | x | x | x |   |   |   |   |   |   |   |   |   |   |   |   |
 | HyperX Cloud Alpha Wireless | x | x |   |   | x |   | x |   |   |   |   |   |   |   |   |   |
 | HyperX Cloud Flight Wireless |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |

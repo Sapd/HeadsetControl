@@ -1,7 +1,8 @@
 #include "../device.h"
 #include "../utility.h"
+#include "hidapi.h"
 
-#include <stdio.h>
+#include <stdint.h>
 #include <string.h>
 
 static struct device device_maxwell;
@@ -12,6 +13,7 @@ static const uint16_t PRODUCT_IDS[] = { ID_MAXWELL };
 
 static int audeze_maxwell_send_sidetone(hid_device* device_handle, uint8_t num);
 static int audeze_maxwell_send_inactive_time(hid_device* device_handle, uint8_t num);
+static int audeze_maxwell_send_volume_limiter(hid_device* hid_device, uint8_t on);
 // static BatteryInfo audeze_maxwell_get_battery(hid_device* device_handle);
 
 #define MSG_SIZE 62
@@ -24,13 +26,15 @@ void audeze_maxwell_init(struct device** device)
 
     strncpy(device_maxwell.device_name, "Audeze Maxwell", sizeof(device_maxwell.device_name));
 
-    device_maxwell.capabilities                          = B(CAP_SIDETONE) | B(CAP_INACTIVE_TIME);
-    device_maxwell.capability_details[CAP_SIDETONE]      = (struct capability_detail){ .usagepage = 0xff13, .usageid = 0x1, .interface = 1 };
-    device_maxwell.capability_details[CAP_INACTIVE_TIME] = (struct capability_detail){ .usagepage = 0xff13, .usageid = 0x1, .interface = 1 };
+    device_maxwell.capabilities                           = B(CAP_SIDETONE) | B(CAP_INACTIVE_TIME) | B(CAP_VOLUME_LIMITER);
+    device_maxwell.capability_details[CAP_SIDETONE]       = (struct capability_detail){ .usagepage = 0xff13, .usageid = 0x1, .interface = 1 };
+    device_maxwell.capability_details[CAP_INACTIVE_TIME]  = (struct capability_detail){ .usagepage = 0xff13, .usageid = 0x1, .interface = 1 };
+    device_maxwell.capability_details[CAP_VOLUME_LIMITER] = (struct capability_detail){ .usagepage = 0xff13, .usageid = 0x1, .interface = 1 };
     // device_audeze_maxwell.capability_details[CAP_BATTERY_STATUS] = (struct capability_detail) { .usagepage = 0xff13, .usageid = 0x1, .interface = 1 };
 
-    device_maxwell.send_sidetone      = &audeze_maxwell_send_sidetone;
-    device_maxwell.send_inactive_time = &audeze_maxwell_send_inactive_time;
+    device_maxwell.send_sidetone       = &audeze_maxwell_send_sidetone;
+    device_maxwell.send_inactive_time  = &audeze_maxwell_send_inactive_time;
+    device_maxwell.send_volume_limiter = &audeze_maxwell_send_volume_limiter;
     // device_audeze_maxwell.request_battery = &audeze_maxwell_get_battery;
 
     *device = &device_maxwell;
@@ -125,4 +129,10 @@ int audeze_maxwell_send_inactive_time(hid_device* device_handle, uint8_t num)
     }
 
     return hid_write(device_handle, data_request, MSG_SIZE);
+}
+
+int audeze_maxwell_send_volume_limiter(hid_device* hid_device, uint8_t on)
+{
+    unsigned char data_request[MSG_SIZE] = { 0x6, 0x9, 0x80, 0x5, 0x5a, 0x5, 0x0, 0x0, 0x9, 0x28, 0x0, on == 1 ? 0x88 : 0x8e };
+    return hid_write(hid_device, data_request, MSG_SIZE);
 }
