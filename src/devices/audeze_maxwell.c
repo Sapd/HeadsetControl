@@ -1,4 +1,5 @@
 #include "../device.h"
+#include "../utility.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -57,14 +58,31 @@ void audeze_maxwell_init(struct device** device)
 //     return info;
 // }
 
-static int audeze_maxwell_send_sidetone(hid_device* device_handle, uint8_t num)
+int audeze_maxwell_toggle_sidetone(hid_device* device_handle)
 {
     // Audeze HQ changes the byte at index 11, but it has no effect, it’s always toggleable regardless of what’s sent.
-    uint8_t on_off = num == 0 ? 0x0 : 0x1;
-
-    unsigned char data_request[MSG_SIZE] = { 0x6, 0x9, 0x80, 0x5, 0x5a, 0x5, 0x0, 0x82, 0x2c, 0x7, 0x0, on_off };
+    unsigned char data_request[MSG_SIZE] = { 0x6, 0x9, 0x80, 0x5, 0x5a, 0x5, 0x0, 0x82, 0x2c, 0x7, 0x0, 0x1 };
 
     return hid_write(device_handle, data_request, MSG_SIZE);
+}
+
+int audeze_maxwell_send_sidetone(hid_device* device_handle, uint8_t num)
+{
+
+    // The range of the maxwell seems to be from 0 to 31
+    num = map(num, 0, 128, 0, 31);
+
+    unsigned char data_request[MSG_SIZE] = { 0x6, 0x9, 0x80, 0x5, 0x5a, 0x5, 0x0, 0x0, 0x9, 0x2c, 0x0, num };
+
+    // The sidetone is enabled whenever its level changes.
+    int res = hid_write(device_handle, data_request, MSG_SIZE);
+
+    if (num == 0) {
+        return audeze_maxwell_toggle_sidetone(device_handle);
+    }
+
+    return res;
+
 }
 
 // Audeze HQ supports up to 6 hours of idle time, but the send_inactive_time API caps it at 90 minutes.
