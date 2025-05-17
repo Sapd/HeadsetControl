@@ -15,9 +15,10 @@ static int audeze_maxwell_send_sidetone(hid_device* device_handle, uint8_t num);
 static int audeze_maxwell_send_inactive_time(hid_device* device_handle, uint8_t num);
 static int audeze_maxwell_send_volume_limiter(hid_device* hid_device, uint8_t on);
 static int audeze_maxwell_send_equalizer_custom_preset(hid_device* hid_device, uint8_t num);
-// static BatteryInfo audeze_maxwell_get_battery(hid_device* device_handle);
+static BatteryInfo audeze_maxwell_get_battery(hid_device* device_handle);
 
 #define MSG_SIZE 62
+#define REPORT_ID 0x06
 
 void audeze_maxwell_init(struct device** device)
 {
@@ -27,43 +28,70 @@ void audeze_maxwell_init(struct device** device)
 
     strncpy(device_maxwell.device_name, "Audeze Maxwell", sizeof(device_maxwell.device_name));
 
-    device_maxwell.capabilities                             = B(CAP_SIDETONE) | B(CAP_INACTIVE_TIME) | B(CAP_VOLUME_LIMITER) | B(CAP_EQUALIZER_PRESET);
+    device_maxwell.capabilities                             = B(CAP_SIDETONE) | B(CAP_INACTIVE_TIME) | B(CAP_VOLUME_LIMITER) | B(CAP_EQUALIZER_PRESET) | B(CAP_BATTERY_STATUS);
     device_maxwell.capability_details[CAP_SIDETONE]         = (struct capability_detail){ .usagepage = 0xff13, .usageid = 0x1, .interface = 1 };
     device_maxwell.capability_details[CAP_INACTIVE_TIME]    = (struct capability_detail){ .usagepage = 0xff13, .usageid = 0x1, .interface = 1 };
     device_maxwell.capability_details[CAP_VOLUME_LIMITER]   = (struct capability_detail){ .usagepage = 0xff13, .usageid = 0x1, .interface = 1 };
     device_maxwell.capability_details[CAP_EQUALIZER_PRESET] = (struct capability_detail){ .usagepage = 0xff13, .usageid = 0x1, .interface = 1 };
-    // device_audeze_maxwell.capability_details[CAP_BATTERY_STATUS] = (struct capability_detail) { .usagepage = 0xff13, .usageid = 0x1, .interface = 1 };
+    device_maxwell.capability_details[CAP_BATTERY_STATUS]   = (struct capability_detail){ .usagepage = 0xff13, .usageid = 0x1, .interface = 1 };
 
     device_maxwell.send_sidetone         = &audeze_maxwell_send_sidetone;
     device_maxwell.send_inactive_time    = &audeze_maxwell_send_inactive_time;
     device_maxwell.send_volume_limiter   = &audeze_maxwell_send_volume_limiter;
     device_maxwell.send_equalizer_preset = &audeze_maxwell_send_equalizer_custom_preset;
-    // device_audeze_maxwell.request_battery = &audeze_maxwell_get_battery;
+    device_maxwell.request_battery       = &audeze_maxwell_get_battery;
 
     *device = &device_maxwell;
 }
 
-// Battery reading couldn’t be implemented because GET_REPORT(Input) isn’t exposed by HIDAPI and requires a custom control transfer.
-// static BatteryInfo audeze_maxwell_get_battery(hid_device* device_handle)
-// {
-//
-//     BatteryInfo info = { .status = BATTERY_UNAVAILABLE, .level = -1 };
-//
-//     unsigned char outbuf[MSG_SIZE] = {0};
-//
-//     // request battery status
-//     unsigned char data_request[MSG_SIZE] = {0x6, 0x7, 0x80, 0x5, 0x5a, 0x3, 0x0, 0xd6, 0xc, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
-//     memcpy(outbuf, data_request, MSG_SIZE);
-//
-//     int response = hid_write(device_handle, outbuf, MSG_SIZE);
-//
-//     if (response < 0) {
-//         info.status = BATTERY_HIDERROR;
-//         return info;
-//     }
-//
-//     return info;
-// }
+int read_audeze_maxwell_status(hid_device* device_handle, unsigned char* buff)
+{
+    buff[0] = 0x7;
+    return hid_get_input_report(device_handle, buff, MSG_SIZE);
+}
+
+static BatteryInfo audeze_maxwell_get_battery(hid_device* device_handle)
+{
+
+    BatteryInfo info = { .status = BATTERY_UNAVAILABLE, .level = -1 };
+
+    unsigned char data_request[MSG_SIZE] = { 0x06, 0x07, 0x80, 0x05, 0x5A, 0x03, 0x00, 0xD6, 0x0C };
+
+    if (hid_write(device_handle, data_request, MSG_SIZE) < 0) {
+        info.status = BATTERY_HIDERROR;
+        return info;
+    }
+
+    unsigned char buf[MSG_SIZE];
+    switch (read_audeze_maxwell_status(device_handle, buf)) {
+    case 0:
+        info.status = BATTERY_TIMEOUT;
+        break;
+    case MSG_SIZE:
+        const unsigned char BATTERY_STATUS_FLAG = buf[1];
+
+        // Headset Off
+        if (BATTERY_STATUS_FLAG == 0x00) {
+            info.status = BATTERY_UNAVAILABLE;
+            break;
+        }
+
+        for (int i = 0; i < MSG_SIZE - 4; ++i) {
+            if (buf[i] == 0xD6 && buf[i + 1] == 0x0C && buf[i + 2] == 0x00 && buf[i + 3] == 0x00) {
+                info.level  = buf[i + 4];
+                info.status = BATTERY_AVAILABLE;
+                break;
+            }
+        }
+
+        break;
+    default:
+        info.status = BATTERY_HIDERROR;
+        break;
+    }
+
+    return info;
+}
 
 int audeze_maxwell_toggle_sidetone(hid_device* device_handle)
 {
