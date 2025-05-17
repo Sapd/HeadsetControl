@@ -30,11 +30,11 @@ void audeze_maxwell_init(struct device** device)
     strncpy(device_maxwell.device_name, "Audeze Maxwell", sizeof(device_maxwell.device_name));
 
     device_maxwell.capabilities                             = B(CAP_SIDETONE) | B(CAP_INACTIVE_TIME) | B(CAP_VOLUME_LIMITER) | B(CAP_EQUALIZER_PRESET) | B(CAP_BATTERY_STATUS);
-    device_maxwell.capability_details[CAP_SIDETONE]         = (struct capability_detail) { .usagepage = 0xff13, .usageid = 0x1, .interface = 1 };
-    device_maxwell.capability_details[CAP_INACTIVE_TIME]    = (struct capability_detail) { .usagepage = 0xff13, .usageid = 0x1, .interface = 1 };
-    device_maxwell.capability_details[CAP_VOLUME_LIMITER]   = (struct capability_detail) { .usagepage = 0xff13, .usageid = 0x1, .interface = 1 };
-    device_maxwell.capability_details[CAP_EQUALIZER_PRESET] = (struct capability_detail) { .usagepage = 0xff13, .usageid = 0x1, .interface = 1 };
-    device_maxwell.capability_details[CAP_BATTERY_STATUS]   = (struct capability_detail) { .usagepage = 0xff13, .usageid = 0x1, .interface = 1 };
+    device_maxwell.capability_details[CAP_SIDETONE]         = (struct capability_detail) { .usagepage = 0xff13, .usageid = 0x1, .interface = 0 };
+    device_maxwell.capability_details[CAP_INACTIVE_TIME]    = (struct capability_detail) { .usagepage = 0xff13, .usageid = 0x1, .interface = 0 };
+    device_maxwell.capability_details[CAP_VOLUME_LIMITER]   = (struct capability_detail) { .usagepage = 0xff13, .usageid = 0x1, .interface = 0 };
+    device_maxwell.capability_details[CAP_EQUALIZER_PRESET] = (struct capability_detail) { .usagepage = 0xff13, .usageid = 0x1, .interface = 0 };
+    device_maxwell.capability_details[CAP_BATTERY_STATUS]   = (struct capability_detail) { .usagepage = 0xff13, .usageid = 0x1, .interface = 0 };
 
     device_maxwell.send_sidetone         = &audeze_maxwell_send_sidetone;
     device_maxwell.send_inactive_time    = &audeze_maxwell_send_inactive_time;
