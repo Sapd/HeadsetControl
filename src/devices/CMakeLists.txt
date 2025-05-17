@@ -1,4 +1,6 @@
 set(SOURCE_FILES ${SOURCE_FILES}
+    ${CMAKE_CURRENT_SOURCE_DIR}/audeze_maxwell.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/audeze_maxwell.h
     ${CMAKE_CURRENT_SOURCE_DIR}/hyperx_cflight.c
     ${CMAKE_CURRENT_SOURCE_DIR}/hyperx_cflight.h
     ${CMAKE_CURRENT_SOURCE_DIR}/hyperx_calphaw.c
