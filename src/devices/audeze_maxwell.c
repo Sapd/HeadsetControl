@@ -68,10 +68,8 @@ static BatteryInfo audeze_maxwell_get_battery(hid_device* device_handle)
         info.status = BATTERY_TIMEOUT;
         break;
     case MSG_SIZE:
-        unsigned char BATTERY_STATUS_FLAG = buf[1];
-
         // Headset Off
-        if (BATTERY_STATUS_FLAG == 0x00) {
+        if (buf[1] == 0x00) {
             info.status = BATTERY_UNAVAILABLE;
             break;
         }
@@ -117,7 +115,6 @@ int audeze_maxwell_send_sidetone(hid_device* device_handle, uint8_t num)
     }
 
     return res;
-
 }
 
 // Audeze HQ supports up to 6 hours of idle time, but the send_inactive_time API caps it at 90 minutes.
