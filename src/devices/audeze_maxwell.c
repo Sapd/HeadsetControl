@@ -8,8 +8,9 @@
 static struct device device_maxwell;
 
 #define ID_MAXWELL 0x4b19
+#define ID_MAXWELL_XBOX_DONGLE 0x4b18
 
-static const uint16_t PRODUCT_IDS[] = { ID_MAXWELL };
+static const uint16_t PRODUCT_IDS[] = { ID_MAXWELL, ID_MAXWELL_XBOX_DONGLE };
 
 static int audeze_maxwell_send_sidetone(hid_device* device_handle, uint8_t num);
 static int audeze_maxwell_send_inactive_time(hid_device* device_handle, uint8_t num);
