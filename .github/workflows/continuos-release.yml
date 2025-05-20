@@ -65,7 +65,7 @@ jobs:
         id: runcmake
         with:
           cmakeListsTxtPath: "${{ github.workspace }}/CMakeLists.txt"
-          buildWithCMakeArgs: "-- -v"
+          buildWithCMakeArgs: "--config Release -- -v"
           buildDirectory: ${{ github.workspace }}/build
 
       - name: Zip build artifacts
