@@ -8,6 +8,7 @@
 #define VENDOR_LOGITECH    0x046d
 #define VENDOR_STEELSERIES 0x1038
 #define VENDOR_ROCCAT      0x1e7d
+#define VENDOR_AUDEZE      0x3329
 
 #define VENDOR_TESTDEVICE  0xF00B
 #define PRODUCT_TESTDEVICE 0xA00C
@@ -257,7 +258,7 @@ struct device {
      *  @returns    > 0         success
      *              -1          HIDAPI error
      */
-    int (*notifcation_sound)(hid_device* hid_device, uint8_t soundid);
+    int (*notification_sound)(hid_device* hid_device, uint8_t soundid);
 
     /** @brief Function pointer for turning light on or off of the headset
      *
