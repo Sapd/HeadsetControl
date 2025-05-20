@@ -106,7 +106,7 @@ static void print_help()
     printf("HINTS\n");
     printf("\tsend and receive can be combined\n");
     printf("\t--send does not return anything on success and is always executed first\n");
-    printf("\tDATA can be specified as single bytes, either as decimal or hex, seperated by spaces or commas or newlines\n");
+    printf("\tDATA can be specified as single bytes, either as decimal or hex, separated by spaces or commas or newlines\n");
     printf("\n");
 
     printf("EXAMPLEs\n");

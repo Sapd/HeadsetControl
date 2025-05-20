@@ -87,7 +87,7 @@ void headsetcontrol_test_init(struct device** device)
 
     device_headsetcontrol_test.send_sidetone                       = &headsetcontrol_test_send_sidetone;
     device_headsetcontrol_test.request_battery                     = &headsetcontrol_test_request_battery;
-    device_headsetcontrol_test.notifcation_sound                   = &headsetcontrol_test_notification_sound;
+    device_headsetcontrol_test.notification_sound                  = &headsetcontrol_test_notification_sound;
     device_headsetcontrol_test.switch_lights                       = &headsetcontrol_test_lights;
     device_headsetcontrol_test.send_inactive_time                  = &headsetcontrol_test_set_inactive_time;
     device_headsetcontrol_test.request_chatmix                     = &headsetcontrol_test_request_chatmix;
