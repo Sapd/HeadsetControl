@@ -866,6 +866,8 @@ void output_standard(HeadsetControlStatus* status, HeadsetInfo* infos, bool prin
             } else {
                 printf("\n%s", info->actions[i].error_message);
             }
+
+            printf("\n");
         }
     }
 
