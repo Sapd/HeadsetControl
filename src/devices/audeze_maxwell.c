@@ -56,7 +56,7 @@ static int send_get_input_report(hid_device* device_handle, const uint8_t* data,
     if (res >= 0) {
         if (buff == NULL) {
             uint8_t tempBuff[MSG_SIZE] = { 0x7 };
-            buff = tempBuff;
+            buff                       = tempBuff;
         } else {
             buff[0] = 0x7;
         }
