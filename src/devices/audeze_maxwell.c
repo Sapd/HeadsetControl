@@ -66,6 +66,7 @@ static int send_get_input_report(hid_device* device_handle, const uint8_t* data,
     return res;
 }
 
+// When initializing, Audeze MQ sends 18 packets: the first 12 are unique, followed by 5 which repeat every second and 1 unique. The last package is sent after the first 12 unique requests and the 5 info requests.
 static const uint8_t UNIQUE_REQUESTS[13][MSG_SIZE] = {
     { 0x6, 0x8, 0x80, 0x5, 0x5a, 0x4, 0x0, 0x1, 0x9, 0x20 },
     { 0x06, 0x08, 0x80, 0x05, 0x5A, 0x04, 0x00, 0x01, 0x09, 0x25 },
@@ -127,10 +128,10 @@ static BatteryInfo audeze_maxwell_get_battery(hid_device* device_handle)
     }
 
     if (info.status != BATTERY_AVAILABLE) {
-        // When initializing, Audeze MQ sends 18 packets: the first 12 are unique, followed by 5 which repeat every second and 1 unique. The following packet is the last unique one before the repetition cycle begins.
-        // This one seems to "reset" something in the headset, so we send it to ensure we get the correct data. It is necessary when the headset is turned off and on again.
-        // Sending the other 12 unique requests seems unnecessary.
-        send_get_input_report(device_handle, UNIQUE_REQUESTS[12], NULL);
+        // Audeze HQ sends 13 unique requests when opened, so to ensure we get the correct information, we send all of them.
+        for (int i = 0; i < 13; ++i) {
+            send_get_input_report(device_handle, UNIQUE_REQUESTS[i], NULL);
+        }
     }
 
     return info;
