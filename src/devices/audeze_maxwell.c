@@ -142,7 +142,7 @@ static int audeze_maxwell_toggle_sidetone(hid_device* device_handle)
     // Audeze HQ changes the byte at index 11, but it has no effect, it’s always toggleable regardless of what’s sent.
     uint8_t data_request[MSG_SIZE] = { 0x6, 0x9, 0x80, 0x5, 0x5a, 0x5, 0x0, 0x82, 0x2c, 0x7, 0x0, 0x1 };
 
-    return hid_write(device_handle, data_request, MSG_SIZE);
+    return send_get_input_report(device_handle, data_request, NULL);
 }
 
 static int audeze_maxwell_send_sidetone(hid_device* device_handle, uint8_t num)
@@ -154,7 +154,7 @@ static int audeze_maxwell_send_sidetone(hid_device* device_handle, uint8_t num)
     uint8_t data_request[MSG_SIZE] = { 0x6, 0x9, 0x80, 0x5, 0x5a, 0x5, 0x0, 0x0, 0x9, 0x2c, 0x0, num };
 
     // The sidetone is enabled whenever its level changes.
-    int res = hid_write(device_handle, data_request, MSG_SIZE);
+    int res = send_get_input_report(device_handle, data_request, NULL);
 
     if (num == 0) {
         return audeze_maxwell_toggle_sidetone(device_handle);
@@ -202,13 +202,13 @@ static int audeze_maxwell_send_inactive_time(hid_device* device_handle, uint8_t 
         data_request[18] = data_request[14]; // MSB Again
     }
 
-    return hid_write(device_handle, data_request, MSG_SIZE);
+    return send_get_input_report(device_handle, data_request, NULL);
 }
 
 static int audeze_maxwell_send_volume_limiter(hid_device* hid_device, uint8_t on)
 {
     uint8_t data_request[MSG_SIZE] = { 0x6, 0x9, 0x80, 0x5, 0x5a, 0x5, 0x0, 0x0, 0x9, 0x28, 0x0, on == 1 ? 0x88 : 0x8e };
-    return hid_write(hid_device, data_request, MSG_SIZE);
+    return send_get_input_report(hid_device, data_request, NULL);
 }
 
 // Audeze Maxwell has 6 default presets and 4 custom presets (Audeze, Treble Boost, Bass Boost, Immersive, Competition, Footsteps, Preset 1, Preset 2, Preset 3, Preset 4)
@@ -219,7 +219,7 @@ static int audeze_maxwell_send_equalizer_preset(hid_device* hid_device, uint8_t 
     }
 
     uint8_t data_request[MSG_SIZE] = { 0x6, 0x9, 0x80, 0x5, 0x5a, 0x5, 0x0, 0x0, 0x9, 0x0, 0x0, num };
-    return hid_write(hid_device, data_request, MSG_SIZE);
+    return send_get_input_report(hid_device, data_request, NULL);
 }
 
 static int audeze_maxwell_send_equalizer_custom_preset(hid_device* hid_device, uint8_t num)
