@@ -99,17 +99,17 @@ static int send_get_input_report(hid_device* device_handle, const uint8_t* data,
     if (res == MSG_SIZE) {
         if (buff == NULL) {
             uint8_t tempBuff[MSG_SIZE] = { 0x7 };
-            res = hid_get_input_report(device_handle, tempBuff, MSG_SIZE);
+            res                        = hid_get_input_report(device_handle, tempBuff, MSG_SIZE);
         } else {
             buff[0] = 0x7;
-            res = hid_get_input_report(device_handle, buff, MSG_SIZE);
+            res     = hid_get_input_report(device_handle, buff, MSG_SIZE);
         }
     }
 
     return res;
 }
 
-static BatteryInfo audeze_maxwell_request_battery(const uint8_t(* status_buffs)[MSG_SIZE])
+static BatteryInfo audeze_maxwell_request_battery(const uint8_t(*status_buffs)[MSG_SIZE])
 {
     BatteryInfo battery_info = { .status = BATTERY_UNAVAILABLE, .level = -1 };
 
@@ -136,18 +136,18 @@ static BatteryInfo audeze_maxwell_request_battery(const uint8_t(* status_buffs)[
     return battery_info;
 }
 
-static int audeze_maxwell_request_chatmix(const uint8_t(* status_buffs)[MSG_SIZE])
+static int audeze_maxwell_request_chatmix(const uint8_t (*status_buffs)[MSG_SIZE])
 {
     // The chatmix level is in the range of 0 to 20, where 10 is the center position.
     return map(status_buffs[3][12], 0, 20, 0, 128);
 }
 
-static AudezeMaxwellSidetoneInfo audeze_maxwell_request_sidetone(const uint8_t(* status_buffs)[MSG_SIZE])
+static AudezeMaxwellSidetoneInfo audeze_maxwell_request_sidetone(const uint8_t(*status_buffs)[MSG_SIZE])
 {
     AudezeMaxwellSidetoneInfo sidetone_info = { .sidetone_enabled = 0, .sidetone_level = -1 };
 
     // The sidetone level is in the range of 0 to 31, where 15 is the center position.
-    sidetone_info.sidetone_level = map(status_buffs[4][12], 0, 31, 0, 128);
+    sidetone_info.sidetone_level   = map(status_buffs[4][12], 0, 31, 0, 128);
     sidetone_info.sidetone_enabled = status_buffs[0][12];
 
     return sidetone_info;
@@ -161,15 +161,15 @@ static AudezeMaxwellStatus audeze_maxwell_status(hid_device* device_handle)
     uint8_t status_buffs[5][MSG_SIZE];
     for (int i = 0; i < 5; ++i) {
         if (send_get_input_report(device_handle, STATUS_REQUESTS[i], status_buffs[i]) != MSG_SIZE) {
-            status.battery_info.status = BATTERY_HIDERROR;
-            status.chatmix_level = HSC_ERROR;
+            status.battery_info.status          = BATTERY_HIDERROR;
+            status.chatmix_level                = HSC_ERROR;
             status.sidetone_info.sidetone_level = HSC_ERROR;
 
             return status;
         }
     }
 
-    status.battery_info = audeze_maxwell_request_battery(status_buffs);
+    status.battery_info  = audeze_maxwell_request_battery(status_buffs);
     status.chatmix_level = audeze_maxwell_request_chatmix(status_buffs);
     status.sidetone_info = audeze_maxwell_request_sidetone(status_buffs);
 
