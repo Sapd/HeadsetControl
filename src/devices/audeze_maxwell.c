@@ -109,7 +109,7 @@ static int send_get_input_report(hid_device* device_handle, const uint8_t* data,
     return res;
 }
 
-static BatteryInfo audeze_maxwell_request_battery(const uint8_t(*status_buffs)[MSG_SIZE])
+static BatteryInfo audeze_maxwell_request_battery(const uint8_t (*status_buffs)[MSG_SIZE])
 {
     BatteryInfo battery_info = { .status = BATTERY_UNAVAILABLE, .level = -1 };
 
@@ -142,7 +142,7 @@ static int audeze_maxwell_request_chatmix(const uint8_t (*status_buffs)[MSG_SIZE
     return map(status_buffs[3][12], 0, 20, 0, 128);
 }
 
-static AudezeMaxwellSidetoneInfo audeze_maxwell_request_sidetone(const uint8_t(*status_buffs)[MSG_SIZE])
+static AudezeMaxwellSidetoneInfo audeze_maxwell_request_sidetone(const uint8_t (*status_buffs)[MSG_SIZE])
 {
     AudezeMaxwellSidetoneInfo sidetone_info = { .sidetone_enabled = 0, .sidetone_level = -1 };
 
