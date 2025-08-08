@@ -9,6 +9,16 @@ enum { MSG_SIZE = 64 };
 
 enum { ID_ARCTIS_NOVA_3P_WIRELESS = 0x2269 };
 
+enum {
+    HEADSET_ONLINE  = 0x03,
+    HEADSET_OFFLINE = 0x02
+};
+
+enum {
+    BATTERY_MAX = 0x64,
+    BATTERY_MIN = 0x00
+};
+
 static struct device device_arctis;
 
 static const uint16_t PRODUCT_IDS[]      = { ID_ARCTIS_NOVA_3P_WIRELESS };
@@ -17,6 +27,7 @@ static const uint8_t SAVE_DATA[MSG_SIZE] = { 0x09 }; // Command to save settings
 static int arctis_nova_3p_wireless_send_sidetone(hid_device* device_handle, uint8_t num);
 static int arctis_nova_3p_wireless_send_microphone_volume(hid_device* device_handle, uint8_t num);
 static int arctis_nova_3p_wireless_send_inactive_time(hid_device* device_handle, uint8_t num);
+static BatteryInfo arctis_nova_3p_wireless_request_battery(hid_device* device_handle);
 
 void arctis_nova_3p_wireless_init(struct device** device)
 {
@@ -26,10 +37,11 @@ void arctis_nova_3p_wireless_init(struct device** device)
 
     strncpy(device_arctis.device_name, "SteelSeries Arctis Nova 3P Wireless", sizeof(device_arctis.device_name));
 
-    device_arctis.capabilities           = B(CAP_SIDETONE) | B(CAP_INACTIVE_TIME) | B(CAP_MICROPHONE_VOLUME);
+    device_arctis.capabilities           = B(CAP_SIDETONE) | B(CAP_INACTIVE_TIME) | B(CAP_MICROPHONE_VOLUME) | B(CAP_BATTERY_STATUS);
     device_arctis.send_sidetone          = &arctis_nova_3p_wireless_send_sidetone;
     device_arctis.send_inactive_time     = &arctis_nova_3p_wireless_send_inactive_time;
     device_arctis.send_microphone_volume = &arctis_nova_3p_wireless_send_microphone_volume;
+    device_arctis.request_battery        = &arctis_nova_3p_wireless_request_battery;
 
     *device = &device_arctis;
 }
@@ -84,4 +96,46 @@ static int arctis_nova_3p_wireless_send_inactive_time(hid_device* device_handle,
     hid_send_feature_report(device_handle, data, MSG_SIZE);
 
     return hid_send_feature_report(device_handle, SAVE_DATA, MSG_SIZE);
+}
+
+static BatteryInfo arctis_nova_3p_wireless_request_battery(hid_device* device_handle)
+{
+    int r = 0;
+
+    BatteryInfo info = { .status = BATTERY_UNAVAILABLE, .level = -1 };
+
+    uint8_t data[MSG_SIZE] = { 0xb0 };
+    r                      = hid_send_feature_report(device_handle, data, MSG_SIZE);
+
+    if (r < 0) {
+        info.status = BATTERY_HIDERROR;
+        return info;
+    }
+
+    if (r == 0) {
+        info.status = BATTERY_TIMEOUT;
+        return info;
+    }
+
+    r = hid_read_timeout(device_handle, data, 4, hsc_device_timeout);
+
+    if (r < 0) {
+        info.status = BATTERY_HIDERROR;
+        return info;
+    }
+
+    if (r == 0) {
+        info.status = BATTERY_TIMEOUT;
+        return info;
+    }
+
+    if (data[1] == HEADSET_OFFLINE) {
+        info.status = BATTERY_UNAVAILABLE;
+        return info;
+    }
+
+    info.status = BATTERY_AVAILABLE;
+    int bat     = data[3];
+    info.level  = map(bat, BATTERY_MIN, BATTERY_MAX, 0, 100);
+    return info;
 }
