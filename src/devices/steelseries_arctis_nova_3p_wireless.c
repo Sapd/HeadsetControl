@@ -5,19 +5,22 @@
 #include <stdio.h>
 #include <string.h>
 
-enum { MSG_SIZE = 64 };
+#define MSG_SIZE 64
 
-enum { ID_ARCTIS_NOVA_3P_WIRELESS = 0x2269 };
+#define ID_ARCTIS_NOVA_3P_WIRELESS 0x2269
 
-enum {
-    HEADSET_ONLINE  = 0x03,
-    HEADSET_OFFLINE = 0x02
-};
+#define HEADSET_ONLINE  0x03
+#define HEADSET_OFFLINE 0x02
 
-enum {
-    BATTERY_MAX = 0x64,
-    BATTERY_MIN = 0x00
-};
+#define BATTERY_MAX 0x64
+#define BATTERY_MIN 0x00
+
+#define EQUALIZER_BANDS_COUNT 10
+#define EQUALIZER_GAIN_STEP   0.1
+#define EQUALIZER_GAIN_MIN    -12
+#define EQUALIZER_GAIN_MAX    12
+
+static EqualizerInfo equalizer = { EQUALIZER_BANDS_COUNT, 0, EQUALIZER_GAIN_STEP, EQUALIZER_GAIN_MIN, EQUALIZER_GAIN_MAX };
 
 static struct device device_arctis;
 
@@ -28,20 +31,23 @@ static int arctis_nova_3p_wireless_send_sidetone(hid_device* device_handle, uint
 static int arctis_nova_3p_wireless_send_microphone_volume(hid_device* device_handle, uint8_t num);
 static int arctis_nova_3p_wireless_send_inactive_time(hid_device* device_handle, uint8_t num);
 static BatteryInfo arctis_nova_3p_wireless_request_battery(hid_device* device_handle);
+static int arctis_nova_3p_send_equalizer(hid_device* device_handle, struct equalizer_settings* settings);
 
 void arctis_nova_3p_wireless_init(struct device** device)
 {
     device_arctis.idVendor            = VENDOR_STEELSERIES;
     device_arctis.idProductsSupported = PRODUCT_IDS;
     device_arctis.numIdProducts       = sizeof(PRODUCT_IDS) / sizeof(PRODUCT_IDS[0]);
+    device_arctis.equalizer           = &equalizer;
 
     strncpy(device_arctis.device_name, "SteelSeries Arctis Nova 3P Wireless", sizeof(device_arctis.device_name));
 
-    device_arctis.capabilities           = B(CAP_SIDETONE) | B(CAP_INACTIVE_TIME) | B(CAP_MICROPHONE_VOLUME) | B(CAP_BATTERY_STATUS);
+    device_arctis.capabilities           = B(CAP_SIDETONE) | B(CAP_INACTIVE_TIME) | B(CAP_MICROPHONE_VOLUME) | B(CAP_BATTERY_STATUS) | B(CAP_EQUALIZER);
     device_arctis.send_sidetone          = &arctis_nova_3p_wireless_send_sidetone;
     device_arctis.send_inactive_time     = &arctis_nova_3p_wireless_send_inactive_time;
     device_arctis.send_microphone_volume = &arctis_nova_3p_wireless_send_microphone_volume;
     device_arctis.request_battery        = &arctis_nova_3p_wireless_request_battery;
+    device_arctis.send_equalizer         = &arctis_nova_3p_send_equalizer;
 
     *device = &device_arctis;
 }
@@ -138,4 +144,63 @@ static BatteryInfo arctis_nova_3p_wireless_request_battery(hid_device* device_ha
     int bat     = data[3];
     info.level  = map(bat, BATTERY_MIN, BATTERY_MAX, 0, 100);
     return info;
+}
+
+static int arctis_nova_3p_send_equalizer(hid_device* device_handle, struct equalizer_settings* settings)
+{
+    if (settings->size != EQUALIZER_BANDS_COUNT) {
+        printf("Device only supports %d bands.\n", EQUALIZER_BANDS_COUNT);
+        return HSC_OUT_OF_BOUNDS;
+    }
+    uint8_t data[MSG_SIZE] = { 0x33 };
+
+    // default frequencies for each band (2 bytes per band)
+    const unsigned char band_freq_le[2 * EQUALIZER_BANDS_COUNT] = {
+        0x20,
+        0x0,
+        0x40,
+        0x0,
+        0x7d,
+        0x0,
+        0xfa,
+        0x0,
+        0xf4,
+        0x1,
+        0xe8,
+        0x3,
+        0xd0,
+        0x7,
+        0xa0,
+        0xf,
+        0x40,
+        0x1f,
+        0x80,
+        0x3e,
+    };
+
+    for (size_t i = 0; i < settings->size; i++) {
+        float gain_value = settings->bands_values[i];
+        if (gain_value < EQUALIZER_GAIN_MIN || gain_value > EQUALIZER_GAIN_MAX) {
+            printf("Device only supports gains ranging from %d to %d.\n", EQUALIZER_GAIN_MIN, EQUALIZER_GAIN_MAX);
+            return HSC_OUT_OF_BOUNDS;
+        }
+        uint8_t raw_gain_value;
+        if (gain_value < 0) {
+            gain_value     = (-gain_value) / EQUALIZER_GAIN_STEP;
+            raw_gain_value = (0xff - ((uint8_t)gain_value)) + 1;
+        } else {
+            raw_gain_value = (uint8_t)(gain_value / EQUALIZER_GAIN_STEP);
+        }
+
+        data[1 + 6 * i + 0] = band_freq_le[2 * i];
+        data[1 + 6 * i + 1] = band_freq_le[2 * i + 1];
+        data[1 + 6 * i + 2] = 0x1; // use Peaking EQ by default
+        data[1 + 6 * i + 3] = raw_gain_value;
+        // use a default quality factor of 1.414 (approximated sqrt(2)) multiplied by 1000 to have a fixed 16 bit number number
+        data[1 + 6 * i + 4] = 0x86;
+        data[1 + 6 * i + 5] = 0x5;
+    }
+
+    hid_send_feature_report(device_handle, data, MSG_SIZE);
+    return hid_send_feature_report(device_handle, SAVE_DATA, MSG_SIZE);
 }
