@@ -166,6 +166,7 @@ typedef enum {
     EQ_FILTER_PEAKING,
     EQ_FILTER_HIGHPASS,
     EQ_FILTER_HIGHSHELF,
+    EQ_FILTER_NOTCH,
     NUM_EQ_FILTER_TYPES
 } EqualizerFilterType;
 

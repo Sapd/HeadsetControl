@@ -17,10 +17,19 @@
 
 #define EQUALIZER_BANDS_COUNT 10
 #define EQUALIZER_GAIN_STEP   0.1
+#define EQUALIZER_GAIN_BASE   0
 #define EQUALIZER_GAIN_MIN    -12
 #define EQUALIZER_GAIN_MAX    12
 
 #define EQUALIZER_PRESETS_COUNT 4
+
+#define EQUALIZER_Q_FACTOR_MIN     0.2
+#define EQUALIZER_Q_FACTOR_MAX     10.0
+#define EQUALIZER_Q_FACTOR_DEFAULT 1.414
+#define EQUALIZER_FREQ_MIN         20
+#define EQUALIZER_FREQ_MAX         20000
+#define EQUALIZER_FREQ_DISABLED    20001
+#define EQUALIZER_FILTERS          (B(EQ_FILTER_LOWSHELF) | B(EQ_FILTER_LOWPASS) | B(EQ_FILTER_PEAKING) | B(EQ_FILTER_HIGHPASS) | B(EQ_FILTER_HIGHSHELF) | B(EQ_FILTER_NOTCH))
 
 static EqualizerInfo equalizer = { EQUALIZER_BANDS_COUNT, 0, EQUALIZER_GAIN_STEP, EQUALIZER_GAIN_MIN, EQUALIZER_GAIN_MAX };
 
@@ -37,6 +46,28 @@ static EqualizerPresets equalizer_presets = {
         { "smiley", smiley } }
 };
 
+static ParametricEqualizerInfo parametric_equalizer = {
+    EQUALIZER_BANDS_COUNT,
+    EQUALIZER_GAIN_BASE,
+    EQUALIZER_GAIN_STEP,
+    EQUALIZER_GAIN_MIN,
+    EQUALIZER_GAIN_MAX,
+    EQUALIZER_Q_FACTOR_MIN,
+    EQUALIZER_Q_FACTOR_MAX,
+    EQUALIZER_FREQ_MIN,
+    EQUALIZER_FREQ_MAX,
+    EQUALIZER_FILTERS
+};
+
+static uint8_t EQUALIZER_FILTER_MAP[NUM_EQ_FILTER_TYPES] = {
+    [EQ_FILTER_PEAKING]   = 1,
+    [EQ_FILTER_LOWPASS]   = 2,
+    [EQ_FILTER_HIGHPASS]  = 3,
+    [EQ_FILTER_LOWSHELF]  = 4,
+    [EQ_FILTER_HIGHSHELF] = 5,
+    [EQ_FILTER_NOTCH]     = 6,
+};
+
 static struct device device_arctis;
 
 static const uint16_t PRODUCT_IDS[]      = { ID_ARCTIS_NOVA_3P_WIRELESS };
@@ -48,24 +79,28 @@ static int arctis_nova_3p_wireless_send_inactive_time(hid_device* device_handle,
 static BatteryInfo arctis_nova_3p_wireless_request_battery(hid_device* device_handle);
 static int arctis_nova_3p_send_equalizer(hid_device* device_handle, struct equalizer_settings* settings);
 static int arctis_nova_3p_send_equalizer_preset(hid_device* device_handle, uint8_t num);
+static int arctis_nova_3p_send_parametric_equalizer(hid_device* device_handle, struct parametric_equalizer_settings* settings);
+static int arctis_nova_3p_write_device_band(struct parametric_equalizer_band* filter, uint8_t* data);
 
 void arctis_nova_3p_wireless_init(struct device** device)
 {
-    device_arctis.idVendor            = VENDOR_STEELSERIES;
-    device_arctis.idProductsSupported = PRODUCT_IDS;
-    device_arctis.numIdProducts       = sizeof(PRODUCT_IDS) / sizeof(PRODUCT_IDS[0]);
-    device_arctis.equalizer           = &equalizer;
-    device_arctis.equalizer_presets   = &equalizer_presets;
+    device_arctis.idVendor             = VENDOR_STEELSERIES;
+    device_arctis.idProductsSupported  = PRODUCT_IDS;
+    device_arctis.numIdProducts        = sizeof(PRODUCT_IDS) / sizeof(PRODUCT_IDS[0]);
+    device_arctis.equalizer            = &equalizer;
+    device_arctis.equalizer_presets    = &equalizer_presets;
+    device_arctis.parametric_equalizer = &parametric_equalizer;
 
     strncpy(device_arctis.device_name, "SteelSeries Arctis Nova 3P Wireless", sizeof(device_arctis.device_name));
 
-    device_arctis.capabilities           = B(CAP_SIDETONE) | B(CAP_INACTIVE_TIME) | B(CAP_MICROPHONE_VOLUME) | B(CAP_BATTERY_STATUS) | B(CAP_EQUALIZER) | B(CAP_EQUALIZER_PRESET);
-    device_arctis.send_sidetone          = &arctis_nova_3p_wireless_send_sidetone;
-    device_arctis.send_inactive_time     = &arctis_nova_3p_wireless_send_inactive_time;
-    device_arctis.send_microphone_volume = &arctis_nova_3p_wireless_send_microphone_volume;
-    device_arctis.request_battery        = &arctis_nova_3p_wireless_request_battery;
-    device_arctis.send_equalizer         = &arctis_nova_3p_send_equalizer;
-    device_arctis.send_equalizer_preset  = &arctis_nova_3p_send_equalizer_preset;
+    device_arctis.capabilities              = B(CAP_SIDETONE) | B(CAP_INACTIVE_TIME) | B(CAP_MICROPHONE_VOLUME) | B(CAP_BATTERY_STATUS) | B(CAP_EQUALIZER) | B(CAP_EQUALIZER_PRESET) | B(CAP_PARAMETRIC_EQUALIZER);
+    device_arctis.send_sidetone             = &arctis_nova_3p_wireless_send_sidetone;
+    device_arctis.send_inactive_time        = &arctis_nova_3p_wireless_send_inactive_time;
+    device_arctis.send_microphone_volume    = &arctis_nova_3p_wireless_send_microphone_volume;
+    device_arctis.request_battery           = &arctis_nova_3p_wireless_request_battery;
+    device_arctis.send_equalizer            = &arctis_nova_3p_send_equalizer;
+    device_arctis.send_equalizer_preset     = &arctis_nova_3p_send_equalizer_preset;
+    device_arctis.send_parametric_equalizer = &arctis_nova_3p_send_parametric_equalizer;
 
     *device = &device_arctis;
 }
@@ -249,4 +284,84 @@ static int arctis_nova_3p_send_equalizer_preset(hid_device* device_handle, uint8
         return HSC_OUT_OF_BOUNDS;
     }
     return arctis_nova_3p_send_equalizer(device_handle, &preset);
+}
+
+static int arctis_nova_3p_send_parametric_equalizer(hid_device* device_handle, struct parametric_equalizer_settings* settings)
+{
+    struct parametric_equalizer_band disabled_band = {
+        .frequency = EQUALIZER_FREQ_DISABLED,
+        .gain      = 0,
+        .q_factor  = EQUALIZER_Q_FACTOR_DEFAULT,
+        .type      = EQ_FILTER_PEAKING,
+    };
+
+    if (settings->size > EQUALIZER_BANDS_COUNT) {
+        printf("Device only supports up to %d equalizer bands.\n", EQUALIZER_BANDS_COUNT);
+        return HSC_OUT_OF_BOUNDS;
+    }
+
+    uint8_t data[MSG_SIZE] = { 0x33 };
+    int error              = 0;
+
+    for (size_t i = 0; i < EQUALIZER_BANDS_COUNT; i++) {
+        if (i < settings->size) {
+            error = arctis_nova_3p_write_device_band(&settings->bands[i], &data[1 + i * 6]);
+        } else {
+            error = arctis_nova_3p_write_device_band(&disabled_band, &data[1 + i * 6]);
+        }
+        if (error != 0) {
+            return error;
+        }
+    }
+
+    hid_send_feature_report(device_handle, data, MSG_SIZE);
+    return hid_send_feature_report(device_handle, SAVE_DATA, MSG_SIZE);
+}
+
+static int arctis_nova_3p_write_device_band(struct parametric_equalizer_band* filter, uint8_t* data)
+{
+    // fprintf(stderr, "freq: %g; gain: %g; q: %g; type: %d\n", filter->frequency, filter->gain, filter->q_factor, filter->type);
+    if (filter->frequency != EQUALIZER_FREQ_DISABLED) {
+        if (filter->frequency < EQUALIZER_FREQ_MIN || filter->frequency > EQUALIZER_FREQ_MAX) {
+            printf("Device only supports filter frequencies ranging from %d to %d.\n", EQUALIZER_FREQ_MIN, EQUALIZER_FREQ_MAX);
+            return HSC_OUT_OF_BOUNDS;
+        }
+    }
+    if (!has_capability(EQUALIZER_FILTERS, (int)filter->type)) {
+        printf("Unsupported filter type.\n");
+        return HSC_ERROR;
+    }
+    if (filter->q_factor < EQUALIZER_Q_FACTOR_MIN || filter->q_factor > EQUALIZER_Q_FACTOR_MAX) {
+        printf("Device only supports filter q-factor ranging from %g to %g.\n", EQUALIZER_Q_FACTOR_MIN, EQUALIZER_Q_FACTOR_MAX);
+        return HSC_OUT_OF_BOUNDS;
+    }
+    if (filter->gain < EQUALIZER_GAIN_MIN || filter->gain > EQUALIZER_GAIN_MAX) {
+        printf("Device only supports filter gains ranging from %d to %d.\n", EQUALIZER_GAIN_MIN, EQUALIZER_GAIN_MAX);
+        return HSC_OUT_OF_BOUNDS;
+    }
+
+    // write filter frequency
+    data[0] = (uint16_t)filter->frequency & 0xFF; // low byte
+    data[1] = ((uint16_t)filter->frequency >> 8) & 0xFF; // high byte
+
+    // write filter type
+    data[2] = EQUALIZER_FILTER_MAP[filter->type];
+
+    // write filter gain
+    float gain_value = filter->gain;
+    uint8_t raw_gain_value;
+    if (gain_value < 0) {
+        gain_value     = (-gain_value) / EQUALIZER_GAIN_STEP;
+        raw_gain_value = (0xff - ((uint8_t)gain_value)) + 1;
+    } else {
+        raw_gain_value = (uint8_t)(gain_value / EQUALIZER_GAIN_STEP);
+    }
+    data[3] = raw_gain_value;
+
+    // write filter q-factor
+    uint16_t q = filter->q_factor * 1000;
+    data[4]    = q & 0xFF; // low byte
+    data[5]    = (q >> 8) & 0xFF; // high byte
+
+    return 0;
 }
