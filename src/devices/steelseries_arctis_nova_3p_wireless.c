@@ -93,7 +93,16 @@ void arctis_nova_3p_wireless_init(struct device** device)
 
     strncpy(device_arctis.device_name, "SteelSeries Arctis Nova 3P Wireless", sizeof(device_arctis.device_name));
 
-    device_arctis.capabilities              = B(CAP_SIDETONE) | B(CAP_INACTIVE_TIME) | B(CAP_MICROPHONE_VOLUME) | B(CAP_BATTERY_STATUS) | B(CAP_EQUALIZER) | B(CAP_EQUALIZER_PRESET) | B(CAP_PARAMETRIC_EQUALIZER);
+    device_arctis.capabilities = B(CAP_SIDETONE) | B(CAP_INACTIVE_TIME) | B(CAP_MICROPHONE_VOLUME) | B(CAP_BATTERY_STATUS) | B(CAP_EQUALIZER) | B(CAP_EQUALIZER_PRESET) | B(CAP_PARAMETRIC_EQUALIZER);
+
+    device_arctis.capability_details[CAP_SIDETONE]             = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 0 };
+    device_arctis.capability_details[CAP_INACTIVE_TIME]        = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 0 };
+    device_arctis.capability_details[CAP_MICROPHONE_VOLUME]    = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 0 };
+    device_arctis.capability_details[CAP_BATTERY_STATUS]       = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 0 };
+    device_arctis.capability_details[CAP_EQUALIZER]            = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 0 };
+    device_arctis.capability_details[CAP_EQUALIZER_PRESET]     = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 0 };
+    device_arctis.capability_details[CAP_PARAMETRIC_EQUALIZER] = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 0 };
+
     device_arctis.send_sidetone             = &arctis_nova_3p_wireless_send_sidetone;
     device_arctis.send_inactive_time        = &arctis_nova_3p_wireless_send_inactive_time;
     device_arctis.send_microphone_volume    = &arctis_nova_3p_wireless_send_microphone_volume;
