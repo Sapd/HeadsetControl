@@ -44,10 +44,8 @@ enum capabilities {
     NUM_CAPABILITIES
 };
 
-enum capabilitytype {
-    CAPABILITYTYPE_ACTION,
-    CAPABILITYTYPE_INFO
-};
+enum capabilitytype { CAPABILITYTYPE_ACTION,
+    CAPABILITYTYPE_INFO };
 
 /// Long name of every capability
 extern const char* const capabilities_str[NUM_CAPABILITIES];
@@ -59,7 +57,8 @@ extern const char* const capabilities_str_enum[NUM_CAPABILITIES];
 struct capability_detail {
     // Usage page, only used when usageid is not 0; HID Protocol specific
     uint16_t usagepage;
-    // Used instead of interface when not 0, and only used on Windows currently; HID Protocol specific
+    // Used instead of interface when not 0, and only used on Windows currently;
+    // HID Protocol specific
     uint16_t usageid;
     /// Interface ID - zero means first enumerated interface!
     int interface;
@@ -139,7 +138,8 @@ typedef struct {
     int value;
     /// Status depending on the feature (not used by all)
     int status2;
-    /// For error messages, "Charging", "Unavailable", etc. Should be free()d after use
+    /// For error messages, "Charging", "Unavailable", etc. Should be free()d
+    /// after use
     char* message;
 } FeatureResult;
 
@@ -358,7 +358,8 @@ struct device {
      *                                 specific to this hardware
      *              -1                 HIDAPI error
      */
-    int (*send_equalizer)(hid_device* hid_device, struct equalizer_settings* settings);
+    int (*send_equalizer)(hid_device* hid_device,
+        struct equalizer_settings* settings);
 
     /** @brief Function pointer for setting headset parametric equalizer
      *
@@ -372,11 +373,12 @@ struct device {
      *  @returns    > 0                on success
      *              HSC_OUT_OF_BOUNDS  on equalizer settings size out of range
      *                                 specific to this hardware
-     *              HSC_INVALID_ARG    on equalizer filter type invalid/unsupported
-     *                                 specific to this hardware
-     *              -1                 HIDAPI error
+     *              HSC_INVALID_ARG    on equalizer filter type
+     * invalid/unsupported specific to this hardware -1                 HIDAPI
+     * error
      */
-    int (*send_parametric_equalizer)(hid_device* hid_device, struct parametric_equalizer_settings* settings);
+    int (*send_parametric_equalizer)(
+        hid_device* hid_device, struct parametric_equalizer_settings* settings);
 
     /** @brief Function pointer for setting headset microphone mute LED brightness
      *
@@ -391,7 +393,8 @@ struct device {
      *                                 specific to this hardware
      *              -1                 HIDAPI error
      */
-    int (*send_microphone_mute_led_brightness)(hid_device* hid_device, uint8_t num);
+    int (*send_microphone_mute_led_brightness)(hid_device* hid_device,
+        uint8_t num);
 
     /** @brief Function pointer for setting headset microphone volume
      *
@@ -458,8 +461,8 @@ struct device {
 /**
  * @brief Node structure for a linked list of devices.
  *
- * This structure represents a node in a linked list where each node contains a pointer to a device
- * and a pointer to the next node in the list.
+ * This structure represents a node in a linked list where each node contains a
+ * pointer to a device and a pointer to the next node in the list.
  */
 typedef struct DeviceListNode {
     struct device* element;
