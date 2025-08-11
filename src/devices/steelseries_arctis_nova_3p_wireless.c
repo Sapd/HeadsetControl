@@ -71,7 +71,7 @@ static uint8_t EQUALIZER_FILTER_MAP[NUM_EQ_FILTER_TYPES] = {
 static struct device device_arctis;
 
 static const uint16_t PRODUCT_IDS[]      = { ID_ARCTIS_NOVA_3P_WIRELESS };
-static const uint8_t SAVE_DATA[MSG_SIZE] = { 0x09 }; // Command to save settings to headset
+static const uint8_t SAVE_DATA[MSG_SIZE] = { 0x09 };
 
 static int arctis_nova_3p_wireless_send_sidetone(hid_device* device_handle, uint8_t num);
 static int arctis_nova_3p_wireless_send_microphone_volume(hid_device* device_handle, uint8_t num);
@@ -81,6 +81,7 @@ static int arctis_nova_3p_send_equalizer(hid_device* device_handle, struct equal
 static int arctis_nova_3p_send_equalizer_preset(hid_device* device_handle, uint8_t num);
 static int arctis_nova_3p_send_parametric_equalizer(hid_device* device_handle, struct parametric_equalizer_settings* settings);
 static int arctis_nova_3p_write_device_band(struct parametric_equalizer_band* filter, uint8_t* data);
+static int arctis_nova_3p_wireless_save_state(hid_device* device_handle);
 
 void arctis_nova_3p_wireless_init(struct device** device)
 {
@@ -121,7 +122,7 @@ static int arctis_nova_3p_wireless_send_sidetone(hid_device* device_handle, uint
     uint8_t data[MSG_SIZE] = { 0x39, num };
     hid_send_feature_report(device_handle, data, MSG_SIZE);
 
-    return hid_send_feature_report(device_handle, SAVE_DATA, MSG_SIZE);
+    return arctis_nova_3p_wireless_save_state(device_handle);
 }
 
 static int arctis_nova_3p_wireless_send_microphone_volume(hid_device* device_handle, uint8_t num)
@@ -131,7 +132,7 @@ static int arctis_nova_3p_wireless_send_microphone_volume(hid_device* device_han
     uint8_t volume[MSG_SIZE] = { 0x37, num };
     hid_send_feature_report(device_handle, volume, MSG_SIZE);
 
-    return hid_send_feature_report(device_handle, SAVE_DATA, MSG_SIZE);
+    return arctis_nova_3p_wireless_save_state(device_handle);
 }
 
 static int arctis_nova_3p_wireless_send_inactive_time(hid_device* device_handle, uint8_t num)
@@ -163,7 +164,7 @@ static int arctis_nova_3p_wireless_send_inactive_time(hid_device* device_handle,
     uint8_t data[MSG_SIZE] = { 0xa3, num };
     hid_send_feature_report(device_handle, data, MSG_SIZE);
 
-    return hid_send_feature_report(device_handle, SAVE_DATA, MSG_SIZE);
+    return arctis_nova_3p_wireless_save_state(device_handle);
 }
 
 static BatteryInfo arctis_nova_3p_wireless_request_battery(hid_device* device_handle)
@@ -264,7 +265,7 @@ static int arctis_nova_3p_send_equalizer(hid_device* device_handle, struct equal
     }
 
     hid_send_feature_report(device_handle, data, MSG_SIZE);
-    return hid_send_feature_report(device_handle, SAVE_DATA, MSG_SIZE);
+    return arctis_nova_3p_wireless_save_state(device_handle);
 }
 
 static int arctis_nova_3p_send_equalizer_preset(hid_device* device_handle, uint8_t num)
@@ -324,7 +325,7 @@ static int arctis_nova_3p_send_parametric_equalizer(hid_device* device_handle, s
     }
 
     hid_send_feature_report(device_handle, data, MSG_SIZE);
-    return hid_send_feature_report(device_handle, SAVE_DATA, MSG_SIZE);
+    return arctis_nova_3p_wireless_save_state(device_handle);
 }
 
 static int arctis_nova_3p_write_device_band(struct parametric_equalizer_band* filter, uint8_t* data)
@@ -373,4 +374,9 @@ static int arctis_nova_3p_write_device_band(struct parametric_equalizer_band* fi
     data[5]    = (q >> 8) & 0xFF; // high byte
 
     return 0;
+}
+
+static int arctis_nova_3p_wireless_save_state(hid_device* device_handle)
+{
+    return hid_send_feature_report(device_handle, SAVE_DATA, MSG_SIZE);
 }
