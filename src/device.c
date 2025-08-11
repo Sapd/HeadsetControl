@@ -67,7 +67,8 @@ const char* const equalizer_filter_type_str[NUM_EQ_FILTER_TYPES]
           [EQ_FILTER_LOWPASS]   = "lowpass",
           [EQ_FILTER_PEAKING]   = "peaking",
           [EQ_FILTER_HIGHPASS]  = "highpass",
-          [EQ_FILTER_HIGHSHELF] = "highshelf"
+          [EQ_FILTER_HIGHSHELF] = "highshelf",
+          [EQ_FILTER_NOTCH]     = "notch"
 
       };
 
