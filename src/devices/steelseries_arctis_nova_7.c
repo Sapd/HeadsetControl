@@ -15,6 +15,7 @@ static struct device device_arctis;
 #define ID_ARCTIS_NOVA_7x_v2       0x2258
 #define ID_ARCTIS_NOVA_7p          0x220a
 #define ID_ARCTIS_NOVA_7_DIABLO_IV 0x223a
+#define ID_ARCTIS_NOVA_7_WOW_ED    0x227a
 
 #define BATTERY_MAX 0x04
 #define BATTERY_MIN 0x00
@@ -29,7 +30,7 @@ static struct device device_arctis;
 #define EQUALIZER_BAND_MAX      +10
 #define EQUALIZER_PRESETS_COUNT 4
 
-static const uint16_t PRODUCT_IDS[]      = { ID_ARCTIS_NOVA_7, ID_ARCTIS_NOVA_7x, ID_ARCTIS_NOVA_7x_v2, ID_ARCTIS_NOVA_7p, ID_ARCTIS_NOVA_7_DIABLO_IV };
+static const uint16_t PRODUCT_IDS[]      = { ID_ARCTIS_NOVA_7, ID_ARCTIS_NOVA_7x, ID_ARCTIS_NOVA_7x_v2, ID_ARCTIS_NOVA_7p, ID_ARCTIS_NOVA_7_DIABLO_IV, ID_ARCTIS_NOVA_7_WOW_ED };
 static const uint8_t SAVE_DATA[MSG_SIZE] = { 0x06, 0x09 };
 
 float flat[EQUALIZER_BANDS_COUNT]   = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
