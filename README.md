@@ -183,13 +183,17 @@ Note: When running the application from the current directory, prefix commands w
 
 The following additional software can be used to enable control via a GUI
 
+#### OS X
+
+[HeadsetControl-MacOSTray](https://github.com/ChrisLauinger77/HeadsetControl-MacOSTray) adds a system tray icon, displaying headset information. Also provides controls via submenus (OS X 14 and later)
+
 #### Linux
 
 [headsetcontrol-notifcationd](https://github.com/Manawyrm/headsetcontrol-notificationd) provides notifications on the battery status of connected headsets (PHP based)
 
 [headset-charge-indicator](https://github.com/centic9/headset-charge-indicator/) adds a system tray icon, displaying the current amount of battery. Also provides controls via the icon's menu (Python based)
 
-[gnome-shell-extension-HeadsetControl](https://github.com/ChrisLauinger77/gnome-shell-extension-HeadsetControl/) adds a system tray icon, displaying the current amount of battery. Also provides controls via the icon's menu (gnome-shell 42 and later)
+[gnome-shell-extension-HeadsetControl](https://github.com/ChrisLauinger77/gnome-shell-extension-HeadsetControl/) adds a system tray icon, displaying headset information. Also provides controls via the icon's menu (gnome-shell 42 and later)
 
 #### Windows
 
