@@ -167,10 +167,12 @@ void initializeHeadsetInfo(HeadsetInfo* info, struct device* device)
     info->vendor_name  = device->device_hid_vendorname;
     info->product_name = device->device_hid_productname;
 
-    info->equalizer                  = device->equalizer;
-    info->equalizer_presets          = device->equalizer_presets,
-    info->has_equalizer_info         = info->equalizer != NULL;
-    info->has_equalizer_presets_info = info->equalizer_presets != NULL;
+    info->equalizer                   = device->equalizer;
+    info->equalizer_presets           = device->equalizer_presets,
+    info->equalizer_presets_count     = device->equalizer_presets_count,
+    info->has_equalizer_info          = info->equalizer != NULL;
+    info->has_equalizer_presets_info  = info->equalizer_presets != NULL;
+    info->has_equalizer_presets_count = info->equalizer_presets_count != NULL;
 
     info->parametric_equalizer          = device->parametric_equalizer,
     info->has_parametric_equalizer_info = info->parametric_equalizer != NULL;
@@ -401,7 +403,6 @@ void output_json(HeadsetControlStatus* status, HeadsetInfo* infos)
             printf("      }");
 
             if (info->has_equalizer_presets_info) {
-                printf(",\n      \"equalizer_presets_count\": %d", info->equalizer_presets->count);
                 printf(",\n      \"equalizer_presets\": {\n");
                 for (int i = 0; i < info->equalizer_presets->count; i++) {
                     EqualizerPreset* presets = info->equalizer_presets->presets;
@@ -417,6 +418,10 @@ void output_json(HeadsetControlStatus* status, HeadsetInfo* infos)
                 }
                 printf("\n      }");
             }
+        }
+
+        if (info->has_equalizer_presets_count) {
+            printf(",\n      \"equalizer_presets_count\": %d", info->equalizer_presets_count);
         }
 
         if (info->has_parametric_equalizer_info) {
@@ -633,7 +638,6 @@ void output_yaml(HeadsetControlStatus* status, HeadsetInfo* infos)
             yaml_printint("max", info->equalizer->bands_max, 6);
 
             if (info->has_equalizer_presets_info) {
-                yaml_printint("equalizer_presets_count", info->equalizer_presets->count, 4);
                 yaml_print("equalizer_presets", "", 4);
                 for (int i = 0; i < info->equalizer_presets->count; i++) {
                     EqualizerPreset* presets = info->equalizer_presets->presets;
@@ -650,6 +654,10 @@ void output_yaml(HeadsetControlStatus* status, HeadsetInfo* infos)
                     putchar('\n');
                 }
             }
+        }
+
+        if (info->has_equalizer_presets_count) {
+            yaml_printint("equalizer_presets_count", info->equalizer_presets_count, 4);
         }
 
         if (info->has_parametric_equalizer_info) {

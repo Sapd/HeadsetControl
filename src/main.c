@@ -513,7 +513,7 @@ void print_help(char* programname, struct device* device_found, bool show_all)
             printf("  -e, --equalizer STRING\tSet equalizer curve (values separated by spaces, commas, or new-lines)\n");
         }
         if (show_equalizer_preset) {
-            printf("  -p, --equalizer-preset NUMBER\tSet equalizer preset (0-3, 0 for default)\n");
+            printf("  -p, --equalizer-preset NUMBER\tSet equalizer preset (0-%d, 0 for default)\n", device_found->equalizer_presets_count-1);
         }
         printf("\n");
     }
@@ -800,8 +800,8 @@ int main(int argc, char* argv[])
         case 'p':
             equalizer_preset = strtol(optarg, &endptr, 10);
 
-            if (*endptr != '\0' || endptr == optarg || equalizer_preset < 0 || equalizer_preset > 3) {
-                fprintf(stderr, "Usage: %s -p 0-3, 0 is default\n", argv[0]);
+            if (*endptr != '\0' || endptr == optarg || equalizer_preset < 0) {
+                fprintf(stderr, "Usage: %s -p 0-X, 0 is default\n", argv[0]);
                 return 1;
             }
             break;

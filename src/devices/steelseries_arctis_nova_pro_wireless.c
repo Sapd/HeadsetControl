@@ -63,10 +63,11 @@ static int save_state(hid_device* device_handle);
 
 void arctis_nova_pro_wireless_init(struct device** device)
 {
-    device_arctis.idVendor            = VENDOR_STEELSERIES;
-    device_arctis.idProductsSupported = PRODUCT_IDS;
-    device_arctis.numIdProducts       = sizeof(PRODUCT_IDS) / sizeof(PRODUCT_IDS[0]);
-    device_arctis.equalizer           = &EQUALIZER;
+    device_arctis.idVendor                = VENDOR_STEELSERIES;
+    device_arctis.idProductsSupported     = PRODUCT_IDS;
+    device_arctis.numIdProducts           = sizeof(PRODUCT_IDS) / sizeof(PRODUCT_IDS[0]);
+    device_arctis.equalizer               = &EQUALIZER;
+    device_arctis.equalizer_presets_count = EQUALIZER_PRESET_CUSTOM;
 
     strncpy(device_arctis.device_name, "SteelSeries Arctis Nova Pro Wireless", sizeof(device_arctis.device_name));
 
