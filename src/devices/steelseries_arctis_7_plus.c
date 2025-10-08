@@ -40,10 +40,11 @@ int arctis_7_plus_read_device_status(hid_device* device_handle, unsigned char* d
 
 void arctis_7_plus_init(struct device** device)
 {
-    device_arctis.idVendor            = VENDOR_STEELSERIES;
-    device_arctis.idProductsSupported = PRODUCT_IDS;
-    device_arctis.numIdProducts       = sizeof(PRODUCT_IDS) / sizeof(PRODUCT_IDS[0]);
-    device_arctis.equalizer           = &EQUALIZER;
+    device_arctis.idVendor                = VENDOR_STEELSERIES;
+    device_arctis.idProductsSupported     = PRODUCT_IDS;
+    device_arctis.numIdProducts           = sizeof(PRODUCT_IDS) / sizeof(PRODUCT_IDS[0]);
+    device_arctis.equalizer               = &EQUALIZER;
+    device_arctis.equalizer_presets_count = 4;
 
     strncpy(device_arctis.device_name, "SteelSeries Arctis 7+", sizeof(device_arctis.device_name));
 

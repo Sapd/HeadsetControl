@@ -98,12 +98,13 @@ static int nova_5_save_state(hid_device* device_handle);
 
 void arctis_nova_5_init(struct device** device)
 {
-    device_arctis.idVendor             = VENDOR_STEELSERIES;
-    device_arctis.idProductsSupported  = PRODUCT_IDS;
-    device_arctis.numIdProducts        = sizeof(PRODUCT_IDS) / sizeof(PRODUCT_IDS[0]);
-    device_arctis.equalizer            = &EQUALIZER;
-    device_arctis.equalizer_presets    = &EQUALIZER_PRESETS;
-    device_arctis.parametric_equalizer = &PARAMETRIC_EQUALIZER;
+    device_arctis.idVendor                = VENDOR_STEELSERIES;
+    device_arctis.idProductsSupported     = PRODUCT_IDS;
+    device_arctis.numIdProducts           = sizeof(PRODUCT_IDS) / sizeof(PRODUCT_IDS[0]);
+    device_arctis.equalizer               = &EQUALIZER;
+    device_arctis.equalizer_presets       = &EQUALIZER_PRESETS;
+    device_arctis.equalizer_presets_count = EQUALIZER_PRESETS_COUNT;
+    device_arctis.parametric_equalizer    = &PARAMETRIC_EQUALIZER;
 
     strncpy(device_arctis.device_name, "SteelSeries Arctis Nova (5/5X)", sizeof(device_arctis.device_name));
 

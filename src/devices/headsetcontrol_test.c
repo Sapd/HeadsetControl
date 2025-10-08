@@ -67,12 +67,13 @@ void headsetcontrol_test_init(struct device** device)
         abort();
     }
 
-    device_headsetcontrol_test.idVendor             = VENDOR_TESTDEVICE;
-    device_headsetcontrol_test.idProductsSupported  = PRODUCT_IDS;
-    device_headsetcontrol_test.numIdProducts        = 1;
-    device_headsetcontrol_test.equalizer            = &EQUALIZER;
-    device_headsetcontrol_test.equalizer_presets    = &EQUALIZER_PRESETS;
-    device_headsetcontrol_test.parametric_equalizer = &PARAMETRIC_EQUALIZER;
+    device_headsetcontrol_test.idVendor                = VENDOR_TESTDEVICE;
+    device_headsetcontrol_test.idProductsSupported     = PRODUCT_IDS;
+    device_headsetcontrol_test.numIdProducts           = 1;
+    device_headsetcontrol_test.equalizer               = &EQUALIZER;
+    device_headsetcontrol_test.equalizer_presets       = &EQUALIZER_PRESETS;
+    device_headsetcontrol_test.equalizer_presets_count = EQUALIZER_PRESETS_COUNT;
+    device_headsetcontrol_test.parametric_equalizer    = &PARAMETRIC_EQUALIZER;
 
     strncpy(device_headsetcontrol_test.device_name, "HeadsetControl Test device", sizeof(device_headsetcontrol_test.device_name));
     // normally filled by hid in main.c
@@ -157,6 +158,9 @@ static int headsetcontrol_test_lights(hid_device* device_handle, uint8_t on)
 
 static int headsetcontrol_test_send_equalizer_preset(hid_device* device_handle, uint8_t num)
 {
+    if (num < 0 || num > EQUALIZER_PRESETS_COUNT-1) {
+        return -1;
+    }
     return TESTBYTES_SEND;
 }
 

@@ -31,6 +31,8 @@ void audeze_maxwell_init(struct device** device)
     device_maxwell.idProductsSupported = PRODUCT_IDS;
     device_maxwell.numIdProducts       = sizeof(PRODUCT_IDS) / sizeof(PRODUCT_IDS[0]);
 
+    device_maxwell.equalizer_presets_count = 10;
+
     strncpy(device_maxwell.device_name, "Audeze Maxwell", sizeof(device_maxwell.device_name));
 
     device_maxwell.capabilities                             = B(CAP_SIDETONE) | B(CAP_INACTIVE_TIME) | B(CAP_VOLUME_LIMITER) | B(CAP_EQUALIZER_PRESET) | B(CAP_BATTERY_STATUS) | B(CAP_CHATMIX_STATUS) | B(CAP_VOICE_PROMPTS);
@@ -276,7 +278,7 @@ static int audeze_maxwell_send_equalizer_preset(hid_device* hid_device, uint8_t 
 static int audeze_maxwell_send_equalizer_custom_preset(hid_device* hid_device, uint8_t num)
 {
     // Getting only custom presets
-    return audeze_maxwell_send_equalizer_preset(hid_device, 7 + num);
+    return audeze_maxwell_send_equalizer_preset(hid_device, num + 1);
 }
 
 // The chatmix level is in the range of 0 to 20, where 10 is the center position.

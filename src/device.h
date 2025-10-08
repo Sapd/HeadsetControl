@@ -219,6 +219,7 @@ struct device {
 
     // Equalizer Infos
     EqualizerInfo* equalizer;
+    uint8_t equalizer_presets_count;
     EqualizerPresets* equalizer_presets;
     ParametricEqualizerInfo* parametric_equalizer;
 
