@@ -48,8 +48,8 @@ void init_devices()
     // HyperX
     add_device(calphaw_init);
     add_device(cflight_init);
+    add_device(hyperx_cloud_2_wireless_init);
     add_device(hyperx_cloud3_init);
-    add_device(hyperx_cloud2_init);
     // Logitech
     add_device(g430_init);
     add_device(g432_init);

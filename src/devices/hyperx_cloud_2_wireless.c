@@ -19,7 +19,7 @@ static const uint16_t PRODUCT_IDS[] = {ID_HYPERX_CLOUD2_WIRELESS};
 
 static BatteryInfo hyperx_cloud2_wireless_request_battery(hid_device* device_handle);
 
-void hyperx_cloud2_init(struct device** device)
+void hyperx_cloud_2_wireless_init(struct device** device)
 {
     device_hyperx_cloud2_wireless.idVendor = VENDOR_HYPERX;
     device_hyperx_cloud2_wireless.idProductsSupported = PRODUCT_IDS;
