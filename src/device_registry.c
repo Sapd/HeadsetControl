@@ -6,7 +6,7 @@
 #include "devices/hyperx_calphaw.h"
 #include "devices/hyperx_cflight.h"
 #include "devices/hyperx_cloud_3.h"
-#include "devices/hyperx_cloud_2.h"
+#include "devices/hyperx_cloud_2_wireless.h"
 #include "devices/logitech_g430.h"
 #include "devices/logitech_g432.h"
 #include "devices/logitech_g533.h"
