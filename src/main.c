@@ -361,9 +361,21 @@ static FeatureResult handle_feature(struct device* device_found, hid_device** de
         ret = device_found->switch_rotate_to_mute(*device_handle, (uint8_t)*(int*)param);
         break;
 
-    case CAP_EQUALIZER_PRESET:
-        ret = device_found->send_equalizer_preset(*device_handle, (uint8_t)*(int*)param);
+    case CAP_EQUALIZER_PRESET: {
+        int preset = *(int*)param;
+
+        // Validate preset is within range
+        if (device_found->equalizer_presets_count > 0 && preset >= device_found->equalizer_presets_count) {
+            result.status = FEATURE_ERROR;
+            result.value  = -1;
+            _asprintf(&result.message, "Invalid preset %d (valid range: 0-%d)",
+                      preset, device_found->equalizer_presets_count - 1);
+            return result;
+        }
+
+        ret = device_found->send_equalizer_preset(*device_handle, (uint8_t)preset);
         break;
+    }
 
     case CAP_EQUALIZER:
         ret = device_found->send_equalizer(*device_handle, (struct equalizer_settings*)param);
