@@ -1,15 +1,37 @@
-name: Test Code Style
+name: Code Style Check
 
-on: [pull_request]
+on:
+  pull_request:
+    paths:
+      - '**.c'
+      - '**.h'
+      - '.clang-format'
 
 jobs:
-  format-check:
+  cpp-linter:
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v4
-    - uses: DoozyX/clang-format-lint-action@v0.17
-      with:
-        source: '.'
-        extensions: 'h,c'
-        clangFormatVersion: 18
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run cpp-linter
+        uses: cpp-linter/cpp-linter-action@v2
+        id: linter
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          style: 'file'  # Use .clang-format file
+          tidy-checks: ''  # Disable clang-tidy, only check formatting
+          version: '18'  # Match CI clang-format version
+          files-changed-only: true
+          lines-changed-only: false
+          thread-comments: 'update'  # Post review comments on PR
+          step-summary: true  # Show summary in workflow
+          file-annotations: true  # Create file annotations
+
+      - name: Fail if formatting issues found
+        if: steps.linter.outputs.checks-failed > 0
+        run: |
+          echo "::error::Found ${{ steps.linter.outputs.checks-failed }} formatting issues"
+          exit 1
