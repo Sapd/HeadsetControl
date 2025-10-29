@@ -94,6 +94,11 @@ void arctis_nova_3p_wireless_init(struct device** device)
 
     strncpy(device_arctis.device_name, "SteelSeries Arctis Nova 3P Wireless", sizeof(device_arctis.device_name));
 
+    // Windows support not yet working - HID packet length issues
+    // Functions execute but have no effect on the device
+    // See: https://github.com/Sapd/HeadsetControl/pull/417
+    device_arctis.supported_platforms = PLATFORM_LINUX | PLATFORM_MACOS;
+
     device_arctis.capabilities = B(CAP_SIDETONE) | B(CAP_INACTIVE_TIME) | B(CAP_MICROPHONE_VOLUME) | B(CAP_BATTERY_STATUS) | B(CAP_EQUALIZER) | B(CAP_EQUALIZER_PRESET) | B(CAP_PARAMETRIC_EQUALIZER);
 
     device_arctis.capability_details[CAP_SIDETONE]             = (struct capability_detail) { .usagepage = 0xffc0, .usageid = 0x1, .interface = 0 };

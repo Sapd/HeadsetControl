@@ -155,13 +155,13 @@ static void print_readmetable()
     int i = 0;
     struct device* device_found;
 
-    printf("| Device |");
+    printf("| Device | Platform |");
     for (int j = 0; j < NUM_CAPABILITIES; j++) {
         printf(" %s |", capabilities_str[j]);
     }
     printf("\n");
 
-    printf("| --- |");
+    printf("| --- | --- |");
     for (int j = 0; j < NUM_CAPABILITIES; j++) {
         printf(" --- |");
     }
@@ -169,6 +169,26 @@ static void print_readmetable()
 
     while (iterate_devices(i++, &device_found) == 0) {
         printf("| %s |", device_found->device_name);
+
+        // Display platform support based on supported_platforms flags
+        uint8_t platforms = device_found->supported_platforms;
+        if (platforms == PLATFORM_ALL) {
+            printf(" All |");
+        } else if (platforms == (PLATFORM_LINUX | PLATFORM_MACOS)) {
+            printf(" L/M |");
+        } else if (platforms == (PLATFORM_LINUX | PLATFORM_WINDOWS)) {
+            printf(" L/W |");
+        } else if (platforms == (PLATFORM_MACOS | PLATFORM_WINDOWS)) {
+            printf(" M/W |");
+        } else if (platforms == PLATFORM_LINUX) {
+            printf(" L |");
+        } else if (platforms == PLATFORM_MACOS) {
+            printf(" M |");
+        } else if (platforms == PLATFORM_WINDOWS) {
+            printf(" W |");
+        } else {
+            printf(" ? |");  // Unknown/invalid combination
+        }
 
         for (int j = 0; j < NUM_CAPABILITIES; j++) {
             if (device_has_capability(device_found, j)) {
