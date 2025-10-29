@@ -1,0 +1,37 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 19,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "default",
+      "displayName": "Default Config",
+      "description": "Default build configuration",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "default",
+      "displayName": "Default Build",
+      "configurePreset": "default",
+      "verbose": true
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "default",
+      "displayName": "Default Test",
+      "configurePreset": "default",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}
