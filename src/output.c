@@ -172,7 +172,7 @@ void initializeHeadsetInfo(HeadsetInfo* info, struct device* device)
     info->equalizer_presets_count     = device->equalizer_presets_count,
     info->has_equalizer_info          = info->equalizer != NULL;
     info->has_equalizer_presets_info  = info->equalizer_presets != NULL;
-    info->has_equalizer_presets_count = info->equalizer_presets_count != NULL;
+    info->has_equalizer_presets_count = info->equalizer_presets_count > 0;
 
     info->parametric_equalizer          = device->parametric_equalizer,
     info->has_parametric_equalizer_info = info->parametric_equalizer != NULL;
