@@ -369,7 +369,7 @@ static FeatureResult handle_feature(struct device* device_found, hid_device** de
             result.status = FEATURE_ERROR;
             result.value  = -1;
             _asprintf(&result.message, "Invalid preset %d (valid range: 0-%d)",
-                      preset, device_found->equalizer_presets_count - 1);
+                preset, device_found->equalizer_presets_count - 1);
             return result;
         }
 
@@ -525,7 +525,7 @@ void print_help(char* programname, struct device* device_found, bool show_all)
             printf("  -e, --equalizer STRING\tSet equalizer curve (values separated by spaces, commas, or new-lines)\n");
         }
         if (show_equalizer_preset) {
-            printf("  -p, --equalizer-preset NUMBER\tSet equalizer preset (0-%d, 0 for default)\n", device_found->equalizer_presets_count-1);
+            printf("  -p, --equalizer-preset NUMBER\tSet equalizer preset (0-%d, 0 for default)\n", device_found->equalizer_presets_count - 1);
         }
         printf("\n");
     }
