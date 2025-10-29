@@ -36,6 +36,7 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
 | SteelSeries Arctis Nova 3P Wireless | L/M | x | x |   |   | x |   |   |   | x | x | x |   | x |   |   |   |
 | SteelSeries Arctis Nova (5/5X) | All | x | x |   |   | x | x |   |   | x | x | x | x | x | x |   |   |
 | SteelSeries Arctis Nova 7 | All | x | x |   |   | x | x |   |   | x | x |   | x | x | x | x | x |
+| SteelSeries Arctis Nova 7 Wireless Gen 2 | All | x | x |   |   | x | x |   |   | x | x |   | x | x | x | x | x |
 | SteelSeries Arctis 7+ | All | x | x |   |   | x | x |   |   | x | x |   |   |   |   |   |   |
 | SteelSeries Arctis Nova Pro Wireless | All | x | x |   | x | x |   |   |   | x | x |   |   |   |   |   |   |
 | HeadsetControl Test device | All | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x |
