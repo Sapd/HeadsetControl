@@ -12,4 +12,4 @@ jobs:
       with:
         source: '.'
         extensions: 'h,c'
-        clangFormatVersion: 16
+        clangFormatVersion: 18
