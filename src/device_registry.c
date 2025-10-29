@@ -80,6 +80,21 @@ void init_devices()
 
 void add_device(void (*init_func)(struct device**))
 {
+    struct device* new_device = NULL;
+
+    // Initialize the new device
+    init_func(&new_device);
+
+    // Skip if device is NULL (platform not supported)
+    if (new_device == NULL) {
+        return;
+    }
+
+    // Set default platform support to all platforms if not specified
+    if (new_device->supported_platforms == 0) {
+        new_device->supported_platforms = PLATFORM_ALL;
+    }
+
     // Reallocate memory to accommodate the new device
     struct device** temp = realloc(devicelist, (num_devices + 1) * sizeof(struct device*));
     if (temp == NULL) {
@@ -88,8 +103,7 @@ void add_device(void (*init_func)(struct device**))
     }
     devicelist = temp;
 
-    // Initialize the new device
-    init_func(&devicelist[num_devices]);
+    devicelist[num_devices] = new_device;
     num_devices++;
 }
 

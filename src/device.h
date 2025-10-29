@@ -16,6 +16,12 @@
 /// Convert given number to bitmask
 #define B(X) (1 << X)
 
+/// Platform support flags
+#define PLATFORM_LINUX   (1 << 0)
+#define PLATFORM_MACOS   (1 << 1)
+#define PLATFORM_WINDOWS (1 << 2)
+#define PLATFORM_ALL     (PLATFORM_LINUX | PLATFORM_MACOS | PLATFORM_WINDOWS)
+
 /// global read timeout in millisecounds
 extern int hsc_device_timeout;
 
@@ -207,6 +213,9 @@ struct device {
 
     /// Name of device, used as information for the user
     char device_name[64];
+
+    /// Bitmask of supported platforms (PLATFORM_LINUX | PLATFORM_MACOS | PLATFORM_WINDOWS)
+    uint8_t supported_platforms;
 
     // Equalizer Infos
     EqualizerInfo* equalizer;
