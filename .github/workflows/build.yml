@@ -44,7 +44,30 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Windows: Setup MSYS2
+      # Linux: Cache apt packages
+      - name: Cache apt packages
+        if: matrix.os-name == 'linux'
+        uses: actions/cache@v4
+        with:
+          path: /var/cache/apt/archives
+          key: ${{ runner.os }}-apt-${{ hashFiles('.github/workflows/build.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-apt-
+
+      # macOS: Cache Homebrew
+      - name: Cache Homebrew
+        if: matrix.os-name == 'macos'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/Homebrew
+            /usr/local/Cellar/hidapi
+            /opt/homebrew/Cellar/hidapi
+          key: ${{ runner.os }}-brew-${{ hashFiles('.github/workflows/build.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-brew-
+
+      # Windows: Setup MSYS2 (has built-in caching)
       - name: Setup MSYS2
         if: matrix.os-name == 'windows'
         uses: msys2/setup-msys2@v2
