@@ -5,6 +5,8 @@ set(SOURCE_FILES ${SOURCE_FILES}
     ${CMAKE_CURRENT_SOURCE_DIR}/hyperx_cflight.h
     ${CMAKE_CURRENT_SOURCE_DIR}/hyperx_calphaw.c
     ${CMAKE_CURRENT_SOURCE_DIR}/hyperx_calphaw.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/hyperx_cloud_2_wireless.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/hyperx_cloud_2_wireless.h
     ${CMAKE_CURRENT_SOURCE_DIR}/hyperx_cloud_3.c
     ${CMAKE_CURRENT_SOURCE_DIR}/hyperx_cloud_3.h
     ${CMAKE_CURRENT_SOURCE_DIR}/corsair_void.c

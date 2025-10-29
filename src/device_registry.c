@@ -5,6 +5,7 @@
 #include "devices/headsetcontrol_test.h"
 #include "devices/hyperx_calphaw.h"
 #include "devices/hyperx_cflight.h"
+#include "devices/hyperx_cloud_2_wireless.h"
 #include "devices/hyperx_cloud_3.h"
 #include "devices/logitech_g430.h"
 #include "devices/logitech_g432.h"
@@ -48,6 +49,7 @@ void init_devices()
     // HyperX
     add_device(calphaw_init);
     add_device(cflight_init);
+    add_device(hyperx_cloud_2_wireless_init);
     add_device(hyperx_cloud3_init);
     // Logitech
     add_device(g430_init);
