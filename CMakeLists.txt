@@ -96,10 +96,24 @@ endif()
 
 if(ENABLE_CLANG_FORMAT)
 
-    find_program(CLANG_FORMAT_BIN clang-format)
+    # Try to find clang-format-18 first to match CI version
+    find_program(CLANG_FORMAT_BIN
+        NAMES clang-format-18 clang-format
+        PATHS /opt/homebrew/opt/llvm@18/bin /usr/local/opt/llvm@18/bin
+    )
 
     if(CLANG_FORMAT_BIN STREQUAL "CLANG_FORMAT_BIN-NOTFOUND")
-        message(FATAL_ERROR "unable to locate clang-format")
+        message(FATAL_ERROR "unable to locate clang-format (try: brew install llvm@18)")
+    endif()
+
+    # Warn if not using version 18
+    execute_process(
+        COMMAND ${CLANG_FORMAT_BIN} --version
+        OUTPUT_VARIABLE CLANG_FORMAT_VERSION
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    if(NOT CLANG_FORMAT_VERSION MATCHES "version 18")
+        message(WARNING "Using ${CLANG_FORMAT_VERSION}, but CI uses version 18. Install llvm@18 for consistency.")
     endif()
 
     file(GLOB_RECURSE ALL_SOURCE_FILES *.c *.cpp *.h *.cxx *.hxx *.hpp *.cc *.ipp)
