@@ -1,30 +1,94 @@
 name: Build
+
 on: [push, pull_request]
 
 jobs:
   build:
-    name: ${{ matrix.os }}-compile
+    name: ${{ matrix.os-name }}-${{ matrix.arch }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
         include:
+          # Linux x86_64
           - os: ubuntu-latest
-            INSTALL_DEPS: sudo apt-get -y install libhidapi-dev
+            os-name: linux
+            arch: x86_64
+            shell: bash
+            install-deps: sudo apt-get -y install libhidapi-dev
+            use-cmake-presets: true
+
+          # macOS x86_64
           - os: macos-latest
-            INSTALL_DEPS: brew install hidapi
+            os-name: macos
+            arch: x86_64
+            shell: bash
+            install-deps: brew install hidapi
+            use-cmake-presets: true
+
+          # Windows x86_64
+          - os: windows-latest
+            os-name: windows
+            arch: x86_64
+            shell: msys2 {0}
+            msystem: MINGW64
+            install-deps: git base-devel mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-hidapi make
+            use-cmake-presets: false
+
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Install Dependencies
-        run: ${{ matrix.INSTALL_DEPS }}
+      # Windows: Setup MSYS2
+      - name: Setup MSYS2
+        if: matrix.os-name == 'windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{ matrix.msystem }}
+          update: true
+          install: ${{ matrix.install-deps }}
 
-      - name: Run CMake
+      # Linux/macOS: Install dependencies
+      - name: Install Dependencies
+        if: matrix.os-name != 'windows'
+        run: ${{ matrix.install-deps }}
+
+      # Linux/macOS: Use CMake presets with lukka/run-cmake@v10
+      - name: Build with CMake Presets
+        if: matrix.use-cmake-presets
         uses: lukka/run-cmake@v10
         with:
           configurePreset: 'default'
           buildPreset: 'default'
           testPreset: 'default'
+
+      # Windows: Use direct CMake commands (MSYS2 doesn't work well with presets)
+      - name: Build with CMake (Windows)
+        if: matrix.os-name == 'windows'
+        run: |
+          mkdir build
+          cd build
+          cmake -G"MSYS Makefiles" ..
+          make
+
+      - name: Test (Windows)
+        if: matrix.os-name == 'windows'
+        run: |
+          cd build
+          make test
+
+      # Upload artifacts for all platforms
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: headsetcontrol-${{ matrix.os-name }}-${{ matrix.arch }}
+          path: |
+            build/headsetcontrol*
+            !build/**/*.o
+            !build/**/*.cmake
+            !build/**/CMakeFiles

@@ -51,7 +51,7 @@ jobs:
         if: matrix.os_name != 'windows'
         run: ${{ matrix.install }}
 
-      - name: Build
+      - name: Build (Windows)
         if: matrix.os_name == 'windows'
         run: |
           mkdir build
@@ -59,14 +59,12 @@ jobs:
           cmake -G"MSYS Makefiles" ..
           make
 
-      - name: Run CMake with Ninja
+      - name: Build (Linux/macOS)
         if: matrix.os_name != 'windows'
-        uses: lukka/run-cmake@v3
-        id: runcmake
+        uses: lukka/run-cmake@v10
         with:
-          cmakeListsTxtPath: "${{ github.workspace }}/CMakeLists.txt"
-          buildWithCMakeArgs: "--config Release -- -v"
-          buildDirectory: ${{ github.workspace }}/build
+          configurePreset: 'default'
+          buildPreset: 'default'
 
       - name: Zip build artifacts
         run: |

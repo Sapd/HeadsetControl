@@ -20,7 +20,7 @@ jobs:
       env:
         COMMITS: ${{ github.event.pull_request.commits }}
 
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         fetch-depth: ${{ env.COMMIT_DEPTH }}
 
@@ -53,18 +53,18 @@ jobs:
 
         if test -n "${log}"
         then
-          echo "::set-output name=checkout::"${log}""
+          echo "checkout=${log}" >> $GITHUB_OUTPUT
           exit 2
         fi
 
     - name: Add Check Output as Comment
-      uses: actions/github-script@v3
+      uses: actions/github-script@v7
       id: add-comment
       env:
         log: ${{ steps.check_out.outputs.checkout }}
       with:
         script: |
-            await github.issues.createComment({
+            await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
