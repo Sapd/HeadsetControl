@@ -158,7 +158,7 @@ static int headsetcontrol_test_lights(hid_device* device_handle, uint8_t on)
 
 static int headsetcontrol_test_send_equalizer_preset(hid_device* device_handle, uint8_t num)
 {
-    if (num < 0 || num > EQUALIZER_PRESETS_COUNT-1) {
+    if (num < 0 || num > EQUALIZER_PRESETS_COUNT - 1) {
         return -1;
     }
     return TESTBYTES_SEND;
