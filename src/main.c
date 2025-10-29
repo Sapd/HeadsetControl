@@ -187,7 +187,7 @@ static void print_readmetable()
         } else if (platforms == PLATFORM_WINDOWS) {
             printf(" W |");
         } else {
-            printf(" ? |");  // Unknown/invalid combination
+            printf(" ? |"); // Unknown/invalid combination
         }
 
         for (int j = 0; j < NUM_CAPABILITIES; j++) {
