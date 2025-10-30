@@ -197,6 +197,8 @@ The following additional software can be used to enable control via a GUI
 
 [gnome-shell-extension-HeadsetControl](https://github.com/ChrisLauinger77/gnome-shell-extension-HeadsetControl/) adds a system tray icon, displaying headset information. Also provides controls via the icon's menu (gnome-shell 42 and later)
 
+[headset-battery-indicator](https://github.com/ruflas/headset-battery-indicator) adds a system tray icon for managing USB headset features, including battery level, ChatMix, Sidetone, and Auto-Off time. (Python/Qt based)
+
 #### Windows
 
 [HeadsetControl-GUI](https://github.com/LeoKlaus/HeadsetControl-GUI)  a simply GUI tool to manage your headset and check battery status. (Qt C++ based)
