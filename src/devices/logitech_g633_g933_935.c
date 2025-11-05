@@ -22,8 +22,8 @@ static const uint16_t PRODUCT_IDS[] = { ID_LOGITECH_G633, ID_LOGITECH_G635, ID_L
 // Battery voltage to percentage calibration table
 // Conservative values based on typical Li-Ion discharge characteristics
 static const int battery_estimate_percentages[] = { 100, 80, 60, 40, 20, 10, 5, 0 };
-static const int battery_estimate_voltages[] = { 4100, 3950, 3850, 3750, 3650, 3500, 3300, 3150 };
-static const size_t battery_estimate_size = 8;
+static const int battery_estimate_voltages[]    = { 4100, 3950, 3850, 3750, 3650, 3500, 3300, 3150 };
+static const size_t battery_estimate_size       = 8;
 
 static int g933_935_send_sidetone(hid_device* device_handle, uint8_t num);
 static BatteryInfo g933_935_request_battery(hid_device* device_handle);
