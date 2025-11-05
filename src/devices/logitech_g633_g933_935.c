@@ -1,8 +1,8 @@
 #include "../device.h"
+#include "../utility.h"
 #include "logitech.h"
 
 #include <hidapi.h>
-#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -18,6 +18,12 @@ static struct device device_g933_935;
 #define ID_LOGITECH_G733_3 0x0b1f
 
 static const uint16_t PRODUCT_IDS[] = { ID_LOGITECH_G633, ID_LOGITECH_G635, ID_LOGITECH_G933, ID_LOGITECH_G935, ID_LOGITECH_G733, ID_LOGITECH_G733_2, ID_LOGITECH_G733_3 };
+
+// Battery voltage to percentage calibration table
+// Conservative values based on typical Li-Ion discharge characteristics
+static const int battery_estimate_percentages[] = { 100, 80, 60, 40, 20, 10, 5, 0 };
+static const int battery_estimate_voltages[]    = { 4100, 3950, 3850, 3750, 3650, 3500, 3300, 3150 };
+static const size_t battery_estimate_size       = 8;
 
 static int g933_935_send_sidetone(hid_device* device_handle, uint8_t num);
 static BatteryInfo g933_935_request_battery(hid_device* device_handle);
@@ -41,16 +47,6 @@ void g933_935_init(struct device** device)
     device_g933_935.switch_lights   = &g933_935_lights;
 
     *device = &device_g933_935;
-}
-
-static float estimate_battery_level(uint16_t voltage)
-{
-    if (voltage <= 3525)
-        return (float)((0.03 * voltage) - 101);
-    if (voltage > 4030)
-        return (float)100.0;
-    // f(x)=3.7268473047*10^(-9)x^(4)-0.00005605626214573775*x^(3)+0.3156051902814949*x^(2)-788.0937250298629*x+736315.3077118985
-    return (float)(0.0000000037268473047 * pow(voltage, 4) - 0.00005605626214573775 * pow(voltage, 3) + 0.3156051902814949 * pow(voltage, 2) - 788.0937250298629 * voltage + 736315.3077118985);
 }
 
 static BatteryInfo g933_935_request_battery(hid_device* device_handle)
@@ -102,10 +98,10 @@ static BatteryInfo g933_935_request_battery(hid_device* device_handle)
     const uint16_t voltage = (data_read[4] << 8) | data_read[5];
 
 #ifdef DEBUG
-    printf("G33 - g933_request_battery - Reported Voltage: %2f\n", (float)voltage);
+    printf("G33 - g933_request_battery - Reported Voltage: %dmV\n", voltage);
 #endif
 
-    info.level = (int)(roundf(estimate_battery_level(voltage)));
+    info.level = spline_battery_level(battery_estimate_percentages, battery_estimate_voltages, battery_estimate_size, voltage);
     return info;
 }
 
