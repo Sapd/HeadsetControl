@@ -11,7 +11,7 @@
 
 #define REQUEST_SIZE  52
 #define RESPONSE_SIZE 20
-#define TIMEOUT       1000
+#define TIMEOUT       2000
 
 static struct device device_hyperx_cloud2_wireless;
 
@@ -50,23 +50,22 @@ static BatteryInfo hyperx_cloud2_wireless_request_battery(hid_device* device_han
 
     uint8_t data_read[RESPONSE_SIZE];
     r = hid_read_timeout(device_handle, data_read, RESPONSE_SIZE, TIMEOUT);
-    if (r < 0) // read failed
-    {
+    if (r < 0) { // read failed
         BatteryInfo info = { .status = BATTERY_HIDERROR, .level = -1 };
         return info;
-    } else if (r == 0) // read timeout
-    {
+    } else if (r == 0) { // read timeout
         BatteryInfo info = { .status = BATTERY_TIMEOUT, .level = -1 };
+        return info;
+    } else if (r != 20) { // invalid read size
+        BatteryInfo info = { .status = BATTERY_UNAVAILABLE, .level = -1 };
         return info;
     }
 
     int batteryLevel = data_read[7];
-    if (data_read[5] == 0x10) // charging
-    {
+    if (data_read[5] == 0x10) { // charging
         BatteryInfo info = { .status = BATTERY_CHARGING, .level = batteryLevel };
         return info;
-    } else if (data_read[5] == 0x0f) // available
-    {
+    } else { // available
         BatteryInfo info = { .status = BATTERY_AVAILABLE, .level = batteryLevel };
         return info;
     }
