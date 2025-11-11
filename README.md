@@ -207,6 +207,8 @@ The following additional software can be used to enable control via a GUI
 
 [HeadsetControl-Qt](https://github.com/Odizinne/HeadsetControl-Qt) adds a system tray icon, GUI with various settings, Linux compatible. (Qt C++ based)
 
+[aarol/headset-battery-indicator](https://github.com/aarol/headset-battery-indicator) adds a small native-looking system tray icon displaying the battery level. (Rust based)
+
 ## Development
 
 Look at the [wiki](https://github.com/Sapd/HeadsetControl/wiki/Development) if you want to contribute and implement another device or improve the software.
