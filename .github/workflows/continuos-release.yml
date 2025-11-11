@@ -1,14 +1,14 @@
-name: Continuos build workflow
+name: Continuous Build & Release
 
 on:
   workflow_dispatch:
-    inputs: {}
   push:
     branches: [master]
     paths:
       - "cmake_modules/**"
       - "src/**"
       - "CMakeLists.txt"
+      - ".github/workflows/continuos-release.yml"
 
 jobs:
   build:
@@ -39,6 +39,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Linux: Cache apt packages
+      - name: Cache apt packages
+        if: matrix.os_name == 'linux'
+        uses: actions/cache@v4
+        with:
+          path: /var/cache/apt/archives
+          key: ${{ runner.os }}-apt-${{ hashFiles('.github/workflows/continuos-release.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-apt-
+
+      # macOS: Cache Homebrew
+      - name: Cache Homebrew
+        if: matrix.os_name == 'macos'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/Homebrew
+            /usr/local/Cellar/hidapi
+            /opt/homebrew/Cellar/hidapi
+          key: ${{ runner.os }}-brew-${{ hashFiles('.github/workflows/continuos-release.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-brew-
+
+      # Windows: Setup MSYS2 (has built-in caching)
       - name: Setup environment
         if: matrix.os_name == 'windows'
         uses: msys2/setup-msys2@v2
@@ -51,49 +75,110 @@ jobs:
         if: matrix.os_name != 'windows'
         run: ${{ matrix.install }}
 
-      - name: Build
+      - name: Build (Windows)
         if: matrix.os_name == 'windows'
         run: |
           mkdir build
           cd build
-          cmake -G"MSYS Makefiles" ..
+          cmake -G"MSYS Makefiles" -DCMAKE_BUILD_TYPE=Release ..
           make
+          strip headsetcontrol.exe
 
-      - name: Run CMake with Ninja
+      - name: Build (Linux/macOS)
         if: matrix.os_name != 'windows'
-        uses: lukka/run-cmake@v3
-        id: runcmake
+        uses: lukka/run-cmake@v10
         with:
-          cmakeListsTxtPath: "${{ github.workspace }}/CMakeLists.txt"
-          buildWithCMakeArgs: "--config Release -- -v"
-          buildDirectory: ${{ github.workspace }}/build
+          configurePreset: 'default'
+          buildPreset: 'default'
 
-      - name: Zip build artifacts
+      - name: Strip binaries (Linux/macOS)
+        if: matrix.os_name != 'windows'
+        run: strip build/headsetcontrol
+
+      - name: Get version info
+        id: version
+        run: |
+          if [ "${{ matrix.os_name }}" = "windows" ]; then
+            VERSION=$(cd build && ./headsetcontrol.exe --version | head -1 || echo "unknown")
+          else
+            VERSION=$(cd build && ./headsetcontrol --version | head -1 || echo "unknown")
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "commit=${GITHUB_SHA:0:7}" >> $GITHUB_OUTPUT
+
+      - name: Package artifacts
         run: |
           cd build
-          zip -r headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip headsetcontrol*
+          if [ "${{ matrix.os_name }}" = "windows" ]; then
+            zip -9 headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip headsetcontrol.exe
+          else
+            zip -9 headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip headsetcontrol
+          fi
+          sha256sum headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip > headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip.sha256
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}
-          path: build/headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip
+          path: |
+            build/headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip
+            build/headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip.sha256
+          retention-days: 90
 
   create-release:
     needs: [build]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
-      - name: Download Windows Artifact
+        with:
+          fetch-depth: 0
+
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           merge-multiple: true
-      - name: Deploy continuous
-        uses: crowbarmaster/GH-Automatic-Releases@latest
+          path: ./artifacts
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          echo "## 🚀 Continuous Build" > CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "Latest automated build from \`master\` branch." >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "### 📦 Downloads" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          for file in artifacts/*.zip; do
+            if [ -f "$file" ]; then
+              basename "$file"
+              echo "- [$(basename "$file")](https://github.com/${{ github.repository }}/releases/download/continuous/$(basename "$file"))" >> CHANGELOG.md
+            fi
+          done
+          echo "" >> CHANGELOG.md
+          echo "### 🔐 Checksums (SHA256)" >> CHANGELOG.md
+          echo '```' >> CHANGELOG.md
+          cat artifacts/*.sha256 >> CHANGELOG.md 2>/dev/null || true
+          echo '```' >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "### 📝 Recent Changes" >> CHANGELOG.md
+          echo '```' >> CHANGELOG.md
+          git log --oneline -10 >> CHANGELOG.md
+          echo '```' >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "---" >> CHANGELOG.md
+          echo "*Built from commit: \`${{ github.sha }}\`*" >> CHANGELOG.md
+
+      - name: Create/Update continuous release
+        uses: ncipollo/release-action@v1
         with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: "continuous"
+          tag: continuous
+          name: 'Continuous Build'
+          bodyFile: CHANGELOG.md
+          artifacts: "artifacts/*"
+          allowUpdates: true
+          removeArtifacts: true
           prerelease: true
-          title: 'Continuous Build'
-          files: |
-            headsetcontrol-*
+          makeLatest: false
+          token: ${{ secrets.GITHUB_TOKEN }}
