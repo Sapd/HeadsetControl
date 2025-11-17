@@ -8,6 +8,7 @@
 #define MSG_SIZE 64
 
 #define ID_ARCTIS_NOVA_3P_WIRELESS 0x2269
+#define ID_ARCTIS_NOVA_3X_WIRELESS 0x226d
 
 #define HEADSET_ONLINE  0x03
 #define HEADSET_OFFLINE 0x02
@@ -70,7 +71,7 @@ static uint8_t EQUALIZER_FILTER_MAP[NUM_EQ_FILTER_TYPES] = {
 
 static struct device device_arctis;
 
-static const uint16_t PRODUCT_IDS[]      = { ID_ARCTIS_NOVA_3P_WIRELESS };
+static const uint16_t PRODUCT_IDS[]      = { ID_ARCTIS_NOVA_3P_WIRELESS, ID_ARCTIS_NOVA_3X_WIRELESS };
 static const uint8_t SAVE_DATA[MSG_SIZE] = { 0x09 };
 
 static int arctis_nova_3p_wireless_send_sidetone(hid_device* device_handle, uint8_t num);
