@@ -12,6 +12,7 @@ static struct device device_arctis;
 
 #define ID_ARCTIS_NOVA_7           0x2202
 #define ID_ARCTIS_NOVA_7_WIRELESS  0x227e
+#define ID_ARCTIS_NOVA_7x_WIRELESS 0x229e
 #define ID_ARCTIS_NOVA_7x          0x2206
 #define ID_ARCTIS_NOVA_7x_v2       0x2258
 #define ID_ARCTIS_NOVA_7p          0x220a
@@ -31,7 +32,7 @@ static struct device device_arctis;
 #define EQUALIZER_BAND_MAX      +10
 #define EQUALIZER_PRESETS_COUNT 4
 
-static const uint16_t PRODUCT_IDS[]      = { ID_ARCTIS_NOVA_7, ID_ARCTIS_NOVA_7_WIRELESS, ID_ARCTIS_NOVA_7x, ID_ARCTIS_NOVA_7x_v2, ID_ARCTIS_NOVA_7p, ID_ARCTIS_NOVA_7_DIABLO_IV, ID_ARCTIS_NOVA_7_WOW_ED };
+static const uint16_t PRODUCT_IDS[]      = { ID_ARCTIS_NOVA_7, ID_ARCTIS_NOVA_7_WIRELESS, ID_ARCTIS_NOVA_7x_WIRELESS, ID_ARCTIS_NOVA_7x, ID_ARCTIS_NOVA_7x_v2, ID_ARCTIS_NOVA_7p, ID_ARCTIS_NOVA_7_DIABLO_IV, ID_ARCTIS_NOVA_7_WOW_ED };
 static const uint8_t SAVE_DATA[MSG_SIZE] = { 0x06, 0x09 };
 
 float flat[EQUALIZER_BANDS_COUNT]   = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
