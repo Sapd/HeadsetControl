@@ -15,7 +15,7 @@ talking. This differs from a simple loopback via PulseAudio as you won't have an
 | Corsair Headset Device | All | x | x | x | x |   |   |   |   |   |   |   |   |   |   |   |   |
 | HyperX Cloud Alpha Wireless | All | x | x |   |   | x |   | x |   |   |   |   |   |   |   |   |   |
 | HyperX Cloud Flight Wireless | All |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
-| HyperX Cloud II Wireless | All |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
+| HyperX Cloud II Wireless | All |   | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |
 | HyperX Cloud 3 | All | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | Logitech G430 | All | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | Logitech G432/G433 | All | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
