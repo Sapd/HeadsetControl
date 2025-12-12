@@ -11,22 +11,19 @@
 #define ID_HYPERX_CLOUD2_WIRELESS 0x0696
 
 #define WRITE_PACKET_SIZE 52
-#define WRITE_TIMEOUT     50
+#define WRITE_TIMEOUT     100
 #define READ_PACKET_SIZE  20
 #define READ_TIMEOUT      1000
 
 #define CMD_GET_BATTERY_LEVEL    0x02
 #define CMD_GET_BATTERY_CHARGING 0x03
-
-#define CMD_GET_INACTIVE_TIME 0x07
-#define CMD_GET_MUTE          0x05
-#define CMD_GET_SIDETONE      0x06
-#define CMD_GET_SIDETONE_VOL  0x0B
+#define CMD_GET_INACTIVE_TIME    0x07
 
 #define CMD_SET_INACTIVE_TIME 0x22
-#define CMD_SET_MUTE          0x20
-#define CMD_SET_SIDETONE      0x21
-#define CMD_SET_SIDETONE_VOL  0x23
+
+#define INDEX_GET_BATTERY_LEVEL    7
+#define INDEX_GET_BATTERY_CHARGING 4
+#define INDEX_GET_INACTIVE_TIME    4
 
 #define STATUS_SUCCESS   0
 #define ERR_HID_IO       -1
@@ -38,7 +35,7 @@ static struct device device_hyperx_cloud2_wireless;
 
 static const uint16_t PRODUCT_IDS[] = { ID_HYPERX_CLOUD2_WIRELESS };
 
-static BatteryInfo request_battery(hid_device* device_handle);
+static BatteryInfo get_battery_status(hid_device* device_handle);
 static int set_inactive_time(hid_device* device_handle, unsigned char value);
 
 void hyperx_cloud_2_wireless_init(struct device** device)
@@ -51,11 +48,11 @@ void hyperx_cloud_2_wireless_init(struct device** device)
 
     device_hyperx_cloud2_wireless.capabilities = B(CAP_BATTERY_STATUS) | B(CAP_INACTIVE_TIME) | B(CAP_MICROPHONE_VOLUME) | B(CAP_SIDETONE);
 
-    device_hyperx_cloud2_wireless.capability_details[CAP_BATTERY_STATUS]    = (struct capability_detail) { .usagepage = 0xFF90, .usageid = 0x0303, .interface = 0x0000 };
-    device_hyperx_cloud2_wireless.capability_details[CAP_INACTIVE_TIME]     = (struct capability_detail) { .usagepage = 0xFF90, .usageid = 0x0303, .interface = 0x0000 };
+    device_hyperx_cloud2_wireless.capability_details[CAP_BATTERY_STATUS] = (struct capability_detail) { .usagepage = 0xFF90, .usageid = 0x0303, .interface = 0x0000 };
+    device_hyperx_cloud2_wireless.capability_details[CAP_INACTIVE_TIME]  = (struct capability_detail) { .usagepage = 0xFF90, .usageid = 0x0303, .interface = 0x0000 };
 
-    device_hyperx_cloud2_wireless.request_battery        = &request_battery; // get battery percent + battery charging status
-    device_hyperx_cloud2_wireless.send_inactive_time     = &set_inactive_time; // 0-90 idle time in minutes
+    device_hyperx_cloud2_wireless.request_battery    = &get_battery_status; // get battery percent + battery charging status
+    device_hyperx_cloud2_wireless.send_inactive_time = &set_inactive_time; // 0-90 idle time in minutes
 
     *device = &device_hyperx_cloud2_wireless;
 }
@@ -79,9 +76,8 @@ int get_raw_status(hid_device* device_handle, unsigned char cmd_id, int result_i
         return ERR_HID_IO;
     else if (read_res == 0)
         return ERR_TIMEOUT;
-    else if (read_res == READ_PACKET_SIZE && read_buf[0] == 0x06 && read_buf[1] == 0xFF && read_buf[2] == 0xBB && read_buf[3] == cmd_id) {
+    else if (read_res == READ_PACKET_SIZE && read_buf[0] == 0x06 && read_buf[1] == 0xFF && read_buf[2] == 0xBB && read_buf[3] == cmd_id)
         return (int)read_buf[result_index];
-    }
 
     return ERR_INVALID_RESP;
 }
@@ -108,7 +104,7 @@ int set_raw_status(hid_device* device_handle, unsigned char cmd_id, unsigned cha
 /**
  * Return BatteryInfo (charging status and battery percent)
  */
-BatteryInfo request_battery(hid_device* device_handle)
+BatteryInfo get_battery_status(hid_device* device_handle)
 {
     BatteryInfo info = { .status = BATTERY_UNAVAILABLE, .level = -1 };
     if (!device_handle) {
@@ -116,7 +112,7 @@ BatteryInfo request_battery(hid_device* device_handle)
         return info;
     }
 
-    int raw_level = get_raw_status(device_handle, CMD_GET_BATTERY_LEVEL, 7);
+    int raw_level = get_raw_status(device_handle, CMD_GET_BATTERY_LEVEL, INDEX_GET_BATTERY_LEVEL);
     if (raw_level < 0) {
         if (raw_level == ERR_HID_IO)
             info.status = BATTERY_HIDERROR;
@@ -128,7 +124,7 @@ BatteryInfo request_battery(hid_device* device_handle)
     }
     info.level = (raw_level > 100) ? 100 : raw_level;
 
-    int raw_charging = get_raw_status(device_handle, CMD_GET_BATTERY_CHARGING, 4);
+    int raw_charging = get_raw_status(device_handle, CMD_GET_BATTERY_CHARGING, INDEX_GET_BATTERY_CHARGING);
     if (raw_charging < 0) {
         if (raw_charging == ERR_HID_IO)
             info.status = BATTERY_HIDERROR;
@@ -149,7 +145,7 @@ BatteryInfo request_battery(hid_device* device_handle)
  */
 int get_inactive_time(hid_device* device_handle)
 {
-    return get_raw_status(device_handle, CMD_GET_INACTIVE_TIME, 4);
+    return get_raw_status(device_handle, CMD_GET_INACTIVE_TIME, INDEX_GET_INACTIVE_TIME);
 }
 
 /**
