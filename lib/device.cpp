@@ -1,0 +1,77 @@
+#include "device.hpp"
+
+const char* const capabilities_str[NUM_CAPABILITIES]
+    = {
+          [CAP_SIDETONE]                       = "sidetone",
+          [CAP_BATTERY_STATUS]                 = "battery",
+          [CAP_NOTIFICATION_SOUND]             = "notification sound",
+          [CAP_LIGHTS]                         = "lights",
+          [CAP_INACTIVE_TIME]                  = "inactive time",
+          [CAP_CHATMIX_STATUS]                 = "chatmix",
+          [CAP_VOICE_PROMPTS]                  = "voice prompts",
+          [CAP_ROTATE_TO_MUTE]                 = "rotate to mute",
+          [CAP_EQUALIZER_PRESET]               = "equalizer preset",
+          [CAP_EQUALIZER]                      = "equalizer",
+          [CAP_PARAMETRIC_EQUALIZER]           = "parametric equalizer",
+          [CAP_MICROPHONE_MUTE_LED_BRIGHTNESS] = "microphone mute led brightness",
+          [CAP_MICROPHONE_VOLUME]              = "microphone volume",
+          [CAP_VOLUME_LIMITER]                 = "volume limiter",
+          [CAP_BT_WHEN_POWERED_ON]             = "bluetooth when powered on",
+          [CAP_BT_CALL_VOLUME]                 = "bluetooth call volume"
+      };
+
+const char* const capabilities_str_enum[NUM_CAPABILITIES]
+    = {
+          [CAP_SIDETONE]                       = "CAP_SIDETONE",
+          [CAP_BATTERY_STATUS]                 = "CAP_BATTERY_STATUS",
+          [CAP_NOTIFICATION_SOUND]             = "CAP_NOTIFICATION_SOUND",
+          [CAP_LIGHTS]                         = "CAP_LIGHTS",
+          [CAP_INACTIVE_TIME]                  = "CAP_INACTIVE_TIME",
+          [CAP_CHATMIX_STATUS]                 = "CAP_CHATMIX_STATUS",
+          [CAP_VOICE_PROMPTS]                  = "CAP_VOICE_PROMPTS",
+          [CAP_ROTATE_TO_MUTE]                 = "CAP_ROTATE_TO_MUTE",
+          [CAP_EQUALIZER_PRESET]               = "CAP_EQUALIZER_PRESET",
+          [CAP_EQUALIZER]                      = "CAP_EQUALIZER",
+          [CAP_PARAMETRIC_EQUALIZER]           = "CAP_PARAMETRIC_EQUALIZER",
+          [CAP_MICROPHONE_MUTE_LED_BRIGHTNESS] = "CAP_MICROPHONE_MUTE_LED_BRIGHTNESS",
+          [CAP_MICROPHONE_VOLUME]              = "CAP_MICROPHONE_VOLUME",
+          [CAP_VOLUME_LIMITER]                 = "CAP_VOLUME_LIMITER",
+          [CAP_BT_WHEN_POWERED_ON]             = "CAP_BT_WHEN_POWERED_ON",
+          [CAP_BT_CALL_VOLUME]                 = "CAP_BT_CALL_VOLUME"
+      };
+
+const char capabilities_str_short[NUM_CAPABILITIES]
+    = {
+          [CAP_SIDETONE]                       = 's',
+          [CAP_BATTERY_STATUS]                 = 'b',
+          [CAP_NOTIFICATION_SOUND]             = 'n',
+          [CAP_LIGHTS]                         = 'l',
+          [CAP_INACTIVE_TIME]                  = 'i',
+          [CAP_CHATMIX_STATUS]                 = 'm',
+          [CAP_VOICE_PROMPTS]                  = 'v',
+          [CAP_ROTATE_TO_MUTE]                 = 'r',
+          [CAP_EQUALIZER_PRESET]               = 'p',
+          [CAP_EQUALIZER]                      = 'e',
+          [CAP_PARAMETRIC_EQUALIZER]           = 'q',
+          [CAP_MICROPHONE_MUTE_LED_BRIGHTNESS] = 't',
+          [CAP_MICROPHONE_VOLUME]              = 'o',
+          // new capabilities since short output was deprecated
+          [CAP_VOLUME_LIMITER]     = '\0',
+          [CAP_BT_WHEN_POWERED_ON] = '\0',
+          [CAP_BT_CALL_VOLUME]     = '\0'
+      };
+
+const char* const equalizer_filter_type_str[NUM_EQ_FILTER_TYPES]
+    = {
+          "lowshelf", // LowShelf
+          "lowpass", // LowPass
+          "peaking", // Peaking
+          "highpass", // HighPass
+          "highshelf", // HighShelf
+          "notch" // Notch
+      };
+
+bool has_capability(int capability_mask, capabilities cap)
+{
+    return (capability_mask & B(cap)) == B(cap);
+}

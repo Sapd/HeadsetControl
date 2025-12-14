@@ -1,5 +1,5 @@
 build/
-src/version.h
+lib/version.h
 
 .idea/
 cmake-build-debug/
@@ -10,3 +10,5 @@ cmake-build-debug/
 *.cache/
 
 .DS_Store
+
+Testing/

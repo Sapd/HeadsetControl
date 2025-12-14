@@ -16,6 +16,10 @@ jobs:
           msystem: MINGW64
           update: true
           install: git base-devel mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-hidapi make
+      - name: Check compiler version
+        run: |
+          gcc --version
+          g++ --version
       - name: Build
         run: |
           mkdir build
@@ -25,7 +29,7 @@ jobs:
       - name: Test
         run: |
           cd build
-          make test
+          ctest --output-on-failure
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:

@@ -25,8 +25,25 @@ jobs:
           fetch-depth: 0
       - uses: lukka/get-cmake@latest
 
+      - name: Install GCC 13 (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-13 g++-13
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100
+          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 100
+          sudo update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-13 100
+          sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-13 100
+
       - name: Install Dependencies
         run: ${{ matrix.INSTALL_DEPS }}
+
+      - name: Check compiler version
+        run: |
+          echo "C compiler:"
+          cc --version
+          echo "C++ compiler:"
+          c++ --version
 
       - name: dir
         run: find $RUNNER_WORKSPACE
@@ -40,7 +57,7 @@ jobs:
           buildDirectory: ${{ env.buildDir }}
 
       - name: Run test
-        run: cd ${{ env.buildDir }} && ctest
+        run: cd ${{ env.buildDir }} && ctest --output-on-failure
 
       - name: dir
         run: find $RUNNER_WORKSPACE
