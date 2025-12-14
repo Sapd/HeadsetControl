@@ -9,6 +9,7 @@
 #include "device.hpp"
 #include "output.hpp"
 #include "serializers.hpp"
+#include "string_utils.hpp"
 
 #include <optional>
 #include <string>
@@ -184,8 +185,8 @@ struct DeviceData {
         s.beginObject("");
         s.write("status", statusToString(status));
         s.write("device", device_name);
-        s.write("vendor", "");
-        s.write("product", "");
+        s.write("vendor", vendor_name.empty() ? "" : headsetcontrol::wstring_to_string(vendor_name.c_str()));
+        s.write("product", product_name.empty() ? "" : headsetcontrol::wstring_to_string(product_name.c_str()));
         s.write("id_vendor", vendor_id);
         s.write("id_product", product_id);
 

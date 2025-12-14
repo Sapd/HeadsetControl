@@ -100,6 +100,10 @@ struct DeviceList {
     uint16_t product_id;
     /// Size of devices
     int num_devices;
+    /// Manufacturer name from HID device info (can be null)
+    const wchar_t* vendor_name;
+    /// Product name from HID device info (can be null)
+    const wchar_t* product_name;
 };
 
 /**

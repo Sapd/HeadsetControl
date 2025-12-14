@@ -372,6 +372,8 @@ struct DiscoveredDevice {
     uint16_t product_id = 0;
     HIDConnection connection;
     std::vector<FeatureRequest> feature_requests;
+    std::wstring vendor_name;
+    std::wstring product_name;
 
     [[nodiscard]] uint16_t vendorId() const
     {
@@ -417,7 +419,12 @@ std::vector<DiscoveredDevice> discoverDevices(const Options& opts)
 
     if (opts.test_device) {
         if (auto* test_dev = registry.getDevice(VENDOR_TESTDEVICE, PRODUCT_TESTDEVICE)) {
-            devices.push_back({ test_dev, PRODUCT_TESTDEVICE, {}, {} });
+            DiscoveredDevice dev;
+            dev.device       = test_dev;
+            dev.product_id   = PRODUCT_TESTDEVICE;
+            dev.vendor_name  = L"HeadsetControl";
+            dev.product_name = L"Test Device";
+            devices.push_back(std::move(dev));
         }
     }
 
@@ -429,7 +436,14 @@ std::vector<DiscoveredDevice> discoverDevices(const Options& opts)
 
         if (!duplicate) {
             if (auto* device = registry.getDevice(cur->vendor_id, cur->product_id)) {
-                devices.push_back({ device, cur->product_id, {}, {} });
+                DiscoveredDevice dev;
+                dev.device     = device;
+                dev.product_id = cur->product_id;
+                if (cur->manufacturer_string)
+                    dev.vendor_name = cur->manufacturer_string;
+                if (cur->product_string)
+                    dev.product_name = cur->product_string;
+                devices.push_back(std::move(dev));
             }
         }
     }
@@ -985,6 +999,8 @@ std::vector<DeviceList> toLegacyDeviceList(std::vector<DiscoveredDevice>& device
         entry.device          = devices[i].device;
         entry.product_id      = devices[i].product_id;
         entry.num_devices     = static_cast<int>(devices.size() - i);
+        entry.vendor_name     = devices[i].vendor_name.empty() ? nullptr : devices[i].vendor_name.c_str();
+        entry.product_name    = devices[i].product_name.empty() ? nullptr : devices[i].product_name.c_str();
         legacy.push_back(entry);
     }
     return legacy;

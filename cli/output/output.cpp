@@ -8,6 +8,7 @@
 #include "output.hpp"
 #include "devices/hid_device.hpp"
 #include "output_data.hpp"
+#include "string_utils.hpp"
 #include "version.h"
 
 #include <format>
@@ -56,6 +57,12 @@ constexpr std::string_view APP_NAME    = "HeadsetControl";
         dev.vendor_id   = std::format("0x{:04x}", hid_device->getVendorId());
         dev.product_id  = std::format("0x{:04x}", product_id);
         dev.device_name = hid_device->getDeviceName();
+
+        // Vendor and product names from HID enumeration
+        if (deviceList[i].vendor_name)
+            dev.vendor_name = deviceList[i].vendor_name;
+        if (deviceList[i].product_name)
+            dev.product_name = deviceList[i].product_name;
 
         // Capabilities
         int device_caps = hid_device->getCapabilities();
@@ -199,8 +206,8 @@ void outputYaml(const OutputData& data)
             s.writeListItem("status", statusToString(dev.status));
             s.pushIndent(1); // Align subsequent keys with "status" after "- "
             s.write("device", dev.device_name);
-            s.write("vendor", "");
-            s.write("product", "");
+            s.write("vendor", dev.vendor_name.empty() ? "" : headsetcontrol::wstring_to_string(dev.vendor_name.c_str()));
+            s.write("product", dev.product_name.empty() ? "" : headsetcontrol::wstring_to_string(dev.product_name.c_str()));
             s.write("id_vendor", dev.vendor_id);
             s.write("id_product", dev.product_id);
 
@@ -321,7 +328,7 @@ void outputStandard(const OutputData& data, bool print_capabilities)
 
     for (const auto& dev : data.devices) {
         if (!dev.product_name.empty()) {
-            s.println(" {} ({}) [{}:{}]", dev.device_name, "product", dev.vendor_id, dev.product_id);
+            s.println(" {} ({}) [{}:{}]", dev.device_name, headsetcontrol::wstring_to_string(dev.product_name.c_str()), dev.vendor_id, dev.product_id);
         } else {
             s.println(" {} [{}:{}]", dev.device_name, dev.vendor_id, dev.product_id);
         }
