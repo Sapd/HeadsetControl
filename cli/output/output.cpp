@@ -129,6 +129,11 @@ constexpr std::string_view APP_NAME    = "HeadsetControl";
                 } else if (req.result.status == FEATURE_ERROR) {
                     dev.errors.push_back({ capabilities_str[req.cap], req.result.message });
                     dev.status = STATUS_PARTIAL;
+                    // Populate battery with UNAVAILABLE status when device errors
+                    BatteryData bat;
+                    bat.status  = BATTERY_UNAVAILABLE;
+                    bat.level   = -1;
+                    dev.battery = bat;
                 }
             } else if (req.cap == CAP_CHATMIX_STATUS) {
                 if (req.result.status == FEATURE_SUCCESS || req.result.status == FEATURE_INFO) {

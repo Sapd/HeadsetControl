@@ -168,11 +168,8 @@ public:
             return DeviceError::protocolError("Response too short for chatmix");
         }
 
-        // Check if headset is offline
-        constexpr uint8_t HEADSET_OFFLINE = 0x00;
-        if (data[3] == HEADSET_OFFLINE) {
-            return DeviceError::deviceOffline("Headset not connected");
-        }
+        // Note: Don't check for offline here - the dongle always reports valid
+        // chatmix data even when the headset is disconnected.
 
         // Chatmix data: game volume at byte 4, chat volume at byte 5
         // Values range from 0 to 100
