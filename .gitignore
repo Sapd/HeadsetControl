@@ -4,6 +4,7 @@ lib/version.h
 .idea/
 cmake-build-debug/
 .codechecker/
+.scannerwork/
 
 .vscode/*
 *.code-workspace

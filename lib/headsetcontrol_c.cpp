@@ -23,9 +23,11 @@ struct HeadsetWrapper {
     }
 };
 
-// Cache for supported device names
+// Cache for supported device names (lazily populated on first access)
+// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables)
 std::vector<std::string> g_supported_device_names;
 bool g_supported_devices_cached = false;
+// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 
 void ensureSupportedDevicesCached()
 {
@@ -59,7 +61,8 @@ hsc_result_t toErrorCode(const headsetcontrol::DeviceError& error)
     }
 }
 
-// Version string storage
+// Version string storage (lazily initialized)
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 std::string g_version_str;
 
 } // namespace
@@ -92,9 +95,12 @@ int hsc_discover(hsc_headset_t** headsets)
     }
 
     // Create wrappers for each headset
+    // NOLINTBEGIN(cppcoreguidelines-owning-memory)
+    // Raw new/delete required: C API where caller manages lifetime via hsc_free_headsets()
     for (size_t i = 0; i < discovered.size(); i++) {
         (*headsets)[i] = new HeadsetWrapper(std::move(discovered[i]));
     }
+    // NOLINTEND(cppcoreguidelines-owning-memory)
 
     return static_cast<int>(discovered.size());
 }
@@ -105,12 +111,15 @@ void hsc_free_headsets(hsc_headset_t* headsets, int count)
         return;
     }
 
+    // NOLINTBEGIN(cppcoreguidelines-owning-memory)
+    // Raw delete required: C API paired with hsc_discover() allocation
     for (int i = 0; i < count; i++) {
         delete static_cast<HeadsetWrapper*>(headsets[i]);
     }
 
     // NOLINTNEXTLINE(bugprone-multi-level-implicit-pointer-conversion)
     free(headsets);
+    // NOLINTEND(cppcoreguidelines-owning-memory)
 }
 
 const char* hsc_version(void)

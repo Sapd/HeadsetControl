@@ -410,7 +410,7 @@ int dev_main(int argc, char* argv[])
     if (!opts->send_data.empty() && !opts->send_feature_data.empty()) {
         std::cerr << "Warning: both --send and --send-feature specified\n";
     }
-    if (opts->do_receive && opts->receive_report_id) {
+    if (opts->do_receive && opts->receive_report_id.has_value()) {
         std::cerr << "Warning: both --receive and --receive-feature specified\n";
     }
 
@@ -440,7 +440,7 @@ int dev_main(int argc, char* argv[])
             return 1;
         }
 
-        if (opts->receive_report_id && !receive_feature_report(device.get(), buffer, *opts->receive_report_id)) {
+        if (opts->receive_report_id.has_value() && !receive_feature_report(device.get(), buffer, *opts->receive_report_id)) {
             return 1;
         }
 

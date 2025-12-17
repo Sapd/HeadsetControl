@@ -455,7 +455,7 @@ private:
 
         for (auto& spec : options_) {
             // Long option
-            result.long_opts.push_back({
+            result.long_opts.emplace_back(option {
                 spec.long_name.c_str(),
                 spec.getoptArgType(),
                 nullptr,
@@ -480,7 +480,7 @@ private:
         }
 
         // Terminator
-        result.long_opts.push_back({ nullptr, 0, nullptr, 0 });
+        result.long_opts.emplace_back(option { nullptr, 0, nullptr, 0 });
 
         return result;
     }

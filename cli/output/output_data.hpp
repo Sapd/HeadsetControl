@@ -17,7 +17,7 @@
 
 namespace headsetcontrol::output {
 
-using namespace serializers;
+using serializers::Serializer;
 
 // ============================================================================
 // String Conversion Utilities
@@ -193,23 +193,23 @@ struct DeviceData {
         s.writeArray("capabilities", caps);
         s.writeArray("capabilities_str", caps_str);
 
-        if (battery) {
+        if (battery.has_value()) {
             battery->serialize(s);
         }
 
-        if (equalizer) {
+        if (equalizer.has_value()) {
             equalizer->serialize(s);
         }
 
-        if (equalizer_presets_count) {
+        if (equalizer_presets_count.has_value()) {
             s.write("equalizer_presets_count", *equalizer_presets_count);
         }
 
-        if (parametric_eq) {
+        if (parametric_eq.has_value()) {
             parametric_eq->serialize(s);
         }
 
-        if (chatmix) {
+        if (chatmix.has_value()) {
             s.write("chatmix", *chatmix);
         }
 

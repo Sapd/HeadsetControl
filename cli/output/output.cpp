@@ -50,7 +50,7 @@ void processBatteryResult(const FeatureResult& result, DeviceData& dev)
         bat.time_to_empty_min = result.battery_time_to_empty_min;
         dev.battery           = bat;
     } else if (result.status == FEATURE_ERROR) {
-        dev.errors.push_back({ capabilities_str[CAP_BATTERY_STATUS], result.message });
+        dev.errors.emplace_back(capabilities_str[CAP_BATTERY_STATUS], result.message);
         dev.status = STATUS_PARTIAL;
         // Populate battery with UNAVAILABLE status when device errors
         BatteryData bat;
@@ -66,7 +66,7 @@ void processChatmixResult(const FeatureResult& result, DeviceData& dev)
     if (result.status == FEATURE_SUCCESS || result.status == FEATURE_INFO) {
         dev.chatmix = result.value;
     } else if (result.status == FEATURE_ERROR) {
-        dev.errors.push_back({ capabilities_str[CAP_CHATMIX_STATUS], result.message });
+        dev.errors.emplace_back(capabilities_str[CAP_CHATMIX_STATUS], result.message);
         dev.status = STATUS_PARTIAL;
     }
 }
@@ -91,7 +91,7 @@ void processFeatureRequest(const FeatureRequest& req, DeviceData& dev, std::stri
         return;
 
     if (req.result.status == FEATURE_DEVICE_FAILED_OPEN) {
-        dev.errors.push_back({ capabilities_str[req.cap], req.result.message });
+        dev.errors.emplace_back(capabilities_str[req.cap], req.result.message);
         return;
     }
 
@@ -146,9 +146,9 @@ void processFeatureRequest(const FeatureRequest& req, DeviceData& dev, std::stri
         int device_caps = hid_device->getCapabilities();
         for (int j = 0; j < NUM_CAPABILITIES; ++j) {
             if (device_caps & B(j)) {
-                dev.caps.push_back(capabilities_str_enum[j]);
-                dev.caps_str.push_back(capabilities_str[j]);
-                dev.caps_enum.push_back(static_cast<enum capabilities>(j));
+                dev.caps.emplace_back(capabilities_str_enum[j]);
+                dev.caps_str.emplace_back(capabilities_str[j]);
+                dev.caps_enum.emplace_back(static_cast<enum capabilities>(j));
             }
         }
 
@@ -246,11 +246,11 @@ void outputYaml(const OutputData& data)
             s.writeArray("capabilities", dev.caps);
             s.writeArray("capabilities_str", dev.caps_str);
 
-            if (dev.battery) {
+            if (dev.battery.has_value()) {
                 dev.battery->serialize(s);
             }
 
-            if (dev.chatmix) {
+            if (dev.chatmix.has_value()) {
                 s.write("chatmix", *dev.chatmix);
             }
 
@@ -319,7 +319,7 @@ void outputEnv(const OutputData& data)
             s.write(std::format("{}_CAPABILITY_{}", prefix, j), dev.caps[j]);
         }
 
-        if (dev.battery) {
+        if (dev.battery.has_value()) {
             s.write(prefix + "_BATTERY_STATUS", batteryStatusToString(dev.battery->status));
             s.write(prefix + "_BATTERY_LEVEL", dev.battery->level);
             s.writeOptional(prefix + "_BATTERY_VOLTAGE_MV", dev.battery->voltage_mv);
@@ -327,7 +327,7 @@ void outputEnv(const OutputData& data)
             s.writeOptional(prefix + "_BATTERY_TIME_TO_EMPTY_MIN", dev.battery->time_to_empty_min);
         }
 
-        if (dev.chatmix) {
+        if (dev.chatmix.has_value()) {
             s.write(prefix + "_CHATMIX", *dev.chatmix);
         }
 
@@ -375,25 +375,25 @@ void outputStandard(const OutputData& data, bool print_capabilities)
             continue;
         }
 
-        if (dev.battery) {
+        if (dev.battery.has_value()) {
             s.println("Battery:");
             s.println("\tStatus: {}", batteryStatusToString(dev.battery->status));
             if (dev.battery->status != BATTERY_UNAVAILABLE) {
                 s.println("\tLevel: {}%", dev.battery->level);
             }
-            if (dev.battery->voltage_mv) {
+            if (dev.battery->voltage_mv.has_value()) {
                 s.println("\tVoltage: {} mV", *dev.battery->voltage_mv);
             }
-            if (dev.battery->time_to_full_min) {
+            if (dev.battery->time_to_full_min.has_value()) {
                 s.println("\tTime to Full: {} minutes", *dev.battery->time_to_full_min);
             }
-            if (dev.battery->time_to_empty_min) {
+            if (dev.battery->time_to_empty_min.has_value()) {
                 s.println("\tTime to Empty: {} minutes", *dev.battery->time_to_empty_min);
             }
             outputted = true;
         }
 
-        if (dev.chatmix) {
+        if (dev.chatmix.has_value()) {
             s.println("Chatmix: {}", *dev.chatmix);
             outputted = true;
         }
@@ -462,7 +462,7 @@ void outputShort(const OutputData& data, bool print_capabilities)
             continue;
         }
 
-        if (dev.battery) {
+        if (dev.battery.has_value()) {
             if (dev.battery->status == BATTERY_CHARGING) {
                 s.printValue(-1);
             } else if (dev.battery->status == BATTERY_UNAVAILABLE) {
@@ -470,7 +470,7 @@ void outputShort(const OutputData& data, bool print_capabilities)
             } else {
                 s.printValue(dev.battery->level);
             }
-        } else if (dev.chatmix) {
+        } else if (dev.chatmix.has_value()) {
             s.printValue(*dev.chatmix);
         }
     }

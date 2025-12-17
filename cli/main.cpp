@@ -96,6 +96,20 @@ void eprintln(std::format_string<Args...> fmt, Args&&... args)
     std::cerr << std::format(fmt, std::forward<Args>(args)...) << '\n';
 }
 
+// Convert platform bitmask to string for README table output
+[[nodiscard]] constexpr const char* platformsToTableString(uint8_t platforms)
+{
+    if (platforms == PLATFORM_ALL)
+        return " All ";
+    if (platforms == (PLATFORM_LINUX | PLATFORM_MACOS))
+        return " L/M ";
+    if (platforms == (PLATFORM_LINUX | PLATFORM_WINDOWS))
+        return " L/W ";
+    if (platforms == PLATFORM_LINUX)
+        return " L ";
+    return " ? ";
+}
+
 // ============================================================================
 // Command-line options - Clean data structure
 // ============================================================================
@@ -290,11 +304,7 @@ std::optional<cli::ParseError> configureParser(cli::ArgumentParser& parser, Opti
                     auto* device = device_ptr.get();
                     std::cout << "| " << device->getDeviceName() << " |";
                     uint8_t platforms = device->getSupportedPlatforms();
-                    const char* p = platforms == PLATFORM_ALL ? " All " : platforms == (PLATFORM_LINUX | PLATFORM_MACOS) ? " L/M "
-                        : platforms == (PLATFORM_LINUX | PLATFORM_WINDOWS)                                               ? " L/W "
-                        : platforms == PLATFORM_LINUX                                                                    ? " L "
-                                                                                                                         : " ? ";
-                    std::cout << p << "|";
+                    std::cout << platformsToTableString(platforms) << "|";
                     int caps = device->getCapabilities();
                     for (int j = 0; j < NUM_CAPABILITIES; j++) {
                         std::cout << ((caps & B(j)) ? " x " : "   ") << "|";
@@ -484,16 +494,16 @@ FeatureResult convertToFeatureResult(const headsetcontrol::FeatureOutput& output
         result.status2 = static_cast<int>(b.status);
 
         // Copy extended battery info
-        if (b.voltage_mv)
+        if (b.voltage_mv.has_value())
             result.battery_voltage_mv = b.voltage_mv;
-        if (b.time_to_full_min)
+        if (b.time_to_full_min.has_value())
             result.battery_time_to_full_min = b.time_to_full_min;
-        if (b.time_to_empty_min)
+        if (b.time_to_empty_min.has_value())
             result.battery_time_to_empty_min = b.time_to_empty_min;
     }
 
     // Handle chatmix special case
-    if (output.chatmix) {
+    if (output.chatmix.has_value()) {
         result.value = output.chatmix->level;
     }
 
@@ -582,7 +592,7 @@ namespace help {
         Section& add(char short_opt, std::string_view long_opt, ArgT&& arg,
             std::string_view desc, std::optional<capabilities> cap = std::nullopt, bool advanced = false)
         {
-            options.push_back({ short_opt, long_opt, std::string(std::forward<ArgT>(arg)), desc, cap, advanced });
+            options.emplace_back(short_opt, long_opt, std::string(std::forward<ArgT>(arg)), desc, cap, advanced);
             return *this;
         }
 
@@ -905,37 +915,37 @@ struct FeatureParamStorage {
 
     void updateFrom(const Options& opts)
     {
-        if (opts.sidetone_level)
+        if (opts.sidetone_level.has_value())
             sidetone_val = *opts.sidetone_level;
-        if (opts.lights_enabled)
+        if (opts.lights_enabled.has_value())
             lights_val = *opts.lights_enabled ? 1 : 0;
-        if (opts.notification_sound)
+        if (opts.notification_sound.has_value())
             notification_val = *opts.notification_sound;
-        if (opts.inactive_time)
+        if (opts.inactive_time.has_value())
             inactive_time_val = *opts.inactive_time;
-        if (opts.voice_prompts_enabled)
+        if (opts.voice_prompts_enabled.has_value())
             voice_prompts_val = *opts.voice_prompts_enabled ? 1 : 0;
-        if (opts.rotate_to_mute_enabled)
+        if (opts.rotate_to_mute_enabled.has_value())
             rotate_to_mute_val = *opts.rotate_to_mute_enabled ? 1 : 0;
-        if (opts.equalizer_preset)
+        if (opts.equalizer_preset.has_value())
             equalizer_preset_val = *opts.equalizer_preset;
-        if (opts.mic_mute_led_brightness)
+        if (opts.mic_mute_led_brightness.has_value())
             mic_led_val = *opts.mic_mute_led_brightness;
-        if (opts.mic_volume)
+        if (opts.mic_volume.has_value())
             mic_vol_val = *opts.mic_volume;
-        if (opts.volume_limiter_enabled)
+        if (opts.volume_limiter_enabled.has_value())
             volume_limiter_val = *opts.volume_limiter_enabled ? 1 : 0;
-        if (opts.bt_when_powered_on)
+        if (opts.bt_when_powered_on.has_value())
             bt_power_val = *opts.bt_when_powered_on ? 1 : 0;
-        if (opts.bt_call_volume)
+        if (opts.bt_call_volume.has_value())
             bt_call_vol_val = *opts.bt_call_volume;
         battery_req = opts.request_battery ? 1 : 0;
         chatmix_req = opts.request_chatmix ? 1 : 0;
 
         // Copy complex settings (avoids const_cast)
-        if (opts.equalizer)
+        if (opts.equalizer.has_value())
             equalizer_settings = *opts.equalizer;
-        if (opts.parametric_equalizer)
+        if (opts.parametric_equalizer.has_value())
             parametric_eq_settings = *opts.parametric_equalizer;
     }
 };
