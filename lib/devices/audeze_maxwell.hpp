@@ -154,7 +154,7 @@ private:
         MaxwellStatus status {};
 
         // Parse battery (from first status response)
-        auto& buff = status_buffs[0];
+        const auto& buff = status_buffs[0];
         if (buff[1] == 0x00) {
             status.battery.status        = BATTERY_UNAVAILABLE;
             status.battery.level_percent = -1;

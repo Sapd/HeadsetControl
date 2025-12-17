@@ -64,7 +64,10 @@ extern "C" void init_cpp_devices();
 
 namespace {
 
+// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables)
+// Must be non-const: modified by signal handler for graceful shutdown
 volatile sig_atomic_t g_follow_running = false;
+// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 
 // ============================================================================
 // Output helpers
@@ -433,19 +436,21 @@ std::vector<DiscoveredDevice> discoverDevices(const Options& opts)
         bool duplicate = std::any_of(devices.begin(), devices.end(), [&](const DiscoveredDevice& d) {
             return d.vendorId() == cur->vendor_id && d.product_id == cur->product_id;
         });
+        if (duplicate)
+            continue;
 
-        if (!duplicate) {
-            if (auto* device = registry.getDevice(cur->vendor_id, cur->product_id)) {
-                DiscoveredDevice dev;
-                dev.device     = device;
-                dev.product_id = cur->product_id;
-                if (cur->manufacturer_string)
-                    dev.vendor_name = cur->manufacturer_string;
-                if (cur->product_string)
-                    dev.product_name = cur->product_string;
-                devices.push_back(std::move(dev));
-            }
-        }
+        auto* device = registry.getDevice(cur->vendor_id, cur->product_id);
+        if (!device)
+            continue;
+
+        DiscoveredDevice dev;
+        dev.device     = device;
+        dev.product_id = cur->product_id;
+        if (cur->manufacturer_string)
+            dev.vendor_name = cur->manufacturer_string;
+        if (cur->product_string)
+            dev.product_name = cur->product_string;
+        devices.push_back(std::move(dev));
     }
     return devices;
 }
@@ -454,7 +459,7 @@ std::vector<DiscoveredDevice> discoverDevices(const Options& opts)
 // Feature handling
 // ============================================================================
 
-hid_device* connectForCapability(HIDConnection& conn, HIDDevice* device, uint16_t product_id, capabilities cap)
+hid_device* connectForCapability(HIDConnection& conn, const HIDDevice* device, uint16_t product_id, capabilities cap)
 {
     auto detail   = device->getCapabilityDetail(cap);
     auto hid_path = headsetcontrol::get_hid_path(device->getVendorId(), product_id, detail.interface, detail.usagepage, detail.usageid);
@@ -936,6 +941,7 @@ struct FeatureParamStorage {
 };
 
 // Global storage for feature parameters (must outlive feature requests)
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 FeatureParamStorage g_feature_params;
 
 void initializeFeatureRequests(std::vector<DiscoveredDevice>& devices, const Options& opts)
@@ -1004,6 +1010,76 @@ std::vector<DeviceList> toLegacyDeviceList(std::vector<DiscoveredDevice>& device
         legacy.push_back(entry);
     }
     return legacy;
+}
+
+// Enable info requests for extended output formats (JSON, YAML, ENV)
+void enableExtendedInfoRequests(std::vector<DiscoveredDevice>& devices, bool extended)
+{
+    if (!extended)
+        return;
+
+    for (auto& dev : devices) {
+        for (auto& req : dev.feature_requests) {
+            if (req.type == CAPABILITYTYPE_INFO && !req.should_process && dev.hasCapability(req.cap)) {
+                req.should_process = true;
+            }
+        }
+    }
+}
+
+// Mark action requests as not processable when multiple devices and no filter
+void handleMultiDeviceActions(std::vector<DiscoveredDevice>& devices, const Options& opts)
+{
+    if (devices.size() <= 1)
+        return;
+
+    for (auto& dev : devices) {
+        for (auto& req : dev.feature_requests) {
+            if (req.type != CAPABILITYTYPE_ACTION || !req.should_process)
+                continue;
+
+            if (!opts.hasDeviceFilter()) {
+                req.result.status  = FEATURE_NOT_PROCESSED;
+                req.result.message = "Multiple devices, specify with -d";
+                req.result.value   = -1;
+            } else if (!dev.matchesFilter(opts)) {
+                req.should_process = false;
+            }
+        }
+    }
+}
+
+// Process pending feature requests for all matching devices
+void processFeatureRequests(std::vector<DiscoveredDevice>& devices, const Options& opts)
+{
+    for (auto& dev : devices) {
+        if (!dev.matchesFilter(opts))
+            continue;
+
+        for (auto& req : dev.feature_requests) {
+            if (req.should_process && req.result.status == FEATURE_NOT_PROCESSED) {
+                req.result = handleFeature(dev, req.cap, req.param);
+            }
+        }
+    }
+}
+
+// Check if headset is connected by querying battery status
+bool checkDeviceConnected(DiscoveredDevice& selected, const Options& opts)
+{
+    if (!selected.hasCapability(CAP_BATTERY_STATUS))
+        return true;
+
+    bool is_test = opts.test_device && selected.vendorId() == VENDOR_TESTDEVICE;
+    if (is_test)
+        return true;
+
+    hid_device* h = connectForCapability(selected.connection, selected.device, selected.product_id, CAP_BATTERY_STATUS);
+    if (!h)
+        return false;
+
+    auto r = selected.device->getBattery(h);
+    return !r.hasError() && r.value().status == BATTERY_AVAILABLE;
 }
 
 } // anonymous namespace
@@ -1089,18 +1165,7 @@ int main(int argc, char* argv[])
             std::cerr << "Error: No device selected\n";
             return 1;
         }
-        bool connected = true;
-        if (selected->hasCapability(CAP_BATTERY_STATUS)) {
-            bool is_test  = opts.test_device && selected->vendorId() == VENDOR_TESTDEVICE;
-            hid_device* h = is_test ? nullptr : connectForCapability(selected->connection, selected->device, selected->product_id, CAP_BATTERY_STATUS);
-            if (!is_test && !h) {
-                connected = false;
-            } else {
-                auto r    = selected->device->getBattery(h);
-                connected = !r.hasError() && r.value().status == BATTERY_AVAILABLE;
-            }
-        }
-        std::cout << (connected ? "true" : "false") << '\n';
+        std::cout << (checkDeviceConnected(*selected, opts) ? "true" : "false") << '\n';
         return 0;
     }
 
@@ -1108,41 +1173,15 @@ int main(int argc, char* argv[])
     g_follow_running = opts.follow_mode;
     setupSignalHandler();
 
-    // Initialize requests
+    // Initialize and configure feature requests
     initializeFeatureRequests(devices, opts);
-
-    // Extended output enables all info requests
     bool extended = opts.output_format == OUTPUT_YAML || opts.output_format == OUTPUT_JSON || opts.output_format == OUTPUT_ENV;
-
-    for (auto& dev : devices) {
-        for (auto& req : dev.feature_requests) {
-            if (extended && req.type == CAPABILITYTYPE_INFO && !req.should_process && dev.hasCapability(req.cap)) {
-                req.should_process = true;
-            }
-            if (req.type == CAPABILITYTYPE_ACTION && req.should_process && devices.size() > 1) {
-                if (!opts.hasDeviceFilter()) {
-                    req.result.status  = FEATURE_NOT_PROCESSED;
-                    req.result.message = "Multiple devices, specify with -d";
-                    req.result.value   = -1;
-                } else if (!dev.matchesFilter(opts)) {
-                    req.should_process = false;
-                }
-            }
-        }
-    }
+    enableExtendedInfoRequests(devices, extended);
+    handleMultiDeviceActions(devices, opts);
 
     // Main loop
     do {
-        for (auto& dev : devices) {
-            if (!dev.matchesFilter(opts))
-                continue;
-            for (auto& req : dev.feature_requests) {
-                if (req.should_process && req.result.status == FEATURE_NOT_PROCESSED) {
-                    req.result = handleFeature(dev, req.cap, req.param);
-                }
-            }
-        }
-
+        processFeatureRequests(devices, opts);
         auto legacy = toLegacyDeviceList(devices);
         output(legacy.data(), opts.print_capabilities, opts.output_format);
 

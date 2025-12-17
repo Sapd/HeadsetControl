@@ -27,6 +27,84 @@ constexpr std::string_view API_VERSION = "1.4";
 constexpr std::string_view APP_NAME    = "HeadsetControl";
 
 // ============================================================================
+// Feature Request Processing Helpers
+// ============================================================================
+
+// Process battery status result and update device data
+void processBatteryResult(const FeatureResult& result, DeviceData& dev)
+{
+    if (result.status == FEATURE_SUCCESS || result.status == FEATURE_INFO) {
+        BatteryData bat;
+        if (result.status2 == BATTERY_CHARGING) {
+            bat.status = BATTERY_CHARGING;
+            bat.level  = result.value;
+        } else if (result.status2 == BATTERY_UNAVAILABLE) {
+            bat.status = BATTERY_UNAVAILABLE;
+            bat.level  = -1;
+        } else {
+            bat.status = BATTERY_AVAILABLE;
+            bat.level  = result.value;
+        }
+        bat.voltage_mv        = result.battery_voltage_mv;
+        bat.time_to_full_min  = result.battery_time_to_full_min;
+        bat.time_to_empty_min = result.battery_time_to_empty_min;
+        dev.battery           = bat;
+    } else if (result.status == FEATURE_ERROR) {
+        dev.errors.push_back({ capabilities_str[CAP_BATTERY_STATUS], result.message });
+        dev.status = STATUS_PARTIAL;
+        // Populate battery with UNAVAILABLE status when device errors
+        BatteryData bat;
+        bat.status  = BATTERY_UNAVAILABLE;
+        bat.level   = -1;
+        dev.battery = bat;
+    }
+}
+
+// Process chatmix status result and update device data
+void processChatmixResult(const FeatureResult& result, DeviceData& dev)
+{
+    if (result.status == FEATURE_SUCCESS || result.status == FEATURE_INFO) {
+        dev.chatmix = result.value;
+    } else if (result.status == FEATURE_ERROR) {
+        dev.errors.push_back({ capabilities_str[CAP_CHATMIX_STATUS], result.message });
+        dev.status = STATUS_PARTIAL;
+    }
+}
+
+// Process action capability result and add to device actions
+void processActionResult(const FeatureRequest& req, DeviceData& dev, std::string_view device_name)
+{
+    ActionData action;
+    action.capability     = capabilities_str_enum[req.cap];
+    action.capability_str = capabilities_str[req.cap];
+    action.device         = device_name;
+    action.status         = req.result.status == FEATURE_SUCCESS ? STATUS_SUCCESS : STATUS_FAILURE;
+    action.value          = req.result.value;
+    action.error_message  = req.result.message;
+    dev.actions.push_back(std::move(action));
+}
+
+// Process a single feature request and update device data
+void processFeatureRequest(const FeatureRequest& req, DeviceData& dev, std::string_view device_name)
+{
+    if (!req.should_process)
+        return;
+
+    if (req.result.status == FEATURE_DEVICE_FAILED_OPEN) {
+        dev.errors.push_back({ capabilities_str[req.cap], req.result.message });
+        return;
+    }
+
+    if (req.cap == CAP_BATTERY_STATUS) {
+        processBatteryResult(req.result, dev);
+    } else if (req.cap == CAP_CHATMIX_STATUS) {
+        processChatmixResult(req.result, dev);
+    } else if (req.type == CAPABILITYTYPE_ACTION) {
+        processActionResult(req, dev, device_name);
+    }
+}
+
+// ============================================================================
 // Data Building
 // ============================================================================
 
@@ -100,58 +178,7 @@ constexpr std::string_view APP_NAME    = "HeadsetControl";
         int req_size   = deviceList[i].size;
 
         for (int r = 0; r < req_size; ++r) {
-            auto& req = requests[r];
-            if (!req.should_process)
-                continue;
-
-            if (req.result.status == FEATURE_DEVICE_FAILED_OPEN) {
-                dev.errors.push_back({ capabilities_str[req.cap], req.result.message });
-                continue;
-            }
-
-            if (req.cap == CAP_BATTERY_STATUS) {
-                if (req.result.status == FEATURE_SUCCESS || req.result.status == FEATURE_INFO) {
-                    BatteryData bat;
-                    if (req.result.status2 == BATTERY_CHARGING) {
-                        bat.status = BATTERY_CHARGING;
-                        bat.level  = req.result.value;
-                    } else if (req.result.status2 == BATTERY_UNAVAILABLE) {
-                        bat.status = BATTERY_UNAVAILABLE;
-                        bat.level  = -1;
-                    } else {
-                        bat.status = BATTERY_AVAILABLE;
-                        bat.level  = req.result.value;
-                    }
-                    bat.voltage_mv        = req.result.battery_voltage_mv;
-                    bat.time_to_full_min  = req.result.battery_time_to_full_min;
-                    bat.time_to_empty_min = req.result.battery_time_to_empty_min;
-                    dev.battery           = bat;
-                } else if (req.result.status == FEATURE_ERROR) {
-                    dev.errors.push_back({ capabilities_str[req.cap], req.result.message });
-                    dev.status = STATUS_PARTIAL;
-                    // Populate battery with UNAVAILABLE status when device errors
-                    BatteryData bat;
-                    bat.status  = BATTERY_UNAVAILABLE;
-                    bat.level   = -1;
-                    dev.battery = bat;
-                }
-            } else if (req.cap == CAP_CHATMIX_STATUS) {
-                if (req.result.status == FEATURE_SUCCESS || req.result.status == FEATURE_INFO) {
-                    dev.chatmix = req.result.value;
-                } else if (req.result.status == FEATURE_ERROR) {
-                    dev.errors.push_back({ capabilities_str[req.cap], req.result.message });
-                    dev.status = STATUS_PARTIAL;
-                }
-            } else if (req.type == CAPABILITYTYPE_ACTION) {
-                ActionData action;
-                action.capability     = capabilities_str_enum[req.cap];
-                action.capability_str = capabilities_str[req.cap];
-                action.device         = hid_device->getDeviceName();
-                action.status         = req.result.status == FEATURE_SUCCESS ? STATUS_SUCCESS : STATUS_FAILURE;
-                action.value          = req.result.value;
-                action.error_message  = req.result.message;
-                dev.actions.push_back(std::move(action));
-            }
+            processFeatureRequest(requests[r], dev, hid_device->getDeviceName());
         }
 
         data.devices.push_back(std::move(dev));

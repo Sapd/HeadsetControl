@@ -306,6 +306,10 @@ int dev_main(int argc, char* argv[])
     if (print_deviceinfo)
         print_devices(vendorid, productid);
 
+    // Declare these before goto to avoid jumping over initializations (C++ requirement)
+    char* hid_path            = NULL;
+    hid_device* device_handle = NULL;
+
     if (!(send || send_feature || receive || receivereport))
         goto cleanup;
 
@@ -314,8 +318,7 @@ int dev_main(int argc, char* argv[])
         return 1;
     }
 
-    char* hid_path            = get_hid_path(vendorid, productid, interfaceid, usagepage, usageid);
-    hid_device* device_handle = NULL;
+    hid_path = get_hid_path(vendorid, productid, interfaceid, usagepage, usageid);
 
     if (hid_path == NULL) {
         fprintf(stderr, "Could not find a device with this parameters:\n");
@@ -340,7 +343,7 @@ int dev_main(int argc, char* argv[])
 
     do {
         if (send) {
-            int ret = hid_write(device_handle, (const unsigned char*)sendbuffer, send);
+            int ret = hid_write(device_handle, sendbuffer, send);
 
             if (ret < 0) {
                 fprintf(stderr, "Failed to send data. Error: %d: %ls\n", ret, hid_error(device_handle));
@@ -350,7 +353,7 @@ int dev_main(int argc, char* argv[])
         }
 
         if (send_feature) {
-            int ret = hid_send_feature_report(device_handle, (const unsigned char*)sendreportbuffer, send_feature);
+            int ret = hid_send_feature_report(device_handle, sendreportbuffer, send_feature);
 
             if (ret < 0) {
                 fprintf(stderr, "Failed to send data. Error: %d: %ls\n", ret, hid_error(device_handle));

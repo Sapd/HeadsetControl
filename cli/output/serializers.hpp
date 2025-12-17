@@ -253,6 +253,7 @@ public:
         out_ << "---\n";
     }
 
+    // YAML documents end implicitly - no closing syntax needed
     void endDocument() override { }
 
     void beginObject(std::string_view name) override
@@ -448,6 +449,7 @@ public:
     {
     }
 
+    // ENV format is flat key=value pairs - no document/object/array structure
     void beginDocument() override { }
     void endDocument() override { }
     void beginObject(std::string_view) override { }
@@ -470,6 +472,7 @@ public:
         out_ << std::format("{}={}\n", formatKey(key), value);
     }
 
+    // Array items not supported in ENV format - use indexed keys instead
     void writeArrayItem(std::string_view) override { }
     void writeArrayItem(int) override { }
     void writeArrayItem(double) override { }
