@@ -43,6 +43,32 @@ struct ParseError {
 };
 
 // ============================================================================
+// Integer parsing helper
+// ============================================================================
+
+template <std::integral T>
+[[nodiscard]] std::optional<ParseError> parseInteger(
+    std::string_view arg, T& out, T min_val, T max_val, std::string_view option_name)
+{
+    long val       = 0;
+    auto [ptr, ec] = std::from_chars(arg.data(), arg.data() + arg.size(), val);
+
+    if (ec != std::errc {} || ptr != arg.data() + arg.size()) {
+        return ParseError { std::format("invalid number '{}'", arg), std::string(option_name) };
+    }
+
+    if (val < static_cast<long>(min_val) || val > static_cast<long>(max_val)) {
+        return ParseError {
+            std::format("value {} out of range [{}, {}]", val, min_val, max_val),
+            std::string(option_name)
+        };
+    }
+
+    out = static_cast<T>(val);
+    return std::nullopt;
+}
+
+// ============================================================================
 // Option argument requirements
 // ============================================================================
 
@@ -152,22 +178,11 @@ public:
                 if (!arg || arg->empty()) {
                     return ParseError { "requires a value", std::string(long_name) };
                 }
-
-                long val       = 0;
-                auto [ptr, ec] = std::from_chars(arg->data(), arg->data() + arg->size(), val);
-
-                if (ec != std::errc {} || ptr != arg->data() + arg->size()) {
-                    return ParseError { std::format("invalid number '{}'", *arg), std::string(long_name) };
+                T parsed_value {};
+                if (auto err = parseInteger(*arg, parsed_value, min_val, max_val, long_name)) {
+                    return err;
                 }
-
-                if (val < static_cast<long>(min_val) || val > static_cast<long>(max_val)) {
-                    return ParseError {
-                        std::format("value {} out of range [{}, {}]", val, min_val, max_val),
-                        std::string(long_name)
-                    };
-                }
-
-                target = static_cast<T>(val);
+                target = parsed_value;
                 return std::nullopt;
             }),
         });
@@ -267,22 +282,7 @@ public:
                     return std::nullopt;
                 }
 
-                long val       = 0;
-                auto [ptr, ec] = std::from_chars(arg->data(), arg->data() + arg->size(), val);
-
-                if (ec != std::errc {} || ptr != arg->data() + arg->size()) {
-                    return ParseError { std::format("invalid number '{}'", *arg), std::string(long_name) };
-                }
-
-                if (val < static_cast<long>(min_val) || val > static_cast<long>(max_val)) {
-                    return ParseError {
-                        std::format("value {} out of range [{}, {}]", val, min_val, max_val),
-                        std::string(long_name)
-                    };
-                }
-
-                value_target = static_cast<T>(val);
-                return std::nullopt;
+                return parseInteger(*arg, value_target, min_val, max_val, long_name);
             }),
         });
         return *this;
