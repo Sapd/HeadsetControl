@@ -119,7 +119,7 @@ void testJsonBackslashEscaping()
 
     std::string result = out.str();
 
-    // Backslashes should be escaped as \\
+    // Backslashes should be escaped (\ becomes \\)
     ASSERT_CONTAINS(result, "C:\\\\Users\\\\Test\\\\file.txt", "Backslashes should be escaped");
 
     std::cout << "    OK JSON backslash escaping" << std::endl;
