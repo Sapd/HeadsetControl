@@ -347,7 +347,7 @@ template <typename T, std::size_t N>
 [[nodiscard]] constexpr capability_detail makeCapabilityDetail(
     uint16_t usagepage, uint16_t usageid, int iface)
 {
-    return { .usagepage = usagepage, .usageid = usageid, .interface = iface };
+    return { .usagepage = usagepage, .usageid = usageid, .interface_id = iface };
 }
 
 // ============================================================================

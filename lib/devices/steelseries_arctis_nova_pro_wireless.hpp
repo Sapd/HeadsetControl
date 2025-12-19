@@ -51,7 +51,7 @@ public:
 
     constexpr capability_detail getCapabilityDetail([[maybe_unused]] enum capabilities cap) const override
     {
-        return { .interface = 4 };
+        return { .interface_id = 4 };
     }
 
     std::optional<EqualizerInfo> getEqualizerInfo() const override

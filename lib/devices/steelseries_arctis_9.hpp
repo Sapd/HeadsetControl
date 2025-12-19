@@ -48,7 +48,7 @@ public:
 
     constexpr capability_detail getCapabilityDetail([[maybe_unused]] enum capabilities cap) const override
     {
-        return { .interface = 0 };
+        return { .interface_id = 0 };
     }
 
     // Override save state for Arctis 9

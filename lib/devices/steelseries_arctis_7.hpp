@@ -54,7 +54,7 @@ public:
         case CAP_INACTIVE_TIME:
         case CAP_CHATMIX_STATUS:
         case CAP_LIGHTS:
-            return { .interface = 0x05 };
+            return { .interface_id = 0x05 };
         default:
             return HIDDevice::getCapabilityDetail(cap);
         }

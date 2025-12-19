@@ -51,7 +51,7 @@ public:
     constexpr capability_detail getCapabilityDetail(enum capabilities cap) const override
     {
         if (cap == CAP_BATTERY_STATUS) {
-            return { .usagepage = 0xFF90, .usageid = 0x0303, .interface = 0 };
+            return { .usagepage = 0xFF90, .usageid = 0x0303, .interface_id = 0 };
         }
         return HIDDevice::getCapabilityDetail(cap);
     }

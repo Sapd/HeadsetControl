@@ -472,7 +472,7 @@ std::vector<DiscoveredDevice> discoverDevices(const Options& opts)
 hid_device* connectForCapability(HIDConnection& conn, const HIDDevice* device, uint16_t product_id, capabilities cap)
 {
     auto detail   = device->getCapabilityDetail(cap);
-    auto hid_path = headsetcontrol::get_hid_path(device->getVendorId(), product_id, detail.interface, detail.usagepage, detail.usageid);
+    auto hid_path = headsetcontrol::get_hid_path(device->getVendorId(), product_id, detail.interface_id, detail.usagepage, detail.usageid);
     if (!hid_path)
         return nullptr;
 

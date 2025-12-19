@@ -70,7 +70,7 @@ public:
     virtual constexpr capability_detail getCapabilityDetail([[maybe_unused]] enum capabilities cap) const
     {
         // Default: interface 0, no usage page/id (C++20 designated initializers)
-        return { .usagepage = 0, .usageid = 0, .interface = 0 };
+        return { .usagepage = 0, .usageid = 0, .interface_id = 0 };
     }
 
     /**

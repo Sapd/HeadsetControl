@@ -64,7 +64,7 @@ public:
         case CAP_EQUALIZER:
         case CAP_MICROPHONE_MUTE_LED_BRIGHTNESS:
         case CAP_MICROPHONE_VOLUME:
-            return { .usagepage = 0xffc0, .usageid = 0x1, .interface = 4 };
+            return { .usagepage = 0xffc0, .usageid = 0x1, .interface_id = 4 };
         default:
             return HIDDevice::getCapabilityDetail(cap);
         }

@@ -150,8 +150,8 @@ public:
     constexpr capability_detail getCapabilityDetail(enum capabilities cap) const override
     {
         // usagepage and usageid are Windows-specific (0 = use interface)
-        // interface: which HID interface to use (0 = first enumerated)
-        return { .usagepage = 0, .usageid = 0, .interface = 3 };
+        // interface_id: which HID interface to use (0 = first enumerated)
+        return { .usagepage = 0, .usageid = 0, .interface_id = 3 };
     }
 
     // Implement the features your device supports...

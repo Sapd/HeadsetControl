@@ -95,7 +95,7 @@ public:
     constexpr capability_detail getCapabilityDetail([[maybe_unused]] enum capabilities cap) const override
     {
         // All capabilities use interface 3
-        return { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
+        return { .usagepage = 0xffc0, .usageid = 0x1, .interface_id = 3 };
     }
 
     std::optional<EqualizerInfo> getEqualizerInfo() const override

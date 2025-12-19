@@ -49,13 +49,13 @@ public:
     {
         switch (cap) {
         case CAP_SIDETONE:
-            return { .usagepage = 0xff00, .usageid = 0x1, .interface = 0 };
+            return { .usagepage = 0xff00, .usageid = 0x1, .interface_id = 0 };
         case CAP_BATTERY_STATUS:
-            return { .usagepage = 0xffc5, .usageid = 0x1, .interface = 3 };
+            return { .usagepage = 0xffc5, .usageid = 0x1, .interface_id = 3 };
         case CAP_NOTIFICATION_SOUND:
-            return { .usagepage = 0xffc5, .usageid = 0x1, .interface = 3 };
+            return { .usagepage = 0xffc5, .usageid = 0x1, .interface_id = 3 };
         case CAP_LIGHTS:
-            return { .usagepage = 0xffc5, .usageid = 0x1, .interface = 3 };
+            return { .usagepage = 0xffc5, .usageid = 0x1, .interface_id = 3 };
         default:
             return HIDDevice::getCapabilityDetail(cap);
         }

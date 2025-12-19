@@ -49,7 +49,7 @@ public:
         case CAP_SIDETONE:
         case CAP_BATTERY_STATUS:
         case CAP_INACTIVE_TIME:
-            return { .usagepage = 0xff43, .usageid = 0x202, .interface = 0x03 };
+            return { .usagepage = 0xff43, .usageid = 0x202, .interface_id = 0x03 };
         default:
             return HIDDevice::getCapabilityDetail(cap);
         }

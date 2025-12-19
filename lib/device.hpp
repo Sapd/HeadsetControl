@@ -85,7 +85,8 @@ struct capability_detail {
     // HID Protocol specific
     uint16_t usageid;
     /// Interface ID - zero means first enumerated interface!
-    int interface;
+    // Note: named interface_id because 'interface' is a macro on Windows (COM compatibility)
+    int interface_id;
 };
 
 /** @brief Flags for battery status

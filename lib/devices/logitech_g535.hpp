@@ -41,11 +41,11 @@ public:
     {
         switch (cap) {
         case CAP_SIDETONE:
-            return { .usagepage = 0xc, .usageid = 0x1, .interface = 3 };
+            return { .usagepage = 0xc, .usageid = 0x1, .interface_id = 3 };
         case CAP_BATTERY_STATUS:
-            return { .usagepage = 0xc, .usageid = 0x1, .interface = 3 };
+            return { .usagepage = 0xc, .usageid = 0x1, .interface_id = 3 };
         case CAP_INACTIVE_TIME:
-            return { .usagepage = 0xc, .usageid = 0x1, .interface = 3 };
+            return { .usagepage = 0xc, .usageid = 0x1, .interface_id = 3 };
         default:
             return HIDDevice::getCapabilityDetail(cap);
         }

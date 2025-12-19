@@ -105,7 +105,7 @@ public:
 
         // Create cache key from connection parameters
         // Cast interface to uint32_t first to avoid UB with negative values
-        uint64_t key = (static_cast<uint64_t>(static_cast<uint32_t>(detail.interface)) << 32)
+        uint64_t key = (static_cast<uint64_t>(static_cast<uint32_t>(detail.interface_id)) << 32)
             | (static_cast<uint64_t>(detail.usagepage) << 16)
             | detail.usageid;
 
@@ -117,7 +117,7 @@ public:
 
         // Open new connection
         auto path = get_hid_path(device_->getVendorId(), product_id_,
-            detail.interface, detail.usagepage, detail.usageid);
+            detail.interface_id, detail.usagepage, detail.usageid);
 
         if (!path) {
             return nullptr;
