@@ -292,7 +292,7 @@ std::optional<cli::ParseError> configureParser(cli::ArgumentParser& parser, Opti
                 // Print table (inline for simplicity)
                 std::cout << "| Device | Platform |";
                 for (int j = 0; j < NUM_CAPABILITIES; j++) {
-                    std::cout << " " << capabilities_str[j] << " |";
+                    std::cout << " " << capability_to_string(static_cast<capabilities>(j)) << " |";
                 }
                 std::cout << "\n| --- | --- |";
                 for (int j = 0; j < NUM_CAPABILITIES; j++) {
@@ -740,7 +740,7 @@ namespace help {
                 if (include) {
                     if (!types.empty())
                         types += ", ";
-                    types += equalizer_filter_type_str[i];
+                    types += equalizer_filter_type_to_string(static_cast<EqualizerFilterType>(i));
                 }
             }
 

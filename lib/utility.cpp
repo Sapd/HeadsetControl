@@ -231,7 +231,7 @@ std::optional<std::pair<int, int>> parse_two_ids(std::string_view input)
 static std::optional<EqualizerFilterType> parse_eq_filter_type(std::string_view input)
 {
     for (int i = 0; i < NUM_EQ_FILTER_TYPES; i++) {
-        if (input == equalizer_filter_type_str[i]) {
+        if (input == equalizer_filter_type_to_string(static_cast<EqualizerFilterType>(i))) {
             return static_cast<EqualizerFilterType>(i);
         }
     }

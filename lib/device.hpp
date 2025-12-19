@@ -28,40 +28,55 @@
 /// global read timeout in millisecounds
 extern int hsc_device_timeout;
 
-/** @brief A list of all features settable/queryable
- *         for headsets
+/** @brief X-macro defining all capabilities
  *
- *  B(CAP_X) converts them to a bitmask value
+ * Format: X(enum_id, human_readable_name, short_char)
+ * - enum_id: The enum constant name (e.g., CAP_SIDETONE)
+ * - human_readable_name: Display name for users
+ * - short_char: Single character for deprecated short output ('\0' if none)
+ *
+ * To add a new capability, add a single X() entry here.
+ * The enum, string functions, and short char are all generated automatically.
+ */
+#define CAPABILITIES_XLIST \
+    X(CAP_SIDETONE,                       "sidetone",                       's')  \
+    X(CAP_BATTERY_STATUS,                 "battery",                        'b')  \
+    X(CAP_NOTIFICATION_SOUND,             "notification sound",             'n')  \
+    X(CAP_LIGHTS,                         "lights",                         'l')  \
+    X(CAP_INACTIVE_TIME,                  "inactive time",                  'i')  \
+    X(CAP_CHATMIX_STATUS,                 "chatmix",                        'm')  \
+    X(CAP_VOICE_PROMPTS,                  "voice prompts",                  'v')  \
+    X(CAP_ROTATE_TO_MUTE,                 "rotate to mute",                 'r')  \
+    X(CAP_EQUALIZER_PRESET,               "equalizer preset",               'p')  \
+    X(CAP_EQUALIZER,                      "equalizer",                      'e')  \
+    X(CAP_PARAMETRIC_EQUALIZER,           "parametric equalizer",           'q')  \
+    X(CAP_MICROPHONE_MUTE_LED_BRIGHTNESS, "microphone mute led brightness", 't')  \
+    X(CAP_MICROPHONE_VOLUME,              "microphone volume",              'o')  \
+    X(CAP_VOLUME_LIMITER,                 "volume limiter",                 '\0') \
+    X(CAP_BT_WHEN_POWERED_ON,             "bluetooth when powered on",      '\0') \
+    X(CAP_BT_CALL_VOLUME,                 "bluetooth call volume",          '\0')
+
+/** @brief A list of all features settable/queryable for headsets
+ *
+ *  B(CAP_X) converts them to a bitmask value.
+ *  Generated from CAPABILITIES_XLIST.
  */
 enum capabilities {
-    CAP_SIDETONE = 0,
-    CAP_BATTERY_STATUS,
-    CAP_NOTIFICATION_SOUND,
-    CAP_LIGHTS,
-    CAP_INACTIVE_TIME,
-    CAP_CHATMIX_STATUS,
-    CAP_VOICE_PROMPTS,
-    CAP_ROTATE_TO_MUTE,
-    CAP_EQUALIZER_PRESET,
-    CAP_EQUALIZER,
-    CAP_PARAMETRIC_EQUALIZER,
-    CAP_MICROPHONE_MUTE_LED_BRIGHTNESS,
-    CAP_MICROPHONE_VOLUME,
-    CAP_VOLUME_LIMITER,
-    CAP_BT_WHEN_POWERED_ON,
-    CAP_BT_CALL_VOLUME,
+#define X(id, name, short_char) id,
+    CAPABILITIES_XLIST
+#undef X
     NUM_CAPABILITIES
 };
 
 enum capabilitytype { CAPABILITYTYPE_ACTION,
     CAPABILITYTYPE_INFO };
 
-/// Long name of every capability
-extern const char* const capabilities_str[NUM_CAPABILITIES];
-/// Short name of every capability (deprecated)
-extern const char capabilities_str_short[NUM_CAPABILITIES];
-/// Enum name of every capability
-extern const char* const capabilities_str_enum[NUM_CAPABILITIES];
+/// Get human-readable name of a capability
+const char* capability_to_string(capabilities cap);
+/// Get enum name as string (deprecated short output)
+char capability_to_short_char(capabilities cap);
+/// Get enum name as string
+const char* capability_to_enum_string(capabilities cap);
 
 struct capability_detail {
     // Usage page, only used when usageid is not 0; HID Protocol specific
@@ -198,8 +213,8 @@ enum class EqualizerFilterType {
 /// Number of filter types
 constexpr int NUM_EQ_FILTER_TYPES = static_cast<int>(EqualizerFilterType::Count);
 
-/// Enum name of every parametric equalizer filter type
-extern const char* const equalizer_filter_type_str[NUM_EQ_FILTER_TYPES];
+/// Get string name of equalizer filter type
+const char* equalizer_filter_type_to_string(EqualizerFilterType type);
 
 /** @brief Defines a single parametric equalizer band
  */

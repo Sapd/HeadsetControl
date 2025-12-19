@@ -1,74 +1,54 @@
 #include "device.hpp"
 
-// Order must match capabilities enum in device.hpp
-const char* const capabilities_str[NUM_CAPABILITIES] = {
-    "sidetone",                      // CAP_SIDETONE
-    "battery",                       // CAP_BATTERY_STATUS
-    "notification sound",            // CAP_NOTIFICATION_SOUND
-    "lights",                        // CAP_LIGHTS
-    "inactive time",                 // CAP_INACTIVE_TIME
-    "chatmix",                       // CAP_CHATMIX_STATUS
-    "voice prompts",                 // CAP_VOICE_PROMPTS
-    "rotate to mute",                // CAP_ROTATE_TO_MUTE
-    "equalizer preset",              // CAP_EQUALIZER_PRESET
-    "equalizer",                     // CAP_EQUALIZER
-    "parametric equalizer",          // CAP_PARAMETRIC_EQUALIZER
-    "microphone mute led brightness", // CAP_MICROPHONE_MUTE_LED_BRIGHTNESS
-    "microphone volume",             // CAP_MICROPHONE_VOLUME
-    "volume limiter",                // CAP_VOLUME_LIMITER
-    "bluetooth when powered on",     // CAP_BT_WHEN_POWERED_ON
-    "bluetooth call volume"          // CAP_BT_CALL_VOLUME
-};
+// All three functions generated from CAPABILITIES_XLIST (defined in device.hpp)
+// Adding a new capability only requires adding one X() entry to the list.
 
-// Order must match capabilities enum in device.hpp
-const char* const capabilities_str_enum[NUM_CAPABILITIES] = {
-    "CAP_SIDETONE",                       // CAP_SIDETONE
-    "CAP_BATTERY_STATUS",                 // CAP_BATTERY_STATUS
-    "CAP_NOTIFICATION_SOUND",             // CAP_NOTIFICATION_SOUND
-    "CAP_LIGHTS",                         // CAP_LIGHTS
-    "CAP_INACTIVE_TIME",                  // CAP_INACTIVE_TIME
-    "CAP_CHATMIX_STATUS",                 // CAP_CHATMIX_STATUS
-    "CAP_VOICE_PROMPTS",                  // CAP_VOICE_PROMPTS
-    "CAP_ROTATE_TO_MUTE",                 // CAP_ROTATE_TO_MUTE
-    "CAP_EQUALIZER_PRESET",               // CAP_EQUALIZER_PRESET
-    "CAP_EQUALIZER",                      // CAP_EQUALIZER
-    "CAP_PARAMETRIC_EQUALIZER",           // CAP_PARAMETRIC_EQUALIZER
-    "CAP_MICROPHONE_MUTE_LED_BRIGHTNESS", // CAP_MICROPHONE_MUTE_LED_BRIGHTNESS
-    "CAP_MICROPHONE_VOLUME",              // CAP_MICROPHONE_VOLUME
-    "CAP_VOLUME_LIMITER",                 // CAP_VOLUME_LIMITER
-    "CAP_BT_WHEN_POWERED_ON",             // CAP_BT_WHEN_POWERED_ON
-    "CAP_BT_CALL_VOLUME"                  // CAP_BT_CALL_VOLUME
-};
+const char* capability_to_string(capabilities cap)
+{
+    switch (cap) {
+#define X(id, name, short_char) case id: return name;
+    CAPABILITIES_XLIST
+#undef X
+    case NUM_CAPABILITIES: break;
+    }
+    return "unknown";
+}
 
-// Order must match capabilities enum in device.hpp
-const char capabilities_str_short[NUM_CAPABILITIES] = {
-    's',  // CAP_SIDETONE
-    'b',  // CAP_BATTERY_STATUS
-    'n',  // CAP_NOTIFICATION_SOUND
-    'l',  // CAP_LIGHTS
-    'i',  // CAP_INACTIVE_TIME
-    'm',  // CAP_CHATMIX_STATUS
-    'v',  // CAP_VOICE_PROMPTS
-    'r',  // CAP_ROTATE_TO_MUTE
-    'p',  // CAP_EQUALIZER_PRESET
-    'e',  // CAP_EQUALIZER
-    'q',  // CAP_PARAMETRIC_EQUALIZER
-    't',  // CAP_MICROPHONE_MUTE_LED_BRIGHTNESS
-    'o',  // CAP_MICROPHONE_VOLUME
-    '\0', // CAP_VOLUME_LIMITER (new capabilities since short output was deprecated)
-    '\0', // CAP_BT_WHEN_POWERED_ON
-    '\0'  // CAP_BT_CALL_VOLUME
-};
+const char* capability_to_enum_string(capabilities cap)
+{
+    switch (cap) {
+#define X(id, name, short_char) case id: return #id;
+    CAPABILITIES_XLIST
+#undef X
+    case NUM_CAPABILITIES: break;
+    }
+    return "UNKNOWN";
+}
 
-const char* const equalizer_filter_type_str[NUM_EQ_FILTER_TYPES]
-    = {
-          "lowshelf", // LowShelf
-          "lowpass", // LowPass
-          "peaking", // Peaking
-          "highpass", // HighPass
-          "highshelf", // HighShelf
-          "notch" // Notch
-      };
+char capability_to_short_char(capabilities cap)
+{
+    switch (cap) {
+#define X(id, name, short_char) case id: return short_char;
+    CAPABILITIES_XLIST
+#undef X
+    case NUM_CAPABILITIES: break;
+    }
+    return '\0';
+}
+
+const char* equalizer_filter_type_to_string(EqualizerFilterType type)
+{
+    switch (type) {
+    case EqualizerFilterType::LowShelf: return "lowshelf";
+    case EqualizerFilterType::LowPass: return "lowpass";
+    case EqualizerFilterType::Peaking: return "peaking";
+    case EqualizerFilterType::HighPass: return "highpass";
+    case EqualizerFilterType::HighShelf: return "highshelf";
+    case EqualizerFilterType::Notch: return "notch";
+    case EqualizerFilterType::Count: break;
+    }
+    return "unknown";
+}
 
 bool has_capability(int capability_mask, capabilities cap)
 {

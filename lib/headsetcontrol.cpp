@@ -193,7 +193,7 @@ std::vector<std::string_view> Headset::capabilityNames() const
 
     for (int i = 0; i < NUM_CAPABILITIES; i++) {
         if (caps & B(i)) {
-            names.push_back(capabilities_str[i]);
+            names.push_back(capability_to_string(static_cast<capabilities>(i)));
         }
     }
 

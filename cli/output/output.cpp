@@ -50,7 +50,7 @@ void processBatteryResult(const FeatureResult& result, DeviceData& dev)
         bat.time_to_empty_min = result.battery_time_to_empty_min;
         dev.battery           = bat;
     } else if (result.status == FEATURE_ERROR) {
-        dev.errors.emplace_back(capabilities_str[CAP_BATTERY_STATUS], result.message);
+        dev.errors.emplace_back(capability_to_string(CAP_BATTERY_STATUS), result.message);
         dev.status = STATUS_PARTIAL;
         // Populate battery with UNAVAILABLE status when device errors
         BatteryData bat;
@@ -66,7 +66,7 @@ void processChatmixResult(const FeatureResult& result, DeviceData& dev)
     if (result.status == FEATURE_SUCCESS || result.status == FEATURE_INFO) {
         dev.chatmix = result.value;
     } else if (result.status == FEATURE_ERROR) {
-        dev.errors.emplace_back(capabilities_str[CAP_CHATMIX_STATUS], result.message);
+        dev.errors.emplace_back(capability_to_string(CAP_CHATMIX_STATUS), result.message);
         dev.status = STATUS_PARTIAL;
     }
 }
@@ -75,8 +75,8 @@ void processChatmixResult(const FeatureResult& result, DeviceData& dev)
 void processActionResult(const FeatureRequest& req, DeviceData& dev, std::string_view device_name)
 {
     ActionData action;
-    action.capability     = capabilities_str_enum[req.cap];
-    action.capability_str = capabilities_str[req.cap];
+    action.capability     = capability_to_enum_string(req.cap);
+    action.capability_str = capability_to_string(req.cap);
     action.device         = device_name;
     action.status         = req.result.status == FEATURE_SUCCESS ? STATUS_SUCCESS : STATUS_FAILURE;
     action.value          = req.result.value;
@@ -91,7 +91,7 @@ void processFeatureRequest(const FeatureRequest& req, DeviceData& dev, std::stri
         return;
 
     if (req.result.status == FEATURE_DEVICE_FAILED_OPEN) {
-        dev.errors.emplace_back(capabilities_str[req.cap], req.result.message);
+        dev.errors.emplace_back(capability_to_string(req.cap), req.result.message);
         return;
     }
 
@@ -146,8 +146,8 @@ void processFeatureRequest(const FeatureRequest& req, DeviceData& dev, std::stri
         int device_caps = hid_device->getCapabilities();
         for (int j = 0; j < NUM_CAPABILITIES; ++j) {
             if (device_caps & B(j)) {
-                dev.caps.emplace_back(capabilities_str_enum[j]);
-                dev.caps_str.emplace_back(capabilities_str[j]);
+                dev.caps.emplace_back(capability_to_enum_string(static_cast<capabilities>(j)));
+                dev.caps_str.emplace_back(capability_to_string(static_cast<capabilities>(j)));
                 dev.caps_enum.emplace_back(static_cast<enum capabilities>(j));
             }
         }
@@ -457,7 +457,7 @@ void outputShort(const OutputData& data, bool print_capabilities)
 
         if (print_capabilities) {
             for (auto cap : dev.caps_enum) {
-                s.printChar(capabilities_str_short[cap]);
+                s.printChar(capability_to_short_char(cap));
             }
             continue;
         }

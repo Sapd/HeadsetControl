@@ -189,7 +189,7 @@ public:
         CapabilityInfo info {
             .capability  = cap,
             .supported   = (getCapabilities() & B(cap)) != 0,
-            .description = capabilities_str[cap],
+            .description = capability_to_string(cap),
             .hid_details = getCapabilityDetail(cap)
         };
 
