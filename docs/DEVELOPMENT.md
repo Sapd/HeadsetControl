@@ -157,15 +157,21 @@ public:
 
 ### Capability System
 
-Capabilities are defined in `lib/device.hpp`:
+Capabilities are defined in `lib/device.hpp` using an X-macro pattern:
 
 ```cpp
-enum capabilities {
-    CAP_SIDETONE,
-    CAP_BATTERY_STATUS,
-    CAP_LIGHTS,
-    CAP_INACTIVE_TIME,
+// Single source of truth - add one line to add a capability
+#define CAPABILITIES_XLIST \
+    X(CAP_SIDETONE,        "sidetone",        's')  \
+    X(CAP_BATTERY_STATUS,  "battery",         'b')  \
+    X(CAP_LIGHTS,          "lights",          'l')  \
     // ... more capabilities
+
+// Enum is auto-generated from CAPABILITIES_XLIST
+enum capabilities {
+#define X(id, name, short_char) id,
+    CAPABILITIES_XLIST
+#undef X
     NUM_CAPABILITIES
 };
 
@@ -189,7 +195,7 @@ Quick overview:
 See **[ADDING_A_CAPABILITY.md](ADDING_A_CAPABILITY.md)** for a complete step-by-step guide.
 
 Quick overview:
-1. Add capability enum in `lib/device.hpp`
+1. Add to `CAPABILITIES_XLIST` in `lib/device.hpp` (enum + strings auto-generated)
 2. Add descriptor in `lib/capability_descriptors.hpp`
 3. Add result type in `lib/result_types.hpp`
 4. Add virtual method in `lib/devices/hid_device.hpp`

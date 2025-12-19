@@ -6,7 +6,7 @@ This guide explains how to add a new capability (feature) to HeadsetControl.
 
 A capability is a feature like sidetone, battery status, or LED control. Adding one involves:
 
-1. Define the capability enum and string
+1. Add to CAPABILITIES_XLIST (enum + strings auto-generated)
 2. Add metadata (CLI flags, description, value range)
 3. Create a result type
 4. Add the virtual method to HIDDevice base class
@@ -18,7 +18,7 @@ A capability is a feature like sidetone, battery status, or LED control. Adding 
 
 | File | Purpose |
 |------|---------|
-| `lib/device.hpp` | Capability enum and string name |
+| `lib/device.hpp` | Add to CAPABILITIES_XLIST (generates enum + strings) |
 | `lib/capability_descriptors.hpp` | CLI metadata (flags, description, validation) |
 | `lib/result_types.hpp` | Result struct for the feature |
 | `lib/devices/hid_device.hpp` | Virtual method in base class |
@@ -28,25 +28,19 @@ A capability is a feature like sidetone, battery status, or LED control. Adding 
 
 ## Step-by-Step Guide
 
-### 1. Add Capability Enum (`lib/device.hpp`)
+### 1. Add Capability to X-Macro (`lib/device.hpp`)
+
+Add a single line to `CAPABILITIES_XLIST`. The enum, string name, and short char are all generated automatically:
 
 ```cpp
-enum capabilities {
-    CAP_SIDETONE,
-    CAP_BATTERY_STATUS,
+#define CAPABILITIES_XLIST \
+    X(CAP_SIDETONE,        "sidetone",        's')  \
+    X(CAP_BATTERY_STATUS,  "battery",         'b')  \
     // ... existing capabilities ...
-    CAP_YOUR_FEATURE,      // <- Add here
-    NUM_CAPABILITIES       // Keep this last
-};
-
-// Add string name (must match enum order)
-constexpr const char* capabilities_str[] = {
-    "sidetone",
-    "battery",
-    // ... existing names ...
-    "your_feature",        // <- Add here
-};
+    X(CAP_YOUR_FEATURE,    "your feature",    '\0') // <- Add here (use '\0' for no short char)
 ```
+
+That's it! The enum value `CAP_YOUR_FEATURE` and all string conversion functions are generated from this single line.
 
 ### 2. Add Descriptor (`lib/capability_descriptors.hpp`)
 
@@ -186,9 +180,9 @@ public:
 
 Here's a real example from the codebase:
 
-**device.hpp:**
+**device.hpp** (add to CAPABILITIES_XLIST):
 ```cpp
-CAP_VOLUME_LIMITER,
+X(CAP_VOLUME_LIMITER, "volume limiter", '\0')
 ```
 
 **capability_descriptors.hpp:**
