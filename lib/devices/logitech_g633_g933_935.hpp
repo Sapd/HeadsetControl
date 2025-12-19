@@ -108,7 +108,7 @@ public:
         }
 
         // Small delay between commands (Windows requirement)
-        sleep_us(1000);
+        sleep_ms(1);
 
         // Turn on/off logo
         std::array<uint8_t, 14> logo_data {

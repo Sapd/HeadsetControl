@@ -100,14 +100,6 @@ inline void sleep_ms(unsigned int ms)
     std::this_thread::sleep_for(std::chrono::milliseconds(ms));
 }
 
-/**
- * @brief Cross-platform sleep for microseconds
- */
-inline void sleep_us(unsigned int us)
-{
-    std::this_thread::sleep_for(std::chrono::microseconds(us));
-}
-
 } // namespace headsetcontrol
 
 // utilities
@@ -118,4 +110,3 @@ inline void sleep_us(unsigned int us)
 using headsetcontrol::map;
 using headsetcontrol::round_to_multiples;
 using headsetcontrol::sleep_ms;
-using headsetcontrol::sleep_us;
