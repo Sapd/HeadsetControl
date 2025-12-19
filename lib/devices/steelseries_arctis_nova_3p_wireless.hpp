@@ -101,7 +101,7 @@ public:
             | B(CAP_PARAMETRIC_EQUALIZER);
     }
 
-    constexpr capability_detail getCapabilityDetail(enum capabilities cap) const override
+    constexpr capability_detail getCapabilityDetail([[maybe_unused]] enum capabilities cap) const override
     {
         return { .usagepage = 0xffc0, .usageid = 0x1, .interface = 0 };
     }
@@ -190,7 +190,7 @@ public:
 
     Result<SidetoneResult> setSidetone(hid_device* device_handle, uint8_t level) override
     {
-        uint8_t mapped = map(level, 0, 128, 0, 0xa);
+        uint8_t mapped = map<uint8_t>(level, 0, 128, 0, 0xa);
 
         std::array<uint8_t, 2> cmd { 0x39, mapped };
         if (auto result = sendFeatureReport(device_handle, cmd, MSG_SIZE); !result) {
@@ -252,7 +252,7 @@ public:
 
     Result<MicVolumeResult> setMicVolume(hid_device* device_handle, uint8_t volume) override
     {
-        uint8_t mapped = map(volume, 0, 128, 0, 0x0e);
+        uint8_t mapped = map<uint8_t>(volume, 0, 128, 0, 0x0e);
 
         std::array<uint8_t, 2> cmd { 0x37, mapped };
         if (auto result = sendFeatureReport(device_handle, cmd, MSG_SIZE); !result) {

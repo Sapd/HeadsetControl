@@ -49,7 +49,7 @@ public:
             | B(CAP_INACTIVE_TIME) | B(CAP_EQUALIZER) | B(CAP_EQUALIZER_PRESET);
     }
 
-    constexpr capability_detail getCapabilityDetail(enum capabilities cap) const override
+    constexpr capability_detail getCapabilityDetail([[maybe_unused]] enum capabilities cap) const override
     {
         return { .interface = 4 };
     }
@@ -97,9 +97,9 @@ public:
         }
 
         // Check headset status
-        constexpr uint8_t HEADSET_OFFLINE        = 0x01;
-        constexpr uint8_t HEADSET_CABLE_CHARGING = 0x02;
-        constexpr uint8_t HEADSET_ONLINE         = 0x08;
+        constexpr uint8_t HEADSET_OFFLINE                          = 0x01;
+        constexpr uint8_t HEADSET_CABLE_CHARGING                   = 0x02;
+        [[maybe_unused]] constexpr uint8_t HEADSET_ONLINE          = 0x08;
 
         uint8_t status_byte = response[15];
         if (status_byte == HEADSET_OFFLINE) {
@@ -154,7 +154,7 @@ public:
     Result<LightsResult> setLights(hid_device* device_handle, bool on) override
     {
         // Map on/off to LED strength (1-10)
-        uint8_t led_strength = map(on ? 1 : 0, 0, 1, 1, 10);
+        uint8_t led_strength = map<uint8_t>(on ? 1 : 0, 0, 1, 1, 10);
         std::array<uint8_t, 3> cmd { 0x06, 0xbf, led_strength };
 
         auto result = sendCommandWithSave(device_handle, cmd);

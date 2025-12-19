@@ -46,7 +46,7 @@ public:
         return B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_INACTIVE_TIME) | B(CAP_CHATMIX_STATUS);
     }
 
-    constexpr capability_detail getCapabilityDetail(enum capabilities cap) const override
+    constexpr capability_detail getCapabilityDetail([[maybe_unused]] enum capabilities cap) const override
     {
         return { .interface = 0 };
     }
@@ -81,8 +81,8 @@ public:
         uint8_t num = level;
         if (num > 0) {
             // Map log2(num)*100 from 0-700 to 0-128, then exponentially to 0xc0-0xfd
-            num = map(static_cast<int>(std::log2(num) * 100), 0, 700, 0, 128);
-            num = map(num, 0, 128, 0xc0, 0xfd);
+            num = map<uint8_t>(static_cast<int>(std::log2(num) * 100), 0, 700, 0, 128);
+            num = map<uint8_t>(num, 0, 128, 0xc0, 0xfd);
         } else {
             num = 0xc0; // Off value
         }

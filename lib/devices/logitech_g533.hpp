@@ -65,7 +65,7 @@ public:
     Result<SidetoneResult> setSidetone(hid_device* device_handle, uint8_t level) override
     {
         // Map user range (0-128) to device range (200-255)
-        uint8_t mapped = map(level, 0, 128, 200, 255);
+        uint8_t mapped = map<uint8_t>(level, 0, 128, 200, 255);
 
         std::array<uint8_t, 8> cmd { 0x04, 0x0E, 0xFF, 0x05, 0x01, 0x04, 0x00, mapped };
         auto result = sendHIDPPFeature(device_handle, cmd);

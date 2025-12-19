@@ -1,9 +1,9 @@
 #pragma once
 
 #include "hid_device.hpp"
+#include "utility.hpp"
 #include <array>
 #include <string_view>
-#include <unistd.h>
 
 using namespace std::string_view_literals;
 
@@ -92,7 +92,7 @@ public:
             }
 
             if (i < 2) {
-                usleep(100000); // 100ms delay
+                sleep_ms(100); // 100ms delay
             }
         }
 

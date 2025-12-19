@@ -32,7 +32,7 @@ protected:
      */
     [[nodiscard]] constexpr uint8_t mapSidetoneLevel(uint8_t level) const noexcept
     {
-        return map(level, 0, 128, 200, 255);
+        return map<uint8_t>(level, 0, 128, 200, 255);
     }
 
     /**

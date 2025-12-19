@@ -1,7 +1,10 @@
 build/
+build-msvc/
 lib/version.h
 
 .idea/
+.vs/
+.claude/
 cmake-build-debug/
 .codechecker/
 .scannerwork/

@@ -463,7 +463,7 @@ void runAllOutputFormatTests()
     int passed = 0;
     int failed = 0;
 
-    auto runTest = [&](const char* name, void (*test)()) {
+    auto runTest = [&]([[maybe_unused]] const char* name, void (*test)()) {
         try {
             test();
             passed++;

@@ -25,7 +25,7 @@ struct device* HIDDevice::toCDevice()
     // This is a limitation - the C API expects a pointer to a static array
     // We'll handle this in derived classes
 
-    dev->numIdProducts = product_ids.size();
+    dev->numIdProducts = static_cast<int>(product_ids.size());
 
     // Copy device name safely using modern C++
     std::string_view name = getDeviceName();

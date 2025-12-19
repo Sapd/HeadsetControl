@@ -42,12 +42,19 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     endif()
 endif()
 
-IF (WIN32)
-	set(CMAKE_C_STANDARD_LIBRARIES "-lsetupapi -static-libgcc -static-libstdc++ -lwsock32 -lws2_32 ${CMAKE_CXX_STANDARD_LIBRARIES}")
-	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-Bstatic,--whole-archive -lwinpthread -Wl,--no-whole-archive")
-ENDIF()
-
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
+if(WIN32)
+    if(MSVC)
+        # MSVC-specific flags
+        add_compile_options(/W4 /Zc:preprocessor)
+    else()
+        # MinGW/GCC flags
+        set(CMAKE_C_STANDARD_LIBRARIES "-lsetupapi -static-libgcc -static-libstdc++ -lwsock32 -lws2_32 ${CMAKE_CXX_STANDARD_LIBRARIES}")
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-Bstatic,--whole-archive -lwinpthread -Wl,--no-whole-archive")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
+    endif()
+else()
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
+endif()
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # ------------------------------------------------------------------------------
@@ -194,7 +201,11 @@ target_include_directories(headsetcontrol_lib PUBLIC
 )
 
 # Library dependencies
-target_link_libraries(headsetcontrol_lib PUBLIC m ${HIDAPI_LIBRARIES})
+if(MSVC)
+    target_link_libraries(headsetcontrol_lib PUBLIC ${HIDAPI_LIBRARIES})
+else()
+    target_link_libraries(headsetcontrol_lib PUBLIC m ${HIDAPI_LIBRARIES})
+endif()
 
 # Optionally build shared library for FFI bindings
 if(BUILD_SHARED_LIBRARY)
@@ -228,6 +239,12 @@ endif()
 add_executable(headsetcontrol ${CLI_SOURCES})
 target_link_libraries(headsetcontrol PRIVATE headsetcontrol_lib)
 target_include_directories(headsetcontrol PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/cli)
+
+# On MSVC, we need getopt from vcpkg
+if(MSVC)
+    find_package(getopt CONFIG REQUIRED)
+    target_link_libraries(headsetcontrol PRIVATE $<IF:$<TARGET_EXISTS:getopt::getopt_shared>,getopt::getopt_shared,getopt::getopt_static>)
+endif()
 
 # ------------------------------------------------------------------------------
 # Installation

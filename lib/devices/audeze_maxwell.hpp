@@ -85,7 +85,7 @@ public:
             | B(CAP_VOICE_PROMPTS);
     }
 
-    constexpr capability_detail getCapabilityDetail(enum capabilities cap) const override
+    constexpr capability_detail getCapabilityDetail([[maybe_unused]] enum capabilities cap) const override
     {
         return { .usagepage = 0xff13, .usageid = 0x1, .interface = 0 };
     }
@@ -206,7 +206,7 @@ public:
     Result<SidetoneResult> setSidetone(hid_device* device_handle, uint8_t level) override
     {
         // Maxwell range: 0 to 31
-        uint8_t mapped = map(level, 0, 128, 0, 31);
+        uint8_t mapped = map<uint8_t>(level, 0, 128, 0, 31);
 
         std::array<uint8_t, MSG_SIZE> cmd { 0x6, 0x9, 0x80, 0x5, 0x5a, 0x5, 0x0, 0x0, 0x9, 0x2c, 0x0, mapped };
 

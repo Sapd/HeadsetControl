@@ -15,9 +15,8 @@
 #include <string>
 
 // Platform-specific executable path
-// Note: On Windows/MSYS2, popen() uses cmd.exe which doesn't understand "./"
 #ifdef _WIN32
-#define HEADSETCONTROL_EXE "headsetcontrol.exe"
+#define HEADSETCONTROL_EXE ".\\headsetcontrol.exe"
 #else
 #define HEADSETCONTROL_EXE "./headsetcontrol"
 #endif
@@ -70,11 +69,15 @@ public:
 {
     std::array<char, 4096> buffer;
     std::string result;
+#ifdef _MSC_VER
+    std::unique_ptr<FILE, int (*)(FILE*)> pipe(_popen(cmd, "r"), _pclose);
+#else
     std::unique_ptr<FILE, int (*)(FILE*)> pipe(popen(cmd, "r"), pclose);
+#endif
     if (!pipe) {
         throw std::runtime_error("popen() failed!");
     }
-    while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+    while (fgets(buffer.data(), static_cast<int>(buffer.size()), pipe.get()) != nullptr) {
         result += buffer.data();
     }
     return result;

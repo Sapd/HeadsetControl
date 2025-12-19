@@ -83,7 +83,7 @@ public:
         return EQUALIZER_PRESETS_COUNT;
     }
 
-    constexpr capability_detail getCapabilityDetail(enum capabilities cap) const override
+    constexpr capability_detail getCapabilityDetail([[maybe_unused]] enum capabilities cap) const override
     {
         return { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
     }
