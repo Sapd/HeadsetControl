@@ -188,10 +188,18 @@ option(BUILD_SHARED_LIBRARY "Build shared library for FFI bindings (Python, etc.
 add_library(headsetcontrol_lib STATIC ${LIBRARY_SOURCES} ${LIBRARY_HEADERS})
 
 # Set library properties
-set_target_properties(headsetcontrol_lib PROPERTIES
-    OUTPUT_NAME "headsetcontrol"
-    POSITION_INDEPENDENT_CODE ON
-)
+# On MSVC, use different name to avoid conflict with DLL import library
+if(MSVC)
+    set_target_properties(headsetcontrol_lib PROPERTIES
+        OUTPUT_NAME "headsetcontrol_static"
+        POSITION_INDEPENDENT_CODE ON
+    )
+else()
+    set_target_properties(headsetcontrol_lib PROPERTIES
+        OUTPUT_NAME "headsetcontrol"
+        POSITION_INDEPENDENT_CODE ON
+    )
+endif()
 
 # Library include directories
 target_include_directories(headsetcontrol_lib PUBLIC
@@ -223,7 +231,12 @@ if(BUILD_SHARED_LIBRARY)
         ${HIDAPI_INCLUDE_DIRS}
     )
 
-    target_link_libraries(headsetcontrol_shared PUBLIC m ${HIDAPI_LIBRARIES})
+    # Library dependencies (same conditional as static library)
+    if(MSVC)
+        target_link_libraries(headsetcontrol_shared PUBLIC ${HIDAPI_LIBRARIES})
+    else()
+        target_link_libraries(headsetcontrol_shared PUBLIC m ${HIDAPI_LIBRARIES})
+    endif()
 
     # Export symbols for the C API on Windows
     if(WIN32)
