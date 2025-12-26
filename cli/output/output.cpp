@@ -27,6 +27,84 @@ constexpr std::string_view API_VERSION = "1.4";
 constexpr std::string_view APP_NAME    = "HeadsetControl";
 
 // ============================================================================
+// Feature Request Processing Helpers
+// ============================================================================
+
+// Process battery status result and update device data
+void processBatteryResult(const FeatureResult& result, DeviceData& dev)
+{
+    if (result.status == FEATURE_SUCCESS || result.status == FEATURE_INFO) {
+        BatteryData bat;
+        if (result.status2 == BATTERY_CHARGING) {
+            bat.status = BATTERY_CHARGING;
+            bat.level  = result.value;
+        } else if (result.status2 == BATTERY_UNAVAILABLE) {
+            bat.status = BATTERY_UNAVAILABLE;
+            bat.level  = -1;
+        } else {
+            bat.status = BATTERY_AVAILABLE;
+            bat.level  = result.value;
+        }
+        bat.voltage_mv        = result.battery_voltage_mv;
+        bat.time_to_full_min  = result.battery_time_to_full_min;
+        bat.time_to_empty_min = result.battery_time_to_empty_min;
+        dev.battery           = bat;
+    } else if (result.status == FEATURE_ERROR) {
+        dev.errors.emplace_back(capability_to_string(CAP_BATTERY_STATUS), result.message);
+        dev.status = STATUS_PARTIAL;
+        // Populate battery with UNAVAILABLE status when device errors
+        BatteryData bat;
+        bat.status  = BATTERY_UNAVAILABLE;
+        bat.level   = -1;
+        dev.battery = bat;
+    }
+}
+
+// Process chatmix status result and update device data
+void processChatmixResult(const FeatureResult& result, DeviceData& dev)
+{
+    if (result.status == FEATURE_SUCCESS || result.status == FEATURE_INFO) {
+        dev.chatmix = result.value;
+    } else if (result.status == FEATURE_ERROR) {
+        dev.errors.emplace_back(capability_to_string(CAP_CHATMIX_STATUS), result.message);
+        dev.status = STATUS_PARTIAL;
+    }
+}
+
+// Process action capability result and add to device actions
+void processActionResult(const FeatureRequest& req, DeviceData& dev, std::string_view device_name)
+{
+    ActionData action;
+    action.capability     = capability_to_enum_string(req.cap);
+    action.capability_str = capability_to_string(req.cap);
+    action.device         = device_name;
+    action.status         = req.result.status == FEATURE_SUCCESS ? STATUS_SUCCESS : STATUS_FAILURE;
+    action.value          = req.result.value;
+    action.error_message  = req.result.message;
+    dev.actions.push_back(std::move(action));
+}
+
+// Process a single feature request and update device data
+void processFeatureRequest(const FeatureRequest& req, DeviceData& dev, std::string_view device_name)
+{
+    if (!req.should_process)
+        return;
+
+    if (req.result.status == FEATURE_DEVICE_FAILED_OPEN) {
+        dev.errors.emplace_back(capability_to_string(req.cap), req.result.message);
+        return;
+    }
+
+    if (req.cap == CAP_BATTERY_STATUS) {
+        processBatteryResult(req.result, dev);
+    } else if (req.cap == CAP_CHATMIX_STATUS) {
+        processChatmixResult(req.result, dev);
+    } else if (req.type == CAPABILITYTYPE_ACTION) {
+        processActionResult(req, dev, device_name);
+    }
+}
+
+// ============================================================================
 // Data Building
 // ============================================================================
 
@@ -68,9 +146,9 @@ constexpr std::string_view APP_NAME    = "HeadsetControl";
         int device_caps = hid_device->getCapabilities();
         for (int j = 0; j < NUM_CAPABILITIES; ++j) {
             if (device_caps & B(j)) {
-                dev.caps.push_back(capabilities_str_enum[j]);
-                dev.caps_str.push_back(capabilities_str[j]);
-                dev.caps_enum.push_back(static_cast<enum capabilities>(j));
+                dev.caps.emplace_back(capability_to_enum_string(static_cast<capabilities>(j)));
+                dev.caps_str.emplace_back(capability_to_string(static_cast<capabilities>(j)));
+                dev.caps_enum.emplace_back(static_cast<enum capabilities>(j));
             }
         }
 
@@ -100,58 +178,7 @@ constexpr std::string_view APP_NAME    = "HeadsetControl";
         int req_size   = deviceList[i].size;
 
         for (int r = 0; r < req_size; ++r) {
-            auto& req = requests[r];
-            if (!req.should_process)
-                continue;
-
-            if (req.result.status == FEATURE_DEVICE_FAILED_OPEN) {
-                dev.errors.push_back({ capabilities_str[req.cap], req.result.message });
-                continue;
-            }
-
-            if (req.cap == CAP_BATTERY_STATUS) {
-                if (req.result.status == FEATURE_SUCCESS || req.result.status == FEATURE_INFO) {
-                    BatteryData bat;
-                    if (req.result.status2 == BATTERY_CHARGING) {
-                        bat.status = BATTERY_CHARGING;
-                        bat.level  = req.result.value;
-                    } else if (req.result.status2 == BATTERY_UNAVAILABLE) {
-                        bat.status = BATTERY_UNAVAILABLE;
-                        bat.level  = -1;
-                    } else {
-                        bat.status = BATTERY_AVAILABLE;
-                        bat.level  = req.result.value;
-                    }
-                    bat.voltage_mv        = req.result.battery_voltage_mv;
-                    bat.time_to_full_min  = req.result.battery_time_to_full_min;
-                    bat.time_to_empty_min = req.result.battery_time_to_empty_min;
-                    dev.battery           = bat;
-                } else if (req.result.status == FEATURE_ERROR) {
-                    dev.errors.push_back({ capabilities_str[req.cap], req.result.message });
-                    dev.status = STATUS_PARTIAL;
-                    // Populate battery with UNAVAILABLE status when device errors
-                    BatteryData bat;
-                    bat.status  = BATTERY_UNAVAILABLE;
-                    bat.level   = -1;
-                    dev.battery = bat;
-                }
-            } else if (req.cap == CAP_CHATMIX_STATUS) {
-                if (req.result.status == FEATURE_SUCCESS || req.result.status == FEATURE_INFO) {
-                    dev.chatmix = req.result.value;
-                } else if (req.result.status == FEATURE_ERROR) {
-                    dev.errors.push_back({ capabilities_str[req.cap], req.result.message });
-                    dev.status = STATUS_PARTIAL;
-                }
-            } else if (req.type == CAPABILITYTYPE_ACTION) {
-                ActionData action;
-                action.capability     = capabilities_str_enum[req.cap];
-                action.capability_str = capabilities_str[req.cap];
-                action.device         = hid_device->getDeviceName();
-                action.status         = req.result.status == FEATURE_SUCCESS ? STATUS_SUCCESS : STATUS_FAILURE;
-                action.value          = req.result.value;
-                action.error_message  = req.result.message;
-                dev.actions.push_back(std::move(action));
-            }
+            processFeatureRequest(requests[r], dev, hid_device->getDeviceName());
         }
 
         data.devices.push_back(std::move(dev));
@@ -219,11 +246,11 @@ void outputYaml(const OutputData& data)
             s.writeArray("capabilities", dev.caps);
             s.writeArray("capabilities_str", dev.caps_str);
 
-            if (dev.battery) {
+            if (dev.battery.has_value()) {
                 dev.battery->serialize(s);
             }
 
-            if (dev.chatmix) {
+            if (dev.chatmix.has_value()) {
                 s.write("chatmix", *dev.chatmix);
             }
 
@@ -292,7 +319,7 @@ void outputEnv(const OutputData& data)
             s.write(std::format("{}_CAPABILITY_{}", prefix, j), dev.caps[j]);
         }
 
-        if (dev.battery) {
+        if (dev.battery.has_value()) {
             s.write(prefix + "_BATTERY_STATUS", batteryStatusToString(dev.battery->status));
             s.write(prefix + "_BATTERY_LEVEL", dev.battery->level);
             s.writeOptional(prefix + "_BATTERY_VOLTAGE_MV", dev.battery->voltage_mv);
@@ -300,7 +327,7 @@ void outputEnv(const OutputData& data)
             s.writeOptional(prefix + "_BATTERY_TIME_TO_EMPTY_MIN", dev.battery->time_to_empty_min);
         }
 
-        if (dev.chatmix) {
+        if (dev.chatmix.has_value()) {
             s.write(prefix + "_CHATMIX", *dev.chatmix);
         }
 
@@ -348,25 +375,25 @@ void outputStandard(const OutputData& data, bool print_capabilities)
             continue;
         }
 
-        if (dev.battery) {
+        if (dev.battery.has_value()) {
             s.println("Battery:");
             s.println("\tStatus: {}", batteryStatusToString(dev.battery->status));
             if (dev.battery->status != BATTERY_UNAVAILABLE) {
                 s.println("\tLevel: {}%", dev.battery->level);
             }
-            if (dev.battery->voltage_mv) {
+            if (dev.battery->voltage_mv.has_value()) {
                 s.println("\tVoltage: {} mV", *dev.battery->voltage_mv);
             }
-            if (dev.battery->time_to_full_min) {
+            if (dev.battery->time_to_full_min.has_value()) {
                 s.println("\tTime to Full: {} minutes", *dev.battery->time_to_full_min);
             }
-            if (dev.battery->time_to_empty_min) {
+            if (dev.battery->time_to_empty_min.has_value()) {
                 s.println("\tTime to Empty: {} minutes", *dev.battery->time_to_empty_min);
             }
             outputted = true;
         }
 
-        if (dev.chatmix) {
+        if (dev.chatmix.has_value()) {
             s.println("Chatmix: {}", *dev.chatmix);
             outputted = true;
         }
@@ -430,12 +457,12 @@ void outputShort(const OutputData& data, bool print_capabilities)
 
         if (print_capabilities) {
             for (auto cap : dev.caps_enum) {
-                s.printChar(capabilities_str_short[cap]);
+                s.printChar(capability_to_short_char(cap));
             }
             continue;
         }
 
-        if (dev.battery) {
+        if (dev.battery.has_value()) {
             if (dev.battery->status == BATTERY_CHARGING) {
                 s.printValue(-1);
             } else if (dev.battery->status == BATTERY_UNAVAILABLE) {
@@ -443,7 +470,7 @@ void outputShort(const OutputData& data, bool print_capabilities)
             } else {
                 s.printValue(dev.battery->level);
             }
-        } else if (dev.chatmix) {
+        } else if (dev.chatmix.has_value()) {
             s.printValue(*dev.chatmix);
         }
     }

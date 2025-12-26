@@ -64,7 +64,7 @@ template <size_t N>
     uint8_t level, uint8_t device_min, uint8_t device_max)
 {
     if (level == 0) {
-        return { false, 0 };
+        return { false, uint8_t { 0 } };
     }
     // Map 1-128 to device_min-device_max
     uint8_t mapped = device_min + ((level - 1) * (device_max - device_min)) / 127;
@@ -87,25 +87,29 @@ concept Arithmetic = std::is_arithmetic_v<T>;
  * Maps a value from [in_min, in_max] to [out_min, out_max] using linear interpolation.
  * Commonly used to convert between normalized (0-128) and device-specific ranges.
  *
- * This overload accepts mixed integer types and returns the most appropriate type.
+ * The template parameter OutT can be used to specify the output type explicitly,
+ * avoiding narrowing conversion warnings.
  *
+ * @tparam OutT Explicit output type (optional, defaults to common type of out_min/out_max)
  * @param value Input value to map
  * @param in_min Minimum of input range
  * @param in_max Maximum of input range
  * @param out_min Minimum of output range
  * @param out_max Maximum of output range
- * @return Mapped value in output range (type determined by out_min/out_max)
+ * @return Mapped value in output range
  *
  * @example
  * // Map normalized sidetone (0-128) to device range (0-31)
- * uint8_t device_level = map(128, 0, 128, 0, 31); // Returns 31
- * uint8_t device_level = map(64, 0, 128, 0, 31);  // Returns 15
- * int percentage = map(31, 0, 31, 0, 100);        // Returns 100
+ * uint8_t device_level = map<uint8_t>(128, 0, 128, 0, 31); // Returns 31
+ * uint8_t device_level = map<uint8_t>(64, 0, 128, 0, 31);  // Returns 15
+ * int percentage = map(31, 0, 31, 0, 100);                 // Returns 100
  */
+template <typename OutT = void>
 [[nodiscard]] constexpr auto map(auto value, auto in_min, auto in_max, auto out_min, auto out_max)
 {
-    using InType  = std::common_type_t<decltype(value), decltype(in_min), decltype(in_max)>;
-    using OutType = std::common_type_t<decltype(out_min), decltype(out_max)>;
+    using InType = std::common_type_t<decltype(value), decltype(in_min), decltype(in_max)>;
+    using OutType
+        = std::conditional_t<std::is_void_v<OutT>, std::common_type_t<decltype(out_min), decltype(out_max)>, OutT>;
 
     // Convert to common input type for comparison
     const auto val   = static_cast<InType>(value);
@@ -201,7 +205,7 @@ template <std::size_t N>
             const auto& [p0, v0] = calibration_points[i - 1];
             const auto& [p1, v1] = calibration_points[i];
 
-            return map<uint16_t>(voltage_mv, v0, v1, p0, p1);
+            return map<uint8_t>(voltage_mv, v0, v1, p0, p1);
         }
     }
 
@@ -343,7 +347,7 @@ template <typename T, std::size_t N>
 [[nodiscard]] constexpr capability_detail makeCapabilityDetail(
     uint16_t usagepage, uint16_t usageid, int iface)
 {
-    return { .usagepage = usagepage, .usageid = usageid, .interface = iface };
+    return { .usagepage = usagepage, .usageid = usageid, .interface_id = iface };
 }
 
 // ============================================================================

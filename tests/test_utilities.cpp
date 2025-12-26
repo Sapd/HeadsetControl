@@ -275,12 +275,12 @@ void testMakeCapabilityDetail()
     auto detail = makeCapabilityDetail(0xFF00, 0x0001, 3);
     ASSERT_EQ(0xFF00, detail.usagepage, "usagepage should be 0xFF00");
     ASSERT_EQ(0x0001, detail.usageid, "usageid should be 0x0001");
-    ASSERT_EQ(3, detail.interface, "interface should be 3");
+    ASSERT_EQ(3, detail.interface_id, "interface_id should be 3");
 
     auto default_detail = makeCapabilityDetail(0, 0, 0);
     ASSERT_EQ(0, default_detail.usagepage, "default usagepage should be 0");
     ASSERT_EQ(0, default_detail.usageid, "default usageid should be 0");
-    ASSERT_EQ(0, default_detail.interface, "default interface should be 0");
+    ASSERT_EQ(0, default_detail.interface_id, "default interface_id should be 0");
 
     std::cout << "    ✓ makeCapabilityDetail works correctly" << std::endl;
 }

@@ -1,10 +1,12 @@
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <optional>
 #include <span>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -90,6 +92,14 @@ ParametricEqualizerSettings parse_parametric_equalizer_settings(std::string_view
  */
 std::optional<std::pair<int, int>> parse_two_ids(std::string_view input);
 
+/**
+ * @brief Cross-platform sleep for milliseconds
+ */
+inline void sleep_ms(unsigned int ms)
+{
+    std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+}
+
 } // namespace headsetcontrol
 
 // utilities
@@ -99,3 +109,4 @@ std::optional<std::pair<int, int>> parse_two_ids(std::string_view input);
 // Bring commonly used functions into global namespace for convenience
 using headsetcontrol::map;
 using headsetcontrol::round_to_multiples;
+using headsetcontrol::sleep_ms;

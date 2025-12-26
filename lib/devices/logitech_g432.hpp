@@ -39,7 +39,7 @@ public:
 
     Result<SidetoneResult> setSidetone(hid_device* device_handle, uint8_t level) override
     {
-        uint8_t mapped = map(level, 0, 128, 0, 100);
+        uint8_t mapped = map<uint8_t>(level, 0, 128, 0, 100);
 
         std::array<uint8_t, 3> cmd { 0x05, 0x1e, mapped };
         auto result = sendHIDPPFeature(device_handle, cmd);

@@ -88,7 +88,7 @@ public:
     }
 
     // Rich Results V2 API
-    Result<BatteryResult> getBattery(hid_device* device_handle) override
+    Result<BatteryResult> getBattery([[maybe_unused]] hid_device* device_handle) override
     {
 
         BatteryResult result {};
@@ -138,7 +138,7 @@ public:
         return result;
     }
 
-    Result<SidetoneResult> setSidetone(hid_device* device_handle, uint8_t level) override
+    Result<SidetoneResult> setSidetone([[maybe_unused]] hid_device* device_handle, uint8_t level) override
     {
 
         if (test_profile == 1) {
@@ -152,12 +152,12 @@ public:
         };
     }
 
-    Result<LightsResult> setLights(hid_device* device_handle, bool on) override
+    Result<LightsResult> setLights([[maybe_unused]] hid_device* device_handle, bool on) override
     {
         return LightsResult { .enabled = on };
     }
 
-    Result<InactiveTimeResult> setInactiveTime(hid_device* device_handle, uint8_t minutes) override
+    Result<InactiveTimeResult> setInactiveTime([[maybe_unused]] hid_device* device_handle, uint8_t minutes) override
     {
         return InactiveTimeResult {
             .minutes     = minutes,
@@ -166,7 +166,7 @@ public:
         };
     }
 
-    Result<VoicePromptsResult> setVoicePrompts(hid_device* device_handle, bool enabled) override
+    Result<VoicePromptsResult> setVoicePrompts([[maybe_unused]] hid_device* device_handle, bool enabled) override
     {
         if (test_profile == 1) {
             return DeviceError::hidError("Test error condition");
@@ -175,42 +175,42 @@ public:
         return VoicePromptsResult { .enabled = enabled };
     }
 
-    Result<RotateToMuteResult> setRotateToMute(hid_device* device_handle, bool enabled) override
+    Result<RotateToMuteResult> setRotateToMute([[maybe_unused]] hid_device* device_handle, bool enabled) override
     {
         return RotateToMuteResult { .enabled = enabled };
     }
 
-    Result<MicVolumeResult> setMicVolume(hid_device* device_handle, uint8_t volume) override
+    Result<MicVolumeResult> setMicVolume([[maybe_unused]] hid_device* device_handle, uint8_t volume) override
     {
         return MicVolumeResult { .volume = volume, .min_volume = 0, .max_volume = 100 };
     }
 
-    Result<MicMuteLedBrightnessResult> setMicMuteLedBrightness(hid_device* device_handle, uint8_t brightness) override
+    Result<MicMuteLedBrightnessResult> setMicMuteLedBrightness([[maybe_unused]] hid_device* device_handle, uint8_t brightness) override
     {
         return MicMuteLedBrightnessResult { .brightness = brightness, .min_brightness = 0, .max_brightness = 100 };
     }
 
-    Result<VolumeLimiterResult> setVolumeLimiter(hid_device* device_handle, bool enabled) override
+    Result<VolumeLimiterResult> setVolumeLimiter([[maybe_unused]] hid_device* device_handle, bool enabled) override
     {
         return VolumeLimiterResult { .enabled = enabled };
     }
 
-    Result<BluetoothWhenPoweredOnResult> setBluetoothWhenPoweredOn(hid_device* device_handle, bool enabled) override
+    Result<BluetoothWhenPoweredOnResult> setBluetoothWhenPoweredOn([[maybe_unused]] hid_device* device_handle, bool enabled) override
     {
         return BluetoothWhenPoweredOnResult { .enabled = enabled };
     }
 
-    Result<BluetoothCallVolumeResult> setBluetoothCallVolume(hid_device* device_handle, uint8_t volume) override
+    Result<BluetoothCallVolumeResult> setBluetoothCallVolume([[maybe_unused]] hid_device* device_handle, uint8_t volume) override
     {
         return BluetoothCallVolumeResult { .volume = volume, .min_volume = 0, .max_volume = 100 };
     }
 
-    Result<NotificationSoundResult> notificationSound(hid_device* device_handle, uint8_t sound_id) override
+    Result<NotificationSoundResult> notificationSound([[maybe_unused]] hid_device* device_handle, uint8_t sound_id) override
     {
         return NotificationSoundResult { .sound_id = sound_id };
     }
 
-    Result<ChatmixResult> getChatmix(hid_device* device_handle) override
+    Result<ChatmixResult> getChatmix([[maybe_unused]] hid_device* device_handle) override
     {
         if (test_profile == 1) {
             return DeviceError::hidError("Test error condition");
@@ -223,7 +223,7 @@ public:
         };
     }
 
-    Result<EqualizerPresetResult> setEqualizerPreset(hid_device* device_handle, uint8_t preset) override
+    Result<EqualizerPresetResult> setEqualizerPreset([[maybe_unused]] hid_device* device_handle, uint8_t preset) override
     {
         if (test_profile == 1) {
             return DeviceError::hidError("Test error condition");
@@ -232,7 +232,7 @@ public:
         return EqualizerPresetResult { .preset = preset };
     }
 
-    Result<EqualizerResult> setEqualizer(hid_device* device_handle, const EqualizerSettings& settings) override
+    Result<EqualizerResult> setEqualizer([[maybe_unused]] hid_device* device_handle, [[maybe_unused]] const EqualizerSettings& settings) override
     {
         if (test_profile == 1) {
             return DeviceError::hidError("Test error condition");
@@ -241,7 +241,7 @@ public:
         return EqualizerResult {}; // Empty struct - presence indicates success
     }
 
-    Result<ParametricEqualizerResult> setParametricEqualizer(hid_device* device_handle, const ParametricEqualizerSettings& settings) override
+    Result<ParametricEqualizerResult> setParametricEqualizer([[maybe_unused]] hid_device* device_handle, [[maybe_unused]] const ParametricEqualizerSettings& settings) override
     {
         if (test_profile == 1) {
             return DeviceError::hidError("Test error condition");

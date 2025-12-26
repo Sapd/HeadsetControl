@@ -106,7 +106,7 @@ public:
         const auto& handler = handlers_[static_cast<size_t>(cap)];
         if (!handler) {
             return DeviceError::notSupported(
-                std::format("No handler registered for {}", capabilities_str[cap]));
+                std::format("No handler registered for {}", capability_to_string(cap)));
         }
         return handler(device, handle, param);
     }

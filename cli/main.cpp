@@ -64,7 +64,10 @@ extern "C" void init_cpp_devices();
 
 namespace {
 
+// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables)
+// Must be non-const: modified by signal handler for graceful shutdown
 volatile sig_atomic_t g_follow_running = false;
+// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 
 // ============================================================================
 // Output helpers
@@ -91,6 +94,20 @@ template <typename... Args>
 void eprintln(std::format_string<Args...> fmt, Args&&... args)
 {
     std::cerr << std::format(fmt, std::forward<Args>(args)...) << '\n';
+}
+
+// Convert platform bitmask to string for README table output
+[[nodiscard]] constexpr const char* platformsToTableString(uint8_t platforms)
+{
+    if (platforms == PLATFORM_ALL)
+        return " All ";
+    if (platforms == (PLATFORM_LINUX | PLATFORM_MACOS))
+        return " L/M ";
+    if (platforms == (PLATFORM_LINUX | PLATFORM_WINDOWS))
+        return " L/W ";
+    if (platforms == PLATFORM_LINUX)
+        return " L ";
+    return " ? ";
 }
 
 // ============================================================================
@@ -275,7 +292,7 @@ std::optional<cli::ParseError> configureParser(cli::ArgumentParser& parser, Opti
                 // Print table (inline for simplicity)
                 std::cout << "| Device | Platform |";
                 for (int j = 0; j < NUM_CAPABILITIES; j++) {
-                    std::cout << " " << capabilities_str[j] << " |";
+                    std::cout << " " << capability_to_string(static_cast<capabilities>(j)) << " |";
                 }
                 std::cout << "\n| --- | --- |";
                 for (int j = 0; j < NUM_CAPABILITIES; j++) {
@@ -287,11 +304,7 @@ std::optional<cli::ParseError> configureParser(cli::ArgumentParser& parser, Opti
                     auto* device = device_ptr.get();
                     std::cout << "| " << device->getDeviceName() << " |";
                     uint8_t platforms = device->getSupportedPlatforms();
-                    const char* p = platforms == PLATFORM_ALL ? " All " : platforms == (PLATFORM_LINUX | PLATFORM_MACOS) ? " L/M "
-                        : platforms == (PLATFORM_LINUX | PLATFORM_WINDOWS)                                               ? " L/W "
-                        : platforms == PLATFORM_LINUX                                                                    ? " L "
-                                                                                                                         : " ? ";
-                    std::cout << p << "|";
+                    std::cout << platformsToTableString(platforms) << "|";
                     int caps = device->getCapabilities();
                     for (int j = 0; j < NUM_CAPABILITIES; j++) {
                         std::cout << ((caps & B(j)) ? " x " : "   ") << "|";
@@ -433,19 +446,21 @@ std::vector<DiscoveredDevice> discoverDevices(const Options& opts)
         bool duplicate = std::any_of(devices.begin(), devices.end(), [&](const DiscoveredDevice& d) {
             return d.vendorId() == cur->vendor_id && d.product_id == cur->product_id;
         });
+        if (duplicate)
+            continue;
 
-        if (!duplicate) {
-            if (auto* device = registry.getDevice(cur->vendor_id, cur->product_id)) {
-                DiscoveredDevice dev;
-                dev.device     = device;
-                dev.product_id = cur->product_id;
-                if (cur->manufacturer_string)
-                    dev.vendor_name = cur->manufacturer_string;
-                if (cur->product_string)
-                    dev.product_name = cur->product_string;
-                devices.push_back(std::move(dev));
-            }
-        }
+        auto* device = registry.getDevice(cur->vendor_id, cur->product_id);
+        if (!device)
+            continue;
+
+        DiscoveredDevice dev;
+        dev.device     = device;
+        dev.product_id = cur->product_id;
+        if (cur->manufacturer_string)
+            dev.vendor_name = cur->manufacturer_string;
+        if (cur->product_string)
+            dev.product_name = cur->product_string;
+        devices.push_back(std::move(dev));
     }
     return devices;
 }
@@ -454,10 +469,10 @@ std::vector<DiscoveredDevice> discoverDevices(const Options& opts)
 // Feature handling
 // ============================================================================
 
-hid_device* connectForCapability(HIDConnection& conn, HIDDevice* device, uint16_t product_id, capabilities cap)
+hid_device* connectForCapability(HIDConnection& conn, const HIDDevice* device, uint16_t product_id, capabilities cap)
 {
     auto detail   = device->getCapabilityDetail(cap);
-    auto hid_path = headsetcontrol::get_hid_path(device->getVendorId(), product_id, detail.interface, detail.usagepage, detail.usageid);
+    auto hid_path = headsetcontrol::get_hid_path(device->getVendorId(), product_id, detail.interface_id, detail.usagepage, detail.usageid);
     if (!hid_path)
         return nullptr;
 
@@ -479,16 +494,16 @@ FeatureResult convertToFeatureResult(const headsetcontrol::FeatureOutput& output
         result.status2 = static_cast<int>(b.status);
 
         // Copy extended battery info
-        if (b.voltage_mv)
+        if (b.voltage_mv.has_value())
             result.battery_voltage_mv = b.voltage_mv;
-        if (b.time_to_full_min)
+        if (b.time_to_full_min.has_value())
             result.battery_time_to_full_min = b.time_to_full_min;
-        if (b.time_to_empty_min)
+        if (b.time_to_empty_min.has_value())
             result.battery_time_to_empty_min = b.time_to_empty_min;
     }
 
     // Handle chatmix special case
-    if (output.chatmix) {
+    if (output.chatmix.has_value()) {
         result.value = output.chatmix->level;
     }
 
@@ -577,7 +592,7 @@ namespace help {
         Section& add(char short_opt, std::string_view long_opt, ArgT&& arg,
             std::string_view desc, std::optional<capabilities> cap = std::nullopt, bool advanced = false)
         {
-            options.push_back({ short_opt, long_opt, std::string(std::forward<ArgT>(arg)), desc, cap, advanced });
+            options.emplace_back(short_opt, long_opt, std::string(std::forward<ArgT>(arg)), desc, cap, advanced);
             return *this;
         }
 
@@ -725,7 +740,7 @@ namespace help {
                 if (include) {
                     if (!types.empty())
                         types += ", ";
-                    types += equalizer_filter_type_str[i];
+                    types += equalizer_filter_type_to_string(static_cast<EqualizerFilterType>(i));
                 }
             }
 
@@ -900,42 +915,43 @@ struct FeatureParamStorage {
 
     void updateFrom(const Options& opts)
     {
-        if (opts.sidetone_level)
+        if (opts.sidetone_level.has_value())
             sidetone_val = *opts.sidetone_level;
-        if (opts.lights_enabled)
+        if (opts.lights_enabled.has_value())
             lights_val = *opts.lights_enabled ? 1 : 0;
-        if (opts.notification_sound)
+        if (opts.notification_sound.has_value())
             notification_val = *opts.notification_sound;
-        if (opts.inactive_time)
+        if (opts.inactive_time.has_value())
             inactive_time_val = *opts.inactive_time;
-        if (opts.voice_prompts_enabled)
+        if (opts.voice_prompts_enabled.has_value())
             voice_prompts_val = *opts.voice_prompts_enabled ? 1 : 0;
-        if (opts.rotate_to_mute_enabled)
+        if (opts.rotate_to_mute_enabled.has_value())
             rotate_to_mute_val = *opts.rotate_to_mute_enabled ? 1 : 0;
-        if (opts.equalizer_preset)
+        if (opts.equalizer_preset.has_value())
             equalizer_preset_val = *opts.equalizer_preset;
-        if (opts.mic_mute_led_brightness)
+        if (opts.mic_mute_led_brightness.has_value())
             mic_led_val = *opts.mic_mute_led_brightness;
-        if (opts.mic_volume)
+        if (opts.mic_volume.has_value())
             mic_vol_val = *opts.mic_volume;
-        if (opts.volume_limiter_enabled)
+        if (opts.volume_limiter_enabled.has_value())
             volume_limiter_val = *opts.volume_limiter_enabled ? 1 : 0;
-        if (opts.bt_when_powered_on)
+        if (opts.bt_when_powered_on.has_value())
             bt_power_val = *opts.bt_when_powered_on ? 1 : 0;
-        if (opts.bt_call_volume)
+        if (opts.bt_call_volume.has_value())
             bt_call_vol_val = *opts.bt_call_volume;
         battery_req = opts.request_battery ? 1 : 0;
         chatmix_req = opts.request_chatmix ? 1 : 0;
 
         // Copy complex settings (avoids const_cast)
-        if (opts.equalizer)
+        if (opts.equalizer.has_value())
             equalizer_settings = *opts.equalizer;
-        if (opts.parametric_equalizer)
+        if (opts.parametric_equalizer.has_value())
             parametric_eq_settings = *opts.parametric_equalizer;
     }
 };
 
 // Global storage for feature parameters (must outlive feature requests)
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 FeatureParamStorage g_feature_params;
 
 void initializeFeatureRequests(std::vector<DiscoveredDevice>& devices, const Options& opts)
@@ -1004,6 +1020,76 @@ std::vector<DeviceList> toLegacyDeviceList(std::vector<DiscoveredDevice>& device
         legacy.push_back(entry);
     }
     return legacy;
+}
+
+// Enable info requests for extended output formats (JSON, YAML, ENV)
+void enableExtendedInfoRequests(std::vector<DiscoveredDevice>& devices, bool extended)
+{
+    if (!extended)
+        return;
+
+    for (auto& dev : devices) {
+        for (auto& req : dev.feature_requests) {
+            if (req.type == CAPABILITYTYPE_INFO && !req.should_process && dev.hasCapability(req.cap)) {
+                req.should_process = true;
+            }
+        }
+    }
+}
+
+// Mark action requests as not processable when multiple devices and no filter
+void handleMultiDeviceActions(std::vector<DiscoveredDevice>& devices, const Options& opts)
+{
+    if (devices.size() <= 1)
+        return;
+
+    for (auto& dev : devices) {
+        for (auto& req : dev.feature_requests) {
+            if (req.type != CAPABILITYTYPE_ACTION || !req.should_process)
+                continue;
+
+            if (!opts.hasDeviceFilter()) {
+                req.result.status  = FEATURE_NOT_PROCESSED;
+                req.result.message = "Multiple devices, specify with -d";
+                req.result.value   = -1;
+            } else if (!dev.matchesFilter(opts)) {
+                req.should_process = false;
+            }
+        }
+    }
+}
+
+// Process pending feature requests for all matching devices
+void processFeatureRequests(std::vector<DiscoveredDevice>& devices, const Options& opts)
+{
+    for (auto& dev : devices) {
+        if (!dev.matchesFilter(opts))
+            continue;
+
+        for (auto& req : dev.feature_requests) {
+            if (req.should_process && req.result.status == FEATURE_NOT_PROCESSED) {
+                req.result = handleFeature(dev, req.cap, req.param);
+            }
+        }
+    }
+}
+
+// Check if headset is connected by querying battery status
+bool checkDeviceConnected(DiscoveredDevice& selected, const Options& opts)
+{
+    if (!selected.hasCapability(CAP_BATTERY_STATUS))
+        return true;
+
+    bool is_test = opts.test_device && selected.vendorId() == VENDOR_TESTDEVICE;
+    if (is_test)
+        return true;
+
+    hid_device* h = connectForCapability(selected.connection, selected.device, selected.product_id, CAP_BATTERY_STATUS);
+    if (!h)
+        return false;
+
+    auto r = selected.device->getBattery(h);
+    return !r.hasError() && r.value().status == BATTERY_AVAILABLE;
 }
 
 } // anonymous namespace
@@ -1089,18 +1175,7 @@ int main(int argc, char* argv[])
             std::cerr << "Error: No device selected\n";
             return 1;
         }
-        bool connected = true;
-        if (selected->hasCapability(CAP_BATTERY_STATUS)) {
-            bool is_test  = opts.test_device && selected->vendorId() == VENDOR_TESTDEVICE;
-            hid_device* h = is_test ? nullptr : connectForCapability(selected->connection, selected->device, selected->product_id, CAP_BATTERY_STATUS);
-            if (!is_test && !h) {
-                connected = false;
-            } else {
-                auto r    = selected->device->getBattery(h);
-                connected = !r.hasError() && r.value().status == BATTERY_AVAILABLE;
-            }
-        }
-        std::cout << (connected ? "true" : "false") << '\n';
+        std::cout << (checkDeviceConnected(*selected, opts) ? "true" : "false") << '\n';
         return 0;
     }
 
@@ -1108,41 +1183,15 @@ int main(int argc, char* argv[])
     g_follow_running = opts.follow_mode;
     setupSignalHandler();
 
-    // Initialize requests
+    // Initialize and configure feature requests
     initializeFeatureRequests(devices, opts);
-
-    // Extended output enables all info requests
     bool extended = opts.output_format == OUTPUT_YAML || opts.output_format == OUTPUT_JSON || opts.output_format == OUTPUT_ENV;
-
-    for (auto& dev : devices) {
-        for (auto& req : dev.feature_requests) {
-            if (extended && req.type == CAPABILITYTYPE_INFO && !req.should_process && dev.hasCapability(req.cap)) {
-                req.should_process = true;
-            }
-            if (req.type == CAPABILITYTYPE_ACTION && req.should_process && devices.size() > 1) {
-                if (!opts.hasDeviceFilter()) {
-                    req.result.status  = FEATURE_NOT_PROCESSED;
-                    req.result.message = "Multiple devices, specify with -d";
-                    req.result.value   = -1;
-                } else if (!dev.matchesFilter(opts)) {
-                    req.should_process = false;
-                }
-            }
-        }
-    }
+    enableExtendedInfoRequests(devices, extended);
+    handleMultiDeviceActions(devices, opts);
 
     // Main loop
     do {
-        for (auto& dev : devices) {
-            if (!dev.matchesFilter(opts))
-                continue;
-            for (auto& req : dev.feature_requests) {
-                if (req.should_process && req.result.status == FEATURE_NOT_PROCESSED) {
-                    req.result = handleFeature(dev, req.cap, req.param);
-                }
-            }
-        }
-
+        processFeatureRequests(devices, opts);
         auto legacy = toLegacyDeviceList(devices);
         output(legacy.data(), opts.print_capabilities, opts.output_format);
 

@@ -10,7 +10,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef _WIN32
+#include <windows.h>
+#define usleep(us) Sleep((us) / 1000)
+#else
 #include <unistd.h>
+#endif
 
 /**
  * @brief Print information of devices
@@ -145,18 +150,18 @@ int dev_main(int argc, char* argv[])
     unsigned char* receivereportbuffer = malloc(sizeof(char) * BUFFERLENGTH);
 
     struct option opts[] = {
-        { "device", required_argument, NULL, 'd' },
-        { "interface", required_argument, NULL, 'i' },
-        { "usage", required_argument, NULL, 'u' },
-        { "list", no_argument, NULL, 'l' },
-        { "send", required_argument, NULL, 's' },
-        { "send-feature", required_argument, NULL, 'f' },
-        { "sleep", required_argument, NULL, 'm' },
-        { "receive", no_argument, NULL, 'r' },
-        { "receive-feature", required_argument, NULL, 'g' },
-        { "timeout", required_argument, NULL, 't' },
-        { "dev-help", no_argument, NULL, 'h' },
-        { "repeat", required_argument, NULL, 0 },
+        { "device", required_argument, nullptr, 'd' },
+        { "interface", required_argument, nullptr, 'i' },
+        { "usage", required_argument, nullptr, 'u' },
+        { "list", no_argument, nullptr, 'l' },
+        { "send", required_argument, nullptr, 's' },
+        { "send-feature", required_argument, nullptr, 'f' },
+        { "sleep", required_argument, nullptr, 'm' },
+        { "receive", no_argument, nullptr, 'r' },
+        { "receive-feature", required_argument, nullptr, 'g' },
+        { "timeout", required_argument, nullptr, 't' },
+        { "dev-help", no_argument, nullptr, 'h' },
+        { "repeat", required_argument, nullptr, 0 },
         { 0, 0, 0, 0 }
     };
 
@@ -182,7 +187,7 @@ int dev_main(int argc, char* argv[])
             break;
         }
         case 'i': { // --interface interfaceid
-            interfaceid = strtol(optarg, NULL, 0);
+            interfaceid = strtol(optarg, nullptr, 0);
 
             if (interfaceid < 0) {
                 fprintf(stderr, "The interfaceid you supplied is invalid\n");
@@ -240,7 +245,7 @@ int dev_main(int argc, char* argv[])
             break;
         }
         case 'm': { // --sleep
-            sleep_time = strtol(optarg, NULL, 10);
+            sleep_time = strtol(optarg, nullptr, 10);
 
             if (sleep_time < 0) {
                 fprintf(stderr, "--sleep must be positive\n");
@@ -255,7 +260,7 @@ int dev_main(int argc, char* argv[])
         }
         case 'g': { // --receive-feature [reportid]
             int reportid = 0;
-            reportid     = strtol(optarg, NULL, 10);
+            reportid     = strtol(optarg, nullptr, 10);
 
             if (reportid > 255 || reportid < 0) {
                 fprintf(stderr, "The reportid for --receive-feature must be smaller than 255\n");
@@ -268,7 +273,7 @@ int dev_main(int argc, char* argv[])
             break;
         }
         case 't': { // --timeout timeout
-            timeout = strtol(optarg, NULL, 10);
+            timeout = strtol(optarg, nullptr, 10);
 
             if (timeout < -1) {
                 fprintf(stderr, "--timeout cannot be smaller than -1\n");
@@ -278,7 +283,7 @@ int dev_main(int argc, char* argv[])
         }
         case 0: {
             if (strcmp(opts[option_index].name, "repeat") == 0) { // --repeat SECS
-                repeat_seconds = strtol(optarg, NULL, 10);
+                repeat_seconds = strtol(optarg, nullptr, 10);
 
                 if (repeat_seconds < 1) {
                     fprintf(stderr, "--repeat SECS cannot be smaller than 1\n");
@@ -306,6 +311,10 @@ int dev_main(int argc, char* argv[])
     if (print_deviceinfo)
         print_devices(vendorid, productid);
 
+    // Declare these before goto to avoid jumping over initializations (C++ requirement)
+    char* hid_path            = nullptr;
+    hid_device* device_handle = nullptr;
+
     if (!(send || send_feature || receive || receivereport))
         goto cleanup;
 
@@ -314,10 +323,9 @@ int dev_main(int argc, char* argv[])
         return 1;
     }
 
-    char* hid_path            = get_hid_path(vendorid, productid, interfaceid, usagepage, usageid);
-    hid_device* device_handle = NULL;
+    hid_path = get_hid_path(vendorid, productid, interfaceid, usagepage, usageid);
 
-    if (hid_path == NULL) {
+    if (hid_path == nullptr) {
         fprintf(stderr, "Could not find a device with this parameters:\n");
         fprintf(stderr, "\t Vendor (%#x) Product (%#x) Interface (%#x) UsagePage (%#x) UsageID (%#x)\n",
             vendorid, productid, interfaceid, usagepage, usageid);
@@ -332,7 +340,7 @@ int dev_main(int argc, char* argv[])
     }
 
     device_handle = hid_open_path(hid_path);
-    if (device_handle == NULL) {
+    if (device_handle == nullptr) {
         fprintf(stderr, "Couldn't open device.\n");
         terminate_hid(&device_handle, &hid_path);
         return 1;
@@ -340,7 +348,7 @@ int dev_main(int argc, char* argv[])
 
     do {
         if (send) {
-            int ret = hid_write(device_handle, (const unsigned char*)sendbuffer, send);
+            int ret = hid_write(device_handle, sendbuffer, send);
 
             if (ret < 0) {
                 fprintf(stderr, "Failed to send data. Error: %d: %ls\n", ret, hid_error(device_handle));
@@ -350,7 +358,7 @@ int dev_main(int argc, char* argv[])
         }
 
         if (send_feature) {
-            int ret = hid_send_feature_report(device_handle, (const unsigned char*)sendreportbuffer, send_feature);
+            int ret = hid_send_feature_report(device_handle, sendreportbuffer, send_feature);
 
             if (ret < 0) {
                 fprintf(stderr, "Failed to send data. Error: %d: %ls\n", ret, hid_error(device_handle));

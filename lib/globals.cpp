@@ -9,6 +9,8 @@
 namespace headsetcontrol {
 namespace detail {
 
+    // NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables)
+
     // Default timeout for HID operations (milliseconds)
     static int g_device_timeout = 5000;
 
@@ -20,6 +22,8 @@ namespace detail {
     // 5 = timeout simulation
     // 10 = minimal capabilities
     static int g_test_profile = 0;
+
+    // NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 
     int getDeviceTimeout()
     {
@@ -46,5 +50,7 @@ namespace detail {
 
 // Legacy C-compatible global variables for backward compatibility within the library
 // These are used by device implementations that reference hsc_device_timeout and test_profile
+// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables)
 int hsc_device_timeout = 5000;
 int test_profile       = 0;
+// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)

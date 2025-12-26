@@ -47,7 +47,7 @@ public:
     Result<SidetoneResult> setSidetone(hid_device* device_handle, uint8_t level) override
     {
         // Zone Wired uses 0-10 range (0% to 100% in 10% steps)
-        uint8_t raw_volume = map(level, 0, 128, 0, 10);
+        uint8_t raw_volume = map<uint8_t>(level, 0, 128, 0, 10);
 
         std::array<uint8_t, MSG_SIZE> data {};
         data[0] = 0x22;

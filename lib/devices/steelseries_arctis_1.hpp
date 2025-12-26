@@ -49,7 +49,7 @@ public:
         case CAP_SIDETONE:
         case CAP_BATTERY_STATUS:
         case CAP_INACTIVE_TIME:
-            return { .usagepage = 0xff43, .usageid = 0x202, .interface = 0x03 };
+            return { .usagepage = 0xff43, .usageid = 0x202, .interface_id = 0x03 };
         default:
             return HIDDevice::getCapabilityDetail(cap);
         }
@@ -76,7 +76,7 @@ public:
     Result<SidetoneResult> setSidetone(hid_device* device_handle, uint8_t level) override
     {
         // Arctis 1 range: 0x00 to 0x12 (0-18)
-        uint8_t mapped = map(level, 0, 128, 0x00, 0x12);
+        uint8_t mapped = map<uint8_t>(level, 0, 128, 0x00, 0x12);
 
         std::array<uint8_t, 5> cmd_on { 0x06, 0x35, 0x01, 0x00, mapped };
         std::array<uint8_t, 2> cmd_off { 0x06, 0x35 };

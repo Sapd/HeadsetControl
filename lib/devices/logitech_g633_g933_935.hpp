@@ -2,9 +2,9 @@
 
 #include "protocols/hidpp_protocol.hpp"
 #include "protocols/logitech_calibrations.hpp"
+#include "utility.hpp"
 #include <array>
 #include <string_view>
-#include <unistd.h>
 
 using namespace std::string_view_literals;
 
@@ -108,7 +108,7 @@ public:
         }
 
         // Small delay between commands (Windows requirement)
-        usleep(1000);
+        sleep_ms(1);
 
         // Turn on/off logo
         std::array<uint8_t, 14> logo_data {

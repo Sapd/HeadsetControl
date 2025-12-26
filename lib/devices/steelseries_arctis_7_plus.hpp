@@ -51,9 +51,9 @@ public:
             | B(CAP_INACTIVE_TIME) | B(CAP_EQUALIZER) | B(CAP_EQUALIZER_PRESET);
     }
 
-    constexpr capability_detail getCapabilityDetail(enum capabilities cap) const override
+    constexpr capability_detail getCapabilityDetail([[maybe_unused]] enum capabilities cap) const override
     {
-        return { .usagepage = 0xffc0, .usageid = 0x1, .interface = 3 };
+        return { .usagepage = 0xffc0, .usageid = 0x1, .interface_id = 3 };
     }
 
     std::optional<EqualizerInfo> getEqualizerInfo() const override

@@ -67,10 +67,10 @@ public:
     /**
      * @brief Get capability details for a specific capability
      */
-    virtual constexpr capability_detail getCapabilityDetail(enum capabilities cap) const
+    virtual constexpr capability_detail getCapabilityDetail([[maybe_unused]] enum capabilities cap) const
     {
         // Default: interface 0, no usage page/id (C++20 designated initializers)
-        return { .usagepage = 0, .usageid = 0, .interface = 0 };
+        return { .usagepage = 0, .usageid = 0, .interface_id = 0 };
     }
 
     /**
@@ -167,19 +167,15 @@ public:
         wchar_t serial[128]       = {};
 
         if (hid_get_manufacturer_string(device_handle, manufacturer, 128) == 0) {
-            // Convert wchar_t to string
-            std::wstring ws(manufacturer);
-            meta.manufacturer = std::string(ws.begin(), ws.end());
+            meta.manufacturer = wstring_to_string(manufacturer);
         }
 
         if (hid_get_product_string(device_handle, product, 128) == 0) {
-            std::wstring ws(product);
-            meta.product = std::string(ws.begin(), ws.end());
+            meta.product = wstring_to_string(product);
         }
 
         if (hid_get_serial_number_string(device_handle, serial, 128) == 0 && serial[0] != 0) {
-            std::wstring ws(serial);
-            meta.serial_number = std::string(ws.begin(), ws.end());
+            meta.serial_number = wstring_to_string(serial);
         }
 
         return meta;
@@ -193,7 +189,7 @@ public:
         CapabilityInfo info {
             .capability  = cap,
             .supported   = (getCapabilities() & B(cap)) != 0,
-            .description = capabilities_str[cap],
+            .description = capability_to_string(cap),
             .hid_details = getCapabilityDetail(cap)
         };
 

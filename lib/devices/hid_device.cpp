@@ -1,18 +1,9 @@
 #include "hid_device.hpp"
 
 #include <algorithm>
-#include <cstring>
 #include <string_view>
 
 namespace headsetcontrol {
-
-// C function wrappers that delegate to C++ methods
-static int c_send_sidetone(hid_device* device_handle, uint8_t num)
-{
-    // Get the HIDDevice* from the device struct
-    // This will be stored in a custom field we'll add
-    return HSC_ERROR; // Placeholder
-}
 
 struct device* HIDDevice::toCDevice()
 {
@@ -20,12 +11,9 @@ struct device* HIDDevice::toCDevice()
         return c_device_cache.get();
     }
 
-    // Allocate new C device struct
+    // Allocate new C device struct (value-initialized: POD members zeroed, std::optional default-constructed)
     c_device_cache     = std::make_unique<struct device>();
     struct device* dev = c_device_cache.get();
-
-    // Zero-initialize
-    std::memset(dev, 0, sizeof(struct device));
 
     // Fill in basic info
     dev->idVendor = getVendorId();
@@ -37,7 +25,7 @@ struct device* HIDDevice::toCDevice()
     // This is a limitation - the C API expects a pointer to a static array
     // We'll handle this in derived classes
 
-    dev->numIdProducts = product_ids.size();
+    dev->numIdProducts = static_cast<int>(product_ids.size());
 
     // Copy device name safely using modern C++
     std::string_view name = getDeviceName();

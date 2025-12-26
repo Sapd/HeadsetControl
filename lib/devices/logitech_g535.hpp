@@ -41,11 +41,11 @@ public:
     {
         switch (cap) {
         case CAP_SIDETONE:
-            return { .usagepage = 0xc, .usageid = 0x1, .interface = 3 };
+            return { .usagepage = 0xc, .usageid = 0x1, .interface_id = 3 };
         case CAP_BATTERY_STATUS:
-            return { .usagepage = 0xc, .usageid = 0x1, .interface = 3 };
+            return { .usagepage = 0xc, .usageid = 0x1, .interface_id = 3 };
         case CAP_INACTIVE_TIME:
-            return { .usagepage = 0xc, .usageid = 0x1, .interface = 3 };
+            return { .usagepage = 0xc, .usageid = 0x1, .interface_id = 3 };
         default:
             return HIDDevice::getCapabilityDetail(cap);
         }
@@ -60,7 +60,7 @@ public:
     Result<SidetoneResult> setSidetone(hid_device* device_handle, uint8_t level) override
     {
         // G535 uses 0-100 range (unlike G533's 200-255)
-        uint8_t mapped = map(level, 0, 128, 0, 100);
+        uint8_t mapped = map<uint8_t>(level, 0, 128, 0, 100);
 
         // Send sidetone command and read response for validation
         std::array<uint8_t, 3> cmd { 0x04, 0x1d, mapped };

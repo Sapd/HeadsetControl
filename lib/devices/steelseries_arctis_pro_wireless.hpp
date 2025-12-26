@@ -45,9 +45,9 @@ public:
         return B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_INACTIVE_TIME);
     }
 
-    constexpr capability_detail getCapabilityDetail(enum capabilities cap) const override
+    constexpr capability_detail getCapabilityDetail([[maybe_unused]] enum capabilities cap) const override
     {
-        return { .interface = 0 };
+        return { .interface_id = 0 };
     }
 
     // Override save state for Arctis Pro Wireless
@@ -101,7 +101,7 @@ public:
     Result<SidetoneResult> setSidetone(hid_device* device_handle, uint8_t level) override
     {
         // Range: 0x00 to 0x09
-        uint8_t mapped = map(level, 0, 128, 0x00, 0x09);
+        uint8_t mapped = map<uint8_t>(level, 0, 128, 0x00, 0x09);
 
         std::array<uint8_t, 3> cmd { 0x39, 0xAA, mapped };
 
