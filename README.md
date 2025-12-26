@@ -38,7 +38,7 @@ A cross-platform tool to control USB gaming headsets on **Linux**, **macOS**, an
 | SteelSeries Arctis Nova 3P Wireless | L/M | x | x |   |   | x |   |   |   | x | x | x |   | x |   |   |   |
 | HyperX Cloud Alpha Wireless | All | x | x |   |   | x |   | x |   |   |   |   |   |   |   |   |   |
 | HyperX Cloud Flight Wireless | All |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
-| HyperX Cloud II Wireless | All |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
+| HyperX Cloud II Wireless | All |   | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |
 | HyperX Cloud 3 | All | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | ROCCAT Elo 7.1 Air | All |   |   |   | x | x |   |   |   |   |   |   |   |   |   |   |   |
 | ROCCAT Elo 7.1 USB | All |   |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |
