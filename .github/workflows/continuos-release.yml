@@ -115,7 +115,7 @@ jobs:
         if: matrix.build_type == 'msvc'
         uses: lukka/run-vcpkg@5e0cab206a5ea620130caf672fce3e4a6b5666a1 # v11.5
         with:
-          vcpkgGitCommitId: '01f602195983451bc83e72f4214af2cbc495aa94'  # 2024.05.24
+          vcpkgGitCommitId: '84bab45d415d22042bd0b9081aea57f362da3f35'  # 2025.12.12
           vcpkgJsonGlob: 'vcpkg.json'
 
       - name: Setup CMake and Ninja (MSVC)
