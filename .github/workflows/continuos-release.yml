@@ -1,99 +1,292 @@
-name: Continuos build workflow
+name: Continuous Build & Release
 
 on:
   workflow_dispatch:
-    inputs: {}
   push:
     branches: [master]
     paths:
       - "cmake_modules/**"
-      - "src/**"
+      - "lib/**"
+      - "cli/**"
+      - "tests/**"
       - "CMakeLists.txt"
+      - "CMakePresets.json"
+      - "vcpkg.json"
+      - ".github/workflows/continuos-release.yml"
+
+# Cancel in-progress runs when a new commit is pushed
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     defaults:
       run:
         shell: ${{ matrix.shell }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
         include:
+          # Windows MinGW (MSYS2)
           - os: windows-latest
-            os_name: windows
+            os_name: windows-mingw
             architecture: x86_64
             shell: msys2 {0}
-            msystem: MINGW64
-            install: base-devel mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-hidapi make zip
+            build_type: mingw
+          # Windows MSVC (native)
+          - os: windows-latest
+            os_name: windows-msvc
+            architecture: x86_64
+            shell: pwsh
+            build_type: msvc
+          # Linux
           - os: ubuntu-latest
             os_name: linux
             architecture: x86_64
             shell: bash
-            install: sudo apt-get -y install libhidapi-dev
+            build_type: unix
+          # macOS (ARM64 - macos-latest uses M1 runners)
           - os: macos-latest
             os_name: macos
-            architecture: x86_64
+            architecture: arm64
             shell: bash
-            install: brew install hidapi
+            build_type: unix
+
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup environment
-        if: matrix.os_name == 'windows'
-        uses: msys2/setup-msys2@v2
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          msystem: ${{ matrix.msystem }}
+          fetch-depth: 0
+
+      # =========== Linux Setup ===========
+      - name: Cache apt packages
+        if: matrix.os_name == 'linux'
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: /var/cache/apt/archives
+          key: ${{ runner.os }}-apt-${{ hashFiles('.github/workflows/continuos-release.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-apt-
+
+      - name: Install GCC 13 (Ubuntu)
+        if: matrix.os_name == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-13 g++-13
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100
+          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 100
+          sudo update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-13 100
+          sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-13 100
+
+      - name: Install dependencies (Linux)
+        if: matrix.os_name == 'linux'
+        run: sudo apt-get -y install libhidapi-dev
+
+      # =========== macOS Setup ===========
+      - name: Cache Homebrew
+        if: matrix.os_name == 'macos'
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/Library/Caches/Homebrew
+            /usr/local/Cellar/hidapi
+            /opt/homebrew/Cellar/hidapi
+          key: ${{ runner.os }}-brew-${{ hashFiles('.github/workflows/continuos-release.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-brew-
+
+      - name: Install dependencies (macOS)
+        if: matrix.os_name == 'macos'
+        run: brew install hidapi
+
+      # =========== Windows MinGW Setup ===========
+      - name: Setup MSYS2 (MinGW)
+        if: matrix.build_type == 'mingw'
+        uses: msys2/setup-msys2@4f806de0a5a7294ffabaff804b38a9b435a73bda # v2.30.0
+        with:
+          msystem: MINGW64
           update: true
-          install: ${{ matrix.install }}
+          install: base-devel mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-hidapi make zip
 
-      - name: Install dependencies
-        if: matrix.os_name != 'windows'
-        run: ${{ matrix.install }}
+      # =========== Windows MSVC Setup ===========
+      - name: Setup vcpkg (MSVC)
+        if: matrix.build_type == 'msvc'
+        uses: lukka/run-vcpkg@5e0cab206a5ea620130caf672fce3e4a6b5666a1 # v11.5
+        with:
+          vcpkgGitCommitId: '01f602195983451bc83e72f4214af2cbc495aa94'  # 2024.05.24
+          vcpkgJsonGlob: 'vcpkg.json'
 
-      - name: Build
-        if: matrix.os_name == 'windows'
+      - name: Setup CMake and Ninja (MSVC)
+        if: matrix.build_type == 'msvc'
+        uses: lukka/get-cmake@9e07ecdcee1b12e5037e42f410b67f03e2f626e1 # v4.2.1
+
+      # =========== Linux/macOS CMake Setup ===========
+      - name: Setup CMake and Ninja (Unix)
+        if: matrix.build_type == 'unix'
+        uses: lukka/get-cmake@9e07ecdcee1b12e5037e42f410b67f03e2f626e1 # v4.2.1
+
+      # =========== Build Steps ===========
+
+      # Windows MinGW Build
+      - name: Build and test (Windows MinGW)
+        if: matrix.build_type == 'mingw'
         run: |
           mkdir build
           cd build
-          cmake -G"MSYS Makefiles" ..
+          cmake -G"MSYS Makefiles" -DCMAKE_BUILD_TYPE=Release ..
           make
+          ctest --output-on-failure
+          strip headsetcontrol.exe
 
-      - name: Run CMake with Ninja
-        if: matrix.os_name != 'windows'
-        uses: lukka/run-cmake@v3
-        id: runcmake
+      # Windows MSVC Build
+      - name: Build and test (Windows MSVC)
+        if: matrix.build_type == 'msvc'
+        uses: lukka/run-cmake@af1be47fd7c933593f687731bc6fdbee024d3ff4 # v10.8
         with:
-          cmakeListsTxtPath: "${{ github.workspace }}/CMakeLists.txt"
-          buildWithCMakeArgs: "--config Release -- -v"
-          buildDirectory: ${{ github.workspace }}/build
+          configurePreset: 'windows-msvc'
+          buildPreset: 'windows-msvc'
+          testPreset: 'windows-msvc'
 
-      - name: Zip build artifacts
+      # Linux/macOS Build
+      - name: Build and test (Unix)
+        if: matrix.build_type == 'unix'
+        uses: lukka/run-cmake@af1be47fd7c933593f687731bc6fdbee024d3ff4 # v10.8
+        with:
+          configurePreset: 'default'
+          buildPreset: 'default'
+          testPreset: 'default'
+
+      # =========== Post-Build ===========
+
+      # Strip binaries (Unix only - Windows MinGW already stripped, MSVC doesn't use strip)
+      - name: Strip binaries (Unix)
+        if: matrix.build_type == 'unix'
+        run: strip build/headsetcontrol
+
+      # Package artifacts
+      - name: Package artifacts (MinGW)
+        if: matrix.build_type == 'mingw'
         run: |
           cd build
-          zip -r headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip headsetcontrol*
+          zip -9 headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip headsetcontrol.exe
+          sha256sum headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip > headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip.sha256
 
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+      - name: Package artifacts (MSVC)
+        if: matrix.build_type == 'msvc'
+        run: |
+          cd build-msvc
+          Compress-Archive -Path headsetcontrol.exe -DestinationPath headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip -CompressionLevel Optimal
+          $hash = (Get-FileHash -Algorithm SHA256 headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip).Hash.ToLower()
+          $filename = "headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip"
+          # Use Unix line endings for cross-platform compatibility
+          [System.IO.File]::WriteAllText("$filename.sha256", "$hash  $filename`n")
+
+      - name: Package artifacts (Unix)
+        if: matrix.build_type == 'unix'
+        run: |
+          cd build
+          zip -9 headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip headsetcontrol
+          if [ "${{ matrix.os_name }}" = "macos" ]; then
+            shasum -a 256 headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip > headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip.sha256
+          else
+            sha256sum headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip > headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip.sha256
+          fi
+
+      - name: Upload build artifacts (MinGW/Unix)
+        if: matrix.build_type != 'msvc'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}
-          path: build/headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip
+          path: |
+            build/headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip
+            build/headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip.sha256
+          retention-days: 90
+
+      - name: Upload build artifacts (MSVC)
+        if: matrix.build_type == 'msvc'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}
+          path: |
+            build-msvc/headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip
+            build-msvc/headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip.sha256
+          retention-days: 90
 
   create-release:
     needs: [build]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v4
-      - name: Download Windows Artifact
-        uses: actions/download-artifact@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           merge-multiple: true
-      - name: Deploy continuous
-        uses: crowbarmaster/GH-Automatic-Releases@latest
+          path: ./artifacts
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          echo "## 🚀 Continuous Build" > CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "Latest automated build from \`master\` branch." >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "### 📦 Downloads" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "#### Windows" >> CHANGELOG.md
+          for file in artifacts/*windows*.zip; do
+            if [ -f "$file" ]; then
+              name=$(basename "$file")
+              if [[ "$name" == *"msvc"* ]]; then
+                echo "- [${name}](https://github.com/${{ github.repository }}/releases/download/continuous/${name}) (MSVC - native Windows)" >> CHANGELOG.md
+              else
+                echo "- [${name}](https://github.com/${{ github.repository }}/releases/download/continuous/${name}) (MinGW)" >> CHANGELOG.md
+              fi
+            fi
+          done
+          echo "" >> CHANGELOG.md
+          echo "#### Linux" >> CHANGELOG.md
+          for file in artifacts/*linux*.zip; do
+            if [ -f "$file" ]; then
+              echo "- [$(basename "$file")](https://github.com/${{ github.repository }}/releases/download/continuous/$(basename "$file"))" >> CHANGELOG.md
+            fi
+          done
+          echo "" >> CHANGELOG.md
+          echo "#### macOS" >> CHANGELOG.md
+          for file in artifacts/*macos*.zip; do
+            if [ -f "$file" ]; then
+              echo "- [$(basename "$file")](https://github.com/${{ github.repository }}/releases/download/continuous/$(basename "$file"))" >> CHANGELOG.md
+            fi
+          done
+          echo "" >> CHANGELOG.md
+          echo "### 🔐 Checksums (SHA256)" >> CHANGELOG.md
+          echo '```' >> CHANGELOG.md
+          cat artifacts/*.sha256 >> CHANGELOG.md 2>/dev/null || true
+          echo '```' >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "### 📝 Recent Changes" >> CHANGELOG.md
+          echo '```' >> CHANGELOG.md
+          git log --oneline -10 >> CHANGELOG.md
+          echo '```' >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "---" >> CHANGELOG.md
+          echo "*Built from commit: \`${{ github.sha }}\`*" >> CHANGELOG.md
+
+      - name: Create/Update continuous release
+        uses: ncipollo/release-action@b7eabc95ff50cbeeedec83973935c8f306dfcd0b # v1.20.0
         with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: "continuous"
+          tag: continuous
+          name: 'Continuous Build'
+          bodyFile: CHANGELOG.md
+          artifacts: "artifacts/*"
+          allowUpdates: true
+          removeArtifacts: true
           prerelease: true
-          title: 'Continuous Build'
-          files: |
-            headsetcontrol-*
+          makeLatest: false
+          token: ${{ secrets.GITHUB_TOKEN }}
