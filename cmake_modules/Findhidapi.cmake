@@ -54,15 +54,43 @@
 IF (WIN32)
 	find_library(HIDAPI_LIBRARY
 		NAMES hidapi.a libhidapi.a hidapi)
+ELSEIF(APPLE)
+	# macOS: Search Homebrew paths (ARM64: /opt/homebrew, Intel: /usr/local)
+	find_library(HIDAPI_LIBRARY
+		NAMES hidapi
+		PATHS
+			/opt/homebrew/lib
+			/usr/local/lib
+		NO_DEFAULT_PATH)
+	if(NOT HIDAPI_LIBRARY)
+		find_library(HIDAPI_LIBRARY NAMES hidapi)
+	endif()
 ELSE()
 	find_library(HIDAPI_LIBRARY
 		NAMES hidapi-hidraw hidapi)
 ENDIF()
 
-find_path(HIDAPI_INCLUDE_DIR
-	NAMES hidapi.h
-	PATH_SUFFIXES
-	hidapi)
+IF(APPLE)
+	find_path(HIDAPI_INCLUDE_DIR
+		NAMES hidapi.h
+		PATHS
+			/opt/homebrew/include
+			/usr/local/include
+		PATH_SUFFIXES
+		hidapi
+		NO_DEFAULT_PATH)
+	if(NOT HIDAPI_INCLUDE_DIR)
+		find_path(HIDAPI_INCLUDE_DIR
+			NAMES hidapi.h
+			PATH_SUFFIXES
+			hidapi)
+	endif()
+ELSE()
+	find_path(HIDAPI_INCLUDE_DIR
+		NAMES hidapi.h
+		PATH_SUFFIXES
+		hidapi)
+ENDIF()
 
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(hidapi
