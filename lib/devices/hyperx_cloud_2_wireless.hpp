@@ -72,7 +72,7 @@ public:
     Result<std::array<uint8_t, READ_PACKET_SIZE>> sendCommand(hid_device* device_handle, uint8_t command, std::optional<uint8_t> value)
     {
         std::array<uint8_t, WRITE_PACKET_SIZE> request {};
-        if (value) {
+        if (value.has_value()) {
             request = { 0x06, 0xff, 0xbb, command, *value, 0x00 };
         } else {
             request = { 0x06, 0xff, 0xbb, command, 0x00 };
@@ -95,7 +95,7 @@ public:
         if (response[0] != 0x06 || response[1] != 0xFF || response[2] != 0xBB || response[3] != command) {
             return DeviceError::protocolError("Invalid response header");
         }
-        if (value && response[4] != *value) {
+        if (value.has_value() && response[4] != *value) {
             return DeviceError::protocolError("Response value does not match request");
         }
 
