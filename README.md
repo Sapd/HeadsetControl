@@ -241,7 +241,7 @@ headsetcontrol --test-device -b
 - [HeadsetControl-MacOSTray](https://github.com/ChrisLauinger77/HeadsetControl-MacOSTray) - Menu bar app (macOS 14+)
 
 ### Windows
-- [HeadsetControl-Qt](https://github.com/Odizinne/HeadsetControl-Qt) - System tray and GUI (Qt C++, also works on Linux)
+- [QontrolPanel](https://github.com/Odizinne/QontrolPanel) - Quick access / settings panel (Qt C++/QML, also works on Linux)
 - [HeadsetControl-GUI](https://github.com/LeoKlaus/HeadsetControl-GUI) - Simple GUI (Qt C++)
 - [HeadsetControl-SystemTray](https://github.com/zampierilucas/HeadsetControl-SystemTray) - System tray (Python)
 - [headset-battery-indicator](https://github.com/aarol/headset-battery-indicator) - Native tray icon (Rust)
