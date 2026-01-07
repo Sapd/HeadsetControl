@@ -1,73 +1,100 @@
-# https://github.com/git/git/blob/master/.github/workflows/check-whitespace.yml
-
-name: Check Whitespaces
-
-# Get the repo with the commits(+1) in the series.
-# Process `git log --check` output to extract just the check errors.
-# Add a comment to the pull request with the check errors.
+name: Whitespace Check
 
 on:
   pull_request:
-    types: [opened, synchronize]
+    types: [opened, synchronize, reopened]
 
 jobs:
   check-whitespace:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
-    - name: Set commit count
-      shell: bash
-      run: echo "COMMIT_DEPTH=$((1+$COMMITS))" >>$GITHUB_ENV
-      env:
-        COMMITS: ${{ github.event.pull_request.commits }}
+      - name: Set commit depth
+        shell: bash
+        run: echo "COMMIT_DEPTH=$((1 + ${{ github.event.pull_request.commits }}))" >> $GITHUB_ENV
 
-    - uses: actions/checkout@v2
-      with:
-        fetch-depth: ${{ env.COMMIT_DEPTH }}
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: ${{ env.COMMIT_DEPTH }}
 
-    - name: git log --check
-      id: check_out
-      run: |
-        log=
-        commit=
-        while read dash etc
-        do
-          case "${dash}" in
-          "---")
-            commit="${etc}"
-            ;;
-          "")
-            ;;
-          *)
-            if test -n "${commit}"
-            then
-              log="${log}\n${commit}"
-              echo ""
-              echo "--- ${commit}"
-            fi
-            commit=
-            log="${log}\n${dash} ${etc}"
-            echo "${dash} ${etc}"
-            ;;
-          esac
-        done <<< $(git log --check --pretty=format:"---% h% s" -${{github.event.pull_request.commits}})
+      - name: Check for whitespace errors
+        id: check
+        continue-on-error: true
+        run: |
+          # Check for whitespace errors and save output
+          git log --check --pretty=format:"Commit %h: %s" -${{ github.event.pull_request.commits }} > whitespace-errors.txt 2>&1 || true
 
-        if test -n "${log}"
-        then
-          echo "::set-output name=checkout::"${log}""
-          exit 2
-        fi
+          if [ -s whitespace-errors.txt ]; then
+            echo "has_errors=true" >> $GITHUB_OUTPUT
+            echo "### Whitespace Issues Found" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "The following commits have whitespace errors:" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat whitespace-errors.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "has_errors=false" >> $GITHUB_OUTPUT
+            echo "No whitespace errors found" >> $GITHUB_STEP_SUMMARY
+          fi
 
-    - name: Add Check Output as Comment
-      uses: actions/github-script@v3
-      id: add-comment
-      env:
-        log: ${{ steps.check_out.outputs.checkout }}
-      with:
-        script: |
-            await github.issues.createComment({
-              issue_number: context.issue.number,
+      - name: Post PR comment
+        if: steps.check.outputs.has_errors == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const errors = fs.readFileSync('whitespace-errors.txt', 'utf8');
+
+            // Find existing bot comment
+            const comments = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `Whitespace errors found in workflow ${{ github.workflow }}:\n\n\`\`\`\n${process.env.log.replace(/\\n/g, "\n")}\n\`\`\``
-            })
-      if: ${{ failure() }}
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.data.find(comment =>
+              comment.user.type === 'Bot' &&
+              comment.body.includes('Whitespace Issues')
+            );
+
+            const body = `## Whitespace Issues Found
+
+The following commits contain whitespace errors (trailing whitespace, spaces before tabs, etc.):
+
+\`\`\`
+${errors}
+\`\`\`
+
+### How to fix:
+1. Run \`git rebase --whitespace=fix HEAD~${{ github.event.pull_request.commits }}\`
+2. Or manually remove trailing whitespace from the affected lines
+3. Force push the changes: \`git push --force-with-lease\`
+
+---
+*This check ensures code quality by preventing whitespace issues.*`;
+
+            if (botComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }
+
+      - name: Fail if errors found
+        if: steps.check.outputs.has_errors == 'true'
+        run: |
+          echo "::error::Whitespace errors found. Please fix them before merging."
+          exit 1
