@@ -27,7 +27,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           style: 'file'
-          tidy-checks: ''
+          tidy-checks: '-*'
           version: '18'
           files-changed-only: true
           lines-changed-only: false
@@ -37,7 +37,7 @@ jobs:
           extensions: 'c,cpp,h,hpp'
 
       - name: Fail if formatting issues found
-        if: steps.linter.outputs.checks-failed > 0
+        if: steps.linter.outputs.format-checks-failed > 0
         run: |
-          echo "::error::Found ${{ steps.linter.outputs.checks-failed }} formatting issues"
+          echo "::error::Found ${{ steps.linter.outputs.format-checks-failed }} formatting issues"
           exit 1

@@ -203,10 +203,7 @@ public:
         }
 
         size_t copy_size = std::min(read_response.size(), data.size());
-        // Use manual copy for cross-platform compatibility (MinGW workaround)
-        for (size_t i = 0; i < copy_size; ++i) {
-            data[i] = read_response[i];
-        }
+        std::copy_n(read_response.begin(), copy_size, data.begin());
 
         return copy_size;
     }
@@ -346,12 +343,21 @@ void testMockInputReport()
     std::cout << "  Testing mock input report..." << std::endl;
 
     MockHIDInterface mock;
-    mock.read_response = { 0x01, 0xFF, 0xEE };
+    // Use push_back for MinGW compatibility (initializer list assignment may fail)
+    mock.read_response.push_back(0x01);
+    mock.read_response.push_back(0xFF);
+    mock.read_response.push_back(0xEE);
 
-    std::array<uint8_t, 8> buffer { 0x01 }; // Report ID
+    // Verify response was set correctly
+    ASSERT_EQ(3u, mock.read_response.size(), "Response should have 3 bytes");
+
+    // Use different initial value to verify copy actually happened
+    std::array<uint8_t, 8> buffer {};
+    buffer[0]   = 0x01; // Report ID
     auto result = mock.getInputReport(nullptr, buffer);
 
     ASSERT_TRUE(result.hasValue(), "Get should succeed");
+    ASSERT_EQ(3u, result.value(), "Should return 3 bytes copied");
     ASSERT_EQ(0x01, buffer[0], "Report ID preserved");
     ASSERT_EQ(0xFF, buffer[1], "Data byte 1");
     ASSERT_EQ(0xEE, buffer[2], "Data byte 2");
