@@ -47,15 +47,16 @@ public:
         }                                                                    \
     } while (0)
 
-#define ASSERT_EQ(expected, actual, msg)                 \
-    do {                                                 \
-        if ((expected) != (actual)) {                    \
-            std::ostringstream oss;                      \
-            oss << "ASSERT_EQ failed: " << (msg) << "\n" \
-                << "  Expected: " << (expected) << "\n"  \
-                << "  Actual:   " << (actual);           \
-            throw TestFailure(oss.str());                \
-        }                                                \
+#define ASSERT_EQ(expected, actual, msg)                        \
+    do {                                                        \
+        if ((expected) != (actual)) {                           \
+            std::ostringstream oss;                             \
+            oss << "ASSERT_EQ failed: " << (msg) << "\n"        \
+                << "  Expected: " << static_cast<int>(expected) \
+                << "\n"                                         \
+                << "  Actual:   " << static_cast<int>(actual);  \
+            throw TestFailure(oss.str());                       \
+        }                                                       \
     } while (0)
 
 // ============================================================================
@@ -202,7 +203,10 @@ public:
         }
 
         size_t copy_size = std::min(read_response.size(), data.size());
-        std::copy_n(read_response.begin(), copy_size, data.begin());
+        // Use manual copy for cross-platform compatibility (MinGW workaround)
+        for (size_t i = 0; i < copy_size; ++i) {
+            data[i] = read_response[i];
+        }
 
         return copy_size;
     }
