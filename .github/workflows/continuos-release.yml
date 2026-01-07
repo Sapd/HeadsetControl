@@ -99,7 +99,9 @@ jobs:
 
       - name: Install dependencies (macOS)
         if: matrix.os_name == 'macos'
-        run: brew install hidapi
+        run: |
+          brew install hidapi || true
+          brew link hidapi || true
 
       # =========== Windows MinGW Setup ===========
       - name: Setup MSYS2 (MinGW)
