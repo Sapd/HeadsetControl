@@ -1,12 +1,18 @@
 build/
-src/version.h
+build-msvc/
+lib/version.h
 
 .idea/
+.vs/
+.claude/
 cmake-build-debug/
 .codechecker/
+.scannerwork/
 
 .vscode/*
 *.code-workspace
 *.cache/
 
 .DS_Store
+
+Testing/

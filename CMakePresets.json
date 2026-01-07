@@ -1,0 +1,97 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 19,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "default",
+      "displayName": "Default Config",
+      "description": "Default build configuration for Linux/macOS (GCC/Clang)",
+      "binaryDir": "${sourceDir}/build",
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "windows-mingw",
+      "displayName": "Windows MinGW",
+      "description": "Build with MinGW-w64 on Windows",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    },
+    {
+      "name": "windows-msvc",
+      "displayName": "Windows MSVC",
+      "description": "Build with MSVC using vcpkg for dependencies",
+      "binaryDir": "${sourceDir}/build-msvc",
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "VCPKG_TARGET_TRIPLET": "x64-windows-static"
+      },
+      "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "default",
+      "displayName": "Default Build",
+      "configurePreset": "default",
+      "verbose": true
+    },
+    {
+      "name": "windows-mingw",
+      "displayName": "Windows MinGW Build",
+      "configurePreset": "windows-mingw",
+      "verbose": true
+    },
+    {
+      "name": "windows-msvc",
+      "displayName": "Windows MSVC Build",
+      "configurePreset": "windows-msvc",
+      "verbose": true
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "default",
+      "displayName": "Default Test",
+      "configurePreset": "default",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "windows-mingw",
+      "displayName": "Windows MinGW Test",
+      "configurePreset": "windows-mingw",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "windows-msvc",
+      "displayName": "Windows MSVC Test",
+      "configurePreset": "windows-msvc",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}

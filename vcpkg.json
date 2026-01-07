@@ -1,0 +1,13 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "headsetcontrol",
+  "version-string": "0.0.0",
+  "description": "Cross-platform tool to control USB headsets",
+  "dependencies": [
+    "hidapi",
+    {
+      "name": "getopt",
+      "platform": "windows"
+    }
+  ]
+}
