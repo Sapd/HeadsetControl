@@ -30,25 +30,19 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Windows MinGW (MSYS2)
+          # Windows (MSVC)
           - os: windows-latest
-            os_name: windows-mingw
-            architecture: x86_64
-            shell: msys2 {0}
-            build_type: mingw
-          # Windows MSVC (native)
-          - os: windows-latest
-            os_name: windows-msvc
+            os_name: windows
             architecture: x86_64
             shell: pwsh
             build_type: msvc
-          # Linux (Ubuntu 22.04 for glibc 2.35 compatibility)
+          # Linux
           - os: ubuntu-22.04
             os_name: linux
             architecture: x86_64
             shell: bash
             build_type: unix
-          # macOS (ARM64 - macos-latest uses M1 runners)
+          # macOS (ARM64)
           - os: macos-latest
             os_name: macos
             architecture: arm64
@@ -112,47 +106,29 @@ jobs:
           brew install hidapi || true
           brew link hidapi || true
 
-      # =========== Windows MinGW Setup ===========
-      - name: Setup MSYS2 (MinGW)
-        if: matrix.build_type == 'mingw'
-        uses: msys2/setup-msys2@4f806de0a5a7294ffabaff804b38a9b435a73bda # v2.30.0
-        with:
-          msystem: MINGW64
-          update: true
-          install: base-devel mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-hidapi make zip
-
-      # =========== Windows MSVC Setup ===========
-      - name: Setup vcpkg (MSVC)
+      # =========== Windows Setup ===========
+      - name: Setup vcpkg (Windows)
         if: matrix.build_type == 'msvc'
         uses: lukka/run-vcpkg@5e0cab206a5ea620130caf672fce3e4a6b5666a1 # v11.5
         with:
           vcpkgGitCommitId: '84bab45d415d22042bd0b9081aea57f362da3f35'  # 2025.12.12
           vcpkgJsonGlob: 'vcpkg.json'
 
-      - name: Setup CMake and Ninja (MSVC)
+      - name: Setup CMake and Ninja (Windows)
         if: matrix.build_type == 'msvc'
         uses: lukka/get-cmake@9e07ecdcee1b12e5037e42f410b67f03e2f626e1 # v4.2.1
 
-      # =========== Linux/macOS CMake Setup ===========
+      - name: Install NSIS (Windows)
+        if: matrix.build_type == 'msvc'
+        run: choco install nsis -y
+
+      # =========== Unix Setup ===========
       - name: Setup CMake and Ninja (Unix)
         if: matrix.build_type == 'unix'
         uses: lukka/get-cmake@9e07ecdcee1b12e5037e42f410b67f03e2f626e1 # v4.2.1
 
-      # =========== Build Steps ===========
-
-      # Windows MinGW Build
-      - name: Build and test (Windows MinGW)
-        if: matrix.build_type == 'mingw'
-        run: |
-          mkdir build
-          cd build
-          cmake -G"MSYS Makefiles" -DCMAKE_BUILD_TYPE=Release ..
-          make
-          ctest --output-on-failure
-          strip headsetcontrol.exe
-
-      # Windows MSVC Build
-      - name: Build and test (Windows MSVC)
+      # =========== Build ===========
+      - name: Build and test (Windows)
         if: matrix.build_type == 'msvc'
         uses: lukka/run-cmake@af1be47fd7c933593f687731bc6fdbee024d3ff4 # v10.8
         with:
@@ -160,7 +136,6 @@ jobs:
           buildPreset: 'windows-msvc'
           testPreset: 'windows-msvc'
 
-      # Linux/macOS Build
       - name: Build and test (Unix)
         if: matrix.build_type == 'unix'
         uses: lukka/run-cmake@af1be47fd7c933593f687731bc6fdbee024d3ff4 # v10.8
@@ -176,26 +151,18 @@ jobs:
         if: matrix.os_name == 'linux'
         run: ccache -s
 
-      # =========== Post-Build ===========
-
-      # Strip binaries (Unix only - Windows MinGW already stripped, MSVC doesn't use strip)
+      # =========== Package ===========
       - name: Strip binaries (Unix)
         if: matrix.build_type == 'unix'
         run: strip build/headsetcontrol
 
-      # Generate Linux packages (.deb, .rpm, AppImage)
+      # Linux packages
       - name: Generate Linux packages
         if: matrix.os_name == 'linux'
         run: |
           cd build
-
-          # Generate .deb package
           cpack -G DEB
-
-          # Generate .rpm package
           cpack -G RPM
-
-          # Generate checksums for .deb and .rpm
           for pkg in *.deb *.rpm; do
             sha256sum "$pkg" > "$pkg.sha256"
           done
@@ -205,7 +172,7 @@ jobs:
         run: |
           cd build
 
-          # Use cached linuxdeploy or download if not cached
+          # Use cached linuxdeploy or download
           if [ -f /tmp/linuxdeploy/linuxdeploy-x86_64.AppImage ]; then
             cp /tmp/linuxdeploy/linuxdeploy-x86_64.AppImage .
           else
@@ -215,15 +182,11 @@ jobs:
           fi
           chmod +x linuxdeploy-x86_64.AppImage
 
-          # Minimal .desktop file (required, but hidden from app menus with NoDisplay=true)
+          # Create .desktop file
           printf '%s\n' '[Desktop Entry]' 'Type=Application' 'Name=HeadsetControl' 'Exec=headsetcontrol' 'Icon=headsetcontrol' 'Categories=Utility;' 'Terminal=true' 'NoDisplay=true' > headsetcontrol.desktop
 
-          # Copy icon from assets
           cp ../assets/headsetcontrol.png headsetcontrol.png
 
-          # Build AppImage - linuxdeploy automatically bundles libhidapi and other dependencies
-          # Use --appimage-extract-and-run to avoid FUSE issues on GitHub Actions runners
-          # DEPLOY_LIBSTDCPP=1 bundles libstdc++ for compatibility with older systems
           DEPLOY_LIBSTDCPP=1 ./linuxdeploy-x86_64.AppImage --appimage-extract-and-run \
             --appdir AppDir \
             --executable headsetcontrol \
@@ -231,56 +194,50 @@ jobs:
             --icon-file headsetcontrol.png \
             --output appimage
 
-          # Rename to standard format
           mv HeadsetControl-*.AppImage headsetcontrol-${{ matrix.architecture }}.AppImage
-
-          # Generate checksum
           sha256sum headsetcontrol-${{ matrix.architecture }}.AppImage > headsetcontrol-${{ matrix.architecture }}.AppImage.sha256
 
-      # Package artifacts
-      - name: Package artifacts (MinGW)
-        if: matrix.build_type == 'mingw'
-        run: |
-          cd build
-          zip -9 headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip headsetcontrol.exe
-          sha256sum headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip > headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip.sha256
-
-      - name: Package artifacts (MSVC)
-        if: matrix.build_type == 'msvc'
-        run: |
-          cd build-msvc
-          Compress-Archive -Path headsetcontrol.exe -DestinationPath headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip -CompressionLevel Optimal
-          $hash = (Get-FileHash -Algorithm SHA256 headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip).Hash.ToLower()
-          $filename = "headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip"
-          # Use Unix line endings for cross-platform compatibility
-          [System.IO.File]::WriteAllText("$filename.sha256", "$hash  $filename`n")
-
-      - name: Package artifacts (Unix)
-        if: matrix.build_type == 'unix'
+      - name: Package portable binary (Linux)
+        if: matrix.os_name == 'linux'
         run: |
           cd build
           zip -9 headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip headsetcontrol
-          if [ "${{ matrix.os_name }}" = "macos" ]; then
-            shasum -a 256 headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip > headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip.sha256
-          else
-            sha256sum headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip > headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip.sha256
-          fi
+          sha256sum headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip > headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip.sha256
 
-      - name: Upload build artifacts (MinGW)
-        if: matrix.build_type == 'mingw'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}
-          path: |
-            build/headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip
-            build/headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip.sha256
-          retention-days: 90
+      - name: Package portable binary (macOS)
+        if: matrix.os_name == 'macos'
+        run: |
+          cd build
+          zip -9 headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip headsetcontrol
+          shasum -a 256 headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip > headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip.sha256
 
-      - name: Upload build artifacts (Linux)
+      # Windows: installer + portable exe
+      - name: Generate Windows installer
+        if: matrix.build_type == 'msvc'
+        run: |
+          cd build-msvc
+          cpack -G NSIS
+          $installer = Get-ChildItem -Filter "headsetcontrol-*.exe" | Where-Object { $_.Name -ne "headsetcontrol.exe" } | Select-Object -First 1
+          if ($installer) {
+            Rename-Item -Path $installer.FullName -NewName "headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}-setup.exe"
+            $hash = (Get-FileHash -Algorithm SHA256 "headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}-setup.exe").Hash.ToLower()
+            [System.IO.File]::WriteAllText("headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}-setup.exe.sha256", "$hash  headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}-setup.exe`n")
+          }
+
+      - name: Package portable binary (Windows)
+        if: matrix.build_type == 'msvc'
+        run: |
+          cd build-msvc
+          Copy-Item headsetcontrol.exe "headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.exe"
+          $hash = (Get-FileHash -Algorithm SHA256 "headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.exe").Hash.ToLower()
+          [System.IO.File]::WriteAllText("headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.exe.sha256", "$hash  headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.exe`n")
+
+      # =========== Upload ===========
+      - name: Upload artifacts (Linux)
         if: matrix.os_name == 'linux'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}
+          name: headsetcontrol-${{ matrix.os_name }}
           path: |
             build/headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip
             build/headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip.sha256
@@ -292,29 +249,31 @@ jobs:
             build/headsetcontrol-*.AppImage.sha256
           retention-days: 90
 
-      - name: Upload build artifacts (macOS)
+      - name: Upload artifacts (macOS)
         if: matrix.os_name == 'macos'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}
+          name: headsetcontrol-${{ matrix.os_name }}
           path: |
             build/headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip
             build/headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip.sha256
           retention-days: 90
 
-      - name: Upload build artifacts (MSVC)
+      - name: Upload artifacts (Windows)
         if: matrix.build_type == 'msvc'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}
+          name: headsetcontrol-${{ matrix.os_name }}
           path: |
-            build-msvc/headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip
-            build-msvc/headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip.sha256
+            build-msvc/headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}-setup.exe
+            build-msvc/headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}-setup.exe.sha256
+            build-msvc/headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.exe
+            build-msvc/headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.exe.sha256
           retention-days: 90
 
   create-release:
     needs: [build]
-    if: github.ref == 'refs/heads/master'  # Only create release from master
+    if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -330,69 +289,58 @@ jobs:
           path: ./artifacts
 
       - name: Generate changelog
-        id: changelog
         run: |
-          echo "## 🚀 Continuous Build" > CHANGELOG.md
-          echo "" >> CHANGELOG.md
-          echo "Latest automated build from \`master\` branch." >> CHANGELOG.md
-          echo "" >> CHANGELOG.md
-          echo "### 📦 Downloads" >> CHANGELOG.md
-          echo "" >> CHANGELOG.md
-          echo "#### Windows" >> CHANGELOG.md
-          for file in artifacts/*windows*.zip; do
-            if [ -f "$file" ]; then
-              name=$(basename "$file")
-              if [[ "$name" == *"msvc"* ]]; then
-                echo "- [${name}](https://github.com/${{ github.repository }}/releases/download/continuous/${name}) (MSVC - native Windows)" >> CHANGELOG.md
-              else
-                echo "- [${name}](https://github.com/${{ github.repository }}/releases/download/continuous/${name}) (MinGW)" >> CHANGELOG.md
-              fi
-            fi
+          cat > CHANGELOG.md << 'HEADER'
+          ## Continuous Build
+
+          Latest automated build from `master` branch.
+
+          ### Downloads
+
+          #### Windows
+          HEADER
+
+          for file in artifacts/*-setup.exe; do
+            [ -f "$file" ] && echo "- [$(basename "$file")](https://github.com/${{ github.repository }}/releases/download/continuous/$(basename "$file")) - Installer (recommended)" >> CHANGELOG.md
           done
+          for file in artifacts/*windows*.exe; do
+            [[ -f "$file" && ! "$file" == *-setup.exe ]] && echo "- [$(basename "$file")](https://github.com/${{ github.repository }}/releases/download/continuous/$(basename "$file")) - Portable" >> CHANGELOG.md
+          done
+
           echo "" >> CHANGELOG.md
           echo "#### Linux" >> CHANGELOG.md
-          for file in artifacts/headsetcontrol-*.AppImage; do
-            if [ -f "$file" ]; then
-              echo "- [$(basename "$file")](https://github.com/${{ github.repository }}/releases/download/continuous/$(basename "$file")) (AppImage - universal)" >> CHANGELOG.md
-            fi
+          for file in artifacts/*.AppImage; do
+            [ -f "$file" ] && echo "- [$(basename "$file")](https://github.com/${{ github.repository }}/releases/download/continuous/$(basename "$file")) - AppImage (universal)" >> CHANGELOG.md
           done
           for file in artifacts/*.deb; do
-            if [ -f "$file" ]; then
-              echo "- [$(basename "$file")](https://github.com/${{ github.repository }}/releases/download/continuous/$(basename "$file")) (Debian/Ubuntu)" >> CHANGELOG.md
-            fi
+            [ -f "$file" ] && echo "- [$(basename "$file")](https://github.com/${{ github.repository }}/releases/download/continuous/$(basename "$file")) - Debian/Ubuntu" >> CHANGELOG.md
           done
           for file in artifacts/*.rpm; do
-            if [ -f "$file" ]; then
-              echo "- [$(basename "$file")](https://github.com/${{ github.repository }}/releases/download/continuous/$(basename "$file")) (Fedora/RHEL)" >> CHANGELOG.md
-            fi
+            [ -f "$file" ] && echo "- [$(basename "$file")](https://github.com/${{ github.repository }}/releases/download/continuous/$(basename "$file")) - Fedora/RHEL" >> CHANGELOG.md
           done
           for file in artifacts/*linux*.zip; do
-            if [ -f "$file" ]; then
-              echo "- [$(basename "$file")](https://github.com/${{ github.repository }}/releases/download/continuous/$(basename "$file")) (portable binary)" >> CHANGELOG.md
-            fi
+            [ -f "$file" ] && echo "- [$(basename "$file")](https://github.com/${{ github.repository }}/releases/download/continuous/$(basename "$file")) - Portable" >> CHANGELOG.md
           done
+
           echo "" >> CHANGELOG.md
           echo "#### macOS" >> CHANGELOG.md
           for file in artifacts/*macos*.zip; do
-            if [ -f "$file" ]; then
-              echo "- [$(basename "$file")](https://github.com/${{ github.repository }}/releases/download/continuous/$(basename "$file"))" >> CHANGELOG.md
-            fi
+            [ -f "$file" ] && echo "- [$(basename "$file")](https://github.com/${{ github.repository }}/releases/download/continuous/$(basename "$file")) - Portable" >> CHANGELOG.md
           done
-          echo "" >> CHANGELOG.md
-          echo "### 🔐 Checksums (SHA256)" >> CHANGELOG.md
-          echo '```' >> CHANGELOG.md
+
+          cat >> CHANGELOG.md << 'FOOTER'
+
+          ### Checksums (SHA256)
+          ```
+          FOOTER
           cat artifacts/*.sha256 >> CHANGELOG.md 2>/dev/null || true
           echo '```' >> CHANGELOG.md
-          echo "" >> CHANGELOG.md
-          echo "### 📝 Recent Changes" >> CHANGELOG.md
-          echo '```' >> CHANGELOG.md
-          git log --oneline -10 >> CHANGELOG.md
-          echo '```' >> CHANGELOG.md
+
           echo "" >> CHANGELOG.md
           echo "---" >> CHANGELOG.md
-          echo "*Built from commit: \`${{ github.sha }}\`*" >> CHANGELOG.md
+          echo "*Built from [\`${GITHUB_SHA:0:7}\`](https://github.com/${{ github.repository }}/commit/${{ github.sha }})*" >> CHANGELOG.md
 
-      - name: Create/Update continuous release
+      - name: Create/Update release
         uses: ncipollo/release-action@b7eabc95ff50cbeeedec83973935c8f306dfcd0b # v1.20.0
         with:
           tag: continuous
