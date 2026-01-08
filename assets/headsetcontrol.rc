@@ -1,0 +1,4 @@
+// Windows application icon
+// The ID "1" makes this the default application icon
+// Path is relative to this .rc file's location
+IDI_ICON1 ICON "headsetcontrol.ico"

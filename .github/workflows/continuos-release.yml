@@ -42,8 +42,8 @@ jobs:
             architecture: x86_64
             shell: pwsh
             build_type: msvc
-          # Linux
-          - os: ubuntu-latest
+          # Linux (Ubuntu 22.04 for glibc 2.35 compatibility)
+          - os: ubuntu-22.04
             os_name: linux
             architecture: x86_64
             shell: bash
@@ -61,33 +61,42 @@ jobs:
           fetch-depth: 0
 
       # =========== Linux Setup ===========
-      - name: Cache apt packages
-        if: matrix.os_name == 'linux'
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: /var/cache/apt/archives
-          key: ${{ runner.os }}-apt-${{ hashFiles('.github/workflows/continuos-release.yml') }}
-          restore-keys: |
-            ${{ runner.os }}-apt-
-
-      - name: Install GCC 13 (Ubuntu)
-        if: matrix.os_name == 'linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-13 g++-13
-          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100
-          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 100
-          sudo update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-13 100
-          sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-13 100
-
       - name: Install dependencies (Linux)
         if: matrix.os_name == 'linux'
-        run: sudo apt-get -y install libhidapi-dev
+        run: |
+          sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+          sudo apt-get update
+          sudo apt-get install -y gcc-13 g++-13 libhidapi-dev rpm ccache
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100
+          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 100
+
+      - name: Cache ccache (Linux)
+        if: matrix.os_name == 'linux'
+        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
+        with:
+          path: ~/.cache/ccache
+          key: ${{ matrix.os_name }}-ccache-${{ github.sha }}
+          restore-keys: |
+            ${{ matrix.os_name }}-ccache-
+
+      - name: Configure ccache (Linux)
+        if: matrix.os_name == 'linux'
+        run: |
+          ccache --set-config=max_size=500M
+          ccache --set-config=compression=true
+          ccache -z
+
+      - name: Cache linuxdeploy (Linux)
+        if: matrix.os_name == 'linux'
+        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
+        with:
+          path: /tmp/linuxdeploy
+          key: linuxdeploy-x86_64-continuous
 
       # =========== macOS Setup ===========
       - name: Cache Homebrew
         if: matrix.os_name == 'macos'
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
         with:
           path: |
             ~/Library/Caches/Homebrew
@@ -159,6 +168,13 @@ jobs:
           configurePreset: 'default'
           buildPreset: 'default'
           testPreset: 'default'
+        env:
+          CMAKE_C_COMPILER_LAUNCHER: ${{ matrix.os_name == 'linux' && 'ccache' || '' }}
+          CMAKE_CXX_COMPILER_LAUNCHER: ${{ matrix.os_name == 'linux' && 'ccache' || '' }}
+
+      - name: Show ccache stats (Linux)
+        if: matrix.os_name == 'linux'
+        run: ccache -s
 
       # =========== Post-Build ===========
 
@@ -166,6 +182,60 @@ jobs:
       - name: Strip binaries (Unix)
         if: matrix.build_type == 'unix'
         run: strip build/headsetcontrol
+
+      # Generate Linux packages (.deb, .rpm, AppImage)
+      - name: Generate Linux packages
+        if: matrix.os_name == 'linux'
+        run: |
+          cd build
+
+          # Generate .deb package
+          cpack -G DEB
+
+          # Generate .rpm package
+          cpack -G RPM
+
+          # Generate checksums for .deb and .rpm
+          for pkg in *.deb *.rpm; do
+            sha256sum "$pkg" > "$pkg.sha256"
+          done
+
+      - name: Generate AppImage (Linux)
+        if: matrix.os_name == 'linux'
+        run: |
+          cd build
+
+          # Use cached linuxdeploy or download if not cached
+          if [ -f /tmp/linuxdeploy/linuxdeploy-x86_64.AppImage ]; then
+            cp /tmp/linuxdeploy/linuxdeploy-x86_64.AppImage .
+          else
+            wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+            mkdir -p /tmp/linuxdeploy
+            cp linuxdeploy-x86_64.AppImage /tmp/linuxdeploy/
+          fi
+          chmod +x linuxdeploy-x86_64.AppImage
+
+          # Minimal .desktop file (required, but hidden from app menus with NoDisplay=true)
+          printf '%s\n' '[Desktop Entry]' 'Type=Application' 'Name=HeadsetControl' 'Exec=headsetcontrol' 'Icon=headsetcontrol' 'Categories=Utility;' 'Terminal=true' 'NoDisplay=true' > headsetcontrol.desktop
+
+          # Copy icon from assets
+          cp ../assets/headsetcontrol.png headsetcontrol.png
+
+          # Build AppImage - linuxdeploy automatically bundles libhidapi and other dependencies
+          # Use --appimage-extract-and-run to avoid FUSE issues on GitHub Actions runners
+          # DEPLOY_LIBSTDCPP=1 bundles libstdc++ for compatibility with older systems
+          DEPLOY_LIBSTDCPP=1 ./linuxdeploy-x86_64.AppImage --appimage-extract-and-run \
+            --appdir AppDir \
+            --executable headsetcontrol \
+            --desktop-file headsetcontrol.desktop \
+            --icon-file headsetcontrol.png \
+            --output appimage
+
+          # Rename to standard format
+          mv HeadsetControl-*.AppImage headsetcontrol-${{ matrix.architecture }}.AppImage
+
+          # Generate checksum
+          sha256sum headsetcontrol-${{ matrix.architecture }}.AppImage > headsetcontrol-${{ matrix.architecture }}.AppImage.sha256
 
       # Package artifacts
       - name: Package artifacts (MinGW)
@@ -196,8 +266,34 @@ jobs:
             sha256sum headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip > headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip.sha256
           fi
 
-      - name: Upload build artifacts (MinGW/Unix)
-        if: matrix.build_type != 'msvc'
+      - name: Upload build artifacts (MinGW)
+        if: matrix.build_type == 'mingw'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}
+          path: |
+            build/headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip
+            build/headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip.sha256
+          retention-days: 90
+
+      - name: Upload build artifacts (Linux)
+        if: matrix.os_name == 'linux'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}
+          path: |
+            build/headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip
+            build/headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip.sha256
+            build/*.deb
+            build/*.deb.sha256
+            build/*.rpm
+            build/*.rpm.sha256
+            build/headsetcontrol-*.AppImage
+            build/headsetcontrol-*.AppImage.sha256
+          retention-days: 90
+
+      - name: Upload build artifacts (macOS)
+        if: matrix.os_name == 'macos'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}
@@ -218,6 +314,7 @@ jobs:
 
   create-release:
     needs: [build]
+    if: github.ref == 'refs/heads/master'  # Only create release from master
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -254,9 +351,24 @@ jobs:
           done
           echo "" >> CHANGELOG.md
           echo "#### Linux" >> CHANGELOG.md
+          for file in artifacts/headsetcontrol-*.AppImage; do
+            if [ -f "$file" ]; then
+              echo "- [$(basename "$file")](https://github.com/${{ github.repository }}/releases/download/continuous/$(basename "$file")) (AppImage - universal)" >> CHANGELOG.md
+            fi
+          done
+          for file in artifacts/*.deb; do
+            if [ -f "$file" ]; then
+              echo "- [$(basename "$file")](https://github.com/${{ github.repository }}/releases/download/continuous/$(basename "$file")) (Debian/Ubuntu)" >> CHANGELOG.md
+            fi
+          done
+          for file in artifacts/*.rpm; do
+            if [ -f "$file" ]; then
+              echo "- [$(basename "$file")](https://github.com/${{ github.repository }}/releases/download/continuous/$(basename "$file")) (Fedora/RHEL)" >> CHANGELOG.md
+            fi
+          done
           for file in artifacts/*linux*.zip; do
             if [ -f "$file" ]; then
-              echo "- [$(basename "$file")](https://github.com/${{ github.repository }}/releases/download/continuous/$(basename "$file"))" >> CHANGELOG.md
+              echo "- [$(basename "$file")](https://github.com/${{ github.repository }}/releases/download/continuous/$(basename "$file")) (portable binary)" >> CHANGELOG.md
             fi
           done
           echo "" >> CHANGELOG.md

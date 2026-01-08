@@ -249,7 +249,14 @@ endif()
 # ------------------------------------------------------------------------------
 
 # Create the CLI executable that links against the library
-add_executable(headsetcontrol ${CLI_SOURCES})
+# On Windows, include the resource file for the application icon
+if(WIN32)
+    set(WIN_RESOURCES ${CMAKE_CURRENT_SOURCE_DIR}/assets/headsetcontrol.rc)
+    # Ensure resource compiler can find the icon file
+    set(CMAKE_RC_FLAGS "${CMAKE_RC_FLAGS} -I${CMAKE_CURRENT_SOURCE_DIR}/assets")
+endif()
+
+add_executable(headsetcontrol ${CLI_SOURCES} ${WIN_RESOURCES})
 target_link_libraries(headsetcontrol PRIVATE headsetcontrol_lib)
 target_include_directories(headsetcontrol PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/cli)
 
@@ -336,3 +343,51 @@ if(BUILD_UNIT_TESTS)
 
     add_dependencies(check headsetcontrol_tests)
 endif()
+
+# ------------------------------------------------------------------------------
+# CPack Package Generation
+# ------------------------------------------------------------------------------
+
+set(CPACK_PACKAGE_NAME "headsetcontrol")
+set(CPACK_PACKAGE_VENDOR "Sapd")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Control USB headsets on Linux, macOS, and Windows")
+set(CPACK_PACKAGE_DESCRIPTION "HeadsetControl is a tool to control USB-connected headsets. \
+It supports setting sidetone, LED lights, equalizer, inactive time, and more for various \
+gaming headsets from Logitech, SteelSeries, Corsair, HyperX, Roccat, and Audeze.")
+set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/Sapd/HeadsetControl")
+set(CPACK_PACKAGE_CONTACT "https://github.com/Sapd/HeadsetControl")
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+    set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+endif()
+
+# Extract version components from GIT_VERSION (e.g., "2.7.0" or "2.7.0-123-gabcdef")
+string(REGEX MATCH "^([0-9]+)\\.([0-9]+)\\.([0-9]+)" VERSION_MATCH "${GIT_VERSION}")
+if(VERSION_MATCH)
+    set(CPACK_PACKAGE_VERSION_MAJOR "${CMAKE_MATCH_1}")
+    set(CPACK_PACKAGE_VERSION_MINOR "${CMAKE_MATCH_2}")
+    set(CPACK_PACKAGE_VERSION_PATCH "${CMAKE_MATCH_3}")
+    set(CPACK_PACKAGE_VERSION "${GIT_VERSION}")
+else()
+    # Debian/RPM versions must start with a digit
+    # If git version doesn't (e.g., "continuous-12-g91b4f06"), prefix with 0.0.0~
+    set(CPACK_PACKAGE_VERSION_MAJOR "0")
+    set(CPACK_PACKAGE_VERSION_MINOR "0")
+    set(CPACK_PACKAGE_VERSION_PATCH "0")
+    set(CPACK_PACKAGE_VERSION "0.0.0~${GIT_VERSION}")
+endif()
+
+# Debian package settings
+set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Denis Arnst <git@sapd.eu>")
+set(CPACK_DEBIAN_PACKAGE_SECTION "utils")
+set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libhidapi-hidraw0 | libhidapi-libusb0")
+set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://github.com/Sapd/HeadsetControl")
+set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
+
+# RPM package settings
+set(CPACK_RPM_PACKAGE_LICENSE "GPLv3")
+set(CPACK_RPM_PACKAGE_GROUP "Applications/System")
+set(CPACK_RPM_PACKAGE_REQUIRES "hidapi")
+set(CPACK_RPM_FILE_NAME RPM-DEFAULT)
+
+include(CPack)

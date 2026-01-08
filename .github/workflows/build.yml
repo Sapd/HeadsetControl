@@ -55,12 +55,11 @@ jobs:
       - name: Install GCC 13 (Ubuntu)
         if: runner.os == 'Linux'
         run: |
+          sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
           sudo apt-get update
           sudo apt-get install -y gcc-13 g++-13 libhidapi-dev
           sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100
           sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 100
-          sudo update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-13 100
-          sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-13 100
 
       # macOS: Install dependencies
       - name: Install dependencies (macOS)
