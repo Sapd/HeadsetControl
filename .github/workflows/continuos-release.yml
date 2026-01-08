@@ -133,6 +133,10 @@ jobs:
         if: matrix.build_type == 'msvc'
         uses: lukka/get-cmake@9e07ecdcee1b12e5037e42f410b67f03e2f626e1 # v4.2.1
 
+      - name: Install NSIS (MSVC)
+        if: matrix.build_type == 'msvc'
+        run: choco install nsis -y
+
       # =========== Linux/macOS CMake Setup ===========
       - name: Setup CMake and Ninja (Unix)
         if: matrix.build_type == 'unix'
@@ -260,11 +264,14 @@ jobs:
         run: |
           cd build-msvc
           cpack -G NSIS
-          # Rename to consistent format
-          Get-ChildItem -Filter "*.exe" | Where-Object { $_.Name -match "headsetcontrol.*\.exe" } | Rename-Item -NewName "headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}-setup.exe"
-          $hash = (Get-FileHash -Algorithm SHA256 "headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}-setup.exe").Hash.ToLower()
-          $filename = "headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}-setup.exe"
-          [System.IO.File]::WriteAllText("$filename.sha256", "$hash  $filename`n")
+          # Find and rename the installer (matches headsetcontrol-*.exe but not plain headsetcontrol.exe)
+          $installer = Get-ChildItem -Filter "headsetcontrol-*.exe" | Select-Object -First 1
+          if ($installer) {
+            $newName = "headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}-setup.exe"
+            Rename-Item -Path $installer.FullName -NewName $newName
+            $hash = (Get-FileHash -Algorithm SHA256 $newName).Hash.ToLower()
+            [System.IO.File]::WriteAllText("$newName.sha256", "$hash  $newName`n")
+          }
 
       - name: Package artifacts (Unix)
         if: matrix.build_type == 'unix'
