@@ -249,16 +249,6 @@ jobs:
           zip -9 headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip headsetcontrol.exe
           sha256sum headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip > headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip.sha256
 
-      - name: Package artifacts (MSVC)
-        if: matrix.build_type == 'msvc'
-        run: |
-          cd build-msvc
-          Compress-Archive -Path headsetcontrol.exe -DestinationPath headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip -CompressionLevel Optimal
-          $hash = (Get-FileHash -Algorithm SHA256 headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip).Hash.ToLower()
-          $filename = "headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip"
-          # Use Unix line endings for cross-platform compatibility
-          [System.IO.File]::WriteAllText("$filename.sha256", "$hash  $filename`n")
-
       - name: Generate Windows installer (MSVC)
         if: matrix.build_type == 'msvc'
         run: |
@@ -324,12 +314,10 @@ jobs:
         if: matrix.build_type == 'msvc'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}
+          name: headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}-installer
           path: |
-            build-msvc/headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip
-            build-msvc/headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip.sha256
-            build-msvc/headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}-setup.exe
-            build-msvc/headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}-setup.exe.sha256
+            build-msvc/headsetcontrol-*-setup.exe
+            build-msvc/headsetcontrol-*-setup.exe.sha256
           retention-days: 90
 
   create-release:
@@ -362,17 +350,13 @@ jobs:
           for file in artifacts/*-setup.exe; do
             if [ -f "$file" ]; then
               name=$(basename "$file")
-              echo "- [${name}](https://github.com/${{ github.repository }}/releases/download/continuous/${name}) (Installer)" >> CHANGELOG.md
+              echo "- [${name}](https://github.com/${{ github.repository }}/releases/download/continuous/${name}) (Installer - recommended)" >> CHANGELOG.md
             fi
           done
-          for file in artifacts/*windows*.zip; do
+          for file in artifacts/*windows-mingw*.zip; do
             if [ -f "$file" ]; then
               name=$(basename "$file")
-              if [[ "$name" == *"msvc"* ]]; then
-                echo "- [${name}](https://github.com/${{ github.repository }}/releases/download/continuous/${name}) (MSVC portable)" >> CHANGELOG.md
-              else
-                echo "- [${name}](https://github.com/${{ github.repository }}/releases/download/continuous/${name}) (MinGW portable)" >> CHANGELOG.md
-              fi
+              echo "- [${name}](https://github.com/${{ github.repository }}/releases/download/continuous/${name}) (Portable)" >> CHANGELOG.md
             fi
           done
           echo "" >> CHANGELOG.md
