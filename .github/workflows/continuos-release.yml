@@ -255,6 +255,17 @@ jobs:
           # Use Unix line endings for cross-platform compatibility
           [System.IO.File]::WriteAllText("$filename.sha256", "$hash  $filename`n")
 
+      - name: Generate Windows installer (MSVC)
+        if: matrix.build_type == 'msvc'
+        run: |
+          cd build-msvc
+          cpack -G NSIS
+          # Rename to consistent format
+          Get-ChildItem -Filter "*.exe" | Where-Object { $_.Name -match "headsetcontrol.*\.exe" } | Rename-Item -NewName "headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}-setup.exe"
+          $hash = (Get-FileHash -Algorithm SHA256 "headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}-setup.exe").Hash.ToLower()
+          $filename = "headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}-setup.exe"
+          [System.IO.File]::WriteAllText("$filename.sha256", "$hash  $filename`n")
+
       - name: Package artifacts (Unix)
         if: matrix.build_type == 'unix'
         run: |
@@ -310,6 +321,8 @@ jobs:
           path: |
             build-msvc/headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip
             build-msvc/headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip.sha256
+            build-msvc/headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}-setup.exe
+            build-msvc/headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}-setup.exe.sha256
           retention-days: 90
 
   create-release:
@@ -339,13 +352,19 @@ jobs:
           echo "### 📦 Downloads" >> CHANGELOG.md
           echo "" >> CHANGELOG.md
           echo "#### Windows" >> CHANGELOG.md
+          for file in artifacts/*-setup.exe; do
+            if [ -f "$file" ]; then
+              name=$(basename "$file")
+              echo "- [${name}](https://github.com/${{ github.repository }}/releases/download/continuous/${name}) (Installer)" >> CHANGELOG.md
+            fi
+          done
           for file in artifacts/*windows*.zip; do
             if [ -f "$file" ]; then
               name=$(basename "$file")
               if [[ "$name" == *"msvc"* ]]; then
-                echo "- [${name}](https://github.com/${{ github.repository }}/releases/download/continuous/${name}) (MSVC - native Windows)" >> CHANGELOG.md
+                echo "- [${name}](https://github.com/${{ github.repository }}/releases/download/continuous/${name}) (MSVC portable)" >> CHANGELOG.md
               else
-                echo "- [${name}](https://github.com/${{ github.repository }}/releases/download/continuous/${name}) (MinGW)" >> CHANGELOG.md
+                echo "- [${name}](https://github.com/${{ github.repository }}/releases/download/continuous/${name}) (MinGW portable)" >> CHANGELOG.md
               fi
             fi
           done

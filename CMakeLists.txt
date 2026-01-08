@@ -46,6 +46,8 @@ if(WIN32)
     if(MSVC)
         # MSVC-specific flags
         add_compile_options(/W4 /Zc:preprocessor)
+        # Use static runtime to avoid VC++ Redistributable dependency
+        set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
     else()
         # MinGW/GCC flags
         set(CMAKE_C_STANDARD_LIBRARIES "-lsetupapi -static-libgcc -static-libstdc++ -lwsock32 -lws2_32 ${CMAKE_CXX_STANDARD_LIBRARIES}")
@@ -389,5 +391,18 @@ set(CPACK_RPM_PACKAGE_LICENSE "GPLv3")
 set(CPACK_RPM_PACKAGE_GROUP "Applications/System")
 set(CPACK_RPM_PACKAGE_REQUIRES "hidapi")
 set(CPACK_RPM_FILE_NAME RPM-DEFAULT)
+
+# NSIS (Windows installer) settings
+set(CPACK_NSIS_DISPLAY_NAME "HeadsetControl")
+set(CPACK_NSIS_PACKAGE_NAME "HeadsetControl")
+set(CPACK_NSIS_URL_INFO_ABOUT "https://github.com/Sapd/HeadsetControl")
+set(CPACK_NSIS_HELP_LINK "https://github.com/Sapd/HeadsetControl/wiki")
+set(CPACK_NSIS_CONTACT "git@sapd.eu")
+set(CPACK_NSIS_MODIFY_PATH ON)
+set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets/headsetcontrol.ico")
+    set(CPACK_NSIS_MUI_ICON "${CMAKE_CURRENT_SOURCE_DIR}/assets/headsetcontrol.ico")
+    set(CPACK_NSIS_MUI_UNIICON "${CMAKE_CURRENT_SOURCE_DIR}/assets/headsetcontrol.ico")
+endif()
 
 include(CPack)
