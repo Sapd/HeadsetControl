@@ -1,8 +1,9 @@
-name: Add comment
+name: Device Request Comment
+
 on:
   issues:
-    types:
-      - labeled
+    types: [labeled]
+
 jobs:
   add-comment:
     if: github.event.label.name == 'device-request'
@@ -10,19 +11,19 @@ jobs:
     permissions:
       issues: write
     steps:
-      - name: Add comment
-        uses: peter-evans/create-or-update-comment@23ff15729ef2fc348714a3bb66d2f655ca9066f2 # v3.1.0
+      - name: Add helpful comment
+        uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # v4.0.0
         with:
           issue-number: ${{ github.event.issue.number }}
           body: |
-            Hello 👋
+            Thank you for requesting support for a new headset!
 
-            Thank you for reaching out and expressing interest in having support for a new headset.
-            We appreciate your willingness to contribute to the project!
+            To implement support for a specific headset, we need to reverse-engineer and test on that device. **Only people who own the headset can implement support for it.**
 
-            In order to create a implementation for a specific headset, we need to be able to reverse-engineer and test the implementation on that particular device.
-            Explicitly speaking, only people who actually own the headset, can implement that request.
+            ### Want to help?
 
-            👉 If you're interested in adding support for a specific headset, we recommend taking a look at our [wiki](https://github.com/Sapd/HeadsetControl/wiki/Development) to get started.
+            1. Check our [Development Wiki](https://github.com/Sapd/HeadsetControl/wiki/Development) to get started
+            2. Use Wireshark to capture USB traffic from the official software
+            3. Post your findings (screenshots, data) here - we're happy to help!
 
-            📝 If you encounter any problems while using WireShark, we would be more than happy to help. Simply post screenshots and data on your progress.
+            See [ADDING_A_DEVICE.md](https://github.com/Sapd/HeadsetControl/blob/master/docs/ADDING_A_DEVICE.md) for detailed instructions.

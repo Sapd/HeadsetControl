@@ -11,90 +11,96 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - name: Set commit depth
-        shell: bash
-        run: echo "COMMIT_DEPTH=$((1 + ${{ github.event.pull_request.commits }}))" >> $GITHUB_ENV
-
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          fetch-depth: ${{ env.COMMIT_DEPTH }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
 
       - name: Check for whitespace errors
         id: check
-        continue-on-error: true
         run: |
-          # Check for whitespace errors and save output
-          git log --check --pretty=format:"Commit %h: %s" -${{ github.event.pull_request.commits }} > whitespace-errors.txt 2>&1 || true
+          # Compare PR branch against base branch
+          BASE_SHA=${{ github.event.pull_request.base.sha }}
+          HEAD_SHA=${{ github.event.pull_request.head.sha }}
 
-          if [ -s whitespace-errors.txt ]; then
-            echo "has_errors=true" >> $GITHUB_OUTPUT
-            echo "### Whitespace Issues Found" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "The following commits have whitespace errors:" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            cat whitespace-errors.txt >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-          else
+          echo "Checking commits from $BASE_SHA to $HEAD_SHA"
+
+          # git diff --check returns non-zero if whitespace errors exist
+          if git diff --check "$BASE_SHA" "$HEAD_SHA" > errors.txt 2>&1; then
             echo "has_errors=false" >> $GITHUB_OUTPUT
-            echo "No whitespace errors found" >> $GITHUB_STEP_SUMMARY
+            echo "### No Whitespace Issues" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "has_errors=true" >> $GITHUB_OUTPUT
+
+            # Build summary
+            {
+              echo "### Whitespace Issues Found"
+              echo ""
+              echo "Files with whitespace errors (trailing spaces, spaces before tabs):"
+              echo ""
+              echo '```'
+              cat errors.txt
+              echo '```'
+              echo ""
+              echo "**To fix:** Run \`git rebase --whitespace=fix $BASE_SHA\` then force push."
+            } >> $GITHUB_STEP_SUMMARY
+
+            # Save for PR comment (using heredoc for multiline)
+            {
+              echo 'ERRORS<<EOF'
+              cat errors.txt
+              echo 'EOF'
+            } >> $GITHUB_ENV
           fi
 
-      - name: Post PR comment
-        if: steps.check.outputs.has_errors == 'true'
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+      # Always look for existing comment (to update or delete)
+      - name: Find existing comment
+        uses: peter-evans/find-comment@3eae4d37986fb5a8592848f6a574fdf654e61f9e # v3.1.0
+        id: find-comment
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: 'github-actions[bot]'
+          body-includes: 'whitespace errors'
+
+      # Delete old failure comment when check passes
+      - name: Delete old comment if check passes
+        if: steps.check.outputs.has_errors == 'false' && steps.find-comment.outputs.comment-id != ''
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
           script: |
-            const fs = require('fs');
-            const errors = fs.readFileSync('whitespace-errors.txt', 'utf8');
-
-            // Find existing bot comment
-            const comments = await github.rest.issues.listComments({
+            await github.rest.issues.deleteComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.issue.number,
+              comment_id: ${{ steps.find-comment.outputs.comment-id }}
             });
 
-            const botComment = comments.data.find(comment =>
-              comment.user.type === 'Bot' &&
-              comment.body.includes('Whitespace Issues')
-            );
-
-            const body = `## Whitespace Issues Found
-
-The following commits contain whitespace errors (trailing whitespace, spaces before tabs, etc.):
-
-\`\`\`
-${errors}
-\`\`\`
-
-### How to fix:
-1. Run \`git rebase --whitespace=fix HEAD~${{ github.event.pull_request.commits }}\`
-2. Or manually remove trailing whitespace from the affected lines
-3. Force push the changes: \`git push --force-with-lease\`
-
----
-*This check ensures code quality by preventing whitespace issues.*`;
-
-            if (botComment) {
-              // Update existing comment
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: botComment.id,
-                body: body
-              });
-            } else {
-              // Create new comment
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body: body
-              });
-            }
-
-      - name: Fail if errors found
+      # Create or update failure comment
+      - name: Create or update PR comment
         if: steps.check.outputs.has_errors == 'true'
-        run: |
-          echo "::error::Whitespace errors found. Please fix them before merging."
-          exit 1
+        uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # v4.0.0
+        with:
+          comment-id: ${{ steps.find-comment.outputs.comment-id }}
+          issue-number: ${{ github.event.pull_request.number }}
+          edit-mode: replace
+          body: |
+            ## Whitespace Check Failed
+
+            Files in this PR have whitespace errors (trailing spaces, spaces before tabs, etc.):
+
+            ```
+            ${{ env.ERRORS }}
+            ```
+
+            ### How to fix
+            ```bash
+            # Automatically fix whitespace in your branch
+            git rebase --whitespace=fix ${{ github.event.pull_request.base.sha }}
+            git push --force-with-lease
+            ```
+
+            ---
+            *Checked at: ${{ github.event.pull_request.head.sha }}*
+
+      - name: Fail if errors
+        if: steps.check.outputs.has_errors == 'true'
+        run: exit 1
