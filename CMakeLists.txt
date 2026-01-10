@@ -266,29 +266,29 @@ endif()
 # CLI Executable
 # ------------------------------------------------------------------------------
 
-# Create the CLI executable that links against the library
-# On Windows, include the resource file for the application icon
-if(WIN32)
-    set(WIN_RESOURCES ${CMAKE_CURRENT_SOURCE_DIR}/assets/headsetcontrol.rc)
-    # Ensure resource compiler can find the icon file
-    set(CMAKE_RC_FLAGS "${CMAKE_RC_FLAGS} -I${CMAKE_CURRENT_SOURCE_DIR}/assets")
-endif()
-
-add_executable(headsetcontrol ${CLI_SOURCES} ${WIN_RESOURCES})
-target_link_libraries(headsetcontrol PRIVATE headsetcontrol_lib)
-target_include_directories(headsetcontrol PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/cli)
-
-# On MSVC, we need getopt from vcpkg
-if(MSVC)
-    find_package(getopt CONFIG REQUIRED)
-    target_link_libraries(headsetcontrol PRIVATE $<IF:$<TARGET_EXISTS:getopt::getopt_shared>,getopt::getopt_shared,getopt::getopt_static>)
-endif()
-
-# ------------------------------------------------------------------------------
-# Installation
-# ------------------------------------------------------------------------------
-
 if(PROJECT_IS_TOP_LEVEL)
+
+    # Create the CLI executable that links against the library
+    # On Windows, include the resource file for the application icon
+    if(WIN32)
+        set(WIN_RESOURCES ${CMAKE_CURRENT_SOURCE_DIR}/assets/headsetcontrol.rc)
+        # Ensure resource compiler can find the icon file
+        set(CMAKE_RC_FLAGS "${CMAKE_RC_FLAGS} -I${CMAKE_CURRENT_SOURCE_DIR}/assets")
+    endif()
+
+    add_executable(headsetcontrol ${CLI_SOURCES} ${WIN_RESOURCES})
+    target_link_libraries(headsetcontrol PRIVATE headsetcontrol_lib)
+    target_include_directories(headsetcontrol PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/cli)
+
+    # On MSVC, we need getopt from vcpkg
+    if(MSVC)
+        find_package(getopt CONFIG REQUIRED)
+        target_link_libraries(headsetcontrol PRIVATE $<IF:$<TARGET_EXISTS:getopt::getopt_shared>,getopt::getopt_shared,getopt::getopt_static>)
+    endif()
+
+    # ------------------------------------------------------------------------------
+    # Installation
+    # ------------------------------------------------------------------------------
 
     install(TARGETS headsetcontrol DESTINATION bin)
     install(TARGETS headsetcontrol_lib DESTINATION lib)
@@ -307,21 +307,21 @@ if(PROJECT_IS_TOP_LEVEL)
         DESTINATION include/headsetcontrol
     )
 
-endif()
+    # install udev files on linux
+    if(UNIX AND NOT APPLE AND NOT ${CMAKE_HOST_SYSTEM_NAME} MATCHES "FreeBSD")
+        set(rules_file 70-headsets.rules)
+        set(udev_rules_dir lib/udev/rules.d/
+            CACHE PATH "Path to the directory where udev rules should be installed")
+        add_custom_command(
+            OUTPUT ${rules_file}
+            COMMAND headsetcontrol -u > ${rules_file}
+            DEPENDS headsetcontrol)
+        add_custom_target(udevrules ALL DEPENDS ${rules_file})
+        install(
+            FILES ${CMAKE_CURRENT_BINARY_DIR}/${rules_file}
+            DESTINATION ${udev_rules_dir})
+    endif()
 
-# install udev files on linux
-if(UNIX AND NOT APPLE AND NOT ${CMAKE_HOST_SYSTEM_NAME} MATCHES "FreeBSD")
-    set(rules_file 70-headsets.rules)
-    set(udev_rules_dir lib/udev/rules.d/
-        CACHE PATH "Path to the directory where udev rules should be installed")
-    add_custom_command(
-        OUTPUT ${rules_file}
-        COMMAND headsetcontrol -u > ${rules_file}
-        DEPENDS headsetcontrol)
-    add_custom_target(udevrules ALL DEPENDS ${rules_file})
-    install(
-        FILES ${CMAKE_CURRENT_BINARY_DIR}/${rules_file}
-        DESTINATION ${udev_rules_dir})
 endif()
 
 # ------------------------------------------------------------------------------
