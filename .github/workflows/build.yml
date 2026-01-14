@@ -84,3 +84,12 @@ jobs:
           cmake -G Ninja -DCMAKE_BUILD_TYPE=Release ..
           ninja
           ctest --output-on-failure
+
+      # Upload Windows artifact for testing
+      - name: Upload Windows artifact
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: headsetcontrol-windows-mingw
+          path: build/headsetcontrol.exe
+          retention-days: 30
