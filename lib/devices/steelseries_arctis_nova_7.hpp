@@ -37,12 +37,12 @@ public:
         0x227a // Arctis Nova 7 WoW Edition
     };
 
-    static constexpr int EQUALIZER_BANDS          = 10;
-    static constexpr float EQUALIZER_BAND_MIN     = -10.0f;
-    static constexpr float EQUALIZER_BAND_MAX     = 10.0f;
-    static constexpr float EQUALIZER_BAND_STEP    = 0.5f;
-    static constexpr int EQUALIZER_BASELINE       = 0x14; // 20 decimal
-    static constexpr int EQUALIZER_PRESETS_COUNT  = 4;
+    static constexpr int EQUALIZER_BANDS         = 10;
+    static constexpr float EQUALIZER_BAND_MIN    = -10.0f;
+    static constexpr float EQUALIZER_BAND_MAX    = 10.0f;
+    static constexpr float EQUALIZER_BAND_STEP   = 0.5f;
+    static constexpr int EQUALIZER_BASELINE      = 0x14; // 20 decimal
+    static constexpr int EQUALIZER_PRESETS_COUNT = 4;
 
     // Preset arrays (flat, bass, focus, smiley)
     static constexpr std::array<float, EQUALIZER_BANDS> PRESET_FLAT { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
