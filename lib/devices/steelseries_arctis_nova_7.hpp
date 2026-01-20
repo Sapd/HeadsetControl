@@ -26,11 +26,12 @@ namespace headsetcontrol {
  */
 class SteelSeriesArctisNova7 : public protocols::SteelSeriesNovaDevice<SteelSeriesArctisNova7> {
 public:
-    static constexpr std::array<uint16_t, 7> SUPPORTED_PRODUCT_IDS {
+    static constexpr std::array<uint16_t, 8> SUPPORTED_PRODUCT_IDS {
         0x2202, // Arctis Nova 7
         0x227e, // Arctis Nova 7 Wireless
         0x2206, // Arctis Nova 7x
         0x2258, // Arctis Nova 7x v2
+        0x229e, // Arctis Nova 7x v2
         0x220a, // Arctis Nova 7p
         0x223a, // Arctis Nova 7 Diablo IV
         0x227a // Arctis Nova 7 WoW Edition
