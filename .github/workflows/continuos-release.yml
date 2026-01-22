@@ -118,9 +118,14 @@ jobs:
         if: matrix.build_type == 'msvc'
         uses: lukka/get-cmake@9e07ecdcee1b12e5037e42f410b67f03e2f626e1 # v4.2.1
 
-      - name: Install NSIS (Windows)
+      - name: Install NSIS with Large Strings (Windows)
         if: matrix.build_type == 'msvc'
-        run: choco install nsis -y
+        run: |
+          # Download NSIS with 8k string support and UltraModernUI from OpenMS
+          # This fixes "Path too long" errors when modifying PATH on systems with long PATH variables
+          Invoke-WebRequest -Uri "https://github.com/OpenMS/NSIS/raw/main/NSIS.tar.gz" -OutFile nsis.tar.gz
+          tar -xzf nsis.tar.gz -C "$env:PROGRAMFILES"
+          echo "$env:PROGRAMFILES\NSIS" | Out-File -FilePath $env:GITHUB_PATH -Append
 
       # =========== Unix Setup ===========
       - name: Setup CMake and Ninja (Unix)
