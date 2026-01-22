@@ -134,11 +134,15 @@ jobs:
           # 2. Layer large strings build on top (8192 byte buffer instead of 1024)
           Invoke-WebRequest -Uri "https://sourceforge.net/projects/nsis/files/NSIS%203/$nsisVersion/nsis-$nsisVersion-strlen_8192.zip/download" -OutFile nsis-large.zip -UserAgent "Wget"
           Expand-Archive nsis-large.zip -DestinationPath nsis-large
-          Copy-Item "nsis-large\nsis-$nsisVersion-strlen_8192\*" $nsisPath -Recurse -Force
+          Write-Host "Large strings zip contents:"
+          Get-ChildItem nsis-large -Recurse | Select-Object FullName
+          Copy-Item "nsis-large\*" $nsisPath -Recurse -Force
 
           # 3. Layer UltraModernUI plugin on top
           Invoke-WebRequest -Uri "https://github.com/SuperPat45/UltraModernUI/releases/download/2.0b6/UltraModernUI_2.0b6.zip" -OutFile umui.zip
           Expand-Archive umui.zip -DestinationPath umui
+          Write-Host "UltraModernUI zip contents:"
+          Get-ChildItem umui -Recurse -Depth 1 | Select-Object FullName
           Copy-Item "umui\*" $nsisPath -Recurse -Force
 
           # Add to PATH for subsequent steps
