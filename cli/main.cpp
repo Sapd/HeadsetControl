@@ -258,7 +258,8 @@ std::optional<cli::ParseError> configureParser(cli::ArgumentParser& parser, Opti
 
         // === Advanced ===
         .flag('u', "udev", opts.print_udev_rules, "Output udev rules")
-        .flag('?', "capabilities", opts.print_capabilities, "List device capabilities")
+        .long_flag("capabilities", opts.print_capabilities, "List device capabilities")
+        .long_flag("caps", opts.print_capabilities, "")
         .long_flag("connected", opts.request_connected, "Check if device connected")
         .long_flag("dev", opts.dev_mode, "Development mode")
 
@@ -832,7 +833,7 @@ namespace help {
             sections.back()
                 .add('o', "output", "FORMAT", "json, yaml, env, standard, short")
                 .add('c', "short-output", "", "Compact output (same as -o short)")
-                .add('?', "capabilities", "", "List device capabilities");
+                .add("capabilities, --caps", "", "List device capabilities");
 
             // Advanced - only in --help-all
             sections.push_back({ "ADVANCED", {} });
