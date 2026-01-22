@@ -118,11 +118,12 @@ jobs:
         if: matrix.build_type == 'msvc'
         uses: lukka/get-cmake@9e07ecdcee1b12e5037e42f410b67f03e2f626e1 # v4.2.1
 
-      - name: Install NSIS with Large Strings and UltraModernUI (Windows)
+      - name: Install NSIS with Large Strings (Windows)
         if: matrix.build_type == 'msvc'
         run: |
-          # Build NSIS with 8k string support and UltraModernUI (following OpenMS/NSIS approach)
+          # Install NSIS with 8k string support (8192 byte buffer instead of default 1024)
           # This fixes "Path too long" errors when modifying PATH on systems with long PATH variables
+          # See: https://github.com/Sapd/HeadsetControl/issues/462
           $nsisVersion = "3.10"
           $nsisPath = "C:\NSIS"
 
@@ -131,19 +132,10 @@ jobs:
           Expand-Archive nsis.zip -DestinationPath nsis-base
           Move-Item "nsis-base\nsis-$nsisVersion" $nsisPath
 
-          # 2. Layer large strings build on top (8192 byte buffer instead of 1024)
+          # 2. Layer large strings build on top
           Invoke-WebRequest -Uri "https://sourceforge.net/projects/nsis/files/NSIS%203/$nsisVersion/nsis-$nsisVersion-strlen_8192.zip/download" -OutFile nsis-large.zip -UserAgent "Wget"
           Expand-Archive nsis-large.zip -DestinationPath nsis-large
-          Write-Host "Large strings zip contents:"
-          Get-ChildItem nsis-large -Recurse | Select-Object FullName
           Copy-Item "nsis-large\*" $nsisPath -Recurse -Force
-
-          # 3. Layer UltraModernUI plugin on top
-          Invoke-WebRequest -Uri "https://github.com/SuperPat45/UltraModernUI/releases/download/2.0b6/UltraModernUI_2.0b6.zip" -OutFile umui.zip
-          Expand-Archive umui.zip -DestinationPath umui
-          Write-Host "UltraModernUI zip contents:"
-          Get-ChildItem umui -Recurse -Depth 1 | Select-Object FullName
-          Copy-Item "umui\*" $nsisPath -Recurse -Force
 
           # Add to PATH for subsequent steps
           echo $nsisPath | Out-File -FilePath $env:GITHUB_PATH -Append
@@ -154,7 +146,6 @@ jobs:
             & "$nsisPath\makensis.exe" /VERSION
           } else {
             Write-Error "makensis.exe not found at $nsisPath"
-            Get-ChildItem $nsisPath -Recurse | Select-Object FullName
             exit 1
           }
 
