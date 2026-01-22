@@ -1103,7 +1103,7 @@ bool checkDeviceConnected(DiscoveredDevice& selected, const Options& opts)
 int main(int argc, char* argv[])
 {
 #if defined(_WIN32) && defined(__GNUC__)
-    // Fix MinGW stdout buffering issue - without this, console output may not appear
+    // Disable stdout/stderr buffering for MinGW builds
     setvbuf(stdout, nullptr, _IONBF, 0);
     setvbuf(stderr, nullptr, _IONBF, 0);
 #endif
