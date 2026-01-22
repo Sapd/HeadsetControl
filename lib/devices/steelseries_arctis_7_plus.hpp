@@ -72,6 +72,19 @@ public:
         return EQUALIZER_PRESETS_COUNT;
     }
 
+    std::optional<EqualizerPresets> getEqualizerPresets() const override
+    {
+        // Convert raw byte values to dB using: value = (raw - EQUALIZER_BASELINE) / 2.0f
+        EqualizerPresets presets;
+        presets.presets = {
+            { "Flat", { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
+            { "Bass Boost", { 3.5f, 4.0f, 1.0f, -1.5f, -1.5f, -1.0f, -1.0f, -1.0f, -1.0f, 5.5f } },
+            { "Smiley", { 3.0f, 1.5f, -1.5f, -4.0f, -4.0f, -2.5f, 1.5f, 3.0f, 4.0f, 3.5f } },
+            { "Focus", { -5.0f, -1.0f, -3.5f, -2.5f, 4.0f, 6.0f, 3.5f, -3.5f, 0.0f, -3.5f } }
+        };
+        return presets;
+    }
+
     // Rich Results V2 API
     Result<BatteryResult> getBattery(hid_device* device_handle) override
     {

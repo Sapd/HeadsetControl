@@ -84,6 +84,18 @@ public:
         return EQUALIZER_PRESETS_COUNT;
     }
 
+    std::optional<EqualizerPresets> getEqualizerPresets() const override
+    {
+        EqualizerPresets presets;
+        presets.presets = {
+            { "Flat", std::vector<float>(PRESET_FLAT.begin(), PRESET_FLAT.end()) },
+            { "Bass", std::vector<float>(PRESET_BASS.begin(), PRESET_BASS.end()) },
+            { "Focus", std::vector<float>(PRESET_FOCUS.begin(), PRESET_FOCUS.end()) },
+            { "Smiley", std::vector<float>(PRESET_SMILEY.begin(), PRESET_SMILEY.end()) }
+        };
+        return presets;
+    }
+
     constexpr capability_detail getCapabilityDetail([[maybe_unused]] enum capabilities cap) const override
     {
         return { .usagepage = 0xffc0, .usageid = 0x1, .interface_id = 3 };

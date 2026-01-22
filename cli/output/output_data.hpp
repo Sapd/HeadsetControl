@@ -107,6 +107,19 @@ struct ErrorData {
     std::string message;
 };
 
+struct EqualizerPresetData {
+    std::string name;
+    std::vector<float> values;
+
+    void serialize(Serializer& s) const
+    {
+        s.beginObject("");
+        s.write("name", name);
+        s.writeArray("values", values);
+        s.endObject();
+    }
+};
+
 struct EqualizerData {
     int bands_count = 0;
     int baseline    = 0;
@@ -175,6 +188,7 @@ struct DeviceData {
     std::optional<int> chatmix;
     std::optional<EqualizerData> equalizer;
     std::optional<int> equalizer_presets_count;
+    std::optional<std::vector<EqualizerPresetData>> equalizer_presets;
     std::optional<ParametricEqData> parametric_eq;
 
     std::vector<ActionData> actions;
@@ -203,6 +217,14 @@ struct DeviceData {
 
         if (equalizer_presets_count.has_value()) {
             s.write("equalizer_presets_count", *equalizer_presets_count);
+        }
+
+        if (equalizer_presets.has_value() && !equalizer_presets->empty()) {
+            s.beginArray("equalizer_presets");
+            for (const auto& preset : *equalizer_presets) {
+                preset.serialize(s);
+            }
+            s.endArray();
         }
 
         if (parametric_eq.has_value()) {

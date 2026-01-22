@@ -86,6 +86,19 @@ public:
         return EQUALIZER_PRESETS_COUNT;
     }
 
+    std::optional<EqualizerPresets> getEqualizerPresets() const override
+    {
+        // Convert raw byte values to dB using: value = (raw - EQUALIZER_BASELINE) / 2.0f
+        EqualizerPresets presets;
+        presets.presets = {
+            { "Flat", { 0, 0, 0, 0, 0, 0 } },
+            { "Bass", { 4.0f, 2.5f, -1.5f, 0, 0, 0 } },
+            { "Smiley", { 3.0f, 1.5f, -2.5f, -1.0f, 1.5f, 3.0f } },
+            { "Focus", { -4.0f, -3.5f, -1.5f, 2.0f, 4.0f, 0 } }
+        };
+        return presets;
+    }
+
     // Rich Results V2 API
     Result<SidetoneResult> setSidetone(hid_device* device_handle, uint8_t level) override
     {

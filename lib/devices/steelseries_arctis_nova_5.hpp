@@ -114,6 +114,18 @@ public:
         return EQUALIZER_PRESETS_COUNT;
     }
 
+    std::optional<EqualizerPresets> getEqualizerPresets() const override
+    {
+        EqualizerPresets presets;
+        presets.presets = {
+            { "Flat", std::vector<float>(PRESET_FLAT.begin(), PRESET_FLAT.end()) },
+            { "Bass", std::vector<float>(PRESET_BASS.begin(), PRESET_BASS.end()) },
+            { "Focus", std::vector<float>(PRESET_FOCUS.begin(), PRESET_FOCUS.end()) },
+            { "Smiley", std::vector<float>(PRESET_SMILEY.begin(), PRESET_SMILEY.end()) }
+        };
+        return presets;
+    }
+
     std::optional<ParametricEqualizerInfo> getParametricEqualizerInfo() const override
     {
         // Supported filters: LowShelf, LowPass, Peaking, HighPass, HighShelf
