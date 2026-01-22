@@ -1,7 +1,7 @@
 name: Code Style Check
 
 on:
-  pull_request:
+  pull_request_target:
     paths:
       - '**.c'
       - '**.cpp'
@@ -19,6 +19,8 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
 
       - name: Run cpp-linter
         uses: cpp-linter/cpp-linter-action@b6edc0625e3941baa1797f4b4326adeab6890c97 # v2.16.7
