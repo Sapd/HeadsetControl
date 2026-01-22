@@ -32,7 +32,8 @@ A cross-platform tool to control USB gaming headsets on **Linux**, **macOS**, an
 | SteelSeries Arctis Pro Wireless | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |
 | SteelSeries Arctis Nova 3 | All | x |   |   |   |   |   |   |   | x | x |   | x | x |   |   |   |
 | SteelSeries Arctis Nova (5/5X) | All | x | x |   |   | x | x |   |   | x | x | x | x | x | x |   |   |
-| SteelSeries Arctis Nova 7 | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |
+| SteelSeries Arctis Nova 7 | All | x | x |   |   | x | x |   |   | x | x |   | x | x | x | x | x |
+| SteelSeries Arctis Nova 7P | All |   | x |   |   | x |   |   |   | x | x |   | x | x | x | x | x |
 | SteelSeries Arctis 7+ | All | x | x |   |   | x | x |   |   | x | x |   |   |   |   |   |   |
 | SteelSeries Arctis Nova Pro Wireless | All | x | x |   | x | x |   |   |   | x | x |   |   |   |   |   |   |
 | SteelSeries Arctis Nova 3P Wireless | L/M | x | x |   |   | x |   |   |   | x | x | x |   | x |   |   |   |
