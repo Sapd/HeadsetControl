@@ -1,5 +1,6 @@
 build/
 build-msvc/
+build-mingw/
 lib/version.h
 
 .idea/

@@ -180,6 +180,11 @@ headsetcontrol -l 0
 
 # Set auto-off timer (minutes, 0 = disabled)
 headsetcontrol -i 30
+
+# List device capabilities
+headsetcontrol --capabilities
+# or shorthand
+headsetcontrol --caps
 ```
 
 ### Output Formats
