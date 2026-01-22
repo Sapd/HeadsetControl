@@ -118,9 +118,36 @@ jobs:
         if: matrix.build_type == 'msvc'
         uses: lukka/get-cmake@9e07ecdcee1b12e5037e42f410b67f03e2f626e1 # v4.2.1
 
-      - name: Install NSIS (Windows)
+      - name: Install NSIS with Large Strings (Windows)
         if: matrix.build_type == 'msvc'
-        run: choco install nsis -y
+        run: |
+          # Install NSIS with 8k string support (8192 byte buffer instead of default 1024)
+          # This fixes "Path too long" errors when modifying PATH on systems with long PATH variables
+          # See: https://github.com/Sapd/HeadsetControl/issues/462
+          $nsisVersion = "3.10"
+          $nsisPath = "C:\NSIS"
+
+          # 1. Download and extract base NSIS
+          Invoke-WebRequest -Uri "https://sourceforge.net/projects/nsis/files/NSIS%203/$nsisVersion/nsis-$nsisVersion.zip/download" -OutFile nsis.zip -UserAgent "Wget"
+          Expand-Archive nsis.zip -DestinationPath nsis-base
+          Move-Item "nsis-base\nsis-$nsisVersion" $nsisPath
+
+          # 2. Layer large strings build on top
+          Invoke-WebRequest -Uri "https://sourceforge.net/projects/nsis/files/NSIS%203/$nsisVersion/nsis-$nsisVersion-strlen_8192.zip/download" -OutFile nsis-large.zip -UserAgent "Wget"
+          Expand-Archive nsis-large.zip -DestinationPath nsis-large
+          Copy-Item "nsis-large\*" $nsisPath -Recurse -Force
+
+          # Add to PATH for subsequent steps
+          echo $nsisPath | Out-File -FilePath $env:GITHUB_PATH -Append
+
+          # Verify installation
+          if (Test-Path "$nsisPath\makensis.exe") {
+            Write-Host "NSIS installed successfully"
+            & "$nsisPath\makensis.exe" /VERSION
+          } else {
+            Write-Error "makensis.exe not found at $nsisPath"
+            exit 1
+          }
 
       # =========== Unix Setup ===========
       - name: Setup CMake and Ninja (Unix)
@@ -216,7 +243,7 @@ jobs:
         if: matrix.build_type == 'msvc'
         run: |
           cd build-msvc
-          cpack -G NSIS
+          cpack -G NSIS -D CPACK_NSIS_EXECUTABLE="C:/NSIS/makensis.exe"
           $installer = Get-ChildItem -Filter "headsetcontrol-*.exe" | Where-Object { $_.Name -ne "headsetcontrol.exe" } | Select-Object -First 1
           if ($installer) {
             Rename-Item -Path $installer.FullName -NewName "headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}-setup.exe"
