@@ -110,14 +110,6 @@ struct ErrorData {
 struct EqualizerPresetData {
     std::string name;
     std::vector<float> values;
-
-    void serialize(Serializer& s) const
-    {
-        s.beginObject("");
-        s.write("name", name);
-        s.writeArray("values", values);
-        s.endObject();
-    }
 };
 
 struct EqualizerData {
@@ -220,11 +212,17 @@ struct DeviceData {
         }
 
         if (equalizer_presets.has_value() && !equalizer_presets->empty()) {
-            s.beginArray("equalizer_presets");
+            s.beginObject("equalizer_presets");
             for (const auto& preset : *equalizer_presets) {
-                preset.serialize(s);
+                // Convert name to lowercase for API compatibility
+                std::string lower_name;
+                lower_name.reserve(preset.name.size());
+                for (char c : preset.name) {
+                    lower_name += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+                }
+                s.writeArray(lower_name, preset.values);
             }
-            s.endArray();
+            s.endObject();
         }
 
         if (parametric_eq.has_value()) {

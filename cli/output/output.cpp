@@ -272,11 +272,17 @@ void outputYaml(const OutputData& data)
             }
 
             if (dev.equalizer_presets.has_value() && !dev.equalizer_presets->empty()) {
-                s.beginArray("equalizer_presets");
+                s.beginObject("equalizer_presets");
                 for (const auto& preset : *dev.equalizer_presets) {
-                    preset.serialize(s);
+                    // Convert name to lowercase for API compatibility
+                    std::string lower_name;
+                    lower_name.reserve(preset.name.size());
+                    for (char c : preset.name) {
+                        lower_name += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+                    }
+                    s.writeArray(lower_name, preset.values);
                 }
-                s.endArray();
+                s.endObject();
             }
 
             if (dev.parametric_eq.has_value()) {
@@ -373,10 +379,16 @@ void outputEnv(const OutputData& data)
         }
 
         if (dev.equalizer_presets.has_value() && !dev.equalizer_presets->empty()) {
-            for (size_t j = 0; j < dev.equalizer_presets->size(); ++j) {
-                const auto& preset       = (*dev.equalizer_presets)[j];
-                std::string preset_prefix = std::format("{}_EQUALIZER_PRESET_{}", prefix, j);
-                s.write(preset_prefix + "_NAME", preset.name);
+            for (const auto& preset : *dev.equalizer_presets) {
+                // Convert name to uppercase for ENV variable naming
+                std::string upper_name;
+                upper_name.reserve(preset.name.size());
+                for (char c : preset.name) {
+                    if (c == ' ')
+                        upper_name += '_';
+                    else
+                        upper_name += static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+                }
                 // Output values as comma-separated string
                 std::string values_str;
                 for (size_t k = 0; k < preset.values.size(); ++k) {
@@ -384,7 +396,7 @@ void outputEnv(const OutputData& data)
                         values_str += ",";
                     values_str += std::format("{:.1f}", preset.values[k]);
                 }
-                s.write(preset_prefix + "_VALUES", values_str);
+                s.write(std::format("{}_EQUALIZER_PRESET_{}", prefix, upper_name), values_str);
             }
         }
 
