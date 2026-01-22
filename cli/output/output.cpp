@@ -165,11 +165,24 @@ void processFeatureRequest(const FeatureRequest& req, DeviceData& dev, std::stri
             }
         }
 
-        // Equalizer presets count
+        // Equalizer presets count and presets
         if (device_caps & B(CAP_EQUALIZER_PRESET)) {
             auto presets_count = hid_device->getEqualizerPresetsCount();
             if (presets_count > 0) {
                 dev.equalizer_presets_count = presets_count;
+            }
+
+            // Get actual preset data if available
+            auto presets = hid_device->getEqualizerPresets();
+            if (presets.has_value() && !presets->empty()) {
+                std::vector<EqualizerPresetData> preset_data;
+                for (const auto& preset : presets->presets) {
+                    preset_data.push_back(EqualizerPresetData {
+                        .name   = preset.name,
+                        .values = preset.values
+                    });
+                }
+                dev.equalizer_presets = std::move(preset_data);
             }
         }
 
@@ -250,6 +263,32 @@ void outputYaml(const OutputData& data)
                 dev.battery->serialize(s);
             }
 
+            if (dev.equalizer.has_value()) {
+                dev.equalizer->serialize(s);
+            }
+
+            if (dev.equalizer_presets_count.has_value()) {
+                s.write("equalizer_presets_count", *dev.equalizer_presets_count);
+            }
+
+            if (dev.equalizer_presets.has_value() && !dev.equalizer_presets->empty()) {
+                s.beginObject("equalizer_presets");
+                for (const auto& preset : *dev.equalizer_presets) {
+                    // Convert name to lowercase for API compatibility
+                    std::string lower_name;
+                    lower_name.reserve(preset.name.size());
+                    for (char c : preset.name) {
+                        lower_name += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+                    }
+                    s.writeArray(lower_name, preset.values);
+                }
+                s.endObject();
+            }
+
+            if (dev.parametric_eq.has_value()) {
+                dev.parametric_eq->serialize(s);
+            }
+
             if (dev.chatmix.has_value()) {
                 s.write("chatmix", *dev.chatmix);
             }
@@ -325,6 +364,40 @@ void outputEnv(const OutputData& data)
             s.writeOptional(prefix + "_BATTERY_VOLTAGE_MV", dev.battery->voltage_mv);
             s.writeOptional(prefix + "_BATTERY_TIME_TO_FULL_MIN", dev.battery->time_to_full_min);
             s.writeOptional(prefix + "_BATTERY_TIME_TO_EMPTY_MIN", dev.battery->time_to_empty_min);
+        }
+
+        if (dev.equalizer.has_value()) {
+            s.write(prefix + "_EQUALIZER_BANDS", dev.equalizer->bands_count);
+            s.write(prefix + "_EQUALIZER_BASELINE", dev.equalizer->baseline);
+            s.write(prefix + "_EQUALIZER_STEP", static_cast<double>(dev.equalizer->step));
+            s.write(prefix + "_EQUALIZER_MIN", dev.equalizer->min);
+            s.write(prefix + "_EQUALIZER_MAX", dev.equalizer->max);
+        }
+
+        if (dev.equalizer_presets_count.has_value()) {
+            s.write(prefix + "_EQUALIZER_PRESETS_COUNT", *dev.equalizer_presets_count);
+        }
+
+        if (dev.equalizer_presets.has_value() && !dev.equalizer_presets->empty()) {
+            for (const auto& preset : *dev.equalizer_presets) {
+                // Convert name to uppercase for ENV variable naming
+                std::string upper_name;
+                upper_name.reserve(preset.name.size());
+                for (char c : preset.name) {
+                    if (c == ' ')
+                        upper_name += '_';
+                    else
+                        upper_name += static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+                }
+                // Output values as comma-separated string
+                std::string values_str;
+                for (size_t k = 0; k < preset.values.size(); ++k) {
+                    if (k > 0)
+                        values_str += ",";
+                    values_str += std::format("{:.1f}", preset.values[k]);
+                }
+                s.write(std::format("{}_EQUALIZER_PRESET_{}", prefix, upper_name), values_str);
+            }
         }
 
         if (dev.chatmix.has_value()) {

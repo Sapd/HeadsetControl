@@ -107,6 +107,11 @@ struct ErrorData {
     std::string message;
 };
 
+struct EqualizerPresetData {
+    std::string name;
+    std::vector<float> values;
+};
+
 struct EqualizerData {
     int bands_count = 0;
     int baseline    = 0;
@@ -175,6 +180,7 @@ struct DeviceData {
     std::optional<int> chatmix;
     std::optional<EqualizerData> equalizer;
     std::optional<int> equalizer_presets_count;
+    std::optional<std::vector<EqualizerPresetData>> equalizer_presets;
     std::optional<ParametricEqData> parametric_eq;
 
     std::vector<ActionData> actions;
@@ -203,6 +209,20 @@ struct DeviceData {
 
         if (equalizer_presets_count.has_value()) {
             s.write("equalizer_presets_count", *equalizer_presets_count);
+        }
+
+        if (equalizer_presets.has_value() && !equalizer_presets->empty()) {
+            s.beginObject("equalizer_presets");
+            for (const auto& preset : *equalizer_presets) {
+                // Convert name to lowercase for API compatibility
+                std::string lower_name;
+                lower_name.reserve(preset.name.size());
+                for (char c : preset.name) {
+                    lower_name += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+                }
+                s.writeArray(lower_name, preset.values);
+            }
+            s.endObject();
         }
 
         if (parametric_eq.has_value()) {

@@ -87,6 +87,18 @@ public:
         return 4;
     }
 
+    std::optional<EqualizerPresets> getEqualizerPresets() const override
+    {
+        EqualizerPresets presets;
+        presets.presets = {
+            { "Flat", { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
+            { "Bass Boost", { 6.0f, 4.0f, 2.0f, 0, 0, 0, 0, 0, 0, 0 } },
+            { "Treble Boost", { 0, 0, 0, 0, 0, 0, 2.0f, 4.0f, 6.0f, 6.0f } },
+            { "V-Shape", { 4.0f, 2.0f, 0, -2.0f, -2.0f, -2.0f, 0, 2.0f, 4.0f, 4.0f } }
+        };
+        return presets;
+    }
+
     // Rich Results V2 API
     Result<BatteryResult> getBattery([[maybe_unused]] hid_device* device_handle) override
     {
