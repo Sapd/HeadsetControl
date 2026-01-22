@@ -21,6 +21,7 @@
 #include "devices/steelseries_arctis_nova_3p_wireless.hpp"
 #include "devices/steelseries_arctis_nova_5.hpp"
 #include "devices/steelseries_arctis_nova_7.hpp"
+#include "devices/steelseries_arctis_nova_7p.hpp"
 #include "devices/steelseries_arctis_nova_pro_wireless.hpp"
 #include "devices/steelseries_arctis_pro_wireless.hpp"
 
@@ -98,6 +99,7 @@ void DeviceRegistry::initialize()
         registerDevice(std::make_unique<SteelSeriesArctisNova3>());
         registerDevice(std::make_unique<SteelSeriesArctisNova5>());
         registerDevice(std::make_unique<SteelSeriesArctisNova7>());
+        registerDevice(std::make_unique<SteelSeriesArctisNova7P>());
         registerDevice(std::make_unique<SteelSeriesArctis7Plus>());
         registerDevice(std::make_unique<SteelSeriesArctisNovaProWireless>());
         registerDevice(std::make_unique<SteelSeriesArctisNova3PWireless>());
