@@ -151,16 +151,16 @@ public:
             | B(static_cast<int>(EqualizerFilterType::Notch));
 
         return ParametricEqualizerInfo {
-            .bands_count    = EQUALIZER_BANDS,
-            .gain_base      = 0.0f,
-            .gain_step      = EQUALIZER_GAIN_STEP,
-            .gain_min       = EQUALIZER_GAIN_MIN,
-            .gain_max       = EQUALIZER_GAIN_MAX,
-            .q_factor_min   = EQUALIZER_Q_FACTOR_MIN,
-            .q_factor_max   = EQUALIZER_Q_FACTOR_MAX,
-            .freq_min       = EQUALIZER_FREQ_MIN,
-            .freq_max       = EQUALIZER_FREQ_MAX,
-            .filter_types   = supported_filters
+            .bands_count  = EQUALIZER_BANDS,
+            .gain_base    = 0.0f,
+            .gain_step    = EQUALIZER_GAIN_STEP,
+            .gain_min     = EQUALIZER_GAIN_MIN,
+            .gain_max     = EQUALIZER_GAIN_MAX,
+            .q_factor_min = EQUALIZER_Q_FACTOR_MIN,
+            .q_factor_max = EQUALIZER_Q_FACTOR_MAX,
+            .freq_min     = EQUALIZER_FREQ_MIN,
+            .freq_max     = EQUALIZER_FREQ_MAX,
+            .filter_types = supported_filters
         };
     }
 
@@ -330,7 +330,7 @@ public:
             }
 
             // Each band: 2 bytes frequency (LE), 1 byte filter type, 1 byte gain, 2 bytes Q-factor (LE)
-            uint16_t freq = BAND_FREQUENCIES[i];
+            uint16_t freq       = BAND_FREQUENCIES[i];
             data[1 + 6 * i]     = freq & 0xFF;
             data[1 + 6 * i + 1] = (freq >> 8) & 0xFF;
             data[1 + 6 * i + 2] = 0x01; // Peaking filter
@@ -382,7 +382,7 @@ public:
             }
 
             // Write frequency (LE)
-            uint16_t freq = static_cast<uint16_t>(band.frequency);
+            uint16_t freq       = static_cast<uint16_t>(band.frequency);
             data[1 + 6 * i]     = freq & 0xFF;
             data[1 + 6 * i + 1] = (freq >> 8) & 0xFF;
 
@@ -393,7 +393,7 @@ public:
             data[1 + 6 * i + 3] = encodeGain(band.gain);
 
             // Write Q-factor (LE)
-            uint16_t q = static_cast<uint16_t>(band.q_factor * 1000);
+            uint16_t q          = static_cast<uint16_t>(band.q_factor * 1000);
             data[1 + 6 * i + 4] = q & 0xFF;
             data[1 + 6 * i + 5] = (q >> 8) & 0xFF;
         }
@@ -401,7 +401,7 @@ public:
         // Fill remaining bands with disabled band
         for (int i = settings.size(); i < EQUALIZER_BANDS; i++) {
             // Disabled frequency
-            uint16_t freq = EQUALIZER_FREQ_DISABLED;
+            uint16_t freq       = EQUALIZER_FREQ_DISABLED;
             data[1 + 6 * i]     = freq & 0xFF;
             data[1 + 6 * i + 1] = (freq >> 8) & 0xFF;
 
