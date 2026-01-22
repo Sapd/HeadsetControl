@@ -16,6 +16,9 @@ jobs:
       contents: read
       pull-requests: write
     steps:
+      # Security note: Checking out fork code with pull_request_target is safe here
+      # because clang-format only parses source files for formatting, it does not
+      # execute any code. No build scripts or PR code are run.
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
