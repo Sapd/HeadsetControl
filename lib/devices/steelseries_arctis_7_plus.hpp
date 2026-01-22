@@ -186,8 +186,8 @@ public:
         int chat_raw = data[5];
 
         // Map to normalized chatmix value (0-128, 64 = center)
-        int game = map(game_raw, 0, 0x64, 0, 64);
-        int chat = map(chat_raw, 0, 0x64, 0, -64);
+        int game  = map(game_raw, 0, 0x64, 0, 64);
+        int chat  = map(chat_raw, 0, 0x64, 0, -64);
         int level = 64 - (chat + game);
 
         // Calculate percentages

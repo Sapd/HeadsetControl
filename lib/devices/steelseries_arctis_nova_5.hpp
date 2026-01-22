@@ -136,16 +136,16 @@ public:
             | B(static_cast<int>(EqualizerFilterType::HighShelf));
 
         return ParametricEqualizerInfo {
-            .bands_count    = EQUALIZER_BANDS,
-            .gain_base      = static_cast<float>(EQUALIZER_GAIN_BASE),
-            .gain_step      = EQUALIZER_GAIN_STEP,
-            .gain_min       = EQUALIZER_GAIN_MIN,
-            .gain_max       = EQUALIZER_GAIN_MAX,
-            .q_factor_min   = EQUALIZER_Q_FACTOR_MIN,
-            .q_factor_max   = EQUALIZER_Q_FACTOR_MAX,
-            .freq_min       = EQUALIZER_FREQ_MIN,
-            .freq_max       = EQUALIZER_FREQ_MAX,
-            .filter_types   = supported_filters
+            .bands_count  = EQUALIZER_BANDS,
+            .gain_base    = static_cast<float>(EQUALIZER_GAIN_BASE),
+            .gain_step    = EQUALIZER_GAIN_STEP,
+            .gain_min     = EQUALIZER_GAIN_MIN,
+            .gain_max     = EQUALIZER_GAIN_MAX,
+            .q_factor_min = EQUALIZER_Q_FACTOR_MIN,
+            .q_factor_max = EQUALIZER_Q_FACTOR_MAX,
+            .freq_min     = EQUALIZER_FREQ_MIN,
+            .freq_max     = EQUALIZER_FREQ_MAX,
+            .filter_types = supported_filters
         };
     }
 
@@ -331,8 +331,8 @@ public:
         int chat_raw = data[6];
 
         // Map to normalized chatmix value (0-128, 64 = center)
-        int game = map(game_raw, 0, 100, 0, 64);
-        int chat = map(chat_raw, 0, 100, 0, -64);
+        int game  = map(game_raw, 0, 100, 0, 64);
+        int chat  = map(chat_raw, 0, 100, 0, -64);
         int level = 64 - (chat + game);
 
         // Calculate percentages
@@ -408,7 +408,7 @@ public:
             }
 
             // Each band: 2 bytes frequency (LE), 1 byte gain flag, 1 byte gain, 2 bytes Q-factor (LE)
-            uint16_t freq    = BAND_FREQUENCIES[i];
+            uint16_t freq       = BAND_FREQUENCIES[i];
             data[2 + 6 * i]     = freq & 0xFF; // Frequency low byte
             data[2 + 6 * i + 1] = (freq >> 8) & 0xFF; // Frequency high byte
             data[2 + 6 * i + 2] = gain_flag;
@@ -463,7 +463,7 @@ public:
             }
 
             // Write frequency (LE)
-            uint16_t freq = static_cast<uint16_t>(band.frequency);
+            uint16_t freq       = static_cast<uint16_t>(band.frequency);
             data[2 + 6 * i]     = freq & 0xFF;
             data[2 + 6 * i + 1] = (freq >> 8) & 0xFF;
 
@@ -474,7 +474,7 @@ public:
             data[2 + 6 * i + 3] = static_cast<uint8_t>((band.gain + 10.0f) * 2.0f);
 
             // Write Q-factor (LE)
-            uint16_t q = static_cast<uint16_t>(band.q_factor * 1000);
+            uint16_t q          = static_cast<uint16_t>(band.q_factor * 1000);
             data[2 + 6 * i + 4] = q & 0xFF;
             data[2 + 6 * i + 5] = (q >> 8) & 0xFF;
         }
@@ -482,7 +482,7 @@ public:
         // Fill remaining bands with disabled band
         for (int i = settings.size(); i < EQUALIZER_BANDS; i++) {
             // Disabled frequency
-            uint16_t freq = EQUALIZER_FREQ_DISABLED;
+            uint16_t freq       = EQUALIZER_FREQ_DISABLED;
             data[2 + 6 * i]     = freq & 0xFF;
             data[2 + 6 * i + 1] = (freq >> 8) & 0xFF;
 

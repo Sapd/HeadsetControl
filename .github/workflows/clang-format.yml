@@ -36,7 +36,10 @@ jobs:
           version: '18'
           files-changed-only: true
           lines-changed-only: false
-          thread-comments: 'update'
+          # Disable thread-comments to avoid 403 errors
+          # The commits comments API requires contents:write which is unsafe with pull_request_target
+          # Use step-summary and file-annotations for feedback instead
+          thread-comments: false
           step-summary: true
           file-annotations: true
           extensions: 'c,cpp,h,hpp'
