@@ -35,7 +35,7 @@ public:
         0x2206, // Arctis Nova 7x
         0x2258, // Arctis Nova 7x v2
         0x229e, // Arctis Nova 7x v2
-        0x223a, // Arctis Nova 7 Diablo IV
+        0x22a9, // Arctis Nova 7 Diablo IV
         0x227a // Arctis Nova 7 WoW Edition
     };
 
