@@ -65,10 +65,11 @@ if(WIN32)
         # Use static runtime to avoid VC++ Redistributable dependency
         set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
     else()
-        # MinGW/GCC flags
-        set(CMAKE_C_STANDARD_LIBRARIES "-lsetupapi -static-libgcc -static-libstdc++ -lwsock32 -lws2_32 ${CMAKE_CXX_STANDARD_LIBRARIES}")
-        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-Bstatic,--whole-archive -lwinpthread -Wl,--no-whole-archive")
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
+        # MinGW/GCC flags - statically link runtime to avoid DLL dependencies
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++ -Wl,-Bstatic,--whole-archive -lwinpthread -Wl,--no-whole-archive")
+        set(CMAKE_C_STANDARD_LIBRARIES "-lsetupapi -lwsock32 -lws2_32 ${CMAKE_C_STANDARD_LIBRARIES}")
+        set(CMAKE_CXX_STANDARD_LIBRARIES "-lsetupapi -lwsock32 -lws2_32 ${CMAKE_CXX_STANDARD_LIBRARIES}")
+        add_compile_options(-Wall)
     endif()
 else()
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")

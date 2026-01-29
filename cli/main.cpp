@@ -37,6 +37,7 @@
 #include <algorithm>
 #include <cassert>
 #include <chrono>
+#include <cstdio>
 #include <csignal>
 #include <cstdlib>
 #include <format>
@@ -1101,6 +1102,12 @@ bool checkDeviceConnected(DiscoveredDevice& selected, const Options& opts)
 
 int main(int argc, char* argv[])
 {
+#if defined(_WIN32) && defined(__GNUC__)
+    // Disable stdout/stderr buffering for MinGW builds
+    setvbuf(stdout, nullptr, _IONBF, 0);
+    setvbuf(stderr, nullptr, _IONBF, 0);
+#endif
+
     Options opts;
     cli::ArgumentParser parser(argv[0]);
     configureParser(parser, opts);
