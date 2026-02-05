@@ -155,13 +155,15 @@ public:
 
         // The two values are between 255 and 191
         // Convert to 0-128 range with 64 being center
+        // game==0 means game at max → level < 64 (game favored)
+        // chat==0 means chat at max → level > 64 (chat favored)
         int level;
         if (game == 0 && chat == 0) {
             level = 64;
         } else if (game == 0) {
-            level = 64 + 255 - chat;
+            level = 64 - (255 - chat);
         } else {
-            level = 64 + (-1) * (255 - game);
+            level = 64 + (255 - game);
         }
 
         // Calculate percentages (game/chat are 191-255, neutral at 255)
