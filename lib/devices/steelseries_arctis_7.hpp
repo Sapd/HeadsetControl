@@ -167,8 +167,8 @@ public:
         }
 
         // Calculate percentages (game/chat are 191-255, neutral at 255)
-        int game_pct = (game == 0) ? 100 : map(game, 191, 255, 100, 0);
-        int chat_pct = (chat == 0) ? 100 : map(chat, 191, 255, 100, 0);
+        int game_pct = (game == 0) ? 100 : map(game, 191, 255, 0, 100);
+        int chat_pct = (chat == 0) ? 100 : map(chat, 191, 255, 0, 100);
 
         return ChatmixResult {
             .level               = level,
