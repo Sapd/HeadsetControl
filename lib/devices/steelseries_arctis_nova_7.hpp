@@ -29,7 +29,7 @@ namespace headsetcontrol {
  */
 class SteelSeriesArctisNova7 : public protocols::SteelSeriesNovaDevice<SteelSeriesArctisNova7> {
 public:
-    static constexpr std::array<uint16_t, 9> SUPPORTED_PRODUCT_IDS {
+    static constexpr std::array<uint16_t,11> SUPPORTED_PRODUCT_IDS {
         0x2202, // Arctis Nova 7 (discrete battery: 0-4)
         0x22A1, // Arctis Nova 7 (percentage battery: 0-100, Jan. 2026 update)
         0x227e, // Arctis Nova 7 Wireless Gen 2 (percentage battery: 0-100)
@@ -39,6 +39,8 @@ public:
         0x223a, // Arctis Nova 7 Diablo IV (discrete battery: 0-4, before Jan 2026 update)
         0x22a9, // Arctis Nova 7 Diablo IV (percentage battery: 0-100, after Jan 2026 update)
         0x227a // Arctis Nova 7 WoW Edition (discrete battery: 0-4)
+        0x22a4, // Arctis Nova 7X (discrete battery: 0-4)
+        0x22a5 // Arctis Nova 7X (percentage battery: 0-100)
     };
 
     static constexpr int EQUALIZER_BANDS         = 10;
