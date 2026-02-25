@@ -26,6 +26,7 @@ A cross-platform tool to control USB gaming headsets on **Linux**, **macOS**, an
 | Logitech G PRO Series | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |
 | Logitech Zone Wired/Zone 750 | All | x |   |   |   |   |   | x | x |   |   |   |   |   |   |   |   |
 | Corsair Headset Device | All | x | x | x | x |   |   |   |   |   |   |   |   |   |   |   |   |
+| Corsair Headset Device | All | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | SteelSeries Arctis (1/7X/7P) Wireless | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |
 | SteelSeries Arctis (7/Pro) | All | x | x |   | x | x | x |   |   |   |   |   |   |   |   |   |   |
 | SteelSeries Arctis 9 | All | x | x |   |   | x | x |   |   |   |   |   |   |   |   |   |   |
