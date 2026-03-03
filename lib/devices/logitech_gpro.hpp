@@ -10,7 +10,7 @@ using namespace std::string_view_literals;
 namespace headsetcontrol {
 
 /**
- * @brief Logitech G PRO Gaming Headsets (Pro, Pro X, Pro X2)
+ * @brief Logitech G PRO Gaming Headsets (Pro, Pro X, Pro X2 HID++)
  *
  * Features:
  * - Battery status with voltage reporting
@@ -32,7 +32,7 @@ public:
             0x0aaa, // G PRO X variant 0
             0x0aba, // G PRO X variant 1
             0x0afb, // G PRO X2 variant 0
-            0x0afc // G PRO X2 variant 1
+            0x0afc  // G PRO X2 variant 1
         };
     }
 

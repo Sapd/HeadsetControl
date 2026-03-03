@@ -199,6 +199,20 @@ void testLookupWithWrongVendorId()
     std::cout << "    OK lookup with wrong vendor ID" << std::endl;
 }
 
+void testLookupLogitechProX2Lightspeed()
+{
+    std::cout << "  Testing lookup of Logitech PRO X2 LIGHTSPEED (0x0af7)..." << std::endl;
+
+    auto& registry = DeviceRegistry::instance();
+    registry.initialize();
+
+    auto* device = registry.getDevice(0x046d, 0x0af7);
+    ASSERT_NOT_NULL(device, "Logitech PRO X2 LIGHTSPEED should be found");
+    ASSERT_EQ("Logitech G PRO X 2 LIGHTSPEED", std::string(device->getDeviceName()), "Device name should match");
+
+    std::cout << "    OK lookup Logitech PRO X2 LIGHTSPEED" << std::endl;
+}
+
 // ============================================================================
 // Device Enumeration Tests
 // ============================================================================
@@ -449,6 +463,7 @@ void runAllDeviceRegistryTests()
 
     std::cout << "\n=== Device Lookup Tests ===" << std::endl;
     runTest("Lookup Test Device", testLookupTestDevice);
+    runTest("Lookup Logitech PRO X2 LIGHTSPEED", testLookupLogitechProX2Lightspeed);
     runTest("Lookup Non-Existent", testLookupNonExistentDevice);
     runTest("Lookup Wrong Product ID", testLookupWithWrongProductId);
     runTest("Lookup Wrong Vendor ID", testLookupWithWrongVendorId);
