@@ -2,8 +2,6 @@
 
 #include "../utility.hpp"
 #include "hid_device.hpp"
-#include "logitech.hpp"
-#include <algorithm>
 #include <array>
 #include <chrono>
 #include <string_view>
@@ -47,10 +45,14 @@ public:
 
     constexpr capability_detail getCapabilityDetail(enum capabilities cap) const override
     {
-        if (cap == CAP_BATTERY_STATUS || cap == CAP_SIDETONE || cap == CAP_INACTIVE_TIME) {
+        switch (cap) {
+        case CAP_BATTERY_STATUS:
+        case CAP_SIDETONE:
+        case CAP_INACTIVE_TIME:
             return { .usagepage = 0xffa0, .usageid = 0x0001, .interface_id = 3 };
+        default:
+            return HIDDevice::getCapabilityDetail(cap);
         }
-        return HIDDevice::getCapabilityDetail(cap);
     }
 
     Result<BatteryResult> getBattery(hid_device* device_handle) override
@@ -63,7 +65,7 @@ public:
         }
 
         std::vector<uint8_t> raw_packets;
-        raw_packets.reserve(PACKET_SIZE * 2);
+        raw_packets.reserve(PACKET_SIZE * 4);
 
         for (int attempt = 0; attempt < 4; ++attempt) {
             std::array<uint8_t, PACKET_SIZE> response {};
@@ -74,8 +76,12 @@ public:
 
             raw_packets.insert(raw_packets.end(), response.begin(), response.end());
 
-            if (isPowerEventPacket(response)) {
+            if (isPowerOffPacket(response)) {
                 return DeviceError::deviceOffline("Headset is powered off or not connected");
+            }
+
+            if (isPowerEventPacket(response)) {
+                continue;
             }
 
             if (isAckPacket(response)) {
@@ -137,9 +143,14 @@ public:
         return packet.size() >= 2 && packet[0] == REPORT_PREFIX && packet[1] == 0x03;
     }
 
-    static constexpr bool isPowerEventPacket(std::span<const uint8_t> packet)
+    static constexpr bool isPowerOffPacket(std::span<const uint8_t> packet)
     {
         return packet.size() >= 7 && packet[0] == REPORT_PREFIX && packet[1] == 0x05 && packet[6] == 0x00;
+    }
+
+    static constexpr bool isPowerEventPacket(std::span<const uint8_t> packet)
+    {
+        return packet.size() >= 2 && packet[0] == REPORT_PREFIX && packet[1] == 0x05;
     }
 
     static constexpr bool isBatteryResponsePacket(std::span<const uint8_t> packet)
@@ -154,7 +165,7 @@ public:
         }
 
         int level = static_cast<int>(packet[10]);
-        if (level < 0 || level > 100) {
+        if (level > 100) {
             return DeviceError::protocolError("Battery percentage out of range");
         }
 
