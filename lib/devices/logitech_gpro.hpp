@@ -10,7 +10,7 @@ using namespace std::string_view_literals;
 namespace headsetcontrol {
 
 /**
- * @brief Logitech G PRO Gaming Headsets (Pro, Pro X, Pro X2)
+ * @brief Logitech G PRO Gaming Headsets (Pro, Pro X, Pro X2 HID++)
  *
  * Features:
  * - Battery status with voltage reporting

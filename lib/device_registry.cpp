@@ -11,6 +11,7 @@
 #include "devices/logitech_g633_g933_935.hpp"
 #include "devices/logitech_g930.hpp"
 #include "devices/logitech_gpro.hpp"
+#include "devices/logitech_gpro_x2_lightspeed.hpp"
 #include "devices/logitech_zone_wired.hpp"
 
 // SteelSeries devices with SteelSeries protocol templates
@@ -86,6 +87,7 @@ void DeviceRegistry::initialize()
         registerDevice(std::make_unique<LogitechG633Family>());
         registerDevice(std::make_unique<LogitechG432>());
         registerDevice(std::make_unique<LogitechG930>());
+        registerDevice(std::make_unique<LogitechGProX2Lightspeed>());
         registerDevice(std::make_unique<LogitechGPro>());
         registerDevice(std::make_unique<LogitechZoneWired>());
 
