@@ -247,7 +247,9 @@ void testCNullHandling()
     // Test null headset handle
     ASSERT_TRUE(hsc_get_name(nullptr) == nullptr, "get_name(null) should return null");
     ASSERT_EQ(0u, hsc_get_vendor_id(nullptr), "get_vendor_id(null) should return 0");
+    ASSERT_TRUE(hsc_get_vendor_name(nullptr) == nullptr, "get_vendor_name(null) should return null");
     ASSERT_EQ(0u, hsc_get_product_id(nullptr), "get_product_id(null) should return 0");
+    ASSERT_TRUE(hsc_get_product_name(nullptr) == nullptr, "get_product_name(null) should return null");
     ASSERT_FALSE(hsc_supports(nullptr, HSC_CAP_BATTERY_STATUS), "supports(null) should return false");
     ASSERT_EQ(0, hsc_get_capabilities(nullptr), "get_capabilities(null) should return 0");
 
@@ -294,6 +296,10 @@ void testCppTestDeviceMode()
             // Verify name
             ASSERT_EQ(std::string("HeadsetControl Test device"), std::string(headset.name()),
                 "Test device name should match");
+            ASSERT_EQ(std::string("HeadsetControl"), std::string(headset.vendorName()),
+                "Test device vendor name should match");
+            ASSERT_EQ(std::string("HeadsetControl Test device"), std::string(headset.productName()),
+                "Test device product name should match");
 
             // Verify capabilities
             ASSERT_TRUE(headset.supports(CAP_BATTERY_STATUS), "Test device should support battery");
@@ -396,6 +402,10 @@ void testCTestDeviceMode()
             // Verify name
             ASSERT_EQ(std::string("HeadsetControl Test device"),
                 std::string(hsc_get_name(headsets[i])), "Test device name should match");
+            ASSERT_EQ(std::string("HeadsetControl"),
+                std::string(hsc_get_vendor_name(headsets[i])), "Test device vendor name should match");
+            ASSERT_EQ(std::string("HeadsetControl Test device"),
+                std::string(hsc_get_product_name(headsets[i])), "Test device product name should match");
 
             // Verify capabilities
             ASSERT_TRUE(hsc_supports(headsets[i], HSC_CAP_BATTERY_STATUS), "Should support battery");
