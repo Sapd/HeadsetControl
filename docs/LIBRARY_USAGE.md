@@ -49,19 +49,19 @@ headsetcontrol -o env
 
 ### Status Values
 
-| Status    | Description                    |
-| --------- | ------------------------------ |
+| Status | Description |
+|--------|-------------|
 | `success` | All queries completed normally |
-| `partial` | Some queries failed            |
-| `failure` | Device communication failed    |
+| `partial` | Some queries failed |
+| `failure` | Device communication failed |
 
 ### Battery Status Values
 
-| Status                | Description                          |
-| --------------------- | ------------------------------------ |
-| `BATTERY_AVAILABLE`   | Battery level available              |
-| `BATTERY_CHARGING`    | Currently charging (level may be -1) |
-| `BATTERY_UNAVAILABLE` | Device unavailable/off               |
+| Status | Description |
+|--------|-------------|
+| `BATTERY_AVAILABLE` | Battery level available |
+| `BATTERY_CHARGING` | Currently charging (level may be -1) |
+| `BATTERY_UNAVAILABLE` | Device unavailable/off |
 
 ### Performing Actions
 
@@ -73,28 +73,24 @@ headsetcontrol -s 64 -b -o json
 ```
 
 Action results include status:
-
 ```json
 {
-  "devices": [
-    {
-      "sidetone": {
-        "status": "success",
-        "level": 64
-      },
-      "battery": {
-        "status": "BATTERY_AVAILABLE",
-        "level": 85
-      }
+  "devices": [{
+    "sidetone": {
+      "status": "success",
+      "level": 64
+    },
+    "battery": {
+      "status": "BATTERY_AVAILABLE",
+      "level": 85
     }
-  ]
+  }]
 }
 ```
 
 ### API Versioning
 
 The `api_version` field uses semantic versioning:
-
 - First number increments on **breaking changes**
 - Second number increments on **additions**
 
@@ -262,8 +258,8 @@ headsetcontrol::Headset& headset = headsets[0];
 // Device info
 std::string_view name = headset.name();           // "Logitech G535"
 uint16_t vendor = headset.vendorId();             // 0x046d
-std::string_view vendorName = headset.vendorName();   // "Logitech"
 uint16_t product = headset.productId();           // 0x0ac4
+std::string_view vendorName = headset.vendorName();   // "Logitech"
 std::string_view productName = headset.productName(); // "G PRO X 2 LIGHTSPEED"
 
 // Capabilities
@@ -539,7 +535,6 @@ int count = hsc_discover(&headsets);  // Includes test device
 ```
 
 The test device implements all capabilities and returns predictable values, making it useful for:
-
 - Testing library integration
 - Developing GUI applications
 - CI/CD pipelines
@@ -555,24 +550,20 @@ The test device implements all capabilities and returns predictable values, maki
 ## Platform Notes
 
 ### Linux
-
 - Requires udev rules for non-root access
 - Generate with: `headsetcontrol -u > /etc/udev/rules.d/70-headset.rules`
 - Reload: `sudo udevadm control --reload-rules && sudo udevadm trigger`
 
 ### macOS
-
 - No special permissions needed
 
 ### Windows
-
 - Uses SetupAPI for device access
 - May require running as Administrator for some devices
 
 ## Dependencies
 
 When linking manually, you need:
-
 - **HIDAPI**: `libhidapi` (automatically linked when using CMake subdirectory)
 - **Math library**: `-lm` on Linux/macOS
 

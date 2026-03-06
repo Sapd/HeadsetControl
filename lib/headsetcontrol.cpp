@@ -74,13 +74,13 @@ namespace {
 class HeadsetImpl {
 public:
     HeadsetImpl(HIDDevice* device, uint16_t product_id,
-        std::string vendor_name = {}, std::string product_name = {},
-        bool is_test_device = false)
+        bool is_test_device = false,
+        std::string vendor_name = {}, std::string product_name = {})
         : device_(device)
         , product_id_(product_id)
+        , is_test_device_(is_test_device)
         , vendor_name_(std::move(vendor_name))
         , product_name_(std::move(product_name))
-        , is_test_device_(is_test_device)
     {
     }
 
@@ -158,9 +158,9 @@ private:
 
     HIDDevice* device_;
     uint16_t product_id_;
+    bool is_test_device_;
     std::string vendor_name_;
     std::string product_name_;
-    bool is_test_device_;
     std::unordered_map<uint64_t, hid_device*> connections_;
 };
 
@@ -187,14 +187,14 @@ uint16_t Headset::vendorId() const
     return impl_->device()->getVendorId();
 }
 
-std::string_view Headset::vendorName() const
-{
-    return impl_->vendorName();
-}
-
 uint16_t Headset::productId() const
 {
     return impl_->productId();
+}
+
+std::string_view Headset::vendorName() const
+{
+    return impl_->vendorName();
 }
 
 std::string_view Headset::productName() const
@@ -396,7 +396,7 @@ std::vector<Headset> discover()
             found_devices.emplace_back(kTestDeviceVendor, kTestDeviceProduct);
             headsets.push_back(Headset(
                 std::make_unique<HeadsetImpl>(test_dev, kTestDeviceProduct,
-                    kTestDeviceVendorName, kTestDeviceProductName, true)));
+                    true, kTestDeviceVendorName, kTestDeviceProductName)));
         }
     }
 
@@ -416,7 +416,7 @@ std::vector<Headset> discover()
             found_devices.push_back(key);
             headsets.push_back(Headset(
                 std::make_unique<HeadsetImpl>(device, cur->product_id,
-                    hidStringOrEmpty(cur->manufacturer_string),
+                    false, hidStringOrEmpty(cur->manufacturer_string),
                     hidStringOrEmpty(cur->product_string))));
         }
     }
@@ -436,7 +436,7 @@ std::vector<Headset> discoverAll()
         if (auto* test_dev = registry.getDevice(kTestDeviceVendor, kTestDeviceProduct)) {
             headsets.push_back(Headset(
                 std::make_unique<HeadsetImpl>(test_dev, kTestDeviceProduct,
-                    kTestDeviceVendorName, kTestDeviceProductName, true)));
+                    true, kTestDeviceVendorName, kTestDeviceProductName)));
         }
     }
 
@@ -448,7 +448,7 @@ std::vector<Headset> discoverAll()
         if (device) {
             headsets.push_back(Headset(
                 std::make_unique<HeadsetImpl>(device, cur->product_id,
-                    hidStringOrEmpty(cur->manufacturer_string),
+                    false, hidStringOrEmpty(cur->manufacturer_string),
                     hidStringOrEmpty(cur->product_string))));
         }
     }

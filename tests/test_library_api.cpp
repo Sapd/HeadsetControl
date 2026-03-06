@@ -495,6 +495,60 @@ void testDeviceNamesConsistency()
     std::cout << "    OK device names consistency" << std::endl;
 }
 
+void testVendorProductNames()
+{
+    std::cout << "  Testing vendor/product name accessors..." << std::endl;
+
+    // Enable test device for name verification
+    headsetcontrol::enableTestDevice(true);
+
+    // C++ API: verify test device names are non-empty and correct
+    auto headsets = headsetcontrol::discover();
+    bool foundTestDevice = false;
+    for (auto& headset : headsets) {
+        if (headset.vendorId() == 0xF00B && headset.productId() == 0xA00C) {
+            foundTestDevice = true;
+
+            ASSERT_FALSE(headset.vendorName().empty(), "Test device vendorName() should not be empty");
+            ASSERT_FALSE(headset.productName().empty(), "Test device productName() should not be empty");
+
+            // Verify C and C++ APIs return consistent values
+            break;
+        }
+    }
+    ASSERT_TRUE(foundTestDevice, "Should find test device");
+
+    // C API: verify test device names are non-null and match C++ values
+    hsc_headset_t* c_headsets = nullptr;
+    int count                 = hsc_discover(&c_headsets);
+    for (int i = 0; i < count; i++) {
+        if (hsc_get_vendor_id(c_headsets[i]) == 0xF00B && hsc_get_product_id(c_headsets[i]) == 0xA00C) {
+            const char* vendor_name  = hsc_get_vendor_name(c_headsets[i]);
+            const char* product_name = hsc_get_product_name(c_headsets[i]);
+
+            ASSERT_NOT_NULL(vendor_name, "C API vendor_name should not be null for test device");
+            ASSERT_NOT_NULL(product_name, "C API product_name should not be null for test device");
+
+            // Verify C and C++ values match
+            for (auto& headset : headsets) {
+                if (headset.vendorId() == 0xF00B) {
+                    ASSERT_EQ(std::string(headset.vendorName()), std::string(vendor_name),
+                        "C and C++ vendor names should match");
+                    ASSERT_EQ(std::string(headset.productName()), std::string(product_name),
+                        "C and C++ product names should match");
+                    break;
+                }
+            }
+            break;
+        }
+    }
+    hsc_free_headsets(c_headsets, count);
+
+    headsetcontrol::enableTestDevice(false);
+
+    std::cout << "    OK vendor/product name accessors" << std::endl;
+}
+
 // ============================================================================
 // Test Runner
 // ============================================================================
@@ -539,6 +593,7 @@ void runAllLibraryApiTests()
     runTest("Version consistency", testVersionConsistency);
     runTest("Device count consistency", testDeviceCountConsistency);
     runTest("Device names consistency", testDeviceNamesConsistency);
+    runTest("Vendor/product names", testVendorProductNames);
 
     std::cout << "\n=== Test Device Mode Tests ===" << std::endl;
     runTest("C++ test device mode", testCppTestDeviceMode);

@@ -82,15 +82,15 @@ public:
     [[nodiscard]] uint16_t vendorId() const;
 
     /**
+     * @brief Get USB product ID
+     */
+    [[nodiscard]] uint16_t productId() const;
+
+    /**
      * @brief Get USB vendor name from HID enumeration
      * @return Empty string if unavailable
      */
     [[nodiscard]] std::string_view vendorName() const;
-
-    /**
-     * @brief Get USB product ID
-     */
-    [[nodiscard]] uint16_t productId() const;
 
     /**
      * @brief Get USB product name from HID enumeration
