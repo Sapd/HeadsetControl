@@ -87,6 +87,18 @@ public:
     [[nodiscard]] uint16_t productId() const;
 
     /**
+     * @brief Get USB vendor name from HID enumeration
+     * @return Empty string if unavailable
+     */
+    [[nodiscard]] std::string_view vendorName() const;
+
+    /**
+     * @brief Get USB product name from HID enumeration
+     * @return Empty string if unavailable
+     */
+    [[nodiscard]] std::string_view productName() const;
+
+    /**
      * @brief Check if a capability is supported
      */
     [[nodiscard]] bool supports(enum capabilities cap) const;

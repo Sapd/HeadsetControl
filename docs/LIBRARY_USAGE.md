@@ -259,12 +259,16 @@ headsetcontrol::Headset& headset = headsets[0];
 std::string_view name = headset.name();           // "Logitech G535"
 uint16_t vendor = headset.vendorId();             // 0x046d
 uint16_t product = headset.productId();           // 0x0ac4
+std::string_view vendorName = headset.vendorName();   // "Logitech"
+std::string_view productName = headset.productName(); // "G PRO X 2 LIGHTSPEED"
 
 // Capabilities
 bool hasBattery = headset.supports(CAP_BATTERY_STATUS);
 int capsMask = headset.capabilitiesMask();        // Bitmask
 std::vector<std::string_view> capNames = headset.capabilityNames();
 ```
+
+`vendorName()` and `productName()` come from HID enumeration metadata. If the OS or device does not provide these strings, they return an empty string.
 
 ### Battery & Status
 
@@ -454,6 +458,13 @@ void printHeadsetInfo(headsetcontrol::Headset& headset) {
     std::cout << "Vendor:  0x" << std::hex << headset.vendorId() << "\n";
     std::cout << "Product: 0x" << std::hex << headset.productId() << std::dec << "\n";
 
+    if (!headset.vendorName().empty()) {
+        std::cout << "Vendor name:  " << headset.vendorName() << "\n";
+    }
+    if (!headset.productName().empty()) {
+        std::cout << "Product name: " << headset.productName() << "\n";
+    }
+
     std::cout << "Capabilities: ";
     for (auto cap : headset.capabilityNames()) {
         std::cout << cap << " ";
@@ -630,7 +641,9 @@ for (int i = 0; i < num_devices; i++) {
 ```c
 const char* name = hsc_get_name(headset);
 uint16_t vendor = hsc_get_vendor_id(headset);
+const char* vendor_name = hsc_get_vendor_name(headset);   // NULL if unavailable
 uint16_t product = hsc_get_product_id(headset);
+const char* product_name = hsc_get_product_name(headset); // NULL if unavailable
 
 // Check capability
 if (hsc_supports(headset, HSC_CAP_BATTERY_STATUS)) {
@@ -863,8 +876,14 @@ _lib.hsc_get_name.restype = c_char_p
 _lib.hsc_get_vendor_id.argtypes = [c_void_p]
 _lib.hsc_get_vendor_id.restype = c_uint16
 
+_lib.hsc_get_vendor_name.argtypes = [c_void_p]
+_lib.hsc_get_vendor_name.restype = c_char_p
+
 _lib.hsc_get_product_id.argtypes = [c_void_p]
 _lib.hsc_get_product_id.restype = c_uint16
+
+_lib.hsc_get_product_name.argtypes = [c_void_p]
+_lib.hsc_get_product_name.restype = c_char_p
 
 _lib.hsc_supports.argtypes = [c_void_p, c_int]
 _lib.hsc_supports.restype = c_bool
@@ -912,8 +931,18 @@ class Headset:
         return _lib.hsc_get_vendor_id(self._handle)
 
     @property
+    def vendor_name(self) -> Optional[str]:
+        value = _lib.hsc_get_vendor_name(self._handle)
+        return value.decode("utf-8") if value else None
+
+    @property
     def product_id(self) -> int:
         return _lib.hsc_get_product_id(self._handle)
+
+    @property
+    def product_name(self) -> Optional[str]:
+        value = _lib.hsc_get_product_name(self._handle)
+        return value.decode("utf-8") if value else None
 
     def supports(self, cap: Capability) -> bool:
         return _lib.hsc_supports(self._handle, cap)
@@ -1037,6 +1066,10 @@ if __name__ == "__main__":
             print(f"\n=== {headset.name} ===")
             print(f"Vendor:  0x{headset.vendor_id:04x}")
             print(f"Product: 0x{headset.product_id:04x}")
+            if headset.vendor_name:
+                print(f"Vendor name:  {headset.vendor_name}")
+            if headset.product_name:
+                print(f"Product name: {headset.product_name}")
 
             # Battery
             battery = headset.get_battery()

@@ -209,12 +209,28 @@ HSC_API const char* hsc_get_name(hsc_headset_t headset);
 HSC_API uint16_t hsc_get_vendor_id(hsc_headset_t headset);
 
 /**
+ * @brief Get USB vendor name
+ *
+ * @param headset Headset handle
+ * @return Vendor name (do not free), or NULL if unavailable
+ */
+HSC_API const char* hsc_get_vendor_name(hsc_headset_t headset);
+
+/**
  * @brief Get USB product ID
  *
  * @param headset Headset handle
  * @return Product ID
  */
 HSC_API uint16_t hsc_get_product_id(hsc_headset_t headset);
+
+/**
+ * @brief Get USB product name
+ *
+ * @param headset Headset handle
+ * @return Product name (do not free), or NULL if unavailable
+ */
+HSC_API const char* hsc_get_product_name(hsc_headset_t headset);
 
 /**
  * @brief Check if headset supports a capability

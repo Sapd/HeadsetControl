@@ -15,10 +15,14 @@ namespace {
 struct HeadsetWrapper {
     headsetcontrol::Headset headset;
     std::string name_str; // Persistent storage for C string
+    std::string vendor_name_str;
+    std::string product_name_str;
 
     explicit HeadsetWrapper(headsetcontrol::Headset&& h)
         : headset(std::move(h))
         , name_str(headset.name())
+        , vendor_name_str(headset.vendorName())
+        , product_name_str(headset.productName())
     {
     }
 };
@@ -165,12 +169,32 @@ uint16_t hsc_get_vendor_id(hsc_headset_t headset)
     return static_cast<HeadsetWrapper*>(headset)->headset.vendorId();
 }
 
+const char* hsc_get_vendor_name(hsc_headset_t headset)
+{
+    if (!headset) {
+        return nullptr;
+    }
+
+    const auto& vendor_name = static_cast<HeadsetWrapper*>(headset)->vendor_name_str;
+    return vendor_name.empty() ? nullptr : vendor_name.c_str();
+}
+
 uint16_t hsc_get_product_id(hsc_headset_t headset)
 {
     if (!headset) {
         return 0;
     }
     return static_cast<HeadsetWrapper*>(headset)->headset.productId();
+}
+
+const char* hsc_get_product_name(hsc_headset_t headset)
+{
+    if (!headset) {
+        return nullptr;
+    }
+
+    const auto& product_name = static_cast<HeadsetWrapper*>(headset)->product_name_str;
+    return product_name.empty() ? nullptr : product_name.c_str();
 }
 
 bool hsc_supports(hsc_headset_t headset, hsc_capability_t cap)

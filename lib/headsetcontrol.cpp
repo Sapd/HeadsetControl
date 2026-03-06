@@ -3,6 +3,7 @@
 #include "device_registry.hpp"
 #include "devices/hid_device.hpp"
 #include "hid_utility.hpp"
+#include "string_utils.hpp"
 #include "version.h"
 
 #include <hidapi.h>
@@ -22,6 +23,13 @@ namespace {
     // Test device vendor/product IDs (using different names to avoid macro conflicts)
     constexpr uint16_t kTestDeviceVendor  = 0xF00B;
     constexpr uint16_t kTestDeviceProduct = 0xA00C;
+    constexpr auto kTestDeviceVendorName  = "HeadsetControl";
+    constexpr auto kTestDeviceProductName = "HeadsetControl Test device";
+
+    std::string hidStringOrEmpty(const wchar_t* value)
+    {
+        return value ? wstring_to_string(value) : std::string();
+    }
 
     class LibraryState {
     public:
@@ -65,10 +73,14 @@ namespace {
 
 class HeadsetImpl {
 public:
-    HeadsetImpl(HIDDevice* device, uint16_t product_id, bool is_test_device = false)
+    HeadsetImpl(HIDDevice* device, uint16_t product_id,
+        bool is_test_device = false,
+        std::string vendor_name = {}, std::string product_name = {})
         : device_(device)
         , product_id_(product_id)
         , is_test_device_(is_test_device)
+        , vendor_name_(std::move(vendor_name))
+        , product_name_(std::move(product_name))
     {
     }
 
@@ -85,6 +97,8 @@ public:
 
     HIDDevice* device() const { return device_; }
     uint16_t productId() const { return product_id_; }
+    std::string_view vendorName() const { return vendor_name_; }
+    std::string_view productName() const { return product_name_; }
     bool isTestDevice() const { return is_test_device_; }
 
     /**
@@ -145,6 +159,8 @@ private:
     HIDDevice* device_;
     uint16_t product_id_;
     bool is_test_device_;
+    std::string vendor_name_;
+    std::string product_name_;
     std::unordered_map<uint64_t, hid_device*> connections_;
 };
 
@@ -174,6 +190,16 @@ uint16_t Headset::vendorId() const
 uint16_t Headset::productId() const
 {
     return impl_->productId();
+}
+
+std::string_view Headset::vendorName() const
+{
+    return impl_->vendorName();
+}
+
+std::string_view Headset::productName() const
+{
+    return impl_->productName();
 }
 
 bool Headset::supports(enum capabilities cap) const
@@ -369,7 +395,8 @@ std::vector<Headset> discover()
         if (auto* test_dev = registry.getDevice(kTestDeviceVendor, kTestDeviceProduct)) {
             found_devices.emplace_back(kTestDeviceVendor, kTestDeviceProduct);
             headsets.push_back(Headset(
-                std::make_unique<HeadsetImpl>(test_dev, kTestDeviceProduct, true)));
+                std::make_unique<HeadsetImpl>(test_dev, kTestDeviceProduct,
+                    true, kTestDeviceVendorName, kTestDeviceProductName)));
         }
     }
 
@@ -388,7 +415,9 @@ std::vector<Headset> discover()
         if (device) {
             found_devices.push_back(key);
             headsets.push_back(Headset(
-                std::make_unique<HeadsetImpl>(device, cur->product_id)));
+                std::make_unique<HeadsetImpl>(device, cur->product_id,
+                    false, hidStringOrEmpty(cur->manufacturer_string),
+                    hidStringOrEmpty(cur->product_string))));
         }
     }
 
@@ -406,7 +435,8 @@ std::vector<Headset> discoverAll()
     if (LibraryState::instance().isTestDeviceEnabled()) {
         if (auto* test_dev = registry.getDevice(kTestDeviceVendor, kTestDeviceProduct)) {
             headsets.push_back(Headset(
-                std::make_unique<HeadsetImpl>(test_dev, kTestDeviceProduct, true)));
+                std::make_unique<HeadsetImpl>(test_dev, kTestDeviceProduct,
+                    true, kTestDeviceVendorName, kTestDeviceProductName)));
         }
     }
 
@@ -417,7 +447,9 @@ std::vector<Headset> discoverAll()
         HIDDevice* device = registry.getDevice(cur->vendor_id, cur->product_id);
         if (device) {
             headsets.push_back(Headset(
-                std::make_unique<HeadsetImpl>(device, cur->product_id)));
+                std::make_unique<HeadsetImpl>(device, cur->product_id,
+                    false, hidStringOrEmpty(cur->manufacturer_string),
+                    hidStringOrEmpty(cur->product_string))));
         }
     }
 
