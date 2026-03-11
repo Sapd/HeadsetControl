@@ -45,6 +45,7 @@ A cross-platform tool to control USB gaming headsets on **Linux**, **macOS**, an
 | ROCCAT Elo 7.1 Air | All |   |   |   | x | x |   |   |   |   |   |   |   |   |   |   |   |
 | ROCCAT Elo 7.1 USB | All |   |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |
 | Audeze Maxwell | All | x | x |   |   | x | x | x |   | x |   |   |   |   | x |   |   |
+| Lenovo Wireless VoIP Headset | All | x | x |   |   | x |   | x | x | x |   |   |   |   | x |   |   |
 | HeadsetControl Test device | All | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x |
 
 **Platform:** All = Linux, macOS, Windows | L/M = Linux and macOS only

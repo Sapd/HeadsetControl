@@ -40,6 +40,9 @@
 // Audeze devices
 #include "devices/audeze_maxwell.hpp"
 
+// Lenovo devices
+#include "devices/lenovo_wireless_voip.hpp"
+
 // Test device
 #include "devices/headsetcontrol_test.hpp"
 
@@ -120,6 +123,9 @@ void DeviceRegistry::initialize()
 
         // Audeze devices
         registerDevice(std::make_unique<AudezeMaxwell>());
+
+        // Lenovo devices
+        registerDevice(std::make_unique<LenovoWirelessVoip>());
 
         // Test device
         registerDevice(std::make_unique<HeadsetControlTest>());
