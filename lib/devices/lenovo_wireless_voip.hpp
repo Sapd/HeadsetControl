@@ -62,8 +62,6 @@ private:
             return result.error();
         }
 
-        response[ID_INDEX] = RSP_ID;
-
         auto read_result = readHIDTimeout(device_handle, response, hsc_device_timeout);
         if (!read_result) {
             return read_result.error();
@@ -71,6 +69,10 @@ private:
 
         if (*read_result != MSG_SIZE) {
             return DeviceError::hidError("Failed to get input report");
+        }
+
+        if (response[ID_INDEX] != RSP_ID) {
+            return DeviceError::hidError("Wrong response report ID");
         }
 
         if (response[CMD_INDEX] != cmd) {
@@ -175,6 +177,7 @@ public:
         std::array<uint8_t, MSG_SIZE> response {};
         std::array<uint8_t, 2> payload { 0x01, 0x00 }; // Disabled by default
 
+        // When enabled (non zero), hours = 1 << (payload[1] - 1)
         // 0x00 -> disabled | 0x01 -> 1 hour | 0x02 -> 2 hours | 0x03 -> 4 hours | 0x04 -> 8 hours
         if (minutes > 0) {
             if (minutes <= 60)
@@ -192,10 +195,17 @@ public:
             return result.error();
         }
 
+        // Convert response back to minutes
+        unsigned int resp_minutes = response[4];
+        if (resp_minutes != 0) {
+            // TODO: Headset supports up to 8 hours (480 seconds)
+            resp_minutes = std::min(60 * (1 << (resp_minutes - 1)), 255);
+        }
+
         return InactiveTimeResult {
-            .minutes     = response[4],
+            .minutes     = (uint8_t)resp_minutes,
             .min_minutes = 0,
-            .max_minutes = 255 // TODO: Headset supports up to 8 hours
+            .max_minutes = 255
         };
     }
 
