@@ -103,7 +103,7 @@ public:
 
     constexpr capability_detail getCapabilityDetail([[maybe_unused]] enum capabilities cap) const override
     {
-        return { .usagepage = 0xffc0, .usageid = 0x1, .interface_id = 4 };
+        return { .usagepage = 0xffc0, .usageid = 0x1, .interface_id = 3 };
     }
 
     constexpr uint8_t getSupportedPlatforms() const override
