@@ -6,6 +6,7 @@
 
 // Logitech devices with HIDPPDevice protocol template
 #include "devices/logitech_g432.hpp"
+#include "devices/logitech_g522_lightspeed.hpp"
 #include "devices/logitech_g533.hpp"
 #include "devices/logitech_g535.hpp"
 #include "devices/logitech_g633_g933_935.hpp"
@@ -85,6 +86,7 @@ void DeviceRegistry::initialize()
         // Each device is managed by a unique_ptr for automatic cleanup
 
         // Logitech devices (using HIDPPDevice protocol template)
+        registerDevice(std::make_unique<LogitechG522Lightspeed>());
         registerDevice(std::make_unique<LogitechG533>());
         registerDevice(std::make_unique<LogitechG535>());
         registerDevice(std::make_unique<LogitechG633Family>());
