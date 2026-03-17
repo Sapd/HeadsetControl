@@ -74,7 +74,7 @@ public:
         raw_packets.reserve(PACKET_SIZE * 4);
 
         for (int attempt = 0; attempt < 4; ++attempt) {
-            std::array<uint8_t, PACKET_SIZE> response {};
+            std::array<uint8_t, PACKET_SIZE> response { };
             auto read_result = readHIDTimeout(device_handle, response, hsc_device_timeout);
             if (!read_result) {
                 return read_result.error();
@@ -214,7 +214,7 @@ public:
 private:
     static constexpr std::array<uint8_t, PACKET_SIZE> buildBatteryRequest()
     {
-        std::array<uint8_t, PACKET_SIZE> request {};
+        std::array<uint8_t, PACKET_SIZE> request { };
         request[0]  = REPORT_PREFIX[0];
         request[1]  = REPORT_PREFIX[1];
         request[2]  = 0x0b;
@@ -228,7 +228,7 @@ private:
 
     static constexpr std::array<uint8_t, PACKET_SIZE> buildSidetoneCommand(uint8_t level)
     {
-        std::array<uint8_t, PACKET_SIZE> command {};
+        std::array<uint8_t, PACKET_SIZE> command { };
         command[0]  = REPORT_PREFIX[0];
         command[1]  = REPORT_PREFIX[1];
         command[2]  = 0x0b;
@@ -245,7 +245,7 @@ private:
 
     static constexpr std::array<uint8_t, PACKET_SIZE> buildInactiveTimeCommand(uint8_t minutes)
     {
-        std::array<uint8_t, PACKET_SIZE> command {};
+        std::array<uint8_t, PACKET_SIZE> command { };
         command[0]  = REPORT_PREFIX[0];
         command[1]  = REPORT_PREFIX[1];
         command[2]  = 0x0b;
@@ -266,7 +266,7 @@ private:
 
     static constexpr std::array<uint8_t, PACKET_SIZE> buildMicMuteLedCommand(uint8_t mute_led)
     {
-        std::array<uint8_t, PACKET_SIZE> command {};
+        std::array<uint8_t, PACKET_SIZE> command { };
         command[0]  = REPORT_PREFIX[0];
         command[1]  = REPORT_PREFIX[1];
         command[2]  = 0x09;
