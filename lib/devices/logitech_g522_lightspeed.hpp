@@ -1,9 +1,12 @@
 #pragma once
 
 #include "../utility.hpp"
+#include "device.hpp"
 #include "hid_device.hpp"
+#include "result_types.hpp"
 #include <array>
 #include <chrono>
+#include <cstdint>
 #include <string_view>
 #include <vector>
 
@@ -42,7 +45,7 @@ public:
 
     constexpr int getCapabilities() const override
     {
-        return B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_INACTIVE_TIME);
+        return B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_INACTIVE_TIME) | B(CAP_MICROPHONE_MUTE_LED_BRIGHTNESS);
     }
 
     constexpr capability_detail getCapabilityDetail(enum capabilities cap) const override
@@ -51,6 +54,7 @@ public:
         case CAP_BATTERY_STATUS:
         case CAP_SIDETONE:
         case CAP_INACTIVE_TIME:
+        case CAP_MICROPHONE_MUTE_LED_BRIGHTNESS:
             return { .usagepage = 0xffa0, .usageid = 0x0001, .interface_id = 3 };
         default:
             return HIDDevice::getCapabilityDetail(cap);
@@ -151,6 +155,21 @@ public:
         };
     }
 
+    Result<MicMuteLedBrightnessResult> setMicMuteLedBrightness(hid_device* device_handle, uint8_t brightness) override
+    {
+        uint8_t mute_led = static_cast<uint8_t>(static_cast<bool>(brightness)); // 0 or 1
+        auto command     = buildMicMuteLedCommand(mute_led);
+        if (auto write_result = writeHID(device_handle, command, PACKET_SIZE); !write_result) {
+            return write_result.error();
+        }
+
+        return MicMuteLedBrightnessResult {
+            .brightness     = mute_led,
+            .min_brightness = 0,
+            .max_brightness = 1
+        };
+    }
+
     static constexpr bool isAckPacket(std::span<const uint8_t> packet)
     {
         return packet.size() >= 3 && packet[0] == REPORT_PREFIX[0] && packet[1] == REPORT_PREFIX[1] && packet[2] == 0x03;
@@ -242,6 +261,21 @@ private:
         // command[13] = 0x00; // This byte sets the time until "lighting off because of inactivity"
         // For both timers, a value of 0 is labeled "never" in G HUB
 
+        return command;
+    }
+
+    static constexpr std::array<uint8_t, PACKET_SIZE> buildMicMuteLedCommand(uint8_t mute_led)
+    {
+        std::array<uint8_t, PACKET_SIZE> command {};
+        command[0]  = REPORT_PREFIX[0];
+        command[1]  = REPORT_PREFIX[1];
+        command[2]  = 0x09;
+        command[4]  = 0x03;
+        command[5]  = 0x1c;
+        command[7]  = 0x04;
+        command[9]  = 0x15;
+        command[10] = 0x2c;
+        command[11] = mute_led;
         return command;
     }
 };
