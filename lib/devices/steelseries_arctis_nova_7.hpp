@@ -29,7 +29,7 @@ namespace headsetcontrol {
  */
 class SteelSeriesArctisNova7 : public protocols::SteelSeriesNovaDevice<SteelSeriesArctisNova7> {
 public:
-    static constexpr std::array<uint16_t,11> SUPPORTED_PRODUCT_IDS {
+    static constexpr std::array<uint16_t,12> SUPPORTED_PRODUCT_IDS {
         0x2202, // Arctis Nova 7 (discrete battery: 0-4)
         0x22A1, // Arctis Nova 7 (percentage battery: 0-100, Jan. 2026 update)
         0x227e, // Arctis Nova 7 Wireless Gen 2 (percentage battery: 0-100)

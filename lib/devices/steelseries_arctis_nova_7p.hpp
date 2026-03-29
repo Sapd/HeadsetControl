@@ -18,7 +18,10 @@ class SteelSeriesArctisNova7P : public SteelSeriesArctisNova7 {
 public:
     std::vector<uint16_t> getProductIds() const override
     {
-        return { 0x220a }; // Arctis Nova 7P only
+        return {
+            0x220a, // Arctis Nova 7P (discrete battery: 0-4, before Jan. 2026 update)
+            0x22a7 // Arctis Nova 7P V2 (percentage battery: 0-100, after Jan. 2026 update)
+        };
     }
 
     std::string_view getDeviceName() const override
