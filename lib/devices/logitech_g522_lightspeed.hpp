@@ -177,7 +177,7 @@ public:
 
     static constexpr bool isPowerOffPacket(std::span<const uint8_t> packet)
     {
-        return packet.size() >= 7 && packet[0] == REPORT_PREFIX[0] && packet[1] == REPORT_PREFIX[1] && packet[2] == 0x05 && packet[6] == 0x00;
+        return packet.size() >= 7 && packet[0] == REPORT_PREFIX[0] && packet[1] == REPORT_PREFIX[1] && packet[2] == 0x05 && packet[7] == 0x00;
     }
 
     static constexpr bool isPowerEventPacket(std::span<const uint8_t> packet)
