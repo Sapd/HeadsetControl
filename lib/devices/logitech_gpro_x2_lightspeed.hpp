@@ -108,7 +108,19 @@ public:
 
     Result<SidetoneResult> setSidetone(hid_device* device_handle, uint8_t level) override
     {
-        uint8_t mapped = map<uint8_t>(level, 0, 128, 0, 100);
+
+        // INFO: The original G HUB app does some strange mapping:
+        //   0 -   5 -> 0x00 (off)
+        //   6 -  16 -> 0x01
+        //  17 -  27 -> 0x02
+        //  28 -  38 -> 0x03
+        //  39 -  49 -> 0x04
+        //  50 -  61 -> 0x05
+        //  62 -  72 -> 0x06
+        //  73 -  83 -> 0x07
+        //  84 -  94 -> 0x08
+        //  95 - 100 -> 0x09
+        uint8_t mapped = map<uint8_t>(level, 0, 128, 0, 9);
 
         auto command = buildSidetoneCommand(mapped);
         if (auto write_result = writeHID(device_handle, command, PACKET_SIZE); !write_result) {
@@ -120,7 +132,7 @@ public:
             .min_level     = 0,
             .max_level     = 128,
             .device_min    = 0,
-            .device_max    = 100
+            .device_max    = 9
         };
     }
 
