@@ -44,6 +44,9 @@
 // Lenovo devices
 #include "devices/lenovo_wireless_voip.hpp"
 
+// Sony devices
+#include "devices/sony_inzone_buds.hpp"
+
 // Test device
 #include "devices/headsetcontrol_test.hpp"
 
@@ -128,6 +131,9 @@ void DeviceRegistry::initialize()
 
         // Lenovo devices
         registerDevice(std::make_unique<LenovoWirelessVoip>());
+
+        // Sony devices
+        registerDevice(std::make_unique<SonyINZONEBuds>());
 
         // Test device
         registerDevice(std::make_unique<HeadsetControlTest>());
