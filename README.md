@@ -22,7 +22,7 @@ A cross-platform tool to control USB gaming headsets on **Linux**, **macOS**, an
 | Logitech G533 | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |
 | Logitech G535 | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |
 | Logitech G633/G635/G733/G933/G935 | All | x | x |   | x |   |   |   |   |   |   |   |   |   |   |   |   |
-| Logitech G432/G433 | All | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
+| Logitech G431/G432/G433 | All | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | Logitech G930 | All | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | Logitech G PRO Series | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |
 | Logitech Zone Wired/Zone 750 | All | x |   |   |   |   |   | x | x |   |   |   |   |   |   |   |   |
