@@ -3,6 +3,7 @@
 #include "../result_types.hpp"
 #include "device_utils.hpp"
 #include "protocols/steelseries_protocol.hpp"
+#include <algorithm>
 #include <array>
 #include <string_view>
 
@@ -29,7 +30,7 @@ namespace headsetcontrol {
  */
 class SteelSeriesArctisNova7 : public protocols::SteelSeriesNovaDevice<SteelSeriesArctisNova7> {
 public:
-    static constexpr std::array<uint16_t,12> SUPPORTED_PRODUCT_IDS {
+    static constexpr std::array<uint16_t, 12> SUPPORTED_PRODUCT_IDS {
         0x2202, // Arctis Nova 7 (discrete battery: 0-4)
         0x22A1, // Arctis Nova 7 (percentage battery: 0-100, Jan. 2026 update)
         0x227e, // Arctis Nova 7 Wireless Gen 2 (percentage battery: 0-100)
@@ -41,7 +42,7 @@ public:
         0x22a9, // Arctis Nova 7 Diablo IV (percentage battery: 0-100, after Jan 2026 update)
         0x227a, // Arctis Nova 7 WoW Edition (discrete battery: 0-4)
         0x22a4, // Arctis Nova 7X (discrete battery: 0-4)
-        0x22a5  // Arctis Nova 7X (percentage battery: 0-100)
+        0x22a5 // Arctis Nova 7X (percentage battery: 0-100)
     };
 
     static constexpr int EQUALIZER_BANDS         = 10;
@@ -126,29 +127,21 @@ public:
             return DeviceError::deviceOffline("Headset not connected");
         }
 
-        // Auto-detect battery protocol (Gen 2 vs original models):
+        // Determine battery protocol based on matched product ID.
         //
-        // Original models (0x2202, 0x2206, 0x220a, 0x223a, 0x227a):
-        //   - Battery: data[2] in discrete levels 0-4 (0%/25%/50%/75%/100%)
-        //   - Status: data[3] = 0x01 when charging, other non-zero when on battery
+        // Original models (discrete battery: 0-4 levels → 0%/25%/50%/75%/100%):
+        //   0x2202, 0x2206, 0x220a, 0x223a, 0x227a, 0x22a4
         //
-        // Gen 2 models (0x227e, possibly 0x2258):
-        //   - Battery: data[2] as direct percentage 0-100
-        //   - Status: data[3] = 0x01 charging, 0x02 fully charged, 0x03 on battery
-        //
-        // Detection heuristics (since we don't have product_id here):
-        // 1. Status byte 0x02 or 0x03 → Gen 2 protocol
-        // 2. Battery value > 4 → Gen 2 protocol (wouldn't be valid in discrete mode)
-        //
-        // TODO: Known edge case - Gen 2 at 1-4% battery while actively charging (status=0x01)
-        //       will be misdetected as original protocol and show inflated percentage
-        //       (1%→25%, 2%→50%, 3%→75%, 4%→100%). This is extremely rare because:
-        //       - Requires plugging in exactly at 1-4% battery
-        //       - At low battery, devices typically show status=0x03 (on battery)
-        //       - Self-corrects once battery charges past 4%
-        //       - Only lasts a few seconds/minutes
-        //       Proper fix would require passing product_id to getBattery() method.
-        bool is_gen2_protocol = (data[3] == 0x02 || data[3] == 0x03) || (data[2] > 4);
+        // Gen 2 / updated firmware models (percentage battery: 0-100 direct):
+        //   0x22A1, 0x227e, 0x2258, 0x229e, 0x22ad, 0x22a9, 0x22a5, 0x22a7
+        static constexpr std::array<uint16_t, 6> DISCRETE_BATTERY_PIDS {
+            0x2202, 0x2206, 0x220a, 0x223a, 0x227a, 0x22a4
+        };
+        uint16_t pid     = getMatchedProductId();
+        bool is_discrete = std::find(DISCRETE_BATTERY_PIDS.begin(),
+                               DISCRETE_BATTERY_PIDS.end(), pid)
+            != DISCRETE_BATTERY_PIDS.end();
+        bool is_gen2_protocol = !is_discrete;
 
         enum battery_status status = BATTERY_AVAILABLE;
         if (data[3] == 0x01 || data[3] == 0x02) {

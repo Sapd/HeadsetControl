@@ -37,6 +37,16 @@ public:
     virtual ~HIDDevice() = default;
 
     /**
+     * @brief Get/set the matched USB product ID
+     *
+     * Set by DeviceRegistry when the device is matched to actual hardware.
+     * This allows device implementations to tailor behavior (e.g., battery
+     * protocol) based on the specific product variant.
+     */
+    void setMatchedProductId(uint16_t pid) { matched_product_id_ = pid; }
+    uint16_t getMatchedProductId() const { return matched_product_id_; }
+
+    /**
      * @brief Get USB vendor ID
      */
     virtual uint16_t getVendorId() const = 0;
@@ -441,6 +451,8 @@ protected:
     }
 
 private:
+    uint16_t matched_product_id_ = 0;
+
     // Cache for C struct conversion (allocated on first call to toCDevice)
     std::unique_ptr<struct device> c_device_cache;
 };

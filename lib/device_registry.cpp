@@ -152,6 +152,7 @@ HIDDevice* DeviceRegistry::getDevice(uint16_t vendor_id, uint16_t product_id)
         auto product_ids = device->getProductIds();
         for (uint16_t pid : product_ids) {
             if (pid == product_id) {
+                device->setMatchedProductId(product_id);
                 return device.get();
             }
         }
