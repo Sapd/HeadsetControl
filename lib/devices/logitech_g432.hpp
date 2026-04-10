@@ -9,7 +9,7 @@ using namespace std::string_view_literals;
 namespace headsetcontrol {
 
 /**
- * @brief Logitech G432/G433 Gaming Headsets
+ * @brief Logitech G431/G432/G433 Gaming Headsets
  *
  * These are simpler USB headsets with limited features.
  * Currently only sidetone is supported.
@@ -22,6 +22,7 @@ public:
     std::vector<uint16_t> getProductIds() const override
     {
         return {
+            0x0a9b, // G431
             0x0a9c, // G432
             0x0a6d // G433
         };
