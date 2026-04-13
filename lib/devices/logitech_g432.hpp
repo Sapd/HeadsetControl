@@ -30,7 +30,7 @@ public:
 
     std::string_view getDeviceName() const override
     {
-        return "Logitech G432/G433"sv;
+        return "Logitech G431/G432/G433"sv;
     }
 
     constexpr int getCapabilities() const override

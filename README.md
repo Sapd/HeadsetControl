@@ -18,16 +18,17 @@ A cross-platform tool to control USB gaming headsets on **Linux**, **macOS**, an
 
 | Device | Platform | sidetone | battery | notification sound | lights | inactive time | chatmix | voice prompts | rotate to mute | equalizer preset | equalizer | parametric equalizer | microphone mute led brightness | microphone volume | volume limiter | bluetooth when powered on | bluetooth call volume |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Logitech G522 Lightspeed | All | x | x |   |   | x |   |   |   |   |   |   | x |   |   |   |   |
+| Logitech G522 LIGHTSPEED | All | x | x |   |   | x |   |   |   |   |   |   | x |   |   |   |   |
 | Logitech G533 | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |
 | Logitech G535 | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |
 | Logitech G633/G635/G733/G933/G935 | All | x | x |   | x |   |   |   |   |   |   |   |   |   |   |   |   |
 | Logitech G431/G432/G433 | All | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | Logitech G930 | All | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
+| Logitech G PRO X 2 LIGHTSPEED | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |
 | Logitech G PRO Series | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |
 | Logitech Zone Wired/Zone 750 | All | x |   |   |   |   |   | x | x |   |   |   |   |   |   |   |   |
 | Corsair Headset Device | All | x | x | x | x |   |   |   |   |   |   |   |   |   |   |   |   |
-| Corsair Wireless V2 | All | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
+| Corsair Wireless V2 Headset Device | All | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | SteelSeries Arctis (1/7X/7P) Wireless | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |
 | SteelSeries Arctis (7/Pro) | All | x | x |   | x | x | x |   |   |   |   |   |   |   |   |   |   |
 | SteelSeries Arctis 9 | All | x | x |   |   | x | x |   |   |   |   |   |   |   |   |   |   |
@@ -46,7 +47,7 @@ A cross-platform tool to control USB gaming headsets on **Linux**, **macOS**, an
 | ROCCAT Elo 7.1 Air | All |   |   |   | x | x |   |   |   |   |   |   |   |   |   |   |   |
 | ROCCAT Elo 7.1 USB | All |   |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |
 | Audeze Maxwell | All | x | x |   |   | x | x | x |   | x |   |   |   |   | x |   |   |
-| Lenovo Wireless VoIP Headset | All | x | x |   |   | x |   | x | x | x |   |   |   |   | x |   |   |
+| Lenovo Wireless VoIP Headset | All | x | x |   |   | x |   | x | x | x |   |   | x |   | x |   |   |
 | Sony INZONE Buds | All |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | HeadsetControl Test device | All | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x |
 
