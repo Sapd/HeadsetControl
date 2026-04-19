@@ -340,6 +340,11 @@ void testLogitechProX2CenturionBatteryParsing()
 {
     std::cout << "  Testing Logitech PRO X2 Centurion battery parsing..." << std::endl;
 
+    std::array<uint8_t, 3> charging_v1 { 42, 42, 0x01 };
+    auto charging_v1_result = LogitechGProX2Lightspeed::parseCenturionBatteryResponse(charging_v1);
+    ASSERT_TRUE(charging_v1_result.hasValue(), "Centurion charging state 0x01 should parse successfully");
+    ASSERT_EQ(BATTERY_CHARGING, charging_v1_result->status, "Centurion charging state 0x01 should map to charging");
+
     std::array<uint8_t, 3> charging { 87, 87, 0x02 };
     auto charging_result = LogitechGProX2Lightspeed::parseCenturionBatteryResponse(charging);
     ASSERT_TRUE(charging_result.hasValue(), "Centurion charging response should parse successfully");
@@ -393,6 +398,55 @@ void testCenturionBridgeResponseParsing()
     ASSERT_TRUE(!error_parse.hasValue(), "Sub-device error responses should fail parsing");
 
     std::cout << "    [OK] Logitech Centurion bridge response parsing verified" << std::endl;
+}
+
+void testCenturionBridgeMessageSizeLimit()
+{
+    std::cout << "  Testing Logitech Centurion bridge message size limit..." << std::endl;
+
+    std::vector<uint8_t> params_at_limit(0x0FFF - 3, 0x5A);
+    auto message_at_limit = protocols::LogitechCenturionProtocol::buildBridgeSubMessageVector(0x04, 0x10, params_at_limit);
+    ASSERT_EQ(0x0FFF, static_cast<int>(message_at_limit.size()), "Bridge sub-message should reach the 12-bit size limit");
+    ASSERT_TRUE(protocols::LogitechCenturionProtocol::isBridgeSubMessageSizeSupported(message_at_limit.size()),
+        "Bridge sub-message at the 12-bit size limit should be accepted");
+
+    std::vector<uint8_t> params_over_limit(0x1000 - 3, 0x5A);
+    auto message_over_limit = protocols::LogitechCenturionProtocol::buildBridgeSubMessageVector(0x04, 0x10, params_over_limit);
+    ASSERT_EQ(0x1000, static_cast<int>(message_over_limit.size()), "Bridge sub-message should exceed the 12-bit size limit by one byte");
+    ASSERT_TRUE(!protocols::LogitechCenturionProtocol::isBridgeSubMessageSizeSupported(message_over_limit.size()),
+        "Bridge sub-message above the 12-bit size limit should be rejected");
+
+    std::cout << "    [OK] Logitech Centurion bridge message size limit verified" << std::endl;
+}
+
+void testLogitechProX2EqualizerInfoRequiresDescriptor()
+{
+    std::cout << "  Testing Logitech PRO X2 equalizer info cache behavior..." << std::endl;
+
+    LogitechGProX2Lightspeed device;
+    ASSERT_TRUE(!device.getEqualizerInfo().has_value(), "Equalizer info should be unavailable before the descriptor is read");
+    ASSERT_TRUE(!device.getParametricEqualizerInfo().has_value(), "Parametric equalizer info should be unavailable before the descriptor is read");
+
+    std::cout << "    [OK] Logitech PRO X2 equalizer info cache behavior verified" << std::endl;
+}
+
+void testLogitechProX2OnboardEqCoefficientQuantization()
+{
+    std::cout << "  Testing Logitech PRO X2 onboard EQ coefficient quantization..." << std::endl;
+
+    auto words = LogitechGProX2Lightspeed::quantizeOnboardEqCoefficientsForTest({
+        0.0,
+        -100.0 / 1073741824.0,
+        0.0,
+        0.0,
+        0.0,
+    });
+
+    ASSERT_EQ(10, static_cast<int>(words.size()), "Quantized coefficient block should contain 10 words");
+    ASSERT_EQ(0xFFFF, static_cast<int>(words[2]), "Negative coefficients should preserve sign extension in the upper word");
+    ASSERT_EQ(0xFF00, static_cast<int>(words[3]), "Negative coefficients should still clear the low byte");
+
+    std::cout << "    [OK] Logitech PRO X2 onboard EQ coefficient quantization verified" << std::endl;
 }
 
 void testLogitechProX2OnboardEqPayloadBuilding()
@@ -669,6 +723,9 @@ void runAllProtocolTests()
     runTest("Logitech PRO X2 Centurion Battery", testLogitechProX2CenturionBatteryParsing);
     runTest("Logitech Centurion Frame Building", testCenturionFrameBuilding);
     runTest("Logitech Centurion Bridge Parsing", testCenturionBridgeResponseParsing);
+    runTest("Logitech Centurion Bridge Size Limit", testCenturionBridgeMessageSizeLimit);
+    runTest("Logitech PRO X2 Equalizer Info Cache", testLogitechProX2EqualizerInfoRequiresDescriptor);
+    runTest("Logitech PRO X2 EQ Quantization", testLogitechProX2OnboardEqCoefficientQuantization);
     runTest("Logitech PRO X2 Onboard EQ Payload", testLogitechProX2OnboardEqPayloadBuilding);
 
     std::cout << "\n=== SteelSeries Protocol ===" << std::endl;

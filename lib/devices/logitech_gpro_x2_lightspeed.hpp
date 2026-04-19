@@ -71,6 +71,10 @@ public:
 
     std::optional<EqualizerInfo> getEqualizerInfo() const override
     {
+        if (!has_cached_equalizer_info_) {
+            return std::nullopt;
+        }
+
         return EqualizerInfo {
             .bands_count    = cached_band_count_,
             .bands_baseline = 0,
@@ -82,6 +86,10 @@ public:
 
     std::optional<ParametricEqualizerInfo> getParametricEqualizerInfo() const override
     {
+        if (!has_cached_equalizer_info_) {
+            return std::nullopt;
+        }
+
         return ParametricEqualizerInfo {
             .bands_count  = cached_band_count_,
             .gain_base    = 0.0f,
@@ -113,6 +121,7 @@ public:
 
     Result<BatteryResult> getBattery(hid_device* device_handle) override
     {
+        auto centurion_start_time = std::chrono::steady_clock::now();
         if (auto centurion_battery = sendCenturionFeatureRequest(
                 device_handle,
                 static_cast<uint16_t>(protocols::CenturionFeature::CenturionBatterySoc),
@@ -124,7 +133,9 @@ public:
             }
 
             battery_result->raw_data       = *centurion_battery;
-            battery_result->query_duration = std::chrono::milliseconds { 0 };
+            auto centurion_end_time        = std::chrono::steady_clock::now();
+            battery_result->query_duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+                centurion_end_time - centurion_start_time);
             return *battery_result;
         }
 
@@ -252,26 +263,14 @@ public:
             return DeviceError::invalidParameter("Device only supports presets 0-4");
         }
 
-        const std::array<float, 5>* preset_values = nullptr;
-        switch (preset) {
-        case 0:
-            preset_values = &PRESET_FLAT;
-            break;
-        case 1:
-            preset_values = &PRESET_BASS_BOOST;
-            break;
-        case 2:
-            preset_values = &PRESET_TEAM_CHAT;
-            break;
-        case 3:
-            preset_values = &PRESET_SHOOTER;
-            break;
-        case 4:
-            preset_values = &PRESET_MOBA;
-            break;
-        default:
-            return DeviceError::invalidParameter("Device only supports presets 0-4");
-        }
+        static constexpr std::array<const std::array<float, 5>*, EQUALIZER_PRESETS_COUNT> PRESET_VALUES {
+            &PRESET_FLAT,
+            &PRESET_BASS_BOOST,
+            &PRESET_TEAM_CHAT,
+            &PRESET_SHOOTER,
+            &PRESET_MOBA,
+        };
+        const auto* preset_values = PRESET_VALUES[preset];
 
         EqualizerSettings settings;
         settings.bands.assign(preset_values->begin(), preset_values->end());
@@ -404,6 +403,7 @@ public:
         }
 
         auto charging_state = packet.size() >= 3 ? packet[2] : 0;
+        // Centurion battery replies use states 1 and 2 for charging; the legacy packet parser only treats 0x02 as charging.
         auto status         = (charging_state == 1 || charging_state == 2)
             ? BATTERY_CHARGING
             : BATTERY_AVAILABLE;
@@ -472,7 +472,20 @@ public:
         return buildOnboardEqPayload(slot, converted);
     }
 
+    static std::vector<uint16_t> quantizeOnboardEqCoefficientsForTest(const std::array<double, 5>& coeffs)
+    {
+        return quantizeOnboardEqCoefficients(coeffs);
+    }
+
 private:
+
+    void cacheEqualizerInfo(const AdvancedEqDescriptor& descriptor) const
+    {
+        cached_band_count_      = static_cast<int>(descriptor.bands.size());
+        cached_gain_min_        = static_cast<int>(descriptor.gain_min);
+        cached_gain_max_        = static_cast<int>(descriptor.gain_max);
+        has_cached_equalizer_info_ = true;
+    }
 
     static constexpr std::array<uint8_t, 2> buildPlaybackEqSelector(uint8_t slot)
     {
@@ -523,7 +536,7 @@ private:
         for (size_t i = 0; i < coeffs.size(); ++i) {
             auto q_value = static_cast<int64_t>(std::llround(coeffs[i] * scales[i]));
             q_value      = std::clamp<int64_t>(q_value, -(1LL << 31), (1LL << 31) - 1);
-            q_value &= 0xFFFFFF00;
+            q_value &= ~INT64_C(0xFF);
             words.push_back(static_cast<uint16_t>((q_value >> 16) & 0xFFFF));
             words.push_back(static_cast<uint16_t>(q_value & 0xFFFF));
         }
@@ -677,9 +690,7 @@ private:
             return DeviceError::protocolError("Advanced EQ band response was empty");
         }
 
-        cached_band_count_ = static_cast<int>(descriptor.bands.size());
-        cached_gain_min_   = static_cast<int>(descriptor.gain_min);
-        cached_gain_max_   = static_cast<int>(descriptor.gain_max);
+        cacheEqualizerInfo(descriptor);
         return descriptor;
     }
 
@@ -732,9 +743,7 @@ private:
             return DeviceError::protocolError("Onboard EQ band response was empty");
         }
 
-        cached_band_count_ = static_cast<int>(descriptor.bands.size());
-        cached_gain_min_   = static_cast<int>(descriptor.gain_min);
-        cached_gain_max_   = static_cast<int>(descriptor.gain_max);
+        cacheEqualizerInfo(descriptor);
         return descriptor;
     }
 
@@ -789,9 +798,10 @@ private:
         return {};
     }
 
-    mutable int cached_band_count_ = 5;
-    mutable int cached_gain_min_   = -12;
-    mutable int cached_gain_max_   = 12;
+    mutable bool has_cached_equalizer_info_ = false;
+    mutable int cached_band_count_          = 0;
+    mutable int cached_gain_min_            = 0;
+    mutable int cached_gain_max_            = 0;
 };
 
 } // namespace headsetcontrol

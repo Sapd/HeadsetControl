@@ -35,8 +35,10 @@ protected:
     static constexpr uint8_t SOFTWARE_ID              = 0x01;
     static constexpr uint8_t BRIDGE_SEND_FRAGMENT_FN  = 0x10;
     static constexpr uint8_t BRIDGE_MESSAGE_EVENT_FN  = 0x10;
+    static constexpr int POLL_ATTEMPTS                = 8;
     static constexpr size_t MAX_SINGLE_BRIDGE_PAYLOAD = 56;
     static constexpr size_t MAX_CONTINUATION_PAYLOAD  = 60;
+    static constexpr size_t MAX_BRIDGE_SUB_MESSAGE_SIZE = 0x0FFF;
 
     [[nodiscard]] Result<std::vector<uint8_t>> sendCenturionRequest(
         hid_device* device_handle,
@@ -51,7 +53,7 @@ protected:
             return write_result.error();
         }
 
-        for (int attempt = 0; attempt < 8; ++attempt) {
+        for (int attempt = 0; attempt < POLL_ATTEMPTS; ++attempt) {
             std::array<uint8_t, FRAME_SIZE> response {};
             auto read_result = this->readHIDTimeout(device_handle, response, hsc_device_timeout);
             if (!read_result) {
@@ -110,6 +112,11 @@ protected:
     }
 
 public:
+    static constexpr bool isBridgeSubMessageSizeSupported(size_t sub_message_size)
+    {
+        return sub_message_size <= MAX_BRIDGE_SUB_MESSAGE_SIZE;
+    }
+
     static constexpr auto buildCenturionFrame(std::span<const uint8_t> payload, uint8_t flags = 0x00)
         -> std::array<uint8_t, FRAME_SIZE>
     {
@@ -189,8 +196,6 @@ public:
 
         return std::vector<uint8_t>(reply_data.begin() + 7, reply_data.end());
     }
-
-protected:
 private:
     [[nodiscard]] Result<void> ensureCenturionFeaturesDiscovered(hid_device* device_handle) const
     {
@@ -308,6 +313,9 @@ private:
 
         auto sub_message = buildBridgeSubMessageVector(sub_feature_index, function, params);
         const size_t sub_message_size = sub_message.size();
+        if (!isBridgeSubMessageSizeSupported(sub_message_size)) {
+            return DeviceError::invalidParameter("Centurion bridge message exceeds the 12-bit size limit");
+        }
 
         std::vector<uint8_t> bridge_prefix {
             *centurion_bridge_index_,
@@ -352,7 +360,7 @@ private:
         }
 
         bool ack_received = false;
-        for (int attempt = 0; attempt < 8; ++attempt) {
+        for (int attempt = 0; attempt < POLL_ATTEMPTS; ++attempt) {
             std::array<uint8_t, FRAME_SIZE> response {};
             auto read_result = this->readHIDTimeout(device_handle, response, hsc_device_timeout);
             if (!read_result) {
