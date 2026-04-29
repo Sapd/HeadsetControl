@@ -6,7 +6,7 @@ A cross-platform tool to control USB gaming headsets on **Linux**, **macOS**, an
 
 - **Sidetone** - Hear your own voice without latency (unlike software loopback)
 - **Battery Status** - Monitor charge level, voltage, and time remaining
-- **LED Control** - Toggle lights on/off
+- **LED Control** - Toggle lights on/off (and set RGB color/mode/brightness for supported Logitech models, e.g. G733)
 - **Equalizer** - Presets and custom EQ curves (including parametric EQ)
 - **Inactive Time** - Auto power-off timer
 - **Chat-Mix** - Game/chat audio balance
@@ -183,6 +183,12 @@ headsetcontrol -s 64
 
 # Turn off LEDs
 headsetcontrol -l 0
+
+# Logitech G733/G633 family: set RGB lighting (color, brightness, mode, speed)
+headsetcontrol --light-color purple
+headsetcontrol --light-brightness 60
+headsetcontrol --light-mode breathing
+headsetcontrol --light-speed 40
 
 # Set auto-off timer (minutes, 0 = disabled)
 headsetcontrol -i 30
