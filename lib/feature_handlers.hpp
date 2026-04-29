@@ -237,6 +237,62 @@ inline void FeatureHandlerRegistry::registerAllHandlers()
         return FeatureOutput::success(r->enabled ? 1 : 0);
     });
 
+    // CAP_LIGHT_BRIGHTNESS
+    registerHandler(CAP_LIGHT_BRIGHTNESS, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
+        const int level = getInt(p);
+        if (level < 1 || level > 100) {
+            return DeviceError::invalidParameter("Light brightness must be between 1 and 100");
+        }
+
+        auto r = dev->setLightBrightness(h, static_cast<uint8_t>(level));
+        if (r.hasError())
+            return r.error();
+        return FeatureOutput::success(level);
+    });
+
+    // CAP_LIGHT_MODE (device-specific mode ID)
+    registerHandler(CAP_LIGHT_MODE, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
+        const int mode = getInt(p);
+        if (mode < 1 || mode > 3) {
+            return DeviceError::invalidParameter("Light mode must be 1(static), 2(breathing), or 3(wave)");
+        }
+
+        auto r = dev->setLightMode(h, static_cast<uint8_t>(mode));
+        if (r.hasError())
+            return r.error();
+        return FeatureOutput::success(mode);
+    });
+
+    // CAP_LIGHT_SPEED (1-100)
+    registerHandler(CAP_LIGHT_SPEED, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
+        const int speed = getInt(p);
+        if (speed < 1 || speed > 100) {
+            return DeviceError::invalidParameter("Light speed must be between 1 and 100");
+        }
+
+        auto r = dev->setLightSpeed(h, static_cast<uint8_t>(speed));
+        if (r.hasError())
+            return r.error();
+        return FeatureOutput::success(speed);
+    });
+
+    // CAP_LIGHT_COLOR (packed 0xRRGGBB integer)
+    registerHandler(CAP_LIGHT_COLOR, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
+        const int packed = getInt(p);
+        if (packed < 0 || packed > 0xFFFFFF) {
+            return DeviceError::invalidParameter("Light color must be in 0x000000-0xFFFFFF range");
+        }
+
+        const auto red   = static_cast<uint8_t>((packed >> 16) & 0xFF);
+        const auto green = static_cast<uint8_t>((packed >> 8) & 0xFF);
+        const auto blue  = static_cast<uint8_t>(packed & 0xFF);
+
+        auto r = dev->setLightColor(h, red, green, blue);
+        if (r.hasError())
+            return r.error();
+        return FeatureOutput::success(packed);
+    });
+
     // CAP_INACTIVE_TIME
     registerHandler(CAP_INACTIVE_TIME, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
         auto r = dev->setInactiveTime(h, getUint8(p));
