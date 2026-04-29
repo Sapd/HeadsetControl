@@ -151,6 +151,39 @@ public:
     }
 
     /**
+     * @brief Set lights brightness (1-100)
+     */
+    virtual Result<LightsResult> setLightBrightness(hid_device* /*device_handle*/, uint8_t /*brightness*/)
+    {
+        return DeviceError::notSupported("Device does not support light brightness control");
+    }
+
+    /**
+     * @brief Set light animation mode (device-specific mapping)
+     */
+    virtual Result<LightsResult> setLightMode(hid_device* /*device_handle*/, uint8_t /*mode*/)
+    {
+        return DeviceError::notSupported("Device does not support light mode control");
+    }
+
+    /**
+     * @brief Set light animation speed (device-specific mapping)
+     */
+    virtual Result<LightsResult> setLightSpeed(hid_device* /*device_handle*/, uint8_t /*speed*/)
+    {
+        return DeviceError::notSupported("Device does not support light speed control");
+    }
+
+    /**
+     * @brief Set lights color using RGB channels
+     */
+    virtual Result<LightsResult> setLightColor(hid_device* /*device_handle*/, uint8_t /*red*/,
+        uint8_t /*green*/, uint8_t /*blue*/)
+    {
+        return DeviceError::notSupported("Device does not support light color control");
+    }
+
+    /**
      * @brief Set inactive time with rich result
      */
     virtual Result<InactiveTimeResult> setInactiveTime(hid_device* /*device_handle*/, uint8_t /*minutes*/)

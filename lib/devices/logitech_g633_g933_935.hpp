@@ -46,7 +46,7 @@ public:
 
     constexpr int getCapabilities() const override
     {
-        return B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_LIGHTS);
+        return B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_LIGHTS) | B(CAP_LIGHT_COLOR) | B(CAP_LIGHT_BRIGHTNESS) | B(CAP_LIGHT_MODE) | B(CAP_LIGHT_SPEED);
     }
 
     constexpr capability_detail getCapabilityDetail(enum capabilities cap) const override
@@ -55,6 +55,10 @@ public:
         case CAP_SIDETONE:
         case CAP_BATTERY_STATUS:
         case CAP_LIGHTS:
+        case CAP_LIGHT_COLOR:
+        case CAP_LIGHT_BRIGHTNESS:
+        case CAP_LIGHT_MODE:
+        case CAP_LIGHT_SPEED:
             return { .usagepage = 0xff43, .usageid = 0x0202 };
         default:
             return HIDDevice::getCapabilityDetail(cap);
@@ -95,14 +99,13 @@ public:
         // zone: 0=logo, 1=strips
         // mode: 0=off, 2=breathing
 
-        // Turn on/off side strips
-        std::array<uint8_t, 14> strips_data {
-            0x04, 0x3c, 0x01, // Feature + zone(strips)
-            static_cast<uint8_t>(on ? 0x02 : 0x00), // mode (breathing or off)
-            0x00, 0xb6, 0xff, 0x0f, 0xa0, 0x00, 0x64, 0x00, 0x00, 0x00
-        };
+        // Default to a bright cyan when turning lights on
+        const uint8_t default_r         = 0x00;
+        const uint8_t default_g         = 0xff;
+        const uint8_t default_b         = 0xff;
+        const uint8_t default_brightness = 100;
 
-        auto result1 = sendHIDPPFeature(device_handle, strips_data);
+        auto result1 = sendZoneLighting(device_handle, 0x01, on ? 1 : 0, default_r, default_g, default_b, default_brightness, default_light_speed_);
         if (!result1) {
             return result1.error();
         }
@@ -111,21 +114,184 @@ public:
         sleep_ms(1);
 
         // Turn on/off logo
-        std::array<uint8_t, 14> logo_data {
-            0x04, 0x3c, 0x00, // Feature + zone(logo)
-            static_cast<uint8_t>(on ? 0x02 : 0x00), // mode (breathing or off)
-            0x00, 0xb6, 0xff, 0x0f, 0xa0, 0x00, 0x64, 0x00, 0x00, 0x00
-        };
-
-        auto result2 = sendHIDPPFeature(device_handle, logo_data);
+        auto result2 = sendZoneLighting(device_handle, 0x00, on ? 1 : 0, default_r, default_g, default_b, default_brightness, default_light_speed_);
         if (!result2) {
             return result2.error();
         }
 
         return LightsResult {
             .enabled = on,
-            .mode    = on ? "breathing" : "off"
+            .mode    = on ? "static" : "off"
         };
+    }
+
+    Result<LightsResult> setLightColor(hid_device* device_handle, uint8_t red, uint8_t green, uint8_t blue) override
+    {
+        constexpr uint8_t brightness = 100;
+
+        auto result1 = sendZoneLighting(device_handle, 0x01, 1, red, green, blue, brightness, light_speed_);
+        if (!result1) {
+            return result1.error();
+        }
+
+        sleep_ms(1);
+
+        auto result2 = sendZoneLighting(device_handle, 0x00, 1, red, green, blue, brightness, light_speed_);
+        if (!result2) {
+            return result2.error();
+        }
+
+        return LightsResult {
+            .enabled = true,
+            .mode    = "static"
+        };
+    }
+
+    Result<LightsResult> setLightBrightness(hid_device* device_handle, uint8_t brightness) override
+    {
+        uint8_t clamped = std::clamp<uint8_t>(brightness, 1, 100);
+
+        // Keep current color roughly cyan if we don't know previous color
+        const uint8_t r = 0x00;
+        const uint8_t g = 0xff;
+        const uint8_t b = 0xff;
+
+        auto result1 = sendZoneLighting(device_handle, 0x01, 1, r, g, b, clamped, light_speed_);
+        if (!result1) {
+            return result1.error();
+        }
+
+        sleep_ms(1);
+
+        auto result2 = sendZoneLighting(device_handle, 0x00, 1, r, g, b, clamped, light_speed_);
+        if (!result2) {
+            return result2.error();
+        }
+
+        return LightsResult {
+            .enabled = clamped > 0,
+            .mode    = "static"
+        };
+    }
+
+    Result<LightsResult> setLightMode(hid_device* device_handle, uint8_t mode) override
+    {
+        if (mode < 1 || mode > 3) {
+            return DeviceError::invalidParameter("Mode must be 1(static), 2(breathing), or 3(wave)");
+        }
+        light_mode_ = mode;
+
+        // Keep a visible default color while changing animation mode.
+        const uint8_t r          = 0x00;
+        const uint8_t g          = 0xff;
+        const uint8_t b          = 0xff;
+        const uint8_t brightness = 100;
+
+        auto result1 = sendZoneLighting(device_handle, 0x01, mode, r, g, b, brightness, light_speed_);
+        if (!result1) {
+            return result1.error();
+        }
+
+        sleep_ms(1);
+
+        auto result2 = sendZoneLighting(device_handle, 0x00, mode, r, g, b, brightness, light_speed_);
+        if (!result2) {
+            return result2.error();
+        }
+
+        std::string mode_name = "static";
+        if (mode == 2) {
+            mode_name = "breathing";
+        } else if (mode == 3) {
+            mode_name = "wave";
+        }
+
+        return LightsResult {
+            .enabled = true,
+            .mode    = mode_name
+        };
+    }
+
+    Result<LightsResult> setLightSpeed(hid_device* device_handle, uint8_t speed) override
+    {
+        uint8_t clamped = std::clamp<uint8_t>(speed, 1, 100);
+        light_speed_    = clamped;
+
+        // Static mode does not use animation speed.
+        if (light_mode_ == 1) {
+            return LightsResult {
+                .enabled = true,
+                .mode    = "static"
+            };
+        }
+
+        const uint8_t r          = 0x00;
+        const uint8_t g          = 0xff;
+        const uint8_t b          = 0xff;
+        const uint8_t brightness = 100;
+
+        auto result1 = sendZoneLighting(device_handle, 0x01, light_mode_, r, g, b, brightness, light_speed_);
+        if (!result1) {
+            return result1.error();
+        }
+
+        sleep_ms(1);
+
+        auto result2 = sendZoneLighting(device_handle, 0x00, light_mode_, r, g, b, brightness, light_speed_);
+        if (!result2) {
+            return result2.error();
+        }
+
+        return LightsResult {
+            .enabled = true,
+            .mode    = light_mode_ == 2 ? "breathing" : "wave"
+        };
+    }
+
+private:
+    static constexpr uint8_t default_light_speed_ = 50;
+    mutable uint8_t light_mode_                   = 1;
+    mutable uint8_t light_speed_                  = default_light_speed_;
+
+    Result<void> sendZoneLighting(hid_device* device_handle,
+        uint8_t zone,
+        uint8_t mode,
+        uint8_t red,
+        uint8_t green,
+        uint8_t blue,
+        uint8_t brightness,
+        uint8_t speed) const
+    {
+        // Logitech G733 uses a shifted channel layout in this packet:
+        // byte4=R, byte5=G, byte6=B. byte7 is not a color channel.
+        // Using byte7 for blue caused blue to switch the LEDs off.
+        std::array<uint8_t, 14> data {
+            0x04, 0x3c, zone,
+            mode,
+            red,
+            green,
+            blue,
+            0x0f, // non-color control byte
+            mapSpeedToDevice(speed),
+            0x00,
+            brightness,
+            0x00,
+            0x00,
+            0x00
+        };
+
+        auto result = sendHIDPPFeature(device_handle, data);
+        if (!result) {
+            return result.error();
+        }
+        return {};
+    }
+
+    [[nodiscard]] static uint8_t mapSpeedToDevice(uint8_t speed)
+    {
+        uint8_t clamped = std::clamp<uint8_t>(speed, 1, 100);
+        // Scale 1-100 to 1-255 for Logitech animation-speed byte.
+        return static_cast<uint8_t>(1 + ((static_cast<uint16_t>(clamped - 1) * 254) / 99));
     }
 };
 } // namespace headsetcontrol

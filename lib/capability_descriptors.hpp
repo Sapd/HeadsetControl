@@ -88,6 +88,50 @@ inline constexpr std::array<CapabilityDescriptor, NUM_CAPABILITIES> CAPABILITY_D
         .max_value   = 1,
         .value_hint  = "<0|1>" },
 
+    // CAP_LIGHT_COLOR
+    {
+        .cap         = CAP_LIGHT_COLOR,
+        .type        = CAPABILITYTYPE_ACTION,
+        .name        = "light-color",
+        .short_flag  = "",
+        .description = "Set RGB light color",
+        .min_value   = std::nullopt,
+        .max_value   = std::nullopt,
+        .value_hint  = "<name|#RRGGBB|R,G,B>" },
+
+    // CAP_LIGHT_BRIGHTNESS
+    {
+        .cap         = CAP_LIGHT_BRIGHTNESS,
+        .type        = CAPABILITYTYPE_ACTION,
+        .name        = "light-brightness",
+        .short_flag  = "",
+        .description = "Set light brightness",
+        .min_value   = 1,
+        .max_value   = 100,
+        .value_hint  = "<1-100>" },
+
+    // CAP_LIGHT_MODE
+    {
+        .cap         = CAP_LIGHT_MODE,
+        .type        = CAPABILITYTYPE_ACTION,
+        .name        = "light-mode",
+        .short_flag  = "",
+        .description = "Set light animation mode",
+        .min_value   = std::nullopt,
+        .max_value   = std::nullopt,
+        .value_hint  = "<static|breathing|wave>" },
+
+    // CAP_LIGHT_SPEED
+    {
+        .cap         = CAP_LIGHT_SPEED,
+        .type        = CAPABILITYTYPE_ACTION,
+        .name        = "light-speed",
+        .short_flag  = "",
+        .description = "Set breathing/wave speed",
+        .min_value   = 1,
+        .max_value   = 100,
+        .value_hint  = "<1-100>" },
+
     // CAP_INACTIVE_TIME
     {
         .cap         = CAP_INACTIVE_TIME,

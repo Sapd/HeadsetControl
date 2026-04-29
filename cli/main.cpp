@@ -39,6 +39,7 @@
 #include <chrono>
 #include <cstdio>
 #include <csignal>
+#include <cctype>
 #include <cstdlib>
 #include <format>
 #include <iostream>
@@ -140,6 +141,10 @@ struct Options {
     std::optional<uint8_t> notification_sound;
     std::optional<bool> lights_enabled;
     std::optional<uint8_t> inactive_time;
+    std::optional<int> light_color; // packed 0xRRGGBB
+    std::optional<uint8_t> light_brightness; // 1-100
+    std::optional<int> light_mode; // 1=static, 2=breathing, 3=wave
+    std::optional<uint8_t> light_speed; // 1-100
     std::optional<bool> voice_prompts_enabled;
     std::optional<bool> rotate_to_mute_enabled;
     std::optional<uint8_t> equalizer_preset;
@@ -240,6 +245,108 @@ std::optional<cli::ParseError> configureParser(cli::ArgumentParser& parser, Opti
         // === Microphone ===
         .long_value("microphone-mute-led-brightness", opts.mic_mute_led_brightness, uint8_t(0), uint8_t(3), "Set mic mute LED brightness", "LEVEL")
         .long_value("microphone-volume", opts.mic_volume, uint8_t(0), uint8_t(128), "Set microphone volume", "VOLUME")
+
+        // === Lights (extended) ===
+        .long_custom("light-color", cli::ArgRequirement::Required, [&opts](std::optional<std::string_view> arg) -> std::optional<cli::ParseError> {
+                if (!arg || arg->empty()) {
+                    return cli::ParseError { "requires a color", "light-color" };
+                }
+
+                auto s = *arg;
+                auto to_lower = [](char c) { return static_cast<char>(std::tolower(static_cast<unsigned char>(c))); };
+
+                // Named colors
+                std::string lower(s.begin(), s.end());
+                std::transform(lower.begin(), lower.end(), lower.begin(), to_lower);
+
+                auto set_named = [&](int r, int g, int b) {
+                    opts.light_color = (r << 16) | (g << 8) | b;
+                };
+
+                if (lower == "red") {
+                    set_named(255, 0, 0);
+                    return std::nullopt;
+                }
+                if (lower == "green") {
+                    set_named(0, 255, 0);
+                    return std::nullopt;
+                }
+                if (lower == "blue") {
+                    set_named(0, 0, 255);
+                    return std::nullopt;
+                }
+                if (lower == "cyan" || lower == "teal" || lower == "lightblue" || lower == "light-blue") {
+                    set_named(0, 255, 255);
+                    return std::nullopt;
+                }
+                if (lower == "yellow") {
+                    set_named(255, 255, 0);
+                    return std::nullopt;
+                }
+                if (lower == "purple" || lower == "magenta") {
+                    set_named(255, 0, 255);
+                    return std::nullopt;
+                }
+                if (lower == "orange") {
+                    set_named(255, 165, 0);
+                    return std::nullopt;
+                }
+                if (lower == "white") {
+                    set_named(255, 255, 255);
+                    return std::nullopt;
+                }
+
+                // Hex format #RRGGBB
+                if (s.size() == 7 && s[0] == '#') {
+                    unsigned int value = 0;
+                    auto [ptr, ec]     = std::from_chars(s.data() + 1, s.data() + 7, value, 16);
+                    if (ec == std::errc {} && ptr == s.data() + 7 && value <= 0xFFFFFF) {
+                        opts.light_color = static_cast<int>(value);
+                        return std::nullopt;
+                    }
+                    return cli::ParseError { "invalid hex color (expected #RRGGBB)", "light-color" };
+                }
+
+                // RGB tuple R,G,B
+                int r = -1, g = -1, b = -1;
+                if (std::sscanf(std::string(s).c_str(), "%d,%d,%d", &r, &g, &b) == 3) {
+                    auto in_range = [](int v) { return v >= 0 && v <= 255; };
+                    if (!in_range(r) || !in_range(g) || !in_range(b)) {
+                        return cli::ParseError { "RGB values must be in 0-255", "light-color" };
+                    }
+                    opts.light_color = (r << 16) | (g << 8) | b;
+                    return std::nullopt;
+                }
+
+                return cli::ParseError { "unsupported color format (use name, #RRGGBB or R,G,B)", "light-color" };
+            }, "Set light color", "COLOR")
+        .long_custom("light-mode", cli::ArgRequirement::Required, [&opts](std::optional<std::string_view> arg) -> std::optional<cli::ParseError> {
+                if (!arg || arg->empty()) {
+                    return cli::ParseError { "requires a mode", "light-mode" };
+                }
+
+                std::string mode(arg->begin(), arg->end());
+                std::transform(mode.begin(), mode.end(), mode.begin(), [](unsigned char c) {
+                    return static_cast<char>(std::tolower(c));
+                });
+
+                if (mode == "static") {
+                    opts.light_mode = 1;
+                    return std::nullopt;
+                }
+                if (mode == "breathing" || mode == "breathe") {
+                    opts.light_mode = 2;
+                    return std::nullopt;
+                }
+                if (mode == "wave") {
+                    opts.light_mode = 3;
+                    return std::nullopt;
+                }
+
+                return cli::ParseError { "invalid mode (use static|breathing|wave)", "light-mode" };
+            }, "Set light mode", "MODE")
+        .long_value("light-speed", opts.light_speed, uint8_t(1), uint8_t(100), "Set breathing/wave speed", "LEVEL")
+        .long_value("light-brightness", opts.light_brightness, uint8_t(1), uint8_t(100), "Set light brightness", "LEVEL")
 
         // === Volume ===
         .long_toggle("volume-limiter", opts.volume_limiter_enabled, "Toggle volume limiter")
@@ -819,6 +926,10 @@ namespace help {
             sections.push_back({ "LIGHTS & AUDIO CUES", {} });
             sections.back()
                 .add('l', "light", getValueHint(CAP_LIGHTS), "RGB/LED lights off/on", CAP_LIGHTS)
+                .add("light-color", getValueHint(CAP_LIGHT_COLOR), "Set static light color", CAP_LIGHT_COLOR)
+                .add("light-brightness", getValueHint(CAP_LIGHT_BRIGHTNESS), "Set light brightness (1-100)", CAP_LIGHT_BRIGHTNESS)
+                .add("light-mode", getValueHint(CAP_LIGHT_MODE), "Set light mode (static, breathing, wave)", CAP_LIGHT_MODE)
+                .add("light-speed", getValueHint(CAP_LIGHT_SPEED), "Set breathing/wave speed (1-100)", CAP_LIGHT_SPEED)
                 .add('v', "voice-prompt", getValueHint(CAP_VOICE_PROMPTS), "Voice prompts off/on", CAP_VOICE_PROMPTS)
                 .add('n', "notificate", getValueHint(CAP_NOTIFICATION_SOUND), "Play notification sound", CAP_NOTIFICATION_SOUND);
 
@@ -898,6 +1009,10 @@ void printUdevRules()
 struct FeatureParamStorage {
     int sidetone_val         = 0;
     int lights_val           = 0;
+    int light_color_val      = 0;
+    int light_brightness_val = 0;
+    int light_mode_val       = 0;
+    int light_speed_val      = 0;
     int notification_val     = 0;
     int inactive_time_val    = 0;
     int voice_prompts_val    = 0;
@@ -921,10 +1036,18 @@ struct FeatureParamStorage {
             sidetone_val = *opts.sidetone_level;
         if (opts.lights_enabled.has_value())
             lights_val = *opts.lights_enabled ? 1 : 0;
+        if (opts.light_color.has_value())
+            light_color_val = *opts.light_color;
+        if (opts.light_mode.has_value())
+            light_mode_val = *opts.light_mode;
+        if (opts.light_speed.has_value())
+            light_speed_val = *opts.light_speed;
         if (opts.notification_sound.has_value())
             notification_val = *opts.notification_sound;
         if (opts.inactive_time.has_value())
             inactive_time_val = *opts.inactive_time;
+        if (opts.light_brightness.has_value())
+            light_brightness_val = *opts.light_brightness;
         if (opts.voice_prompts_enabled.has_value())
             voice_prompts_val = *opts.voice_prompts_enabled ? 1 : 0;
         if (opts.rotate_to_mute_enabled.has_value())
@@ -964,6 +1087,9 @@ void initializeFeatureRequests(std::vector<DiscoveredDevice>& devices, const Opt
     std::vector<FeatureRequest> requests = {
         { CAP_SIDETONE, CAPABILITYTYPE_ACTION, g_feature_params.sidetone_val, opts.sidetone_level.has_value(), {} },
         { CAP_LIGHTS, CAPABILITYTYPE_ACTION, g_feature_params.lights_val, opts.lights_enabled.has_value(), {} },
+        { CAP_LIGHT_COLOR, CAPABILITYTYPE_ACTION, g_feature_params.light_color_val, opts.light_color.has_value(), {} },
+        { CAP_LIGHT_MODE, CAPABILITYTYPE_ACTION, g_feature_params.light_mode_val, opts.light_mode.has_value(), {} },
+        { CAP_LIGHT_SPEED, CAPABILITYTYPE_ACTION, g_feature_params.light_speed_val, opts.light_speed.has_value(), {} },
         { CAP_NOTIFICATION_SOUND, CAPABILITYTYPE_ACTION, g_feature_params.notification_val, opts.notification_sound.has_value(), {} },
         { CAP_BATTERY_STATUS, CAPABILITYTYPE_INFO, std::monostate {}, opts.request_battery, {} },
         { CAP_INACTIVE_TIME, CAPABILITYTYPE_ACTION, g_feature_params.inactive_time_val, opts.inactive_time.has_value(), {} },
@@ -976,6 +1102,7 @@ void initializeFeatureRequests(std::vector<DiscoveredDevice>& devices, const Opt
         { CAP_EQUALIZER, CAPABILITYTYPE_ACTION, opts.equalizer.has_value() ? FeatureParam { g_feature_params.equalizer_settings } : FeatureParam { std::monostate {} }, opts.equalizer.has_value(), {} },
         { CAP_PARAMETRIC_EQUALIZER, CAPABILITYTYPE_ACTION, opts.parametric_equalizer.has_value() ? FeatureParam { g_feature_params.parametric_eq_settings } : FeatureParam { std::monostate {} }, opts.parametric_equalizer.has_value(), {} },
         { CAP_VOLUME_LIMITER, CAPABILITYTYPE_ACTION, g_feature_params.volume_limiter_val, opts.volume_limiter_enabled.has_value(), {} },
+        { CAP_LIGHT_BRIGHTNESS, CAPABILITYTYPE_ACTION, g_feature_params.light_brightness_val, opts.light_brightness.has_value(), {} },
         { CAP_BT_WHEN_POWERED_ON, CAPABILITYTYPE_ACTION, g_feature_params.bt_power_val, opts.bt_when_powered_on.has_value(), {} },
         { CAP_BT_CALL_VOLUME, CAPABILITYTYPE_ACTION, g_feature_params.bt_call_vol_val, opts.bt_call_volume.has_value(), {} }
     };

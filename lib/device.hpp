@@ -43,6 +43,10 @@ extern int hsc_device_timeout;
     X(CAP_BATTERY_STATUS,                 "battery",                        'b')  \
     X(CAP_NOTIFICATION_SOUND,             "notification sound",             'n')  \
     X(CAP_LIGHTS,                         "lights",                         'l')  \
+    X(CAP_LIGHT_COLOR,                    "light color",                    '\0') \
+    X(CAP_LIGHT_BRIGHTNESS,               "light brightness",               '\0') \
+    X(CAP_LIGHT_MODE,                     "light mode",                     '\0') \
+    X(CAP_LIGHT_SPEED,                    "light speed",                    '\0') \
     X(CAP_INACTIVE_TIME,                  "inactive time",                  'i')  \
     X(CAP_CHATMIX_STATUS,                 "chatmix",                        'm')  \
     X(CAP_VOICE_PROMPTS,                  "voice prompts",                  'v')  \

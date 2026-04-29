@@ -6,7 +6,7 @@ A cross-platform tool to control USB gaming headsets on **Linux**, **macOS**, an
 
 - **Sidetone** - Hear your own voice without latency (unlike software loopback)
 - **Battery Status** - Monitor charge level, voltage, and time remaining
-- **LED Control** - Toggle lights on/off
+- **LED Control** - Toggle lights on/off (and set RGB color/mode/brightness for supported Logitech models, e.g. G733)
 - **Equalizer** - Presets and custom EQ curves (including parametric EQ)
 - **Inactive Time** - Auto power-off timer
 - **Chat-Mix** - Game/chat audio balance
@@ -16,40 +16,40 @@ A cross-platform tool to control USB gaming headsets on **Linux**, **macOS**, an
 
 ## Supported Devices
 
-| Device | Platform | sidetone | battery | notification sound | lights | inactive time | chatmix | voice prompts | rotate to mute | equalizer preset | equalizer | parametric equalizer | microphone mute led brightness | microphone volume | volume limiter | bluetooth when powered on | bluetooth call volume |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Logitech G522 LIGHTSPEED | All | x | x |   |   | x |   |   |   |   |   |   | x |   |   |   |   |
-| Logitech G533 | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |
-| Logitech G535 | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |
-| Logitech G633/G635/G733/G933/G935 | All | x | x |   | x |   |   |   |   |   |   |   |   |   |   |   |   |
-| Logitech G431/G432/G433 | All | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
-| Logitech G930 | All | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
-| Logitech G PRO X 2 LIGHTSPEED | All | x | x |   |   | x |   |   |   | x | x | x |   |   |   |   |   |
-| Logitech G PRO Series | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |
-| Logitech Zone Wired/Zone 750 | All | x |   |   |   |   |   | x | x |   |   |   |   |   |   |   |   |
-| Corsair Headset Device | All | x | x | x | x |   |   |   |   |   |   |   |   |   |   |   |   |
-| Corsair Wireless V2 Headset Device | All | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
-| SteelSeries Arctis (1/7X/7P) Wireless | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |
-| SteelSeries Arctis (7/Pro) | All | x | x |   | x | x | x |   |   |   |   |   |   |   |   |   |   |
-| SteelSeries Arctis 9 | All | x | x |   |   | x | x |   |   |   |   |   |   |   |   |   |   |
-| SteelSeries Arctis Pro Wireless | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |
-| SteelSeries Arctis Nova 3 | All | x |   |   |   |   |   |   |   | x | x |   | x | x |   |   |   |
-| SteelSeries Arctis Nova (5/5X) | All | x | x |   |   | x | x |   |   | x | x | x | x | x | x |   |   |
-| SteelSeries Arctis Nova 7 | All | x | x |   |   | x | x |   |   | x | x |   | x | x | x | x | x |
-| SteelSeries Arctis Nova 7P | All |   | x |   |   | x |   |   |   | x | x |   | x | x | x | x | x |
-| SteelSeries Arctis 7+ | All | x | x |   |   | x | x |   |   | x | x |   |   |   |   |   |   |
-| SteelSeries Arctis Nova Pro Wireless | All | x | x |   | x | x |   |   |   | x | x |   |   |   |   |   |   |
-| SteelSeries Arctis Nova 3P Wireless | L/M | x | x |   |   | x |   |   |   | x | x | x |   | x |   |   |   |
-| HyperX Cloud Alpha Wireless | All | x | x |   |   | x |   | x |   |   |   |   |   |   |   |   |   |
-| HyperX Cloud Flight Wireless | All |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
-| HyperX Cloud II Wireless | All |   | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |
-| HyperX Cloud 3 | All | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
-| ROCCAT Elo 7.1 Air | All |   |   |   | x | x |   |   |   |   |   |   |   |   |   |   |   |
-| ROCCAT Elo 7.1 USB | All |   |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |
-| Audeze Maxwell | All | x | x |   |   | x | x | x |   | x |   |   |   |   | x |   |   |
-| Lenovo Wireless VoIP Headset | All | x | x |   |   | x |   | x | x | x |   |   | x |   | x |   |   |
-| Sony INZONE Buds | All |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
-| HeadsetControl Test device | All | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x |
+| Device                                | Platform | sidetone | battery | notification sound | lights | inactive time | chatmix | voice prompts | rotate to mute | equalizer preset | equalizer | parametric equalizer | microphone mute led brightness | microphone volume | volume limiter | bluetooth when powered on | bluetooth call volume |
+| ------------------------------------- | -------- | -------- | ------- | ------------------ | ------ | ------------- | ------- | ------------- | -------------- | ---------------- | --------- | -------------------- | ------------------------------ | ----------------- | -------------- | ------------------------- | --------------------- |
+| Logitech G522 LIGHTSPEED              | All      | x        | x       |                    |        | x             |         |               |                |                  |           |                      | x                              |                   |                |                           |                       |
+| Logitech G533                         | All      | x        | x       |                    |        | x             |         |               |                |                  |           |                      |                                |                   |                |                           |                       |
+| Logitech G535                         | All      | x        | x       |                    |        | x             |         |               |                |                  |           |                      |                                |                   |                |                           |                       |
+| Logitech G633/G635/G733/G933/G935     | All      | x        | x       |                    | x      |               |         |               |                |                  |           |                      |                                |                   |                |                           |                       |
+| Logitech G431/G432/G433               | All      | x        |         |                    |        |               |         |               |                |                  |           |                      |                                |                   |                |                           |                       |
+| Logitech G930                         | All      | x        | x       |                    |        |               |         |               |                |                  |           |                      |                                |                   |                |                           |                       |
+| Logitech G PRO X 2 LIGHTSPEED         | All      | x        | x       |                    |        | x             |         |               |                | x                | x         | x                    |                                |                   |                |                           |                       |
+| Logitech G PRO Series                 | All      | x        | x       |                    |        | x             |         |               |                |                  |           |                      |                                |                   |                |                           |                       |
+| Logitech Zone Wired/Zone 750          | All      | x        |         |                    |        |               |         | x             | x              |                  |           |                      |                                |                   |                |                           |                       |
+| Corsair Headset Device                | All      | x        | x       | x                  | x      |               |         |               |                |                  |           |                      |                                |                   |                |                           |                       |
+| Corsair Wireless V2 Headset Device    | All      | x        | x       |                    |        |               |         |               |                |                  |           |                      |                                |                   |                |                           |                       |
+| SteelSeries Arctis (1/7X/7P) Wireless | All      | x        | x       |                    |        | x             |         |               |                |                  |           |                      |                                |                   |                |                           |                       |
+| SteelSeries Arctis (7/Pro)            | All      | x        | x       |                    | x      | x             | x       |               |                |                  |           |                      |                                |                   |                |                           |                       |
+| SteelSeries Arctis 9                  | All      | x        | x       |                    |        | x             | x       |               |                |                  |           |                      |                                |                   |                |                           |                       |
+| SteelSeries Arctis Pro Wireless       | All      | x        | x       |                    |        | x             |         |               |                |                  |           |                      |                                |                   |                |                           |                       |
+| SteelSeries Arctis Nova 3             | All      | x        |         |                    |        |               |         |               |                | x                | x         |                      | x                              | x                 |                |                           |                       |
+| SteelSeries Arctis Nova (5/5X)        | All      | x        | x       |                    |        | x             | x       |               |                | x                | x         | x                    | x                              | x                 | x              |                           |                       |
+| SteelSeries Arctis Nova 7             | All      | x        | x       |                    |        | x             | x       |               |                | x                | x         |                      | x                              | x                 | x              | x                         | x                     |
+| SteelSeries Arctis Nova 7P            | All      |          | x       |                    |        | x             |         |               |                | x                | x         |                      | x                              | x                 | x              | x                         | x                     |
+| SteelSeries Arctis 7+                 | All      | x        | x       |                    |        | x             | x       |               |                | x                | x         |                      |                                |                   |                |                           |                       |
+| SteelSeries Arctis Nova Pro Wireless  | All      | x        | x       |                    | x      | x             |         |               |                | x                | x         |                      |                                |                   |                |                           |                       |
+| SteelSeries Arctis Nova 3P Wireless   | L/M      | x        | x       |                    |        | x             |         |               |                | x                | x         | x                    |                                | x                 |                |                           |                       |
+| HyperX Cloud Alpha Wireless           | All      | x        | x       |                    |        | x             |         | x             |                |                  |           |                      |                                |                   |                |                           |                       |
+| HyperX Cloud Flight Wireless          | All      |          | x       |                    |        |               |         |               |                |                  |           |                      |                                |                   |                |                           |                       |
+| HyperX Cloud II Wireless              | All      |          | x       |                    |        | x             |         |               |                |                  |           |                      |                                |                   |                |                           |                       |
+| HyperX Cloud 3                        | All      | x        |         |                    |        |               |         |               |                |                  |           |                      |                                |                   |                |                           |                       |
+| ROCCAT Elo 7.1 Air                    | All      |          |         |                    | x      | x             |         |               |                |                  |           |                      |                                |                   |                |                           |                       |
+| ROCCAT Elo 7.1 USB                    | All      |          |         |                    | x      |               |         |               |                |                  |           |                      |                                |                   |                |                           |                       |
+| Audeze Maxwell                        | All      | x        | x       |                    |        | x             | x       | x             |                | x                |           |                      |                                |                   | x              |                           |                       |
+| Lenovo Wireless VoIP Headset          | All      | x        | x       |                    |        | x             |         | x             | x              | x                |           |                      | x                              |                   | x              |                           |                       |
+| Sony INZONE Buds                      | All      |          | x       |                    |        |               |         |               |                |                  |           |                      |                                |                   |                |                           |                       |
+| HeadsetControl Test device            | All      | x        | x       | x                  | x      | x             | x       | x             | x              | x                | x         | x                    | x                              | x                 | x              | x                         | x                     |
 
 **Platform:** All = Linux, macOS, Windows | L/M = Linux and macOS only
 
@@ -60,11 +60,13 @@ A cross-platform tool to control USB gaming headsets on **Linux**, **macOS**, an
 ### Package Managers
 
 #### macOS (Homebrew)
+
 ```bash
 brew install sapd/headsetcontrol/headsetcontrol --HEAD
 ```
 
 #### NixOS
+
 ```nix
 # configuration.nix
 environment.systemPackages = [ pkgs.headsetcontrol ];
@@ -74,6 +76,7 @@ services.udev.packages = [ pkgs.headsetcontrol ];  # For udev rules
 Or run without installing: `nix run nixpkgs#headsetcontrol`
 
 #### Gentoo ([nitratesky](https://github.com/VTimofeenko/nitratesky) overlay)
+
 ```bash
 eselect repository enable nitratesky
 emerge -a app-misc/headsetcontrol
@@ -93,21 +96,25 @@ emerge -a app-misc/headsetcontrol
 <summary><b>Linux</b></summary>
 
 **Debian / Ubuntu**
+
 ```bash
 apt-get install build-essential git cmake libhidapi-dev
 ```
 
 **Fedora**
+
 ```bash
 dnf install cmake hidapi-devel g++
 ```
 
 **Arch Linux**
+
 ```bash
 pacman -S git cmake hidapi
 ```
 
 **CentOS / RHEL**
+
 ```bash
 yum install epel-release
 yum groupinstall "Development tools"
@@ -115,12 +122,14 @@ yum install git cmake hidapi-devel
 ```
 
 **openSUSE**
+
 ```bash
 zypper in -t pattern devel_basis
 zypper in cmake libhidapi-devel
 ```
 
 **FreeBSD**
+
 ```bash
 pkg install hidapi cmake
 ```
@@ -133,6 +142,7 @@ pkg install hidapi cmake
 ```bash
 brew install hidapi cmake
 ```
+
 Note: Xcode (from App Store) is required for compilers.
 
 </details>
@@ -162,6 +172,7 @@ sudo make install
 ```
 
 On **Linux**, this also installs udev rules for non-root access. Reload them with:
+
 ```bash
 sudo udevadm control --reload-rules && sudo udevadm trigger
 ```
@@ -183,6 +194,12 @@ headsetcontrol -s 64
 
 # Turn off LEDs
 headsetcontrol -l 0
+
+# Logitech G733/G633 family: set RGB lighting (color, brightness, mode, speed)
+headsetcontrol --light-color purple
+headsetcontrol --light-brightness 60
+headsetcontrol --light-mode breathing
+headsetcontrol --light-speed 40
 
 # Set auto-off timer (minutes, 0 = disabled)
 headsetcontrol -i 30
@@ -236,6 +253,7 @@ See [docs/LIBRARY_USAGE.md](docs/LIBRARY_USAGE.md) for complete documentation.
 ### Test Device
 
 For development without hardware:
+
 ```bash
 headsetcontrol --test-device -b
 ```
@@ -243,15 +261,18 @@ headsetcontrol --test-device -b
 ## GUI Applications
 
 ### Linux
+
 - [gnome-shell-extension-HeadsetControl](https://github.com/ChrisLauinger77/gnome-shell-extension-HeadsetControl/) - GNOME shell extension (GNOME 42+)
 - [headset-charge-indicator](https://github.com/centic9/headset-charge-indicator/) - System tray with controls (Python)
 - [headset-battery-indicator](https://github.com/ruflas/headset-battery-indicator) - Tray icon with ChatMix, Sidetone controls (Python/Qt)
 - [headsetcontrol-notificationd](https://github.com/Manawyrm/headsetcontrol-notificationd) - Battery notifications (PHP)
 
 ### macOS
+
 - [HeadsetControl-MacOSTray](https://github.com/ChrisLauinger77/HeadsetControl-MacOSTray) - Menu bar app (macOS 14+)
 
 ### Windows
+
 - [QontrolPanel](https://github.com/Odizinne/QontrolPanel) - Quick access / settings panel (Qt C++/QML, also works on Linux) - ARCHIVED
 - [QontrolPanel](https://github.com/ChrisLauinger77/QontrolPanel) - Quick access / settings panel (Qt C++/QML, also works on Linux) - FORK from Odizinne
 - [HeadsetControl-GUI](https://github.com/LeoKlaus/HeadsetControl-GUI) - Simple GUI (Qt C++)
