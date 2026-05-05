@@ -135,6 +135,19 @@ protected:
         // Extract voltage from bytes 4 and 5 (big-endian)
         uint16_t voltage = (static_cast<uint16_t>(response[4]) << 8) | response[5];
 
+        // Check if voltage is below the minimum valid calibrated voltage for the device.
+        // If the measured voltage is below this threshold, the headset is likely offline or the reading is invalid.
+        // This check applies to all HID++ devices using this generic battery request method.
+        if (voltage < calibration.voltages.back()) {
+            return BatteryResult {
+                .level_percent  = -1,
+                .status         = BATTERY_UNAVAILABLE,
+                .voltage_mv     = static_cast<int>(voltage),
+                .raw_data       = response,
+                .query_duration = duration
+            };
+        }
+
         // Estimate battery percentage using spline interpolation
         int level = headsetcontrol::spline_battery_level(
             calibration.percentages,
