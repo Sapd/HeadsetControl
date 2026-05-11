@@ -64,9 +64,9 @@ public:
         return B(CAP_BATTERY_STATUS) | B(CAP_SIDETONE) | B(CAP_INACTIVE_TIME);
     }
 
-    Result<std::array<uint8_t, READ_PACKET_SIZE>> sendCommand(hid_device* device_handle, uint8_t command, uint8_t payload = 0, bool check_response = true)
+private:
+    std::array<uint8_t, WRITE_PACKET_SIZE> buildRequest(uint8_t command, uint8_t payload = 0) const
     {
-        // Base packet structure from HyperHeadset
         std::array<uint8_t, WRITE_PACKET_SIZE> request { };
         request[0]  = 0x06;
         request[1]  = 0x00;
@@ -85,11 +85,22 @@ public:
         request[14] = 0xBB;
         request[15] = command;
         request[16] = payload;
+        return request;
+    }
 
-        // Prepare write: attempt to read input report first (may fail, ignore error)
+    void prepareDevice(hid_device* device_handle) const
+    {
         std::array<uint8_t, 64> input_report { };
         input_report[0] = 0x06;
-        hid_get_input_report(device_handle, input_report.data(), input_report.size());
+        // Attempt to read input report before writing (may fail, ignore error)
+        [[maybe_unused]] auto _ = getInputReport(device_handle, input_report);
+    }
+
+public:
+    Result<std::array<uint8_t, READ_PACKET_SIZE>> sendCommand(hid_device* device_handle, uint8_t command, uint8_t payload = 0)
+    {
+        auto request = buildRequest(command, payload);
+        prepareDevice(device_handle);
 
         auto wr = writeHID(device_handle, request);
         std::this_thread::sleep_for(std::chrono::milliseconds(WRITE_TIMEOUT));
@@ -99,10 +110,6 @@ public:
 
         std::array<uint8_t, READ_PACKET_SIZE> response { };
         auto rd = readHIDTimeout(device_handle, response, READ_TIMEOUT);
-
-        if (!check_response) {
-            return response;
-        }
 
         if (!rd) {
             return rd.error();
@@ -114,6 +121,13 @@ public:
         }
 
         return response;
+    }
+
+    Result<void> sendCommandFireAndForget(hid_device* device_handle, uint8_t command, uint8_t payload = 0)
+    {
+        auto request = buildRequest(command, payload);
+        prepareDevice(device_handle);
+        return writeHID(device_handle, request);
     }
 
     Result<BatteryResult> getBattery(hid_device* device_handle) override
@@ -130,9 +144,9 @@ public:
 
         return BatteryResult {
             .level_percent = (*level_res)[BATTERY_LEVEL_INDEX],
-            .status        = ((*charging_res)[CHARGING_STATUS_INDEX] == 1) ? BATTERY_CHARGING : BATTERY_AVAILABLE,
-            .voltage_mv    = -1,
-            .raw_data      = std::vector<uint8_t>(level_res->begin(), level_res->end())
+            .status = ((*charging_res)[CHARGING_STATUS_INDEX] == 1) ? BATTERY_CHARGING : BATTERY_AVAILABLE,
+            .voltage_mv = std::nullopt,
+            .raw_data = std::vector<uint8_t>(level_res->begin(), level_res->end())
         };
     }
 
@@ -140,17 +154,17 @@ public:
     {
         // Protocol only supports binary on/off (1 or 0)
         uint8_t hardware_level = (level > 0) ? 1 : 0;
-        auto res               = sendCommand(device_handle, CMD_SET_SIDETONE, hardware_level, false);
+        auto res = sendCommandFireAndForget(device_handle, CMD_SET_SIDETONE, hardware_level);
         if (!res) {
             return res.error();
         }
 
         return SidetoneResult {
-            .current_level = level,
-            .min_level     = 0,
-            .max_level     = 128,
-            .device_min    = 0,
-            .device_max    = 1
+            .current_level = hardware_level,
+            .min_level = 0,
+            .max_level = 128,
+            .device_min = 0,
+            .device_max = 1
         };
     }
 
@@ -158,13 +172,13 @@ public:
     {
         // Hardware limit: 30 minutes maximum
         uint8_t hardware_mins = (minutes > 30) ? 30 : minutes;
-        auto res              = sendCommand(device_handle, CMD_SET_AUTO_SHUTDOWN, hardware_mins);
+        auto res = sendCommand(device_handle, CMD_SET_AUTO_SHUTDOWN, hardware_mins);
         if (!res) {
             return res.error();
         }
 
         return InactiveTimeResult {
-            .minutes     = hardware_mins,
+            .minutes = hardware_mins,
             .min_minutes = 0,
             .max_minutes = 30
         };
