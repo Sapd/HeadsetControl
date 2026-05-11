@@ -44,6 +44,7 @@ A cross-platform tool to control USB gaming headsets on **Linux**, **macOS**, an
 | HyperX Cloud Flight Wireless | All |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | HyperX Cloud II Wireless | All |   | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |
 | HyperX Cloud 3 | All | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
+| HyperX Cloud II Wireless (Kingston) | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |
 | ROCCAT Elo 7.1 Air | All |   |   |   | x | x |   |   |   |   |   |   |   |   |   |   |   |   |
 | ROCCAT Elo 7.1 USB | All |   |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | Audeze Maxwell | All | x | x |   |   | x | x | x |   | x |   |   |   |   | x |   |   |   |
