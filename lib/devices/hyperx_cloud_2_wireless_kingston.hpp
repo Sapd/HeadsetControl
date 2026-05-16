@@ -125,7 +125,7 @@ public:
 
     Result<void> sendCommandFireAndForget(hid_device* device_handle, uint8_t command, uint8_t payload = 0)
     {
-        auto request = buildRequest(command, payload);
+        prepareDevice(device_handle);
         prepareDevice(device_handle);
         return writeHID(device_handle, request);
     }
