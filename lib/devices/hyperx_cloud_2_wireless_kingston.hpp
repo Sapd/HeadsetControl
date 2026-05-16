@@ -100,7 +100,7 @@ public:
     Result<std::array<uint8_t, READ_PACKET_SIZE>> sendCommand(hid_device* device_handle, uint8_t command, uint8_t payload = 0)
     {
         prepareDevice(device_handle);
-        prepareDevice(device_handle);
+        auto request = buildRequest(command, payload);
 
         auto wr = writeHID(device_handle, request);
         std::this_thread::sleep_for(std::chrono::milliseconds(WRITE_TIMEOUT));
@@ -126,7 +126,7 @@ public:
     Result<void> sendCommandFireAndForget(hid_device* device_handle, uint8_t command, uint8_t payload = 0)
     {
         prepareDevice(device_handle);
-        prepareDevice(device_handle);
+        auto request = buildRequest(command, payload);
         return writeHID(device_handle, request);
     }
 
