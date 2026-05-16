@@ -99,7 +99,7 @@ private:
 public:
     Result<std::array<uint8_t, READ_PACKET_SIZE>> sendCommand(hid_device* device_handle, uint8_t command, uint8_t payload = 0)
     {
-        auto request = buildRequest(command, payload);
+        prepareDevice(device_handle);
         prepareDevice(device_handle);
 
         auto wr = writeHID(device_handle, request);
