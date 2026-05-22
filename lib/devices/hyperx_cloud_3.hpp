@@ -20,8 +20,9 @@ namespace headsetcontrol {
 class HyperXCloud3 : public HIDDevice {
 public:
     static constexpr uint16_t VENDOR_HYPERX_CLOUD = 0x03f0;
-    static constexpr std::array<uint16_t, 1> SUPPORTED_PRODUCT_IDS {
-        0x089d // Cloud 3 Wired
+    static constexpr std::array<uint16_t, 2> SUPPORTED_PRODUCT_IDS {
+        0x089d, // Cloud 3 Wired
+        0x03cc, // Cloud 3 Wired 2026
     };
 
     static constexpr int MSG_SIZE = 62;
