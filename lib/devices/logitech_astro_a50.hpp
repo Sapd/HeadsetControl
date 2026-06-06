@@ -41,13 +41,14 @@ namespace headsetcontrol {
  * - Lights/dock LED  (CMD 0x0f) — payload <brightness 0..100>
  * - Parametric EQ    (CMD 0x0d) — 10 bands [freqBE16][Q LE16][gainB]; Q=scale/32,
  *                                 gain byte=120+dB*20 (±6 dB).
+ * - Noise filter     (CMD 0x14) — mic noise gate; HSC 0/1/2 -> A50 Off/Night/Tournament.
  *
- * All five capabilities were verified on real hardware (A50 base 046d:0b1c): lights toggle
+ * All six capabilities were verified on real hardware (A50 base 046d:0b1c): lights toggle
  * the dock LED, battery reads %/charging, chatmix reads 0..12 (linear), sidetone is audible,
- * and the parametric EQ visibly shifts the sound (a ±6 dB bass boost/cut was clearly audible
- * while music played). The byte5 handle is an echo token (the device echoes it back) — any
- * value works, which is why the battery GET (handle 0x0c) reads correctly even though G HUB
- * only ever pushed it.
+ * the parametric EQ visibly shifts the sound (a ±6 dB bass boost/cut was clearly audible while
+ * music played), and the noise gate is audible on the mic. The byte5 handle is an echo token
+ * (the device echoes it back) — any value works, which is why the battery GET (handle 0x0c)
+ * reads correctly even though G HUB only ever pushed it.
  */
 class LogitechAstroA50 : public HIDDevice {
 public:
@@ -65,13 +66,19 @@ public:
     static constexpr uint8_t CMD_CHATMIX    = 0x0a;
     static constexpr uint8_t CMD_EQ         = 0x0d;
     static constexpr uint8_t CMD_BRIGHTNESS = 0x0f;
+    static constexpr uint8_t CMD_NOISE_GATE = 0x14;
 
     // Transaction handles (byte[5]) — observed per command in captures
     static constexpr uint8_t HANDLE_CHATMIX    = 0x0c;
     static constexpr uint8_t HANDLE_SIDETONE   = 0x1c;
     static constexpr uint8_t HANDLE_BRIGHTNESS = 0x1c;
     static constexpr uint8_t HANDLE_EQ         = 0x2c; // observed in eq-audio.pcapng
+    static constexpr uint8_t HANDLE_NOISE_GATE = 0x2d; // observed in a50-noisegate.pcapng
     static constexpr uint8_t HANDLE_BATTERY    = 0x0c; // handle is an echo token (verified)
+
+    // Noise gate (CMD 0x14) — device has 4 levels; HeadsetControl noise filter is 0/1/2.
+    // Map off/low/high -> A50 Off(0x00) / Night(0x01) / Tournament(0x04).
+    static constexpr std::array<uint8_t, 3> NOISE_LEVELS { 0x00, 0x01, 0x04 };
 
     // Parametric EQ (CMD 0x0d) — 10 fixed standard bands. Each band on the wire is
     // 5 bytes: [freq BE16][Q LE16][gain B]. Q = scale/32 (0x16 = 0.6875 default).
@@ -100,7 +107,7 @@ public:
     constexpr int getCapabilities() const override
     {
         return B(CAP_BATTERY_STATUS) | B(CAP_CHATMIX_STATUS) | B(CAP_SIDETONE) | B(CAP_LIGHTS)
-            | B(CAP_PARAMETRIC_EQUALIZER);
+            | B(CAP_PARAMETRIC_EQUALIZER) | B(CAP_NOISE_FILTER);
     }
 
     constexpr capability_detail getCapabilityDetail([[maybe_unused]] enum capabilities cap) const override
@@ -186,6 +193,22 @@ public:
             .enabled = on,
             .mode    = on ? "on" : "off",
         };
+    }
+
+    Result<NoiseFilterResult> setNoiseFilter(hid_device* device_handle, uint8_t level) override
+    {
+        // SET (captured): 02 0c 04 00 14 2d <v> — mic noise gate.
+        // HeadsetControl level 0/1/2 (off/low/high) -> A50 Off/Night/Tournament.
+        if (level > 2) {
+            return DeviceError::invalidParameter("Noise filter level must be 0, 1, or 2");
+        }
+        const std::array<uint8_t, 1> payload { NOISE_LEVELS[level] };
+        auto r = sendRequest(device_handle, CMD_NOISE_GATE, HANDLE_NOISE_GATE, payload, /*read_reply=*/false);
+        if (!r) {
+            return r.error();
+        }
+
+        return NoiseFilterResult { .level = level };
     }
 
     std::optional<ParametricEqualizerInfo> getParametricEqualizerInfo() const override
