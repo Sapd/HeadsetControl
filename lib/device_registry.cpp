@@ -4,6 +4,9 @@
 #include "devices/corsair_void_rich.hpp"
 #include "devices/corsair_void_v2w.hpp"
 
+// Logitech devices
+#include "devices/logitech_astro_a50.hpp"
+
 // Logitech devices with HIDPPDevice protocol template
 #include "devices/logitech_g432.hpp"
 #include "devices/logitech_g522_lightspeed.hpp"
@@ -89,6 +92,9 @@ void DeviceRegistry::initialize()
     std::call_once(init_flag_, [this]() {
         // Register all device implementations
         // Each device is managed by a unique_ptr for automatic cleanup
+
+        // Logitech devices
+        registerDevice(std::make_unique<LogitechAstroA50>());
 
         // Logitech devices (using HIDPPDevice protocol template)
         registerDevice(std::make_unique<LogitechG522Lightspeed>());
