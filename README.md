@@ -249,6 +249,7 @@ headsetcontrol --test-device -b
 - [headset-charge-indicator](https://github.com/centic9/headset-charge-indicator/) - System tray with controls (Python)
 - [headset-battery-indicator](https://github.com/ruflas/headset-battery-indicator) - Tray icon with ChatMix, Sidetone controls (Python/Qt)
 - [headsetcontrol-notificationd](https://github.com/Manawyrm/headsetcontrol-notificationd) - Battery notifications (PHP)
+- [HeadsetControl-GUI](https://github.com/paradox-ng/HeadsetControl-GUI) - System tray and window with controls; x86-64 and ARM64 builds (Python/Qt6)
 
 ### macOS
 - [HeadsetControl-MacOSTray](https://github.com/ChrisLauinger77/HeadsetControl-MacOSTray) - Menu bar app (macOS 14+)
