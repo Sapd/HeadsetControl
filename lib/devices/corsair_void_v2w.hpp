@@ -16,11 +16,10 @@ using namespace std::string_view_literals;
 namespace headsetcontrol {
 
 /**
- * @brief Corsair Void Wireless V2
+ * @brief Corsair Wireless V2 headsets
  *
  * This implementation extracts the following data from HID packets:
- * - Battery percentage (0-100%) which seems to be reliable up to an
- *   approximate 10% error
+ * - Battery percentage (0-100%) which seems to be reliable up to an approximate 10% error
  * - Device status (connected/disconnected)
  * - Sidetone with level mapping (0-128 to device-specific range)
  * - Inactive timer (0-90 minutes range)
@@ -29,7 +28,11 @@ namespace headsetcontrol {
  */
 class CorsairVoidV2W : public CorsairDevice {
 public:
-    static constexpr std::array<uint16_t, 3> SUPPORTED_PRODUCT_IDS { 0x2a08, 0x2a02, 0x0a97 };
+    static constexpr std::array<uint16_t, 3> SUPPORTED_PRODUCT_IDS {
+        0x2a08, // VOID WIRELESS V2 (receiver)
+        0x2a02, // VIRTUOSO MAX WIRELESS (receiver)
+        0x0a97  // HS80 MAX Wireless (receiver)
+    };
 
     std::vector<uint16_t> getProductIds() const override
     {
@@ -45,6 +48,7 @@ public:
     {
         return B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_INACTIVE_TIME);
     }
+
     // Override capability as this device needs the interface_id = 4
     constexpr capability_detail
     getCapabilityDetail(enum capabilities cap) const override
@@ -70,8 +74,7 @@ public:
             0x00, 0x02, HEADSET_ENDPOINT, 0x02, 0x0f
         };
 
-        if (auto result = writeHID(device_handle, battery_request, MSG_SIZE_WRITE);
-            !result) {
+        if (auto result = writeHID(device_handle, battery_request, MSG_SIZE_WRITE); !result) {
             return result.error();
         }
         std::array<uint8_t, MSG_SIZE_READ> battery_response {};
@@ -116,7 +119,7 @@ public:
                 .level_percent = -1,
                 .status        = BATTERY_UNAVAILABLE,
                 .raw_data      = std::vector<uint8_t>(battery_response.begin(), battery_response.end()),
-                };
+            };
         }
 
         status = BATTERY_AVAILABLE;
@@ -149,8 +152,7 @@ public:
         return result;
     }
 
-    Result<SidetoneResult> setSidetone(hid_device* device_handle,
-        uint8_t level) override
+    Result<SidetoneResult> setSidetone(hid_device* device_handle, uint8_t level) override
     {
         // Corsair uses range 0-1000 internally in steps of 10
         constexpr uint8_t CORSAIR_MIN  = 0;
@@ -163,11 +165,10 @@ public:
         uint8_t high_byte       = (sidetone_value >> 8) & 0xFF;
         auto init_result        = initializeDevice(device_handle);
         if (init_result.valueOr(0) == 0) {
-            return DeviceError::deviceOffline(
-                "Headset not connected to wireless receiver");
+            return DeviceError::deviceOffline("Headset not connected to wireless receiver");
         }
 
-        // turn off ANC if sidetone is to be enabled
+        // Turn off ANC if sidetone is to be enabled
         std::array<uint8_t, MSG_SIZE_WRITE> ANC_toggle { 0x00, 0x02, HEADSET_ENDPOINT,
             0x01, 0xd1 };
         std::array<uint8_t, MSG_SIZE_WRITE> sidetone_toggle {
@@ -175,9 +176,9 @@ public:
         };
 
         if (level == 0) {
-            // turn off sidetone
+            // Turn off sidetone
             sidetone_toggle[6] = 0x01;
-            // turn on noice cancellation which has to be off for sidetone to work
+            // Turn on noice cancellation which has to be off for sidetone to work
             ANC_toggle[6] = 0x01;
         }
         auto ANC_result = writeHID(device_handle, ANC_toggle, MSG_SIZE_WRITE);
@@ -193,8 +194,7 @@ public:
             0x00, 0x02, HEADSET_ENDPOINT, 0x01, 0x47, 0, low_byte, high_byte
         };
 
-        if (auto result = writeHID(device_handle, sidetone_data, MSG_SIZE_WRITE);
-            !result) {
+        if (auto result = writeHID(device_handle, sidetone_data, MSG_SIZE_WRITE); !result) {
             return result.error();
         }
 
@@ -203,8 +203,7 @@ public:
             .min_level     = 0,
             .max_level     = 128,
             .device_min    = CORSAIR_MIN,
-            .device_max    = 100, // should be 1000 but the structure doesn't allow 2
-                               // byte numbers
+            .device_max    = 100, // should be 1000 but the structure doesn't allow 2 byte numbers
         };
     }
 
@@ -325,40 +324,36 @@ private:
 
     Result<size_t> initializeDevice(hid_device* device_handle) const
     {
-        // get firmware of receiver; neccessary for sending commands
+        // Get firmware of receiver; neccessary for sending commands
         std::array<uint8_t, MSG_SIZE_WRITE> firmware_data {
             0x00, 0x02, RECEIVER_ENDPOINT, 0x02, 0x13
         };
-        if (auto result = writeHID(device_handle, firmware_data, MSG_SIZE_WRITE);
-            !result) {
+        if (auto result = writeHID(device_handle, firmware_data, MSG_SIZE_WRITE); !result) {
             return result.error();
         }
 
-        // turn on software mode for the receiver; neccessary for sending commands
+        // Turn on software mode for the receiver; neccessary for sending commands
         std::array<uint8_t, MSG_SIZE_WRITE> software_mode_data {
             0x00, 0x02, RECEIVER_ENDPOINT, 0x01, 0x03, 0x00, 0x02
         };
 
-        if (auto result = writeHID(device_handle, software_mode_data, MSG_SIZE_WRITE);
-            !result) {
+        if (auto result = writeHID(device_handle, software_mode_data, MSG_SIZE_WRITE); !result) {
             return result.error();
         }
 
-        // send heartbeat to receiver; neccessary for sending commands
+        // Dend heartbeat to receiver; neccessary for sending commands
         std::array<uint8_t, MSG_SIZE_WRITE> heartbeat_data {
             0x00, 0x02, RECEIVER_ENDPOINT, 0x02, 0x12
         };
 
-        if (auto result = writeHID(device_handle, heartbeat_data, MSG_SIZE_WRITE);
-            !result) {
+        if (auto result = writeHID(device_handle, heartbeat_data, MSG_SIZE_WRITE); !result) {
             return result.error();
         }
 
-        // repeat commands for headset
+        // Repeat commands for headset
         software_mode_data[2] = HEADSET_ENDPOINT;
         heartbeat_data[2]     = HEADSET_ENDPOINT;
-        if (auto result = writeHID(device_handle, software_mode_data, MSG_SIZE_WRITE);
-            !result) {
+        if (auto result = writeHID(device_handle, software_mode_data, MSG_SIZE_WRITE); !result) {
             return result.error();
         }
 
@@ -366,8 +361,7 @@ private:
             return result.error();
         }
 
-        if (auto result = writeHID(device_handle, heartbeat_data, MSG_SIZE_WRITE);
-            !result) {
+        if (auto result = writeHID(device_handle, heartbeat_data, MSG_SIZE_WRITE); !result) {
             return result.error();
         }
         std::array<uint8_t, MSG_SIZE_READ> heartbeat_response {};
