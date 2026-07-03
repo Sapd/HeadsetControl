@@ -27,7 +27,7 @@ namespace headsetcontrol {
  */
 class CorsairVoidV2W : public CorsairDevice {
 public:
-    static constexpr std::array<uint16_t, 2> SUPPORTED_PRODUCT_IDS { 0x2a08, 0x2a02 };
+    static constexpr std::array<uint16_t, 3> SUPPORTED_PRODUCT_IDS { 0x2a08, 0x2a02, 0x0a97 };
 
     std::vector<uint16_t> getProductIds() const override
     {
