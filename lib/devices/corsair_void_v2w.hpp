@@ -23,6 +23,7 @@ namespace headsetcontrol {
  *   approximate 10% error
  * - Device status (connected/disconnected)
  * - Sidetone with level mapping (0-128 to device-specific range)
+ * - Inactive timer (0-90 minutes range)
  * - Query timing
  */
 class CorsairVoidV2W : public CorsairDevice {
@@ -41,7 +42,7 @@ public:
 
     constexpr int getCapabilities() const override
     {
-        return B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS);
+        return B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_INACTIVE_TIME);
     }
     // Override capability as this device needs the interface_id = 4
     constexpr capability_detail
@@ -191,6 +192,51 @@ public:
         };
     }
 
+    Result<InactiveTimeResult> setInactiveTime(hid_device* device_handle, uint8_t minutes) override
+    {
+        constexpr uint8_t MIN_MINUTES = 0;
+        constexpr uint8_t MAX_MINUTES = 90;
+
+        if (minutes > MAX_MINUTES) {
+            minutes = MAX_MINUTES;
+        }
+
+        auto init_result = initializeDevice(device_handle);
+        if (init_result.valueOr(0) == 0) {
+            return DeviceError::deviceOffline("Headset not connected to wireless receiver");
+        }
+
+        // Open the sleep-timer write endpoint (0x01 to enables the timer, 0x00 to disables it)
+        std::array<uint8_t, MSG_SIZE_WRITE> open_sleep_endpoint {
+            0x00, 0x02, HEADSET_ENDPOINT, 0x01, 0x0d, 0x00,
+            static_cast<uint8_t>(minutes == 0 ? 0x00 : 0x01)
+        };
+        if (auto result = writeHID(device_handle, open_sleep_endpoint, MSG_SIZE_WRITE); !result) {
+            return result.error();
+        }
+
+        // Set the idle timeout (in milliseconds)
+        if (minutes > 0) {
+            uint32_t timeout_ms = static_cast<uint32_t>(minutes) * 60U * 1000U;
+            std::array<uint8_t, MSG_SIZE_WRITE> sleep_timer {
+                0x00, 0x02, HEADSET_ENDPOINT, 0x01, 0x0e, 0x00,
+                static_cast<uint8_t>(timeout_ms & 0xFF),
+                static_cast<uint8_t>((timeout_ms >> 8) & 0xFF),
+                static_cast<uint8_t>((timeout_ms >> 16) & 0xFF),
+                static_cast<uint8_t>((timeout_ms >> 24) & 0xFF)
+            };
+            if (auto result = writeHID(device_handle, sleep_timer, MSG_SIZE_WRITE); !result) {
+                return result.error();
+            }
+        }
+
+        return InactiveTimeResult {
+            .minutes     = minutes,
+            .min_minutes = MIN_MINUTES,
+            .max_minutes = MAX_MINUTES,
+        };
+    }
+
     Result<CapabilityInfo> getCapabilityInfo(enum capabilities cap) override
     {
         auto info = HIDDevice::getCapabilityInfo(cap);
@@ -202,6 +248,12 @@ public:
         case CAP_SIDETONE:
             info->parameter = CapabilityInfo::RangeParam {
                 .min = 0, .max = 128, .step = 1, .units = "level"
+            };
+            break;
+
+        case CAP_INACTIVE_TIME:
+            info->parameter = CapabilityInfo::RangeParam {
+                .min = 0, .max = 90, .step = 1, .units = "minutes"
             };
             break;
 
