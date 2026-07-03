@@ -50,6 +50,9 @@
 // Lenovo devices
 #include "devices/lenovo_wireless_voip.hpp"
 
+// Plantronics / Poly devices
+#include "devices/plantronics_bt600.hpp"
+
 // Sony devices
 #include "devices/sony_inzone_buds.hpp"
 
@@ -143,6 +146,9 @@ void DeviceRegistry::initialize()
 
         // Lenovo devices
         registerDevice(std::make_unique<LenovoWirelessVoip>());
+
+        // Plantronics / Poly devices
+        registerDevice(std::make_unique<PlantronicsBT600>());
 
         // Sony devices
         registerDevice(std::make_unique<SonyINZONEBuds>());

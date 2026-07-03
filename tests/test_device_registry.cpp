@@ -217,6 +217,25 @@ void testLookupLogitechProX2Lightspeed()
     std::cout << "    OK lookup Logitech PRO X2 LIGHTSPEED" << std::endl;
 }
 
+void testLookupPlantronicsBT600()
+{
+    std::cout << "  Testing lookup of Plantronics BT600 (0x02ee)..." << std::endl;
+
+    auto& registry = DeviceRegistry::instance();
+    registry.initialize();
+
+    auto* device = registry.getDevice(0x047f, 0x02ee);
+    ASSERT_NOT_NULL(device, "Plantronics BT600 should be found");
+    ASSERT_EQ("Plantronics Voyager 8200 UC (BT600)", std::string(device->getDeviceName()), "Device name should match");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_SIDETONE)) != 0, "BT600 should expose sidetone capability");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_BATTERY_STATUS)) != 0, "BT600 should expose battery capability");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_LIGHTS)) != 0, "BT600 should expose lights capability");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_VOICE_PROMPTS)) != 0, "BT600 should expose voice prompts capability");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_VOLUME_LIMITER)) != 0, "BT600 should expose volume limiter capability");
+
+    std::cout << "    OK lookup Plantronics BT600" << std::endl;
+}
+
 // ============================================================================
 // Device Enumeration Tests
 // ============================================================================
@@ -468,6 +487,7 @@ void runAllDeviceRegistryTests()
     std::cout << "\n=== Device Lookup Tests ===" << std::endl;
     runTest("Lookup Test Device", testLookupTestDevice);
     runTest("Lookup Logitech PRO X2 LIGHTSPEED", testLookupLogitechProX2Lightspeed);
+    runTest("Lookup Plantronics BT600", testLookupPlantronicsBT600);
     runTest("Lookup Non-Existent", testLookupNonExistentDevice);
     runTest("Lookup Wrong Product ID", testLookupWithWrongProductId);
     runTest("Lookup Wrong Vendor ID", testLookupWithWrongVendorId);

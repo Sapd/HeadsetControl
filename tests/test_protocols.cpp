@@ -12,9 +12,10 @@
 #include "device.hpp"
 #include "devices/corsair_device.hpp"
 #include "devices/logitech_gpro_x2_lightspeed.hpp"
-#include "devices/protocols/logitech_centurion_protocol.hpp"
+#include "devices/plantronics_bt600.hpp"
 #include "devices/protocols/hidpp_protocol.hpp"
 #include "devices/protocols/logitech_calibrations.hpp"
+#include "devices/protocols/logitech_centurion_protocol.hpp"
 #include "devices/protocols/steelseries_protocol.hpp"
 #include "result_types.hpp"
 #include "utility.hpp"
@@ -266,7 +267,7 @@ void testLogitechProX2BatteryPacketParsing()
     ASSERT_EQ(87, result->level_percent, "Direct percentage should be parsed from byte 10");
     ASSERT_EQ(BATTERY_CHARGING, result->status, "Charging status should map from byte 12");
 
-    response[12] = 0x00;
+    response[12]            = 0x00;
     auto discharging_result = LogitechGProX2Lightspeed::parseBatteryResponse(response);
     ASSERT_TRUE(discharging_result.hasValue(), "Discharging packet should parse successfully");
     ASSERT_EQ(BATTERY_AVAILABLE, discharging_result->status, "Non-0x02 status should be available");
@@ -322,13 +323,13 @@ void testLogitechProX2BatteryOutOfRange()
     ASSERT_TRUE(!result.hasValue(), "Battery level 101 should be rejected as out of range");
 
     // Boundary: 100 should be valid
-    response[10] = 100;
+    response[10]      = 100;
     auto valid_result = LogitechGProX2Lightspeed::parseBatteryResponse(response);
     ASSERT_TRUE(valid_result.hasValue(), "Battery level 100 should be valid");
     ASSERT_EQ(100, valid_result->level_percent, "Battery level should be 100");
 
     // Boundary: 0 should be valid
-    response[10] = 0;
+    response[10]     = 0;
     auto zero_result = LogitechGProX2Lightspeed::parseBatteryResponse(response);
     ASSERT_TRUE(zero_result.hasValue(), "Battery level 0 should be valid");
     ASSERT_EQ(0, zero_result->level_percent, "Battery level should be 0");
@@ -454,12 +455,12 @@ void testLogitechProX2OnboardEqPayloadBuilding()
     std::cout << "  Testing Logitech PRO X2 onboard EQ payload building..." << std::endl;
 
     auto payload = LogitechGProX2Lightspeed::buildOnboardEqPayloadForTest(0x00, {
-        { 80, 4, 1 },
-        { 240, 2, 1 },
-        { 750, 0, 1 },
-        { 2200, 0, 1 },
-        { 6600, 0, 1 },
-    });
+                                                                                    { 80, 4, 1 },
+                                                                                    { 240, 2, 1 },
+                                                                                    { 750, 0, 1 },
+                                                                                    { 2200, 0, 1 },
+                                                                                    { 6600, 0, 1 },
+                                                                                });
 
     ASSERT_TRUE(payload.size() > 32, "Onboard EQ payload should include coefficient sections");
     ASSERT_EQ(0x00, payload[0], "Onboard EQ payload should start with slot 0");
@@ -470,6 +471,101 @@ void testLogitechProX2OnboardEqPayloadBuilding()
     ASSERT_EQ(1, payload[5], "First band Q should be preserved");
 
     std::cout << "    [OK] Logitech PRO X2 onboard EQ payload building verified" << std::endl;
+}
+
+// ============================================================================
+// Plantronics Protocol Tests
+// ============================================================================
+
+void testPlantronicsBT600BatteryParsing()
+{
+    std::cout << "  Testing Plantronics BT600 battery reply parsing..." << std::endl;
+
+    // Battery GET reply captured from the hardware: level 7 of 11 (=70%),
+    // not charging, 750 min talk time remaining:
+    // 07 01 01 10 0c 02 00 00 03 0a 1a 07 0b 00 02 ee 01
+    std::array<uint8_t, PlantronicsBT600::MSG_SIZE> response {
+        0x07, 0x01, 0x01, 0x10, 0x0c, 0x02, 0x00, 0x00,
+        0x03, 0x0a, 0x1a, 0x07, 0x0b, 0x00, 0x02, 0xee, 0x01
+    };
+
+    auto result = PlantronicsBT600::parseBatteryReply(response);
+    ASSERT_TRUE(result.hasValue(), "Battery reply should parse successfully");
+    ASSERT_EQ(70, result->level_percent, "Level 7 of 11 should map to 70 percent");
+    ASSERT_EQ(750, result->time_to_empty_min.value(), "Talk time minutes should be reported");
+    ASSERT_EQ(BATTERY_AVAILABLE, result->status, "Zero charging byte should map to available");
+
+    // Captured one level lower: level 6 of 11 (=60%), 714 min. This is the
+    // case the earlier talk-time estimate got wrong.
+    response[PlantronicsBT600::OFF_BATT_LEVEL]  = 0x06;
+    response[PlantronicsBT600::OFF_BATT_MIN_HI] = 0x02;
+    response[PlantronicsBT600::OFF_BATT_MIN_LO] = 0xca;
+    auto lower_result                           = PlantronicsBT600::parseBatteryReply(response);
+    ASSERT_TRUE(lower_result.hasValue(), "Lower-level reply should parse successfully");
+    ASSERT_EQ(60, lower_result->level_percent, "Level 6 of 11 should map to 60 percent");
+    ASSERT_EQ(714, lower_result->time_to_empty_min.value(), "Talk time minutes should be reported");
+
+    // Charging: charging byte set
+    response[PlantronicsBT600::OFF_BATT_CHARGING] = 0x01;
+    auto charging_result                          = PlantronicsBT600::parseBatteryReply(response);
+    ASSERT_TRUE(charging_result.hasValue(), "Charging reply should parse successfully");
+    ASSERT_EQ(BATTERY_CHARGING, charging_result->status, "Nonzero charging byte should map to charging");
+
+    // A full battery (level == level_count - 1) is exactly 100 percent
+    response[PlantronicsBT600::OFF_BATT_LEVEL]    = 0x0a;
+    response[PlantronicsBT600::OFF_BATT_CHARGING] = 0x00;
+    auto full_result                              = PlantronicsBT600::parseBatteryReply(response);
+    ASSERT_TRUE(full_result.hasValue(), "Full-battery reply should parse successfully");
+    ASSERT_EQ(100, full_result->level_percent, "Level 10 of 11 should map to 100 percent");
+
+    // A reply with too few levels (no valid denominator) should be rejected
+    response[PlantronicsBT600::OFF_BATT_COUNT] = 0x01;
+    auto bad_result                            = PlantronicsBT600::parseBatteryReply(response);
+    ASSERT_TRUE(!bad_result.hasValue(), "Reply without a usable level count should be rejected");
+
+    std::cout << "    [OK] Plantronics BT600 battery reply parsing verified" << std::endl;
+}
+
+void testPlantronicsBT600ReplyMatching()
+{
+    std::cout << "  Testing Plantronics BT600 reply matching..." << std::endl;
+
+    // Solicited sidetone SET ack captured from the hardware:
+    // 07 01 01 10 07 02 00 00 0a 04 10 01
+    std::array<uint8_t, PlantronicsBT600::MSG_SIZE> ack {
+        0x07, 0x01, 0x01, 0x10, 0x07, 0x02, 0x00, 0x00,
+        0x0a, 0x04, 0x10, 0x01
+    };
+    ASSERT_TRUE(PlantronicsBT600::isReplyFor(ack, 0x04, 0x10), "Sidetone ack should match its group/item");
+    ASSERT_TRUE(!PlantronicsBT600::isReplyFor(ack, 0x0a, 0x1a), "Sidetone ack should not match the battery setting");
+
+    // Unsolicited event (address byte 0x00) must not be treated as a reply:
+    // 07 01 01 10 0a 00 00 00 0a 0e 1e 07 02 0c
+    std::array<uint8_t, PlantronicsBT600::MSG_SIZE> event {
+        0x07, 0x01, 0x01, 0x10, 0x0a, 0x00, 0x00, 0x00,
+        0x0a, 0x0e, 0x1e, 0x07, 0x02, 0x0c
+    };
+    ASSERT_TRUE(!PlantronicsBT600::isReplyFor(event, 0x0e, 0x1e), "Unsolicited event should not match as a reply");
+
+    // Catalogue fragment streamed after HELLO (header bytes differ, but the
+    // byte at the reply-marker offset happens to be 0x02) must not match:
+    // 07 01 07 11 9c 02 00 00 09 00 36 00 01 02 ...
+    std::array<uint8_t, PlantronicsBT600::MSG_SIZE> fragment {
+        0x07, 0x01, 0x07, 0x11, 0x9c, 0x02, 0x00, 0x00,
+        0x09, 0x00, 0x36, 0x00, 0x01, 0x02
+    };
+    ASSERT_TRUE(!PlantronicsBT600::isReplyFor(fragment, 0x00, 0x36), "Catalogue fragment should not match as a reply");
+
+    // Dongle-addressed HELLO ack (source address 0x00) captured from the
+    // hardware: 07 01 01 10 06 00 00 00 08 01 02
+    std::array<uint8_t, PlantronicsBT600::MSG_SIZE> dongle_ack {
+        0x07, 0x01, 0x01, 0x10, 0x06, 0x00, 0x00, 0x00,
+        0x08, 0x01, 0x02
+    };
+    ASSERT_TRUE(PlantronicsBT600::isReplyFor(dongle_ack, 0x01, 0x02, 0x00), "Dongle hello ack should match with dongle address");
+    ASSERT_TRUE(!PlantronicsBT600::isReplyFor(dongle_ack, 0x01, 0x02), "Dongle hello ack should not match with the headset address");
+
+    std::cout << "    [OK] Plantronics BT600 reply matching verified" << std::endl;
 }
 
 // ============================================================================
@@ -727,6 +823,10 @@ void runAllProtocolTests()
     runTest("Logitech PRO X2 Equalizer Info Cache", testLogitechProX2EqualizerInfoRequiresDescriptor);
     runTest("Logitech PRO X2 EQ Quantization", testLogitechProX2OnboardEqCoefficientQuantization);
     runTest("Logitech PRO X2 Onboard EQ Payload", testLogitechProX2OnboardEqPayloadBuilding);
+
+    std::cout << "\n=== Plantronics Protocol ===" << std::endl;
+    runTest("Plantronics BT600 Battery Parsing", testPlantronicsBT600BatteryParsing);
+    runTest("Plantronics BT600 Reply Matching", testPlantronicsBT600ReplyMatching);
 
     std::cout << "\n=== SteelSeries Protocol ===" << std::endl;
     runTest("SteelSeries Packet Sizes", testSteelSeriesPacketSizes);
