@@ -24,6 +24,7 @@ namespace headsetcontrol {
  * - Device status (connected/disconnected)
  * - Sidetone with level mapping (0-128 to device-specific range)
  * - Inactive timer (0-90 minutes range)
+ * - Microphone "up" status
  * - Query timing
  */
 class CorsairVoidV2W : public CorsairDevice {
@@ -121,14 +122,29 @@ public:
         status = BATTERY_AVAILABLE;
         int level = static_cast<int>(battery_level_vendor / 10);
 
-        // if there's no sidetone, the mic could be muted
+        // Get the microphone mute state
+        // These headsets physically flip the boom mic up to mute, so we map muted as MICROPHONE_UP
+        enum microphone_status mic_status = MICROPHONE_UNKNOWN;
+
+        // Send mic status request
+        std::array<uint8_t, MSG_SIZE_WRITE> mic_request {
+            0x00, 0x02, HEADSET_ENDPOINT, 0x02, 0xa6
+        };
+
+        if (auto write_result = writeHID(device_handle, mic_request, MSG_SIZE_WRITE); write_result) {
+            std::array<uint8_t, MSG_SIZE_READ> mic_response {};
+            if (auto mic_read = readHIDTimeout(device_handle, mic_response, hsc_device_timeout);
+                mic_read && mic_response[4] == 0x01) { // muted
+                mic_status = MICROPHONE_UP;
+            }
+        }
 
         // Build result
         BatteryResult result {
             .level_percent = level,
             .status        = status,
-            .raw_data      = std::vector<uint8_t>(battery_response.begin(),
-                     battery_response.end()),
+            .mic_status    = mic_status,
+            .raw_data      = std::vector<uint8_t>(battery_response.begin(), battery_response.end()),
         };
         return result;
     }
