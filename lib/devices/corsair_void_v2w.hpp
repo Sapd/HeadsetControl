@@ -77,44 +77,46 @@ public:
         if (!battery_read_result) {
             return battery_read_result.error();
         }
+
         // Parse the Corsair battery packet
+
         // Packet format:
         // [4] low byte of 1-1000 battery value
         // [5] high byte of 1-1000 battery value
 
-        uint8_t low_byte  = battery_response[4];
-        uint8_t high_byte = battery_response[5];
+        // The receiver send packets with the paired headset ID instead of the
+        // battery level. Maybe related to multiple headset paired at the same time?
+        // We just re-request until we get a plausible reading...
 
         enum battery_status status = BATTERY_UNAVAILABLE;
 
-        // Extract battery level (0-100%)
-        // for some odd reason it doesn't always report the right value and
-        // instead reports this value which is the productID + 1??
-        if (high_byte == 0x2a) {
-            // try again
-            if (auto result = writeHID(device_handle, battery_request, MSG_SIZE_WRITE);
-                !result) {
+        uint16_t battery_level_vendor = static_cast<uint16_t>(battery_response[4] | (battery_response[5] << 8));
+
+        const uint16_t battery_level_vendor_max = 1000;
+        const int battery_level_max_attempts = 3;
+
+        for (int attempt = 0; attempt < battery_level_max_attempts &&
+             (battery_level_vendor == 0 || battery_level_vendor > battery_level_vendor_max); ++attempt) {
+            if (auto result = writeHID(device_handle, battery_request, MSG_SIZE_WRITE); !result) {
                 return result.error();
             }
             battery_read_result = readHIDTimeout(device_handle, battery_response, hsc_device_timeout);
             if (!battery_read_result) {
                 return battery_read_result.error();
             }
-            low_byte  = battery_response[4];
-            high_byte = battery_response[5];
-            if (high_byte == 0x2a) {
-
-                BatteryResult result {
-                    .level_percent = -1,
-                    .status        = status,
-                    .raw_data      = std::vector<uint8_t>(battery_response.begin(),
-                             battery_response.end()),
-                };
-            }
+            battery_level_vendor = static_cast<uint16_t>(battery_response[4] | (battery_response[5] << 8));
         }
-        status                        = BATTERY_AVAILABLE;
-        uint16_t battery_level_vendor = (high_byte << 8) | low_byte;
 
+        // Still out of range? report unavailable
+        if (battery_level_vendor == 0 || battery_level_vendor > battery_level_vendor_max) {
+            return BatteryResult {
+                .level_percent = -1,
+                .status        = BATTERY_UNAVAILABLE,
+                .raw_data      = std::vector<uint8_t>(battery_response.begin(), battery_response.end()),
+                };
+        }
+
+        status = BATTERY_AVAILABLE;
         int level = static_cast<int>(battery_level_vendor / 10);
 
         // if there's no sidetone, the mic could be muted
