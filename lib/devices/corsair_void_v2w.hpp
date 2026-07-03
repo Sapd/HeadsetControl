@@ -52,7 +52,8 @@ public:
 
     Result<BatteryResult> getBattery(hid_device* device_handle) override
     {
-        auto init_result = initializeDevice(device_handle);
+        // Battery can be queried without taking over audio control
+        auto init_result = wakeDevice(device_handle);
         if (init_result.valueOr(0) == 0) {
             return DeviceError::deviceOffline(
                 "Headset not connected to wireless receiver");
@@ -216,6 +217,43 @@ private:
     static constexpr uint8_t HEADSET_ENDPOINT  = 0x09;
     static constexpr uint8_t MSG_SIZE_READ     = 64;
     static constexpr uint8_t MSG_SIZE_WRITE    = 65;
+
+    Result<size_t> wakeDevice(hid_device* device_handle) const
+    {
+        // wakeDevice() performs the minimal handshake required to talk to the headset
+        // WITHOUT switching it into software mode. It avoid producing an audible 'pop'
+        // sound while the device switches modes, and still let us read battery level.
+
+        // Get firmware of receiver
+        std::array<uint8_t, MSG_SIZE_WRITE> firmware_data {
+            0x00, 0x02, RECEIVER_ENDPOINT, 0x02, 0x13
+        };
+        if (auto result = writeHID(device_handle, firmware_data, MSG_SIZE_WRITE); !result) {
+            return result.error();
+        }
+
+        // Heartbeat the receiver
+        std::array<uint8_t, MSG_SIZE_WRITE> heartbeat_data {
+            0x00, 0x02, RECEIVER_ENDPOINT, 0x02, 0x12
+        };
+        if (auto result = writeHID(device_handle, heartbeat_data, MSG_SIZE_WRITE); !result) {
+            return result.error();
+        }
+        if (auto result = flushHIDBuffer(device_handle); !result) {
+            return result.error();
+        }
+
+        // Then heartbeat the headset
+        heartbeat_data[2] = HEADSET_ENDPOINT;
+        if (auto result = writeHID(device_handle, heartbeat_data, MSG_SIZE_WRITE); !result) {
+            return result.error();
+        }
+
+        // Returns the headset heartbeat read result
+        std::array<uint8_t, MSG_SIZE_READ> heartbeat_response {};
+        auto read_headset_result = readHIDTimeout(device_handle, heartbeat_response, hsc_device_timeout);
+        return read_headset_result;
+    }
 
     Result<size_t> initializeDevice(hid_device* device_handle) const
     {
