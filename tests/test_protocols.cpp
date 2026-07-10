@@ -275,6 +275,22 @@ void testLogitechProX2CenturionBatteryParsing()
     std::cout << "    [OK] Logitech PRO X2 Centurion battery parsing verified" << std::endl;
 }
 
+void testLogitechProX2LegacyBatteryFallbackDecision()
+{
+    std::cout << "  Testing Logitech PRO X2 legacy battery fallback decision..." << std::endl;
+
+    ASSERT_TRUE(LogitechGProX2Lightspeed::shouldUseLegacyBatteryFallback(DeviceError::Code::NotSupported),
+        "A missing Centurion battery feature should use the legacy fallback");
+    ASSERT_TRUE(!LogitechGProX2Lightspeed::shouldUseLegacyBatteryFallback(DeviceError::Code::Timeout),
+        "A Centurion timeout should not trigger a second battery request");
+    ASSERT_TRUE(!LogitechGProX2Lightspeed::shouldUseLegacyBatteryFallback(DeviceError::Code::DeviceOffline),
+        "An offline device should not trigger a second battery request");
+    ASSERT_TRUE(!LogitechGProX2Lightspeed::shouldUseLegacyBatteryFallback(DeviceError::Code::HIDError),
+        "A HID error should not trigger a second battery request");
+
+    std::cout << "    [OK] Logitech PRO X2 legacy battery fallback decision verified" << std::endl;
+}
+
 void testCenturionFrameBuilding()
 {
     std::cout << "  Testing Logitech Centurion frame building..." << std::endl;
@@ -630,6 +646,7 @@ void runAllProtocolTests()
     runTest("HID++ Battery Response", testHIDPPBatteryResponseParsing);
     runTest("HID++ Offline Detection", testHIDPPOfflineDetection);
     runTest("Logitech PRO X2 Centurion Battery", testLogitechProX2CenturionBatteryParsing);
+    runTest("Logitech PRO X2 Legacy Battery Fallback", testLogitechProX2LegacyBatteryFallbackDecision);
     runTest("Logitech Centurion Frame Building", testCenturionFrameBuilding);
     runTest("Logitech Centurion Bridge Parsing", testCenturionBridgeResponseParsing);
     runTest("Logitech Centurion Bridge Size Limit", testCenturionBridgeMessageSizeLimit);
