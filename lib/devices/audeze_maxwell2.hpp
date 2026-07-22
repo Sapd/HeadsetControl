@@ -30,8 +30,9 @@ namespace headsetcontrol {
  */
 class AudezeMaxwell2 : public HIDDevice {
 public:
-    static constexpr std::array<uint16_t, 1> SUPPORTED_PRODUCT_IDS {
-        0x4b29 // Maxwell 2 (PlayStation/PC version)
+    static constexpr std::array<uint16_t, 2> SUPPORTED_PRODUCT_IDS {
+        0x4b29, // Maxwell 2 (PlayStation/PC version)
+        0x4b28  // Maxwell 2 (Xbox version)
     };
 
     static constexpr int MSG_SIZE  = 62;
