@@ -1,0 +1,54 @@
+name: Build in COPR
+
+# On a published release, build the source RPM (version taken from the tag)
+# in a Fedora container and submit it to COPR (thesapd/headsetcontrol), which
+# builds the binary RPMs for the configured Fedora/EPEL chroots.
+#
+# Requires a repository secret COPR_API_TOKEN: the full contents of your
+# COPR API config (from https://copr.fedorainfracloud.org/api/), i.e. the
+# `[copr-cli]` block with login/username/token/copr_url.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to build (e.g. 4.1.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  copr:
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+
+      - name: Write COPR config
+        env:
+          COPR_CONFIG: ${{ secrets.COPR_API_TOKEN }}
+        run: |
+          mkdir -p copr-cfg
+          printf '%s' "$COPR_CONFIG" > copr-cfg/copr
+
+      - name: Build SRPM and submit to COPR
+        run: |
+          docker run --rm -v "$PWD":/src -w /src -e TAG fedora:latest \
+            bash -euo pipefail -c '
+              dnf install -y -q rpm-build rpmdevtools copr-cli
+              rpmdev-setuptree
+              # Inject the release version (Source0 tracks %{version})
+              sed -i "s/^Version:.*/Version:        ${TAG}/" headsetcontrol.spec
+              cp headsetcontrol.spec ~/rpmbuild/SPECS/
+              spectool -g -R ~/rpmbuild/SPECS/headsetcontrol.spec
+              rpmbuild -bs ~/rpmbuild/SPECS/headsetcontrol.spec
+              mkdir -p ~/.config && cp /src/copr-cfg/copr ~/.config/copr
+              copr-cli build --nowait thesapd/headsetcontrol ~/rpmbuild/SRPMS/*.src.rpm
+            '
