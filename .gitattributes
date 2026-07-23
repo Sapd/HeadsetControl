@@ -18,3 +18,4 @@
 *.md text eol=lf
 *.txt text eol=lf
 CMakeLists.txt text eol=lf
+headsetcontrol.spec export-ignore
