@@ -1,0 +1,60 @@
+name: Bump Homebrew formula
+
+# When a versioned release is published, update the Homebrew tap formula
+# (Sapd/homebrew-headsetcontrol) to the new tarball URL + sha256.
+#
+# Requires a repository secret HOMEBREW_TAP_TOKEN: a Personal Access Token
+# with contents:write permission on the tap repository.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to bump the formula to (e.g. 4.1.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve tag, url and sha256
+        id: src
+        env:
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: |
+          url="https://github.com/${GITHUB_REPOSITORY}/archive/refs/tags/${TAG}.tar.gz"
+          sha="$(curl -fsSL "$url" | sha256sum | cut -d' ' -f1)"
+          echo "tag=$TAG"  >> "$GITHUB_OUTPUT"
+          echo "url=$url"  >> "$GITHUB_OUTPUT"
+          echo "sha=$sha"  >> "$GITHUB_OUTPUT"
+          echo "Bumping to $TAG ($sha)"
+
+      - name: Checkout tap
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: Sapd/homebrew-headsetcontrol
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+
+      - name: Update and push formula
+        env:
+          TAG: ${{ steps.src.outputs.tag }}
+          URL: ${{ steps.src.outputs.url }}
+          SHA: ${{ steps.src.outputs.sha }}
+        run: |
+          f="Formula/headsetcontrol.rb"
+          # Only the stable `url` line (leave `head` untouched)
+          sed -i -E "s|^(  url ).*|\1\"${URL}\"|" "$f"
+          sed -i -E "s|^(  sha256 ).*|\1\"${SHA}\"|" "$f"
+          grep -E "^  (url|sha256) " "$f"
+          if git diff --quiet; then
+            echo "Formula already up to date."; exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "headsetcontrol ${TAG}"
+          git push
