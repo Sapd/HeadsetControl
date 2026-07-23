@@ -31,7 +31,7 @@ namespace headsetcontrol {
  */
 class AudezeMaxwell : public HIDDevice {
 public:
-    static constexpr std::array<uint16_t, 3> SUPPORTED_PRODUCT_IDS {
+    static constexpr std::array<uint16_t, 2> SUPPORTED_PRODUCT_IDS {
         0x4b19, // Maxwell
         0x4b18, // Maxwell Xbox Dongle
     };
@@ -195,7 +195,8 @@ private:
         }
 
         // Parse microphone mute status (FF = unmuted)
-        status.mic_muted = status_buffs[1][12] != 0xFF;
+        status.mic_muted          = status_buffs[1][12] != 0xFF;
+        status.battery.mic_status = status.mic_muted ? MICROPHONE_UP : MICROPHONE_UNKNOWN;
 
         // Parse current eq setting
         // 1 = Audeze, 2 = Treble Boost, 3 = Bass Boost, 4 = Immersive, 5 = Competition,
@@ -264,8 +265,26 @@ public:
         std::array<uint8_t, MSG_SIZE> cmd { 0x06, 0x10, 0x80, 0x05, 0x5A, 0x0C, 0x00, 0x82, 0x2C, 0x01, 0x00 };
 
         if (minutes > 0) {
-            // Round to supported values
-            uint16_t final_minutes = map(minutes, 0, 90, 0, 360);
+            // Round up to the nearest value the headset supports
+            uint16_t final_minutes = 360;
+            if (minutes <= 5)
+                final_minutes = 5;
+            else if (minutes <= 10)
+                final_minutes = 10;
+            else if (minutes <= 15)
+                final_minutes = 15;
+            else if (minutes <= 30)
+                final_minutes = 30;
+            else if (minutes <= 45)
+                final_minutes = 45;
+            else if (minutes <= 60)
+                final_minutes = 60;
+            else if (minutes <= 90)
+                final_minutes = 90;
+            else if (minutes <= 120)
+                final_minutes = 120;
+            else if (minutes <= 240)
+                final_minutes = 240;
 
             uint16_t seconds = final_minutes * 60;
 
