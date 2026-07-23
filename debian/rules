@@ -1,11 +1,14 @@
 #!/usr/bin/make -f
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+include /usr/share/dpkg/pkg-info.mk
 
 %:
 	dh $@ --buildsystem=cmake
 
 override_dh_auto_configure:
-	dh_auto_configure -- -DCMAKE_BUILD_TYPE=Release
+	# Release tarballs have no git metadata; pass the version explicitly so the
+	# binary does not report 0.0.0-unknown (honoured from 4.0.1 onwards).
+	dh_auto_configure -- -DCMAKE_BUILD_TYPE=Release -DHEADSETCONTROL_VERSION=$(DEB_VERSION_UPSTREAM)
 
 override_dh_auto_install:
 	dh_auto_install
