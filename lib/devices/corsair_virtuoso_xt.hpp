@@ -67,28 +67,32 @@ public:
         auto start_time = std::chrono::steady_clock::now();
 
         // Send battery status request: 0x02 0x00
-        // Discovered via hidraw probing on /dev/hidraw11 (interface 3, 0xff42)
         std::array<uint8_t, 2> request { 0x02, 0x00 };
         if (auto result = writeHID(device_handle, request); !result) {
             return result.error();
         }
 
-        // Read 64-byte response
+        // Read the battery report (ID 0x01), skipping any unsolicited volume
+        // events (ID 0x0e) the device broadcasts and that may be queued ahead
+        // of the reply.
         std::array<uint8_t, 64> response {};
-        auto read_result = readHIDTimeout(device_handle, response, hsc_device_timeout);
+        int attempt = 0;
+        while (true) {
+            auto read_result = readHIDTimeout(device_handle, response, hsc_device_timeout);
+            if (!read_result) {
+                return read_result.error();
+            }
+            if (response[0] == 0x01) {
+                break;
+            }
+            if (++attempt >= MAX_READ_ATTEMPTS) {
+                return DeviceError::protocolError(
+                    std::format("Unexpected report ID: 0x{:02x}", response[0]));
+            }
+        }
 
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::steady_clock::now() - start_time);
-
-        if (!read_result) {
-            return read_result.error();
-        }
-
-        // Validate response: expect report ID 0x01
-        if (response[0] != 0x01) {
-            return DeviceError::protocolError(
-                std::format("Unexpected report ID: 0x{:02x}", response[0]));
-        }
 
         // Byte 1: status flags
         //   0xf0 = normal / discharging (confirmed via observation)
@@ -97,34 +101,33 @@ public:
         const uint8_t status_byte   = response[1];
         const uint8_t battery_level = response[2];
 
-        enum battery_status status;
-
         if (status_byte == 0x00) {
             return DeviceError::deviceOffline("Headset not connected to receiver");
-        } else {
-            status = BATTERY_AVAILABLE;
         }
 
-        BatteryResult result {
+        if (battery_level > 100) {
+            return DeviceError::protocolError(
+                std::format("Battery percentage out of range: {}", battery_level));
+        }
+
+        return BatteryResult {
             .level_percent  = static_cast<int>(battery_level),
-            .status         = status,
+            .status         = BATTERY_AVAILABLE,
             .mic_status     = MICROPHONE_UNKNOWN,
             .raw_data       = std::vector<uint8_t>(response.begin(), response.end()),
-            .query_duration = duration
+            .query_duration = duration,
         };
-
-        // Estimate time to empty (Virtuoso XT rated ~20hr battery life)
-        if (status == BATTERY_AVAILABLE && battery_level > 0) {
-            result.time_to_empty_min = (battery_level * 1200) / 100; // 20hr * 60min
-        }
-
-        return result;
     }
 
     Result<CapabilityInfo> getCapabilityInfo(enum capabilities cap) override
     {
         return HIDDevice::getCapabilityInfo(cap);
     }
+
+private:
+    // Reports to skip (e.g. unsolicited volume events) before giving up on the
+    // battery reply
+    static constexpr int MAX_READ_ATTEMPTS = 8;
 };
 
 } // namespace headsetcontrol
