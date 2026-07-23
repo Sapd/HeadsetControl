@@ -1,0 +1,78 @@
+name: Upload to PPA
+
+# On a semver tag, build the Debian source package and upload it to the
+# Launchpad PPA (ppa:sapd/headsetcontrol). Launchpad then builds the .deb.
+#
+# Reuses the release signing subkey stored in secrets:
+#   GPG_PRIVATE_KEY - armored export of the signing subkey
+#   GPG_PASSPHRASE  - its passphrase
+#
+# Only Ubuntu series with GCC 13+ are targeted (the project needs C++20);
+# noble (24.04 LTS) qualifies, jammy (GCC 11) does not.
+on:
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to build + upload (e.g. 4.1.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  ppa:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        series: [noble]
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+      DEBEMAIL: git@sapd.eu
+      DEBFULLNAME: Denis Arnst
+      SIGN_KEY: 893E9C96C0E1A0CE52CF88FD12C8E71EC92CF077
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - name: Install packaging tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq devscripts debhelper dput
+
+      - name: Import GPG signing subkey
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          mkdir -p ~/.gnupg && chmod 700 ~/.gnupg
+          printf 'allow-loopback-pinentry\nallow-preset-passphrase\n' > ~/.gnupg/gpg-agent.conf
+          printf 'pinentry-mode loopback\n' > ~/.gnupg/gpg.conf
+          gpgconf --kill gpg-agent || true
+          printf '%s\n' "$GPG_PRIVATE_KEY" | gpg --batch --import
+          # Preset the passphrase into the agent for the signing subkey's keygrip
+          grip="$(gpg --batch --with-colons --with-keygrip --list-secret-keys "$SIGN_KEY" \
+                  | awk -F: '$1=="ssb"{s=1} s && $1=="grp"{print $10; exit}')"
+          hex="$(printf '%s' "$GPG_PASSPHRASE" | od -An -tx1 | tr -d ' \n')"
+          gpg-connect-agent "PRESET_PASSPHRASE $grip -1 $hex" /bye
+
+      - name: Build and sign source package
+        run: |
+          version="${TAG}"
+          # Pristine upstream tarball (debian/ is export-ignore'd)
+          git archive --format=tar.gz --prefix="headsetcontrol-${version}/" \
+            -o "../headsetcontrol_${version}.orig.tar.gz" "${TAG}"
+          # Per-series versioned changelog entry (e.g. 4.1.0-1~noble1)
+          dch -b --newversion "${version}-1~${{ matrix.series }}1" \
+              --distribution "${{ matrix.series }}" \
+              "Automated PPA build of ${version} for ${{ matrix.series }}."
+          debuild -S -sa -k"${SIGN_KEY}"
+
+      - name: Upload to PPA
+        run: dput ppa:sapd/headsetcontrol ../headsetcontrol_*_source.changes
