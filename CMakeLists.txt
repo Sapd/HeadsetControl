@@ -80,26 +80,32 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Git version
 # ------------------------------------------------------------------------------
 
-execute_process(
-  COMMAND git describe --tags --dirty=-modified
-  OUTPUT_VARIABLE GIT_VERSION
-  OUTPUT_STRIP_TRAILING_WHITESPACE
-  ERROR_QUIET
-  RESULT_VARIABLE GIT_RESULT
-)
-
-# Fallback if git describe fails (no tags, shallow clone, etc.)
-if(NOT GIT_VERSION OR NOT GIT_RESULT EQUAL 0)
+# Packagers building from a release tarball have no git metadata, so allow the
+# version to be passed explicitly, e.g. -DHEADSETCONTROL_VERSION=4.0.0
+if(DEFINED HEADSETCONTROL_VERSION AND HEADSETCONTROL_VERSION)
+  set(GIT_VERSION "${HEADSETCONTROL_VERSION}")
+else()
   execute_process(
-    COMMAND git rev-parse --short HEAD
-    OUTPUT_VARIABLE GIT_HASH
+    COMMAND git describe --tags --dirty=-modified
+    OUTPUT_VARIABLE GIT_VERSION
     OUTPUT_STRIP_TRAILING_WHITESPACE
     ERROR_QUIET
+    RESULT_VARIABLE GIT_RESULT
   )
-  if(GIT_HASH)
-    set(GIT_VERSION "0.0.0-${GIT_HASH}")
-  else()
-    set(GIT_VERSION "0.0.0-unknown")
+
+  # Fallback if git describe fails (no tags, shallow clone, etc.)
+  if(NOT GIT_VERSION OR NOT GIT_RESULT EQUAL 0)
+    execute_process(
+      COMMAND git rev-parse --short HEAD
+      OUTPUT_VARIABLE GIT_HASH
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+      ERROR_QUIET
+    )
+    if(GIT_HASH)
+      set(GIT_VERSION "0.0.0-${GIT_HASH}")
+    else()
+      set(GIT_VERSION "0.0.0-unknown")
+    endif()
   endif()
 endif()
 
