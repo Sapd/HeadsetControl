@@ -1,0 +1,20 @@
+Source: headsetcontrol
+Section: utils
+Priority: optional
+Maintainer: Denis Arnst <git@sapd.eu>
+Build-Depends: debhelper-compat (= 13), cmake, libhidapi-dev, pkg-config
+Standards-Version: 4.6.2
+Homepage: https://github.com/Sapd/HeadsetControl
+Rules-Requires-Root: no
+
+Package: headsetcontrol
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: control features of USB gaming headsets
+ HeadsetControl is a cross-platform tool to control USB-connected gaming
+ headsets: sidetone, battery status, LEDs, inactive-time auto-shutoff,
+ chatmix, equalizer presets and more, for a wide range of Logitech,
+ SteelSeries, Corsair, HyperX, Roccat and Audeze devices.
+ .
+ On Linux it installs udev rules so the headsets are accessible without
+ root privileges.

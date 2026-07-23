@@ -1,0 +1,5 @@
+headsetcontrol (4.0.0-1) noble; urgency=medium
+
+  * Initial PPA packaging.
+
+ -- Denis Arnst <git@sapd.eu>  Thu, 23 Jul 2026 14:26:01 +0000
