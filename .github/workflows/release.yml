@@ -89,4 +89,7 @@ jobs:
           makeLatest: true
           prerelease: false
           allowUpdates: true
+          # Never overwrite an existing release body on re-run (protects
+          # manually curated notes); notes are still generated for new tags.
+          omitBodyDuringUpdate: true
           token: ${{ secrets.GITHUB_TOKEN }}
