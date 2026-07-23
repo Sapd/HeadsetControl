@@ -122,69 +122,32 @@ public:
     Result<BatteryResult> getBattery(hid_device* device_handle) override
     {
         auto centurion_start_time = std::chrono::steady_clock::now();
-        if (auto centurion_battery = sendCenturionFeatureRequest(
-                device_handle,
-                static_cast<uint16_t>(protocols::CenturionFeature::CenturionBatterySoc),
-                0x00);
-            centurion_battery) {
-            auto battery_result = parseCenturionBatteryResponse(*centurion_battery);
-            if (!battery_result) {
-                return battery_result.error();
+        auto centurion_battery = sendCenturionFeatureRequest(
+            device_handle,
+            static_cast<uint16_t>(protocols::CenturionFeature::CenturionBatterySoc),
+            0x00);
+        if (!centurion_battery) {
+            if (!shouldUseLegacyBatteryFallback(centurion_battery.error().code)) {
+                return centurion_battery.error();
             }
-
-            battery_result->raw_data       = *centurion_battery;
-            auto centurion_end_time        = std::chrono::steady_clock::now();
-            battery_result->query_duration = std::chrono::duration_cast<std::chrono::milliseconds>(
-                centurion_end_time - centurion_start_time);
-            return *battery_result;
+            return getLegacyBattery(device_handle, centurion_start_time);
         }
 
-        auto start_time = std::chrono::steady_clock::now();
-
-        std::array<uint8_t, PACKET_SIZE> request = buildBatteryRequest();
-        if (auto write_result = writeHID(device_handle, request, PACKET_SIZE); !write_result) {
-            return write_result.error();
+        auto battery_result = parseCenturionBatteryResponse(*centurion_battery);
+        if (!battery_result) {
+            return battery_result.error();
         }
 
-        std::vector<uint8_t> raw_packets;
-        raw_packets.reserve(PACKET_SIZE * 4);
+        battery_result->raw_data       = *centurion_battery;
+        auto centurion_end_time        = std::chrono::steady_clock::now();
+        battery_result->query_duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+            centurion_end_time - centurion_start_time);
+        return *battery_result;
+    }
 
-        for (int attempt = 0; attempt < 4; ++attempt) {
-            std::array<uint8_t, PACKET_SIZE> response {};
-            if (auto read_result = readHIDTimeout(device_handle, response, hsc_device_timeout); !read_result) {
-                return read_result.error();
-            }
-
-            raw_packets.insert(raw_packets.end(), response.begin(), response.end());
-
-            if (isPowerOffPacket(response)) {
-                return DeviceError::deviceOffline("Headset is powered off or not connected");
-            }
-
-            if (isPowerEventPacket(response)) {
-                continue;
-            }
-
-            if (isAckPacket(response)) {
-                continue;
-            }
-
-            if (!isBatteryResponsePacket(response)) {
-                continue;
-            }
-
-            auto battery_result = parseBatteryResponse(response);
-            if (!battery_result) {
-                return battery_result.error();
-            }
-
-            battery_result->raw_data       = std::move(raw_packets);
-            auto end_time                  = std::chrono::steady_clock::now();
-            battery_result->query_duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-            return *battery_result;
-        }
-
-        return DeviceError::protocolError("Battery response packet not received");
+    static constexpr bool shouldUseLegacyBatteryFallback(DeviceError::Code code)
+    {
+        return code == DeviceError::Code::NotSupported;
     }
 
     Result<SidetoneResult> setSidetone(hid_device* device_handle, uint8_t level) override
@@ -350,47 +313,6 @@ public:
         };
     }
 
-    static constexpr bool isAckPacket(std::span<const uint8_t> packet)
-    {
-        return packet.size() >= 2 && packet[0] == REPORT_PREFIX && packet[1] == 0x03;
-    }
-
-    static constexpr bool isPowerOffPacket(std::span<const uint8_t> packet)
-    {
-        return packet.size() >= 7 && packet[0] == REPORT_PREFIX && packet[1] == 0x05 && packet[6] == 0x00;
-    }
-
-    static constexpr bool isPowerEventPacket(std::span<const uint8_t> packet)
-    {
-        return packet.size() >= 2 && packet[0] == REPORT_PREFIX && packet[1] == 0x05;
-    }
-
-    static constexpr bool isBatteryResponsePacket(std::span<const uint8_t> packet)
-    {
-        return packet.size() >= 13 && packet[0] == REPORT_PREFIX && packet[1] == 0x0b && packet[8] == 0x04;
-    }
-
-    static Result<BatteryResult> parseBatteryResponse(std::span<const uint8_t> packet)
-    {
-        if (!isBatteryResponsePacket(packet)) {
-            return DeviceError::protocolError("Unexpected battery response packet");
-        }
-
-        auto level = static_cast<int>(packet[10]);
-        if (level > 100) {
-            return DeviceError::protocolError("Battery percentage out of range");
-        }
-
-        auto status = packet[12] == 0x02 ? BATTERY_CHARGING : BATTERY_AVAILABLE;
-
-        BatteryResult result {
-            .level_percent = level,
-            .status        = status,
-        };
-
-        return result;
-    }
-
     static Result<BatteryResult> parseCenturionBatteryResponse(std::span<const uint8_t> packet)
     {
         if (packet.empty()) {
@@ -428,7 +350,88 @@ private:
     static constexpr std::array<float, 5> PRESET_SHOOTER { -1.0f, -1.0f, 4.0f, 3.0f, 2.0f };
     static constexpr std::array<float, 5> PRESET_MOBA { 0.0f, 1.0f, 1.0f, 2.0f, 4.0f };
 
-    static constexpr std::array<uint8_t, PACKET_SIZE> buildBatteryRequest()
+    Result<BatteryResult> getLegacyBattery(
+        hid_device* device_handle,
+        std::chrono::steady_clock::time_point start_time)
+    {
+        auto request = buildLegacyBatteryRequest();
+        if (auto write_result = writeHID(device_handle, request, PACKET_SIZE); !write_result) {
+            return write_result.error();
+        }
+
+        std::vector<uint8_t> raw_packets;
+        raw_packets.reserve(PACKET_SIZE * 4);
+
+        for (int attempt = 0; attempt < 4; ++attempt) {
+            std::array<uint8_t, PACKET_SIZE> response {};
+            if (auto read_result = readHIDTimeout(device_handle, response, hsc_device_timeout); !read_result) {
+                return read_result.error();
+            }
+
+            raw_packets.insert(raw_packets.end(), response.begin(), response.end());
+
+            if (isLegacyPowerOffPacket(response)) {
+                return DeviceError::deviceOffline("Headset is powered off or not connected");
+            }
+            if (isLegacyPowerEventPacket(response) || isLegacyAckPacket(response)) {
+                continue;
+            }
+            if (!isLegacyBatteryResponsePacket(response)) {
+                continue;
+            }
+
+            auto battery_result = parseLegacyBatteryResponse(response);
+            if (!battery_result) {
+                return battery_result.error();
+            }
+
+            battery_result->raw_data       = std::move(raw_packets);
+            auto end_time                  = std::chrono::steady_clock::now();
+            battery_result->query_duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+            return *battery_result;
+        }
+
+        return DeviceError::protocolError("Battery response packet not received");
+    }
+
+    static constexpr bool isLegacyAckPacket(std::span<const uint8_t> packet)
+    {
+        return packet.size() >= 2 && packet[0] == REPORT_PREFIX && packet[1] == 0x03;
+    }
+
+    static constexpr bool isLegacyPowerOffPacket(std::span<const uint8_t> packet)
+    {
+        return packet.size() >= 7 && packet[0] == REPORT_PREFIX && packet[1] == 0x05 && packet[6] == 0x00;
+    }
+
+    static constexpr bool isLegacyPowerEventPacket(std::span<const uint8_t> packet)
+    {
+        return packet.size() >= 2 && packet[0] == REPORT_PREFIX && packet[1] == 0x05;
+    }
+
+    static constexpr bool isLegacyBatteryResponsePacket(std::span<const uint8_t> packet)
+    {
+        return packet.size() >= 13 && packet[0] == REPORT_PREFIX && packet[1] == 0x0b && packet[8] == 0x04;
+    }
+
+    static Result<BatteryResult> parseLegacyBatteryResponse(std::span<const uint8_t> packet)
+    {
+        if (!isLegacyBatteryResponsePacket(packet)) {
+            return DeviceError::protocolError("Unexpected battery response packet");
+        }
+
+        auto level = static_cast<int>(packet[10]);
+        if (level > 100) {
+            return DeviceError::protocolError("Battery percentage out of range");
+        }
+
+        return BatteryResult {
+            .level_percent = level,
+            .status        = packet[12] == 0x02 ? BATTERY_CHARGING : BATTERY_AVAILABLE,
+        };
+    }
+
+    static constexpr std::array<uint8_t, PACKET_SIZE> buildLegacyBatteryRequest()
     {
         std::array<uint8_t, PACKET_SIZE> request {};
         request[0] = REPORT_PREFIX;

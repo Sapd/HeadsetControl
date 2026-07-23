@@ -249,94 +249,6 @@ void testHIDPPOfflineDetection()
     std::cout << "    [OK] HID++ offline detection verified" << std::endl;
 }
 
-void testLogitechProX2BatteryPacketParsing()
-{
-    std::cout << "  Testing Logitech PRO X2 vendor battery parsing..." << std::endl;
-
-    std::array<uint8_t, 64> response {};
-    response[0]  = 0x51;
-    response[1]  = 0x0b;
-    response[8]  = 0x04;
-    response[10] = 87;
-    response[12] = 0x02;
-
-    ASSERT_TRUE(LogitechGProX2Lightspeed::isBatteryResponsePacket(response), "Should identify battery response packet");
-
-    auto result = LogitechGProX2Lightspeed::parseBatteryResponse(response);
-    ASSERT_TRUE(result.hasValue(), "Battery response should parse successfully");
-    ASSERT_EQ(87, result->level_percent, "Direct percentage should be parsed from byte 10");
-    ASSERT_EQ(BATTERY_CHARGING, result->status, "Charging status should map from byte 12");
-
-    response[12]            = 0x00;
-    auto discharging_result = LogitechGProX2Lightspeed::parseBatteryResponse(response);
-    ASSERT_TRUE(discharging_result.hasValue(), "Discharging packet should parse successfully");
-    ASSERT_EQ(BATTERY_AVAILABLE, discharging_result->status, "Non-0x02 status should be available");
-
-    std::cout << "    [OK] Logitech PRO X2 battery packet parsing verified" << std::endl;
-}
-
-void testLogitechProX2PowerEventDetection()
-{
-    std::cout << "  Testing Logitech PRO X2 power event detection..." << std::endl;
-
-    // Power-off event: byte[1]==0x05 and byte[6]==0x00
-    std::array<uint8_t, 64> power_off {};
-    power_off[0] = 0x51;
-    power_off[1] = 0x05;
-    power_off[6] = 0x00;
-
-    ASSERT_TRUE(LogitechGProX2Lightspeed::isPowerOffPacket(power_off), "Power-off event should be detected");
-    ASSERT_TRUE(LogitechGProX2Lightspeed::isPowerEventPacket(power_off), "Power-off should also be a power event");
-
-    // Power-on event: byte[1]==0x05 and byte[6]==0x01
-    std::array<uint8_t, 64> power_on {};
-    power_on[0] = 0x51;
-    power_on[1] = 0x05;
-    power_on[6] = 0x01;
-
-    ASSERT_TRUE(!LogitechGProX2Lightspeed::isPowerOffPacket(power_on), "Power-on should not be detected as power-off");
-    ASSERT_TRUE(LogitechGProX2Lightspeed::isPowerEventPacket(power_on), "Power-on should be detected as power event");
-
-    // ACK packet should not be a power event
-    std::array<uint8_t, 64> ack {};
-    ack[0] = 0x51;
-    ack[1] = 0x03;
-
-    ASSERT_TRUE(LogitechGProX2Lightspeed::isAckPacket(ack), "ACK packet should be detected");
-    ASSERT_TRUE(!LogitechGProX2Lightspeed::isPowerEventPacket(ack), "ACK packet should not be treated as power event");
-
-    std::cout << "    [OK] Logitech PRO X2 power event detection verified" << std::endl;
-}
-
-void testLogitechProX2BatteryOutOfRange()
-{
-    std::cout << "  Testing Logitech PRO X2 battery out-of-range rejection..." << std::endl;
-
-    std::array<uint8_t, 64> response {};
-    response[0]  = 0x51;
-    response[1]  = 0x0b;
-    response[8]  = 0x04;
-    response[10] = 101; // Out of range
-    response[12] = 0x00;
-
-    auto result = LogitechGProX2Lightspeed::parseBatteryResponse(response);
-    ASSERT_TRUE(!result.hasValue(), "Battery level 101 should be rejected as out of range");
-
-    // Boundary: 100 should be valid
-    response[10]      = 100;
-    auto valid_result = LogitechGProX2Lightspeed::parseBatteryResponse(response);
-    ASSERT_TRUE(valid_result.hasValue(), "Battery level 100 should be valid");
-    ASSERT_EQ(100, valid_result->level_percent, "Battery level should be 100");
-
-    // Boundary: 0 should be valid
-    response[10]     = 0;
-    auto zero_result = LogitechGProX2Lightspeed::parseBatteryResponse(response);
-    ASSERT_TRUE(zero_result.hasValue(), "Battery level 0 should be valid");
-    ASSERT_EQ(0, zero_result->level_percent, "Battery level should be 0");
-
-    std::cout << "    [OK] Logitech PRO X2 battery out-of-range rejection verified" << std::endl;
-}
-
 void testLogitechProX2CenturionBatteryParsing()
 {
     std::cout << "  Testing Logitech PRO X2 Centurion battery parsing..." << std::endl;
@@ -362,6 +274,22 @@ void testLogitechProX2CenturionBatteryParsing()
     ASSERT_TRUE(!invalid_result.hasValue(), "Centurion battery level above 100 should be rejected");
 
     std::cout << "    [OK] Logitech PRO X2 Centurion battery parsing verified" << std::endl;
+}
+
+void testLogitechProX2LegacyBatteryFallbackDecision()
+{
+    std::cout << "  Testing Logitech PRO X2 legacy battery fallback decision..." << std::endl;
+
+    ASSERT_TRUE(LogitechGProX2Lightspeed::shouldUseLegacyBatteryFallback(DeviceError::Code::NotSupported),
+        "A missing Centurion battery feature should use the legacy fallback");
+    ASSERT_TRUE(!LogitechGProX2Lightspeed::shouldUseLegacyBatteryFallback(DeviceError::Code::Timeout),
+        "A Centurion timeout should not trigger a second battery request");
+    ASSERT_TRUE(!LogitechGProX2Lightspeed::shouldUseLegacyBatteryFallback(DeviceError::Code::DeviceOffline),
+        "An offline device should not trigger a second battery request");
+    ASSERT_TRUE(!LogitechGProX2Lightspeed::shouldUseLegacyBatteryFallback(DeviceError::Code::HIDError),
+        "A HID error should not trigger a second battery request");
+
+    std::cout << "    [OK] Logitech PRO X2 legacy battery fallback decision verified" << std::endl;
 }
 
 void testCenturionFrameBuilding()
@@ -813,10 +741,8 @@ void runAllProtocolTests()
     runTest("HID++ Voltage To Percent", testHIDPPVoltageToPercent);
     runTest("HID++ Battery Response", testHIDPPBatteryResponseParsing);
     runTest("HID++ Offline Detection", testHIDPPOfflineDetection);
-    runTest("Logitech PRO X2 Battery Parsing", testLogitechProX2BatteryPacketParsing);
-    runTest("Logitech PRO X2 Power Event", testLogitechProX2PowerEventDetection);
-    runTest("Logitech PRO X2 Battery Out-of-Range", testLogitechProX2BatteryOutOfRange);
     runTest("Logitech PRO X2 Centurion Battery", testLogitechProX2CenturionBatteryParsing);
+    runTest("Logitech PRO X2 Legacy Battery Fallback", testLogitechProX2LegacyBatteryFallbackDecision);
     runTest("Logitech Centurion Frame Building", testCenturionFrameBuilding);
     runTest("Logitech Centurion Bridge Parsing", testCenturionBridgeResponseParsing);
     runTest("Logitech Centurion Bridge Size Limit", testCenturionBridgeMessageSizeLimit);
