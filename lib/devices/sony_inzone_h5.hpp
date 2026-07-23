@@ -226,8 +226,11 @@ private:
         uint8_t event_id, uint8_t event_type, std::span<const uint8_t> payload)
     {
         uint16_t tid = ++transaction_counter_;
-        if (tid == 0) {
-            tid = ++transaction_counter_; // never use 0; the dongle's own NTFY_ACTIVE uses TID=1
+        if (tid <= 1) {
+            // Skip TID 0 (overflow) and TID 1: the dongle's own unsolicited
+            // NTFY_ACTIVE pushes carry TID=1, so reusing it would let a push be
+            // matched as our reply.
+            tid = transaction_counter_ = 2;
         }
 
         std::array<uint8_t, REPORT_SIZE> buf {};
@@ -365,18 +368,16 @@ private:
             return std::nullopt;
         }
 
-        ParsedEvent ev {};
-        ev.event_id = buf[9];
-        ev.event_type = buf[10];
-        ev.address = address;
-        ev.transaction_id = static_cast<uint16_t>(buf[11])
-            | static_cast<uint16_t>(buf[12]) << 8;
-
         // Payload runs from buf[13] up to buf[hid_length] inclusive.
-        if (hid_length > 12) {
-            ev.payload.assign(buf.begin() + 13, buf.begin() + hid_length + 1);
-        }
-        return ev;
+        return ParsedEvent {
+            .event_id = buf[9],
+            .event_type = buf[10],
+            .address = address,
+            .transaction_id = static_cast<uint16_t>(buf[11] | (buf[12] << 8)),
+            .payload = (hid_length > 12)
+                ? std::vector<uint8_t>(buf.begin() + 13, buf.begin() + hid_length + 1)
+                : std::vector<uint8_t> {},
+        };
     }
 
     uint16_t transaction_counter_ = 0;
