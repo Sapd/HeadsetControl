@@ -3,8 +3,8 @@ name: Bump Homebrew formula
 # When a versioned release is published, update the Homebrew tap formula
 # (Sapd/homebrew-headsetcontrol) to the new tarball URL + sha256.
 #
-# Requires a repository secret HOMEBREW_TAP_TOKEN: a Personal Access Token
-# with contents:write permission on the tap repository.
+# Pushes to the tap over SSH using a dedicated write deploy key stored in the
+# repository secret HOMEBREW_TAP_DEPLOY_KEY (scoped to the tap repo only).
 on:
   release:
     types: [published]
@@ -38,7 +38,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: Sapd/homebrew-headsetcontrol
-          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          ssh-key: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
 
       - name: Update and push formula
         env:
