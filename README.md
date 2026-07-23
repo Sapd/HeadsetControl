@@ -14,6 +14,142 @@ A cross-platform tool to control USB gaming headsets on **Linux**, **macOS**, an
 - **Voice Prompts** - Enable/disable audio cues
 - **Bluetooth** - Power-on behavior, call volume
 
+Check the [Supported Devices](#supported-devices) table below to confirm your headset is covered.
+
+## Installation
+
+The quickest way to install is through your platform's package manager. Prefer a ready-made binary? Grab one from the [Releases](https://github.com/Sapd/HeadsetControl/releases) page — every release ships GPG-signed source, Linux (AppImage / `.deb` / `.rpm` / portable), macOS, and Windows (installer + portable) builds. The rolling [`continuous`](https://github.com/Sapd/HeadsetControl/releases/tag/continuous) pre-release tracks the latest `master`.
+
+### Linux
+
+**Ubuntu / Debian** — [PPA](https://launchpad.net/~sapd/+archive/ubuntu/headsetcontrol)
+```bash
+sudo add-apt-repository ppa:sapd/headsetcontrol
+sudo apt update && sudo apt install headsetcontrol
+```
+
+**Fedora** — [COPR](https://copr.fedorainfracloud.org/coprs/thesapd/headsetcontrol/)
+```bash
+sudo dnf copr enable thesapd/headsetcontrol
+sudo dnf install headsetcontrol
+```
+
+**RHEL / CentOS Stream / Rocky / AlmaLinux 10** — [COPR](https://copr.fedorainfracloud.org/coprs/thesapd/headsetcontrol/)
+
+`hidapi` ships in EPEL on the RHEL family, so enable that first:
+```bash
+sudo dnf install epel-release
+sudo dnf copr enable thesapd/headsetcontrol
+sudo dnf install headsetcontrol
+```
+
+**Arch Linux** — available in the [AUR](https://aur.archlinux.org/packages?K=headsetcontrol)
+```bash
+yay -S headsetcontrol   # or the -git variant for the latest master
+```
+
+**NixOS**
+```nix
+# configuration.nix
+environment.systemPackages = [ pkgs.headsetcontrol ];
+services.udev.packages = [ pkgs.headsetcontrol ];  # for udev rules
+```
+Or run without installing: `nix run nixpkgs#headsetcontrol`
+
+**Gentoo** — [nitratesky](https://github.com/VTimofeenko/nitratesky) overlay
+```bash
+eselect repository enable nitratesky
+emerge -a app-misc/headsetcontrol
+```
+
+**FreeBSD**
+```bash
+pkg install headsetcontrol
+```
+
+### macOS
+
+**Homebrew**
+```bash
+brew install sapd/headsetcontrol/headsetcontrol
+```
+Append `--HEAD` for the latest development version. A portable binary is also available on the [Releases](https://github.com/Sapd/HeadsetControl/releases) page.
+
+### Windows
+
+Download the installer or the portable `.exe` from the [Releases](https://github.com/Sapd/HeadsetControl/releases) page.
+
+### Build from source
+
+<details>
+<summary>Click to expand build instructions</summary>
+
+#### Requirements
+
+- **C++20 compiler** (GCC 13+, Clang 16+, Apple Clang 15+, MSVC 2019 16.10+)
+- **CMake** 3.12+
+- **HIDAPI** library
+
+#### Install dependencies
+
+**Debian / Ubuntu**
+```bash
+apt-get install build-essential git cmake libhidapi-dev
+```
+
+**Fedora**
+```bash
+dnf install cmake hidapi-devel g++
+```
+
+**Arch Linux**
+```bash
+pacman -S git cmake hidapi
+```
+
+**RHEL / CentOS / Rocky / AlmaLinux**
+```bash
+dnf install epel-release
+dnf groupinstall "Development Tools"
+dnf install git cmake hidapi-devel
+```
+
+**openSUSE**
+```bash
+zypper in -t pattern devel_basis
+zypper in cmake libhidapi-devel
+```
+
+**FreeBSD**
+```bash
+pkg install hidapi cmake
+```
+
+**macOS**
+```bash
+brew install hidapi cmake
+```
+Xcode (from the App Store) is required for the compilers.
+
+**Windows** — for compilation using MSYS2/MinGW, see the [Development Guide](docs/DEVELOPMENT.md#windows-specific-notes).
+
+#### Build and install
+
+```bash
+git clone https://github.com/Sapd/HeadsetControl && cd HeadsetControl
+mkdir build && cd build
+cmake ..
+make
+sudo make install
+```
+
+On **Linux**, `make install` also installs udev rules for non-root access. Reload them with:
+```bash
+sudo udevadm control --reload-rules && sudo udevadm trigger
+```
+
+</details>
+
 ## Supported Devices
 
 | Device | Platform | sidetone | battery | notification sound | lights | inactive time | chatmix | voice prompts | rotate to mute | equalizer preset | equalizer | parametric equalizer | microphone mute led brightness | microphone volume | volume limiter | bluetooth when powered on | bluetooth call volume | microphone noise filter |
@@ -60,117 +196,6 @@ A cross-platform tool to control USB gaming headsets on **Linux**, **macOS**, an
 **Platform:** All = Linux, macOS, Windows | L/M = Linux and macOS only | L/W = Linux and Windows only
 
 > **Note:** Some Corsair headsets may need additional configuration - see [Adding a Corsair device](docs/ADDING_A_CORSAIR_DEVICE.md). Some headsets (HS80, HS70 wired, RGB Elite, Virtuoso) expose sidetone via ALSA mixer instead.
-
-## Installation
-
-### Package Managers
-
-#### macOS (Homebrew)
-```bash
-brew install sapd/headsetcontrol/headsetcontrol --HEAD
-```
-
-#### NixOS
-```nix
-# configuration.nix
-environment.systemPackages = [ pkgs.headsetcontrol ];
-services.udev.packages = [ pkgs.headsetcontrol ];  # For udev rules
-```
-
-Or run without installing: `nix run nixpkgs#headsetcontrol`
-
-#### Gentoo ([nitratesky](https://github.com/VTimofeenko/nitratesky) overlay)
-```bash
-eselect repository enable nitratesky
-emerge -a app-misc/headsetcontrol
-```
-
-### Building from Source
-
-#### Requirements
-
-- **C++20 compiler** (GCC 10+, Clang 10+, MSVC 2019+)
-- **CMake** 3.12+
-- **HIDAPI** library
-
-#### Install Dependencies
-
-<details>
-<summary><b>Linux</b></summary>
-
-**Debian / Ubuntu**
-```bash
-apt-get install build-essential git cmake libhidapi-dev
-```
-
-**Fedora**
-```bash
-dnf install cmake hidapi-devel g++
-```
-
-**Arch Linux**
-```bash
-pacman -S git cmake hidapi
-```
-
-**CentOS / RHEL**
-```bash
-yum install epel-release
-yum groupinstall "Development tools"
-yum install git cmake hidapi-devel
-```
-
-**openSUSE**
-```bash
-zypper in -t pattern devel_basis
-zypper in cmake libhidapi-devel
-```
-
-**FreeBSD**
-```bash
-pkg install hidapi cmake
-```
-
-</details>
-
-<details>
-<summary><b>macOS</b></summary>
-
-```bash
-brew install hidapi cmake
-```
-Note: Xcode (from App Store) is required for compilers.
-
-</details>
-
-<details>
-<summary><b>Windows</b></summary>
-
-Pre-built binaries are available on the [releases](https://github.com/Sapd/HeadsetControl/releases) page.
-
-For compilation using MSYS2/MinGW, see the [Development Guide](docs/DEVELOPMENT.md#windows-specific-notes).
-
-</details>
-
-#### Build
-
-```bash
-git clone https://github.com/Sapd/HeadsetControl && cd HeadsetControl
-mkdir build && cd build
-cmake ..
-make
-```
-
-#### Install
-
-```bash
-sudo make install
-```
-
-On **Linux**, this also installs udev rules for non-root access. Reload them with:
-```bash
-sudo udevadm control --reload-rules && sudo udevadm trigger
-```
 
 ## Usage
 
