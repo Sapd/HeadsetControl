@@ -4,6 +4,8 @@
 #include "hid_device.hpp"
 #include <array>
 #include <chrono>
+#include <mutex>
+#include <optional>
 #include <string_view>
 #include <thread>
 
@@ -220,11 +222,48 @@ private:
         return status;
     }
 
+    /**
+     * @brief Reuse one status read for every info capability.
+     *
+     * getDeviceStatus() costs 21 packets at 60 ms and already returns everything,
+     * but each getter called it again. Keyed on the handle since one instance
+     * serves every attached Maxwell 2, and locked since that instance is shared.
+     */
+    static constexpr auto STATUS_REUSE_WINDOW = std::chrono::milliseconds(500);
+
+    Result<MaxwellStatus> statusFor(hid_device* device_handle)
+    {
+        const std::lock_guard<std::mutex> guard(status_mutex_);
+
+        if (last_status_ && last_handle_ == device_handle
+            && std::chrono::steady_clock::now() - read_at_ < STATUS_REUSE_WINDOW) {
+            return *last_status_;
+        }
+
+        auto status = getDeviceStatus(device_handle);
+        if (!status) {
+            return status.error();
+        }
+
+        last_handle_ = device_handle;
+        last_status_ = *status;
+        // After the read, not before: it takes ~1.4 s, so a timestamp taken going
+        // in would already have expired.
+        read_at_ = std::chrono::steady_clock::now();
+
+        return *status;
+    }
+
+    std::mutex status_mutex_;
+    hid_device* last_handle_ = nullptr;
+    std::optional<MaxwellStatus> last_status_;
+    std::chrono::steady_clock::time_point read_at_ {};
+
 public:
     // Rich Results V2 API
     Result<BatteryResult> getBattery(hid_device* device_handle) override
     {
-        auto status_result = getDeviceStatus(device_handle);
+        auto status_result = statusFor(device_handle);
         if (!status_result) {
             return status_result.error();
         }
@@ -332,7 +371,7 @@ public:
 
     Result<ChatmixResult> getChatmix(hid_device* device_handle) override
     {
-        auto status_result = getDeviceStatus(device_handle);
+        auto status_result = statusFor(device_handle);
         if (!status_result) {
             return status_result.error();
         }
