@@ -1031,10 +1031,26 @@ std::vector<DeviceList> toLegacyDeviceList(std::vector<DiscoveredDevice>& device
     return legacy;
 }
 
+// Whether this invocation was asked to set something.
+bool hasRequestedAction(const std::vector<DiscoveredDevice>& devices)
+{
+    for (const auto& dev : devices) {
+        for (const auto& req : dev.feature_requests) {
+            if (req.type == CAPABILITYTYPE_ACTION && req.should_process) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 // Enable info requests for extended output formats (JSON, YAML, ENV)
+// Only for a pure query: the extra reads can cost far more than the action
+// itself (Maxwell 2: -s 20 is 0.07 s, -s 20 -o json is 2.90 s).
 void enableExtendedInfoRequests(std::vector<DiscoveredDevice>& devices, bool extended)
 {
-    if (!extended)
+    if (!extended || hasRequestedAction(devices))
         return;
 
     for (auto& dev : devices) {
