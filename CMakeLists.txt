@@ -85,22 +85,32 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 if(DEFINED HEADSETCONTROL_VERSION AND HEADSETCONTROL_VERSION)
   set(GIT_VERSION "${HEADSETCONTROL_VERSION}")
 else()
+  # Only derive a version from Git when this source tree is itself the root of a
+  # work tree. --show-prefix is empty exactly in that case, and reports e.g.
+  # "vendor/HeadsetControl/" when the tree is vendored inside a parent
+  # repository, so the parent project's version is never picked up.
+  #
+  # Do not compare --show-toplevel against PROJECT_SOURCE_DIR instead: MSYS2 git
+  # reports POSIX paths ("/c/Users/...") while CMake uses Windows ones
+  # ("C:/Users/..."), REALPATH does not reconcile the two, and the comparison
+  # therefore never matches in the MinGW build. Testing the prefix is a plain
+  # string test that needs no path normalisation.
   execute_process(
-    COMMAND git rev-parse --show-toplevel
+    COMMAND git rev-parse --show-prefix
     WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
-    OUTPUT_VARIABLE GIT_TOP_LEVEL
+    OUTPUT_VARIABLE GIT_PREFIX
     OUTPUT_STRIP_TRAILING_WHITESPACE
     ERROR_QUIET
-    RESULT_VARIABLE GIT_RESULT
+    RESULT_VARIABLE GIT_PREFIX_RESULT
   )
-  get_filename_component(HEADSETCONTROL_SOURCE_DIR_REAL
-    "${PROJECT_SOURCE_DIR}" REALPATH)
-  get_filename_component(GIT_TOP_LEVEL_REAL "${GIT_TOP_LEVEL}" REALPATH)
 
-  # Do not derive the version from a parent repository when this source tree is
-  # vendored without its own Git metadata.
-  if(NOT GIT_RESULT EQUAL 0
-      OR NOT GIT_TOP_LEVEL_REAL STREQUAL HEADSETCONTROL_SOURCE_DIR_REAL)
+  if(NOT GIT_PREFIX_RESULT EQUAL 0)
+    message(STATUS "Could not run git in ${PROJECT_SOURCE_DIR}; "
+      "pass -DHEADSETCONTROL_VERSION to set the version explicitly")
+    set(GIT_VERSION "0.0.0-unknown")
+  elseif(NOT GIT_PREFIX STREQUAL "")
+    message(STATUS "HeadsetControl is vendored inside another git repository; "
+      "pass -DHEADSETCONTROL_VERSION to set the version explicitly")
     set(GIT_VERSION "0.0.0-unknown")
   else()
     execute_process(
@@ -109,11 +119,11 @@ else()
       OUTPUT_VARIABLE GIT_VERSION
       OUTPUT_STRIP_TRAILING_WHITESPACE
       ERROR_QUIET
-      RESULT_VARIABLE GIT_RESULT
+      RESULT_VARIABLE GIT_DESCRIBE_RESULT
     )
 
     # Fallback if git describe fails (no tags, shallow clone, etc.)
-    if(NOT GIT_VERSION OR NOT GIT_RESULT EQUAL 0)
+    if(NOT GIT_VERSION OR NOT GIT_DESCRIBE_RESULT EQUAL 0)
       execute_process(
         COMMAND git rev-parse --short HEAD
         WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"

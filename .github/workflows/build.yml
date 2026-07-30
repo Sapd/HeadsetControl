@@ -44,7 +44,10 @@ jobs:
         with:
           msystem: MINGW64
           update: true
-          install: base-devel mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja mingw-w64-x86_64-hidapi
+          # git is needed for the version detection in CMakeLists.txt; it is not
+          # part of base-devel and the MSYS2 shell does not inherit Git for
+          # Windows from the runner PATH.
+          install: base-devel git mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja mingw-w64-x86_64-hidapi
 
       # Linux/macOS: Setup CMake and Ninja
       - name: Setup CMake and Ninja
@@ -79,6 +82,10 @@ jobs:
       - name: Build and test (Windows)
         if: runner.os == 'Windows'
         run: |
+          # Precaution: actions/checkout records safe.directory in the runner
+          # user's global gitconfig, which the MSYS2 shell may not read because
+          # it uses a different HOME.
+          git config --global --add safe.directory "$(pwd)"
           mkdir build
           cd build
           cmake -G Ninja -DCMAKE_BUILD_TYPE=Release ..
