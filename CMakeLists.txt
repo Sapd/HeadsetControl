@@ -86,27 +86,46 @@ if(DEFINED HEADSETCONTROL_VERSION AND HEADSETCONTROL_VERSION)
   set(GIT_VERSION "${HEADSETCONTROL_VERSION}")
 else()
   execute_process(
-    COMMAND git describe --tags --dirty=-modified
+    COMMAND git rev-parse --show-toplevel
     WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
-    OUTPUT_VARIABLE GIT_VERSION
+    OUTPUT_VARIABLE GIT_TOP_LEVEL
     OUTPUT_STRIP_TRAILING_WHITESPACE
     ERROR_QUIET
     RESULT_VARIABLE GIT_RESULT
   )
+  get_filename_component(HEADSETCONTROL_SOURCE_DIR_REAL
+    "${PROJECT_SOURCE_DIR}" REALPATH)
+  get_filename_component(GIT_TOP_LEVEL_REAL "${GIT_TOP_LEVEL}" REALPATH)
 
-  # Fallback if git describe fails (no tags, shallow clone, etc.)
-  if(NOT GIT_VERSION OR NOT GIT_RESULT EQUAL 0)
+  # Do not derive the version from a parent repository when this source tree is
+  # vendored without its own Git metadata.
+  if(NOT GIT_RESULT EQUAL 0
+      OR NOT GIT_TOP_LEVEL_REAL STREQUAL HEADSETCONTROL_SOURCE_DIR_REAL)
+    set(GIT_VERSION "0.0.0-unknown")
+  else()
     execute_process(
-      COMMAND git rev-parse --short HEAD
+      COMMAND git describe --tags --dirty=-modified
       WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
-      OUTPUT_VARIABLE GIT_HASH
+      OUTPUT_VARIABLE GIT_VERSION
       OUTPUT_STRIP_TRAILING_WHITESPACE
       ERROR_QUIET
+      RESULT_VARIABLE GIT_RESULT
     )
-    if(GIT_HASH)
-      set(GIT_VERSION "0.0.0-${GIT_HASH}")
-    else()
-      set(GIT_VERSION "0.0.0-unknown")
+
+    # Fallback if git describe fails (no tags, shallow clone, etc.)
+    if(NOT GIT_VERSION OR NOT GIT_RESULT EQUAL 0)
+      execute_process(
+        COMMAND git rev-parse --short HEAD
+        WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
+        OUTPUT_VARIABLE GIT_HASH
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+      )
+      if(GIT_HASH)
+        set(GIT_VERSION "0.0.0-${GIT_HASH}")
+      else()
+        set(GIT_VERSION "0.0.0-unknown")
+      endif()
     endif()
   endif()
 endif()
