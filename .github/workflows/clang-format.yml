@@ -1,7 +1,7 @@
 name: Code Style Check
 
 on:
-  pull_request_target:
+  pull_request:
     paths:
       - '**.c'
       - '**.cpp'
@@ -14,16 +14,19 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: write
     steps:
-      # Security note: Checking out fork code with pull_request_target is safe here
-      # because clang-format only parses source files for formatting, it does not
-      # execute any code. No build scripts or PR code are run.
+      # Runs on pull_request, not pull_request_target: this job needs no write
+      # access, so it does not need the base-repo token. Feedback goes out via
+      # the step summary and file annotations, neither of which touches an API.
+      # Fork PRs therefore work with the read-only token they are granted, and
+      # untrusted PR code cannot reach anything privileged.
+      #
+      # No `repository:` input is needed -- GitHub replicates the PR head into
+      # the base repo, so the head SHA is fetchable from here.
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
-          repository: ${{ github.event.pull_request.head.repo.full_name }}
 
       - name: Run cpp-linter
         uses: cpp-linter/cpp-linter-action@8e85cd02c8c3fe3ae527c94b5683fe2366b144ed # v2.20.0
@@ -36,16 +39,16 @@ jobs:
           version: '18'
           files-changed-only: true
           lines-changed-only: false
-          # Disable thread-comments to avoid 403 errors
-          # The commits comments API requires contents:write which is unsafe with pull_request_target
-          # Use step-summary and file-annotations for feedback instead
+          # Thread comments need the commits API (contents:write), which a fork
+          # PR's read-only token cannot use. Feedback goes via step-summary and
+          # file-annotations instead, which need no permissions at all.
           thread-comments: false
           step-summary: true
           file-annotations: true
           extensions: 'c,cpp,h,hpp'
 
       - name: Fail if formatting issues found
-        if: steps.linter.outputs.format-checks-failed > 0
+        if: steps.linter.outputs.clang-format-checks-failed > 0
         run: |
-          echo "::error::Found ${{ steps.linter.outputs.format-checks-failed }} formatting issues"
+          echo "::error::Found ${{ steps.linter.outputs.clang-format-checks-failed }} formatting issues"
           exit 1
