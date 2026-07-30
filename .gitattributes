@@ -1,3 +1,14 @@
+# Normalise every text file to LF, in the index and in the working tree.
+# This must stay the first rule: git applies the last matching pattern per
+# attribute, so the binary declarations below have to be able to override it.
+#
+# Without a catch-all, files not matched by an extension rule keep whatever
+# line endings the cloning client produces. Git for Windows defaults to
+# core.autocrlf=true, so such files land as CRLF, and MSYS2 git (which defaults
+# to false) then reports the whole tree as modified -- which made the MinGW CI
+# build stamp every binary as "<version>-modified".
+* text=auto eol=lf
+
 # Binary files - don't check for whitespace or diff
 *.png binary
 *.ico binary
@@ -6,17 +17,6 @@
 *.gif binary
 *.pdf binary
 
-# Ensure consistent line endings
-*.c text eol=lf
-*.cpp text eol=lf
-*.h text eol=lf
-*.hpp text eol=lf
-*.cmake text eol=lf
-*.yml text eol=lf
-*.yaml text eol=lf
-*.json text eol=lf
-*.md text eol=lf
-*.txt text eol=lf
-CMakeLists.txt text eol=lf
+# Keep packaging sources out of `git archive` tarballs
 debian/ export-ignore
 headsetcontrol.spec export-ignore
