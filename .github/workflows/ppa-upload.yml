@@ -36,7 +36,7 @@ jobs:
       DEBFULLNAME: Denis Arnst
       SIGN_KEY: 893E9C96C0E1A0CE52CF88FD12C8E71EC92CF077
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           ref: ${{ github.event.inputs.tag || github.ref }}

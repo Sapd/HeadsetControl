@@ -33,14 +33,14 @@ jobs:
             shell: msys2 {0}
 
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
       # Windows: Setup MSYS2
       - name: Setup MSYS2
         if: runner.os == 'Windows'
-        uses: msys2/setup-msys2@4f806de0a5a7294ffabaff804b38a9b435a73bda # v2.30.0
+        uses: msys2/setup-msys2@66cd2cce69caa17b53920067426061ca1de3a884 # v2.32.0
         with:
           msystem: MINGW64
           update: true
@@ -52,7 +52,7 @@ jobs:
       # Linux/macOS: Setup CMake and Ninja
       - name: Setup CMake and Ninja
         if: runner.os != 'Windows'
-        uses: lukka/get-cmake@9e07ecdcee1b12e5037e42f410b67f03e2f626e1 # v4.2.1
+        uses: lukka/get-cmake@e6906078ebd1ccb8ce51ab4626ac46a1b5a517e3 # v4.4.0
 
       # Linux: Install GCC 13 for C++20 support
       - name: Install GCC 13 (Ubuntu)
@@ -72,7 +72,7 @@ jobs:
       # Linux/macOS: Build with CMake Presets
       - name: Build and test (Unix)
         if: runner.os != 'Windows'
-        uses: lukka/run-cmake@af1be47fd7c933593f687731bc6fdbee024d3ff4 # v10.8
+        uses: lukka/run-cmake@5d55ea7949e25f69f0ecb516d8d572297e03a956 # v10.9
         with:
           configurePreset: 'default'
           buildPreset: 'default'
@@ -95,7 +95,7 @@ jobs:
       # Upload Windows artifact for testing
       - name: Upload Windows artifact
         if: runner.os == 'Windows'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: headsetcontrol-windows-mingw
           path: build/headsetcontrol.exe

@@ -44,7 +44,7 @@ jobs:
             build_type: unix
 
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           ref: ${{ inputs.ref }}
@@ -61,7 +61,7 @@ jobs:
 
       - name: Cache ccache (Linux)
         if: matrix.os_name == 'linux'
-        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ccache
           key: ${{ matrix.os_name }}-ccache-${{ github.sha }}
@@ -77,7 +77,7 @@ jobs:
 
       - name: Cache linuxdeploy (Linux)
         if: matrix.os_name == 'linux'
-        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: /tmp/linuxdeploy
           key: linuxdeploy-x86_64-continuous
@@ -85,7 +85,7 @@ jobs:
       # =========== macOS Setup ===========
       - name: Cache Homebrew
         if: matrix.os_name == 'macos'
-        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/Library/Caches/Homebrew
@@ -104,14 +104,14 @@ jobs:
       # =========== Windows Setup ===========
       - name: Setup vcpkg (Windows)
         if: matrix.build_type == 'msvc'
-        uses: lukka/run-vcpkg@5e0cab206a5ea620130caf672fce3e4a6b5666a1 # v11.5
+        uses: lukka/run-vcpkg@b1a0dd252f06b9e25b3c022a9a03bd7a427fb6a2 # v11.6
         with:
           vcpkgGitCommitId: '84bab45d415d22042bd0b9081aea57f362da3f35'  # 2025.12.12
           vcpkgJsonGlob: 'vcpkg.json'
 
       - name: Setup CMake and Ninja (Windows)
         if: matrix.build_type == 'msvc'
-        uses: lukka/get-cmake@9e07ecdcee1b12e5037e42f410b67f03e2f626e1 # v4.2.1
+        uses: lukka/get-cmake@e6906078ebd1ccb8ce51ab4626ac46a1b5a517e3 # v4.4.0
 
       - name: Install NSIS with Large Strings (Windows)
         if: matrix.build_type == 'msvc'
@@ -147,12 +147,12 @@ jobs:
       # =========== Unix Setup ===========
       - name: Setup CMake and Ninja (Unix)
         if: matrix.build_type == 'unix'
-        uses: lukka/get-cmake@9e07ecdcee1b12e5037e42f410b67f03e2f626e1 # v4.2.1
+        uses: lukka/get-cmake@e6906078ebd1ccb8ce51ab4626ac46a1b5a517e3 # v4.4.0
 
       # =========== Build ===========
       - name: Build and test (Windows)
         if: matrix.build_type == 'msvc'
-        uses: lukka/run-cmake@af1be47fd7c933593f687731bc6fdbee024d3ff4 # v10.8
+        uses: lukka/run-cmake@5d55ea7949e25f69f0ecb516d8d572297e03a956 # v10.9
         with:
           configurePreset: 'windows-msvc'
           buildPreset: 'windows-msvc'
@@ -160,7 +160,7 @@ jobs:
 
       - name: Build and test (Unix)
         if: matrix.build_type == 'unix'
-        uses: lukka/run-cmake@af1be47fd7c933593f687731bc6fdbee024d3ff4 # v10.8
+        uses: lukka/run-cmake@5d55ea7949e25f69f0ecb516d8d572297e03a956 # v10.9
         with:
           configurePreset: 'default'
           buildPreset: 'default'
@@ -257,7 +257,7 @@ jobs:
       # =========== Upload ===========
       - name: Upload artifacts (Linux)
         if: matrix.os_name == 'linux'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: headsetcontrol-${{ matrix.os_name }}
           path: |
@@ -273,7 +273,7 @@ jobs:
 
       - name: Upload artifacts (macOS)
         if: matrix.os_name == 'macos'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: headsetcontrol-${{ matrix.os_name }}
           path: |
@@ -283,7 +283,7 @@ jobs:
 
       - name: Upload artifacts (Windows)
         if: matrix.build_type == 'msvc'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: headsetcontrol-${{ matrix.os_name }}
           path: |
