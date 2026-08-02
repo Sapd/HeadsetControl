@@ -19,8 +19,6 @@ namespace headsetcontrol {
  * - Battery status
  * - Equalizer (10 bands)
  * - Parametric equalizer (ADVANCED!)
- *
- * NOTE: Windows support has HID packet length issues
  */
 class SteelSeriesArctisNova3PWireless : public protocols::SteelSeriesNovaDevice<SteelSeriesArctisNova3PWireless> {
 public:
@@ -106,12 +104,6 @@ public:
         return { .usagepage = 0xffc0, .usageid = 0x1, .interface_id = 3 };
     }
 
-    constexpr uint8_t getSupportedPlatforms() const override
-    {
-        // Windows has HID packet length issues
-        return PLATFORM_LINUX | PLATFORM_MACOS;
-    }
-
     std::optional<EqualizerInfo> getEqualizerInfo() const override
     {
         return EqualizerInfo {
@@ -167,36 +159,41 @@ public:
     // Helper: save state
     Result<void> saveStateNova3P(hid_device* device_handle) const
     {
-        std::array<uint8_t, 1> cmd { 0x09 };
-        return sendFeatureReport(device_handle, cmd, MSG_SIZE);
+        std::array<uint8_t, 2> cmd { 0x00, 0x09 };
+        return writeHID(device_handle, cmd, MSG_SIZE);
     }
 
     // Rich Results V2 API
     Result<BatteryResult> getBattery(hid_device* device_handle) override
     {
-        std::array<uint8_t, 1> request { 0xb0 };
-        if (auto result = sendFeatureReport(device_handle, request, MSG_SIZE); !result) {
-            return result.error();
+        auto status_result = readDeviceStatus(device_handle);
+        if (!status_result) {
+            return status_result.error();
         }
 
-        std::array<uint8_t, 4> response {};
-        auto read_result = readHIDTimeout(device_handle, response, hsc_device_timeout);
-
-        if (!read_result) {
-            return read_result.error();
+        auto& data = *status_result;
+        if (data.size() < 5) {
+            return DeviceError::protocolError("Response too short");
         }
 
-        constexpr uint8_t HEADSET_OFFLINE = 0x02;
-        if (response[1] == HEADSET_OFFLINE) {
+        constexpr uint8_t HEADSET_OFFLINE  = 0x02;
+        constexpr uint8_t HEADSET_CHARGING = 0x01;
+
+        if (data[1] == HEADSET_OFFLINE) {
             return DeviceError::deviceOffline("Headset not connected");
         }
 
-        int level = map(response[3], 0, 100, 0, 100);
+        enum battery_status status = BATTERY_AVAILABLE;
+        if (data[4] == HEADSET_CHARGING) {
+            status = BATTERY_CHARGING;
+        }
+
+        int level = data[3]; // Already in percentage
 
         return BatteryResult {
             .level_percent = level,
-            .status        = BATTERY_AVAILABLE,
-            .raw_data      = std::vector<uint8_t> { response.begin(), response.end() }
+            .status        = status,
+            .raw_data      = data
         };
     }
 
@@ -204,8 +201,8 @@ public:
     {
         uint8_t mapped = map<uint8_t>(level, 0, 128, 0, 0xa);
 
-        std::array<uint8_t, 2> cmd { 0x39, mapped };
-        if (auto result = sendFeatureReport(device_handle, cmd, MSG_SIZE); !result) {
+        std::array<uint8_t, 3> cmd { 0x00, 0x39, mapped };
+        if (auto result = writeHID(device_handle, cmd, MSG_SIZE); !result) {
             return result.error();
         }
 
@@ -246,8 +243,8 @@ public:
         else
             minutes = 0; // Never turn off
 
-        std::array<uint8_t, 2> cmd { 0xa3, minutes };
-        if (auto result = sendFeatureReport(device_handle, cmd, MSG_SIZE); !result) {
+        std::array<uint8_t, 3> cmd { 0x00, 0xa3, minutes };
+        if (auto result = writeHID(device_handle, cmd, MSG_SIZE); !result) {
             return result.error();
         }
 
@@ -266,8 +263,8 @@ public:
     {
         uint8_t mapped = map<uint8_t>(volume, 0, 128, 0, 0x0e);
 
-        std::array<uint8_t, 2> cmd { 0x37, mapped };
-        if (auto result = sendFeatureReport(device_handle, cmd, MSG_SIZE); !result) {
+        std::array<uint8_t, 3> cmd { 0x00, 0x37, mapped };
+        if (auto result = writeHID(device_handle, cmd, MSG_SIZE); !result) {
             return result.error();
         }
 
@@ -321,7 +318,8 @@ public:
         }
 
         std::array<uint8_t, MSG_SIZE> data {};
-        data[0] = 0x33;
+        data[0] = 0x00;
+        data[1] = 0x33;
 
         for (int i = 0; i < EQUALIZER_BANDS; i++) {
             float gain_value = settings.bands[i];
@@ -331,16 +329,16 @@ public:
 
             // Each band: 2 bytes frequency (LE), 1 byte filter type, 1 byte gain, 2 bytes Q-factor (LE)
             uint16_t freq       = BAND_FREQUENCIES[i];
-            data[1 + 6 * i]     = freq & 0xFF;
-            data[1 + 6 * i + 1] = (freq >> 8) & 0xFF;
-            data[1 + 6 * i + 2] = 0x01; // Peaking filter
-            data[1 + 6 * i + 3] = encodeGain(gain_value);
+            data[2 + 6 * i]     = freq & 0xFF;
+            data[2 + 6 * i + 1] = (freq >> 8) & 0xFF;
+            data[2 + 6 * i + 2] = 0x01; // Peaking filter
+            data[2 + 6 * i + 3] = encodeGain(gain_value);
             // Default Q-factor: 1.414 * 1000 = 1414 = 0x0586
-            data[1 + 6 * i + 4] = 0x86;
-            data[1 + 6 * i + 5] = 0x05;
+            data[2 + 6 * i + 4] = 0x86;
+            data[2 + 6 * i + 5] = 0x05;
         }
 
-        if (auto result = sendFeatureReport(device_handle, data, MSG_SIZE); !result) {
+        if (auto result = writeHID(device_handle, data, MSG_SIZE); !result) {
             return result.error();
         }
 
@@ -358,7 +356,8 @@ public:
         }
 
         std::array<uint8_t, MSG_SIZE> data {};
-        data[0] = 0x33;
+        data[0] = 0x00;
+        data[1] = 0x33;
 
         // Write provided bands
         for (int i = 0; i < settings.size(); i++) {
@@ -383,40 +382,40 @@ public:
 
             // Write frequency (LE)
             uint16_t freq       = static_cast<uint16_t>(band.frequency);
-            data[1 + 6 * i]     = freq & 0xFF;
-            data[1 + 6 * i + 1] = (freq >> 8) & 0xFF;
+            data[2 + 6 * i]     = freq & 0xFF;
+            data[2 + 6 * i + 1] = (freq >> 8) & 0xFF;
 
             // Write filter type
-            data[1 + 6 * i + 2] = getFilterByte(band.type);
+            data[2 + 6 * i + 2] = getFilterByte(band.type);
 
             // Write gain (two's complement for negative)
-            data[1 + 6 * i + 3] = encodeGain(band.gain);
+            data[2 + 6 * i + 3] = encodeGain(band.gain);
 
             // Write Q-factor (LE)
             uint16_t q          = static_cast<uint16_t>(band.q_factor * 1000);
-            data[1 + 6 * i + 4] = q & 0xFF;
-            data[1 + 6 * i + 5] = (q >> 8) & 0xFF;
+            data[2 + 6 * i + 4] = q & 0xFF;
+            data[2 + 6 * i + 5] = (q >> 8) & 0xFF;
         }
 
         // Fill remaining bands with disabled band
         for (int i = settings.size(); i < EQUALIZER_BANDS; i++) {
             // Disabled frequency
             uint16_t freq       = EQUALIZER_FREQ_DISABLED;
-            data[1 + 6 * i]     = freq & 0xFF;
-            data[1 + 6 * i + 1] = (freq >> 8) & 0xFF;
+            data[2 + 6 * i]     = freq & 0xFF;
+            data[2 + 6 * i + 1] = (freq >> 8) & 0xFF;
 
             // Peaking filter type
-            data[1 + 6 * i + 2] = getFilterByte(EqualizerFilterType::Peaking);
+            data[2 + 6 * i + 2] = getFilterByte(EqualizerFilterType::Peaking);
 
             // Gain = 0
-            data[1 + 6 * i + 3] = 0;
+            data[2 + 6 * i + 3] = 0;
 
             // Default Q-factor: 1.414 * 1000 = 1414 = 0x0586
-            data[1 + 6 * i + 4] = 0x86;
-            data[1 + 6 * i + 5] = 0x05;
+            data[2 + 6 * i + 4] = 0x86;
+            data[2 + 6 * i + 5] = 0x05;
         }
 
-        if (auto result = sendFeatureReport(device_handle, data, MSG_SIZE); !result) {
+        if (auto result = writeHID(device_handle, data, MSG_SIZE); !result) {
             return result.error();
         }
 
