@@ -183,7 +183,9 @@ struct SidetoneResult {
     uint8_t max_level; // Maximum supported level
     uint8_t device_min; // Device's native min (e.g., 200 for Corsair)
     uint8_t device_max; // Device's native max (e.g., 255 for Corsair)
-    bool is_muted = false; // Whether sidetone is muted
+    bool is_muted        = false; // Whether sidetone is muted
+    uint8_t device_level = 0; // Current level in the device's native range
+    std::optional<std::string> level_name; // Named level, when exposed by the device
 };
 
 /**

@@ -132,6 +132,14 @@ public:
     }
 
     /**
+     * @brief Get the current sidetone level
+     */
+    virtual Result<SidetoneResult> getSidetone(hid_device* /*device_handle*/)
+    {
+        return DeviceError::notSupported("Device does not support reading sidetone");
+    }
+
+    /**
      * @brief Get battery information with rich details
      *
      * @param device_handle HID device handle
@@ -330,7 +338,7 @@ protected:
     /**
      * @brief Get HID interface singleton
      */
-    [[nodiscard]] static auto getHIDInterface() -> RealHIDInterface&
+    [[nodiscard]] virtual auto getHIDInterface() const -> HIDInterface&
     {
         static RealHIDInterface instance;
         return instance;

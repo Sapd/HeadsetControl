@@ -102,6 +102,23 @@ struct ActionData {
     }
 };
 
+struct SidetoneData {
+    int level        = 0;
+    int device_level = 0;
+    std::string name;
+
+    void serialize(Serializer& s) const
+    {
+        s.beginObject("sidetone");
+        s.write("level", level);
+        s.write("device_level", device_level);
+        if (!name.empty()) {
+            s.write("name", name);
+        }
+        s.endObject();
+    }
+};
+
 struct ErrorData {
     std::string source;
     std::string message;
@@ -178,6 +195,7 @@ struct DeviceData {
 
     std::optional<BatteryData> battery;
     std::optional<int> chatmix;
+    std::optional<SidetoneData> sidetone;
     std::optional<EqualizerData> equalizer;
     std::optional<int> equalizer_presets_count;
     std::optional<std::vector<EqualizerPresetData>> equalizer_presets;
@@ -231,6 +249,10 @@ struct DeviceData {
 
         if (chatmix.has_value()) {
             s.write("chatmix", *chatmix);
+        }
+
+        if (sidetone.has_value()) {
+            sidetone->serialize(s);
         }
 
         if (!errors.empty()) {

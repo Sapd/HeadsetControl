@@ -230,6 +230,17 @@ inline constexpr std::array<CapabilityDescriptor, NUM_CAPABILITIES> CAPABILITY_D
         .min_value   = 0,
         .max_value   = 2,
         .value_hint  = "<0|1|2>" },
+
+    // CAP_SIDETONE_STATUS
+    {
+        .cap         = CAP_SIDETONE_STATUS,
+        .type        = CAPABILITYTYPE_INFO,
+        .name        = "sidetone-status",
+        .short_flag  = "",
+        .description = "Show current sidetone level",
+        .min_value   = std::nullopt,
+        .max_value   = std::nullopt,
+        .value_hint  = "" },
 } };
 
 /**

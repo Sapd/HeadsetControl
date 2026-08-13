@@ -263,6 +263,9 @@ void testCNullHandling()
     hsc_chatmix_t chatmix;
     ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_get_chatmix(nullptr, &chatmix), "get_chatmix(null) should fail");
 
+    hsc_sidetone_status_t sidetone_status;
+    ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_get_sidetone(nullptr, &sidetone_status), "get_sidetone(null) should fail");
+
     ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_sidetone(nullptr, 64, nullptr), "set_sidetone(null) should fail");
     ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_lights(nullptr, true), "set_lights(null) should fail");
 
@@ -306,6 +309,7 @@ void testCppTestDeviceMode()
             ASSERT_TRUE(headset.supports(CAP_BATTERY_STATUS), "Test device should support battery");
             ASSERT_TRUE(headset.supports(CAP_SIDETONE), "Test device should support sidetone");
             ASSERT_TRUE(headset.supports(CAP_CHATMIX_STATUS), "Test device should support chatmix");
+            ASSERT_TRUE(headset.supports(CAP_SIDETONE_STATUS), "Test device should support sidetone status");
 
             // Test battery
             auto battery = headset.getBattery();
@@ -316,6 +320,11 @@ void testCppTestDeviceMode()
             auto sidetone = headset.setSidetone(64);
             ASSERT_TRUE(sidetone.hasValue(), "Sidetone should return success");
             ASSERT_EQ(64, sidetone->current_level, "Sidetone level should be 64");
+
+            auto sidetone_status = headset.getSidetone();
+            ASSERT_TRUE(sidetone_status.hasValue(), "Sidetone status should return success");
+            ASSERT_EQ(85, sidetone_status->current_level, "Sidetone status should be 85");
+            ASSERT_EQ(2, sidetone_status->device_level, "Native sidetone level should be 2");
 
             // Test chatmix
             auto chatmix = headset.getChatmix();
@@ -357,18 +366,14 @@ void testCppTestDeviceMode()
             // Test parametric equalizer
             ASSERT_TRUE(headset.supports(CAP_PARAMETRIC_EQUALIZER), "Test device should support parametric EQ");
             ParametricEqualizerSettings peq_settings;
-            peq_settings.bands.push_back({
-                .frequency = 100,
-                .gain      = 3.0f,
-                .q_factor  = 1.0f,
-                .type      = EqualizerFilterType::LowShelf
-            });
-            peq_settings.bands.push_back({
-                .frequency = 1000,
-                .gain      = 0.0f,
-                .q_factor  = 1.414f,
-                .type      = EqualizerFilterType::Peaking
-            });
+            peq_settings.bands.push_back({ .frequency = 100,
+                .gain                                 = 3.0f,
+                .q_factor                             = 1.0f,
+                .type                                 = EqualizerFilterType::LowShelf });
+            peq_settings.bands.push_back({ .frequency = 1000,
+                .gain                                 = 0.0f,
+                .q_factor                             = 1.414f,
+                .type                                 = EqualizerFilterType::Peaking });
             auto peq_result = headset.setParametricEqualizer(peq_settings);
             ASSERT_TRUE(peq_result.hasValue(), "Parametric equalizer should return success");
 
@@ -420,6 +425,7 @@ void testCTestDeviceMode()
             // Verify capabilities
             ASSERT_TRUE(hsc_supports(headsets[i], HSC_CAP_BATTERY_STATUS), "Should support battery");
             ASSERT_TRUE(hsc_supports(headsets[i], HSC_CAP_SIDETONE), "Should support sidetone");
+            ASSERT_TRUE(hsc_supports(headsets[i], HSC_CAP_SIDETONE_STATUS), "Should support sidetone status");
 
             // Test battery
             hsc_battery_t battery;
@@ -430,6 +436,13 @@ void testCTestDeviceMode()
             hsc_sidetone_t sidetone;
             ASSERT_EQ(HSC_RESULT_OK, hsc_set_sidetone(headsets[i], 64, &sidetone), "Sidetone should succeed");
             ASSERT_EQ(64, sidetone.current_level, "Sidetone level should be 64");
+
+            hsc_sidetone_status_t sidetone_status;
+            ASSERT_EQ(HSC_RESULT_OK, hsc_get_sidetone(headsets[i], &sidetone_status), "Sidetone status should succeed");
+            ASSERT_EQ(85, sidetone_status.current_level, "Sidetone status should be 85");
+            ASSERT_EQ(2, sidetone_status.device_level, "Native sidetone level should be 2");
+            ASSERT_NOT_NULL(sidetone_status.level_name, "Sidetone name should be available");
+            ASSERT_EQ(std::string("Medium"), std::string(sidetone_status.level_name), "Sidetone name should match");
 
             ASSERT_EQ(4, hsc_get_equalizer_presets_count(headsets[i]), "Preset count should be 4");
             ASSERT_EQ(std::string("Flat"), std::string(hsc_get_equalizer_preset_name(headsets[i], 0)), "Flat preset name should match");
@@ -524,7 +537,7 @@ void testVendorProductNames()
     headsetcontrol::enableTestDevice(true);
 
     // C++ API: verify test device names are non-empty and correct
-    auto headsets = headsetcontrol::discover();
+    auto headsets        = headsetcontrol::discover();
     bool foundTestDevice = false;
     for (auto& headset : headsets) {
         if (headset.vendorId() == 0xF00B && headset.productId() == 0xA00C) {
@@ -576,7 +589,7 @@ void testEqualizerPresetConsistency()
 
     headsetcontrol::enableTestDevice(true);
 
-    auto cpp_headsets = headsetcontrol::discover();
+    auto cpp_headsets         = headsetcontrol::discover();
     hsc_headset_t* c_headsets = nullptr;
     int c_count               = hsc_discover(&c_headsets);
 

@@ -37,8 +37,8 @@
 #include <algorithm>
 #include <cassert>
 #include <chrono>
-#include <cstdio>
 #include <csignal>
+#include <cstdio>
 #include <cstdlib>
 #include <format>
 #include <iostream>
@@ -151,8 +151,9 @@ struct Options {
     std::optional<uint8_t> noise_filter;
 
     // Info requests
-    bool request_battery = false;
-    bool request_chatmix = false;
+    bool request_battery  = false;
+    bool request_chatmix  = false;
+    bool request_sidetone = false;
 
     // Complex settings
     std::optional<EqualizerSettings> equalizer;
@@ -210,6 +211,7 @@ std::optional<cli::ParseError> configureParser(cli::ArgumentParser& parser, Opti
         .toggle('v', "voice-prompt", opts.voice_prompts_enabled, "Turn voice prompts off (0) or on (1)")
         .value('i', "inactive-time", opts.inactive_time, uint8_t(0), uint8_t(90), "Set inactive time in minutes", "MINUTES")
         .flag('m', "chatmix", opts.request_chatmix, "Get chat-mix level")
+        .long_flag("sidetone-status", opts.request_sidetone, "Get current sidetone level")
         .value('n', "notificate", opts.notification_sound, uint8_t(0), uint8_t(255), "Play notification sound", "SOUNDID")
         .toggle('r', "rotate-to-mute", opts.rotate_to_mute_enabled, "Toggle rotate to mute")
         .value('p', "equalizer-preset", opts.equalizer_preset, uint8_t(0), uint8_t(255), "Set equalizer preset", "PRESET")
@@ -420,7 +422,7 @@ public:
         if (devices_)
             hid_free_enumeration(devices_);
     }
-    HIDEnumeration(const HIDEnumeration&) = delete;
+    HIDEnumeration(const HIDEnumeration&)            = delete;
     HIDEnumeration& operator=(const HIDEnumeration&) = delete;
 
     hid_device_info* get() const { return devices_; }
@@ -513,7 +515,9 @@ FeatureResult convertToFeatureResult(const headsetcontrol::FeatureOutput& output
 
     // Handle sidetone special case
     if (output.sidetone) {
-        result.value = output.sidetone->current_level;
+        result.value                 = output.sidetone->current_level;
+        result.sidetone_device_level = output.sidetone->device_level;
+        result.sidetone_level_name   = output.sidetone->level_name;
     }
 
     return result;
@@ -786,6 +790,7 @@ namespace help {
             sections.back()
                 .add('b', "battery", "", "Show battery level and status", CAP_BATTERY_STATUS)
                 .add('m', "chatmix", "", "Show current chat-mix balance", CAP_CHATMIX_STATUS)
+                .add("sidetone-status", "", "Show current sidetone level", CAP_SIDETONE_STATUS)
                 .add("connected", "", "Check if headset is connected", std::nullopt, true);
 
             // Audio - value hints from capability descriptors
@@ -974,6 +979,7 @@ void initializeFeatureRequests(std::vector<DiscoveredDevice>& devices, const Opt
         { CAP_BATTERY_STATUS, CAPABILITYTYPE_INFO, std::monostate {}, opts.request_battery, {} },
         { CAP_INACTIVE_TIME, CAPABILITYTYPE_ACTION, g_feature_params.inactive_time_val, opts.inactive_time.has_value(), {} },
         { CAP_CHATMIX_STATUS, CAPABILITYTYPE_INFO, std::monostate {}, opts.request_chatmix, {} },
+        { CAP_SIDETONE_STATUS, CAPABILITYTYPE_INFO, std::monostate {}, opts.request_sidetone, {} },
         { CAP_VOICE_PROMPTS, CAPABILITYTYPE_ACTION, g_feature_params.voice_prompts_val, opts.voice_prompts_enabled.has_value(), {} },
         { CAP_ROTATE_TO_MUTE, CAPABILITYTYPE_ACTION, g_feature_params.rotate_to_mute_val, opts.rotate_to_mute_enabled.has_value(), {} },
         { CAP_EQUALIZER_PRESET, CAPABILITYTYPE_ACTION, g_feature_params.equalizer_preset_val, opts.equalizer_preset.has_value(), {} },
@@ -1003,7 +1009,7 @@ void setupSignalHandler()
 #ifdef _WIN32
     signal(SIGINT, signalHandler);
 #else
-    struct sigaction act {};
+    struct sigaction act { };
     act.sa_handler = signalHandler;
     sigaction(SIGINT, &act, nullptr);
 #endif

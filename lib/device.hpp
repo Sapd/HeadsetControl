@@ -38,24 +38,25 @@ extern int hsc_device_timeout;
  * To add a new capability, add a single X() entry here.
  * The enum, string functions, and short char are all generated automatically.
  */
-#define CAPABILITIES_XLIST \
-    X(CAP_SIDETONE,                       "sidetone",                       's')  \
-    X(CAP_BATTERY_STATUS,                 "battery",                        'b')  \
-    X(CAP_NOTIFICATION_SOUND,             "notification sound",             'n')  \
-    X(CAP_LIGHTS,                         "lights",                         'l')  \
-    X(CAP_INACTIVE_TIME,                  "inactive time",                  'i')  \
-    X(CAP_CHATMIX_STATUS,                 "chatmix",                        'm')  \
-    X(CAP_VOICE_PROMPTS,                  "voice prompts",                  'v')  \
-    X(CAP_ROTATE_TO_MUTE,                 "rotate to mute",                 'r')  \
-    X(CAP_EQUALIZER_PRESET,               "equalizer preset",               'p')  \
-    X(CAP_EQUALIZER,                      "equalizer",                      'e')  \
-    X(CAP_PARAMETRIC_EQUALIZER,           "parametric equalizer",           'q')  \
-    X(CAP_MICROPHONE_MUTE_LED_BRIGHTNESS, "microphone mute led brightness", 't')  \
-    X(CAP_MICROPHONE_VOLUME,              "microphone volume",              'o')  \
-    X(CAP_VOLUME_LIMITER,                 "volume limiter",                 '\0') \
-    X(CAP_BT_WHEN_POWERED_ON,             "bluetooth when powered on",      '\0') \
-    X(CAP_BT_CALL_VOLUME,                 "bluetooth call volume",          '\0') \
-    X(CAP_NOISE_FILTER,                   "microphone noise filter",        '\0')
+#define CAPABILITIES_XLIST                                                       \
+    X(CAP_SIDETONE, "sidetone", 's')                                             \
+    X(CAP_BATTERY_STATUS, "battery", 'b')                                        \
+    X(CAP_NOTIFICATION_SOUND, "notification sound", 'n')                         \
+    X(CAP_LIGHTS, "lights", 'l')                                                 \
+    X(CAP_INACTIVE_TIME, "inactive time", 'i')                                   \
+    X(CAP_CHATMIX_STATUS, "chatmix", 'm')                                        \
+    X(CAP_VOICE_PROMPTS, "voice prompts", 'v')                                   \
+    X(CAP_ROTATE_TO_MUTE, "rotate to mute", 'r')                                 \
+    X(CAP_EQUALIZER_PRESET, "equalizer preset", 'p')                             \
+    X(CAP_EQUALIZER, "equalizer", 'e')                                           \
+    X(CAP_PARAMETRIC_EQUALIZER, "parametric equalizer", 'q')                     \
+    X(CAP_MICROPHONE_MUTE_LED_BRIGHTNESS, "microphone mute led brightness", 't') \
+    X(CAP_MICROPHONE_VOLUME, "microphone volume", 'o')                           \
+    X(CAP_VOLUME_LIMITER, "volume limiter", '\0')                                \
+    X(CAP_BT_WHEN_POWERED_ON, "bluetooth when powered on", '\0')                 \
+    X(CAP_BT_CALL_VOLUME, "bluetooth call volume", '\0')                         \
+    X(CAP_NOISE_FILTER, "microphone noise filter", '\0')                         \
+    X(CAP_SIDETONE_STATUS, "sidetone status", '\0')
 
 /** @brief A list of all features settable/queryable for headsets
  *
@@ -66,7 +67,7 @@ enum capabilities {
 #define X(id, name, short_char) id,
     CAPABILITIES_XLIST
 #undef X
-    NUM_CAPABILITIES
+        NUM_CAPABILITIES
 };
 
 enum capabilitytype { CAPABILITYTYPE_ACTION,
@@ -195,6 +196,8 @@ struct FeatureResult {
     std::optional<int> battery_voltage_mv;
     std::optional<int> battery_time_to_full_min;
     std::optional<int> battery_time_to_empty_min;
+    std::optional<int> sidetone_device_level;
+    std::optional<std::string> sidetone_level_name;
 };
 
 // FeatureRequest is defined after EqualizerSettings and ParametricEqualizerSettings

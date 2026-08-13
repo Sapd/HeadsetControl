@@ -348,6 +348,35 @@ void testCliStandardNoArgs()
     std::cout << "    ✓ CLI standard no-args output is correct" << std::endl;
 }
 
+void testCliSidetoneStatusOutputs()
+{
+    std::cout << "  Testing sidetone status in all output formats..." << std::endl;
+
+    const std::string base = HEADSETCONTROL_EXE " --test-device -d 0xf00b:0xa00c --sidetone-status -o ";
+
+    std::string json = exec((base + "json 2>&1").c_str());
+    ASSERT_CONTAINS(json, "\"sidetone\": {", "JSON should have sidetone object");
+    ASSERT_CONTAINS(json, "\"level\": 85", "JSON should have normalized level");
+    ASSERT_CONTAINS(json, "\"device_level\": 2", "JSON should have native level");
+    ASSERT_CONTAINS(json, "\"name\": \"Medium\"", "JSON should have named level");
+
+    std::string yaml = exec((base + "yaml 2>&1").c_str());
+    ASSERT_CONTAINS(yaml, "sidetone:", "YAML should have sidetone object");
+    ASSERT_CONTAINS(yaml, "device_level: 2", "YAML should have native level");
+    ASSERT_CONTAINS(yaml, "name: \"Medium\"", "YAML should have named level");
+
+    std::string env = exec((base + "env 2>&1").c_str());
+    ASSERT_CONTAINS(env, "DEVICE_0_SIDETONE_LEVEL=85", "ENV should have normalized level");
+    ASSERT_CONTAINS(env, "DEVICE_0_SIDETONE_DEVICE_LEVEL=2", "ENV should have native level");
+    ASSERT_CONTAINS(env, "DEVICE_0_SIDETONE_NAME=\"Medium\"", "ENV should have named level");
+
+    std::string standard = exec(HEADSETCONTROL_EXE " --test-device -d 0xf00b:0xa00c --sidetone-status 2>&1");
+    ASSERT_CONTAINS(standard, "Sidetone: Medium (85; device level 2)",
+        "standard output should show normalized, native, and named level");
+
+    std::cout << "    ✓ Sidetone status output is correct" << std::endl;
+}
+
 // ============================================================================
 // Short Output Tests
 // ============================================================================
@@ -448,6 +477,7 @@ void runAllCliOutputTests()
     runTest("Standard Output", testCliStandardOutput);
     runTest("Standard Battery Details", testCliStandardBatteryDetails);
     runTest("Standard No Args", testCliStandardNoArgs);
+    runTest("Sidetone Status Outputs", testCliSidetoneStatusOutputs);
 
     std::cout << "\n=== Short Output Tests ===" << std::endl;
     runTest("Short Output", testCliShortOutput);

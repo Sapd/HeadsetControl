@@ -28,7 +28,7 @@ headsetcontrol -o env
 {
   "name": "HeadsetControl",
   "version": "3.0.0",
-  "api_version": "1.4",
+  "api_version": "1.5",
   "device_count": 1,
   "devices": [
     {
@@ -70,6 +70,9 @@ Query and set values in one call:
 ```bash
 # Set sidetone and get battery
 headsetcontrol -s 64 -b -o json
+
+# Read the current sidetone setting (when supported)
+headsetcontrol --sidetone-status -o json
 ```
 
 Action results include status:
@@ -301,6 +304,15 @@ if (headset.supports(CAP_CHATMIX_STATUS)) {
     auto result = headset.getChatmix();
     if (result) {
         std::cout << "Chat-mix: " << result->level << "\n";
+    }
+}
+
+// Get current sidetone level
+if (headset.supports(CAP_SIDETONE_STATUS)) {
+    auto result = headset.getSidetone();
+    if (result) {
+        std::cout << "Sidetone: " << (int)result->current_level
+                  << " (device level " << (int)result->device_level << ")\n";
     }
 }
 ```
@@ -689,6 +701,19 @@ if (result == HSC_RESULT_OK) {
 ```
 
 ### Setting Features
+
+Current sidetone can be queried separately on devices that advertise
+`HSC_CAP_SIDETONE_STATUS`:
+
+```c
+hsc_sidetone_status_t sidetone_status;
+if (hsc_get_sidetone(headset, &sidetone_status) == HSC_RESULT_OK) {
+    printf("Sidetone: %u (%s, device level %u)\n",
+        sidetone_status.current_level,
+        sidetone_status.level_name ? sidetone_status.level_name : "unnamed",
+        sidetone_status.device_level);
+}
+```
 
 ```c
 // Sidetone (0-128)
