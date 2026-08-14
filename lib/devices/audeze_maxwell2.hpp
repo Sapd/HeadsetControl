@@ -4,7 +4,6 @@
 #include "hid_device.hpp"
 #include <array>
 #include <chrono>
-#include <mutex>
 #include <optional>
 #include <string_view>
 #include <thread>
@@ -222,19 +221,22 @@ private:
         return status;
     }
 
+    static constexpr auto STATUS_REUSE_WINDOW = std::chrono::milliseconds(500);
+
     /**
      * @brief Reuse one status read for every info capability.
      *
      * getDeviceStatus() costs 21 packets at 60 ms and already returns everything,
      * but each getter called it again. Keyed on the handle since one instance
-     * serves every attached Maxwell 2, and locked since that instance is shared.
+     * serves every attached Maxwell 2.
+     *
+     * The reused status also carries sidetone, equalizer and noise filter, so
+     * every setter that writes one of those calls invalidateStatus(). A getter
+     * built on top of this must keep that list in sync, otherwise a set followed
+     * by a get inside the window returns the value from before the write.
      */
-    static constexpr auto STATUS_REUSE_WINDOW = std::chrono::milliseconds(500);
-
     Result<MaxwellStatus> statusFor(hid_device* device_handle)
     {
-        const std::lock_guard<std::mutex> guard(status_mutex_);
-
         if (last_status_ && last_handle_ == device_handle
             && std::chrono::steady_clock::now() - read_at_ < STATUS_REUSE_WINDOW) {
             return *last_status_;
@@ -254,7 +256,12 @@ private:
         return *status;
     }
 
-    std::mutex status_mutex_;
+    // Drop the reused status after a write that changes one of its fields.
+    void invalidateStatus()
+    {
+        last_status_.reset();
+    }
+
     hid_device* last_handle_ = nullptr;
     std::optional<MaxwellStatus> last_status_;
     std::chrono::steady_clock::time_point read_at_ {};
@@ -273,6 +280,8 @@ public:
 
     Result<SidetoneResult> setSidetone(hid_device* device_handle, uint8_t level) override
     {
+        invalidateStatus();
+
         // Maxwell range: 0 to 31
         uint8_t mapped = map<uint8_t>(level, 0, 128, 0, 31);
 
@@ -392,6 +401,8 @@ public:
 
     Result<EqualizerPresetResult> setEqualizerPreset(hid_device* device_handle, uint8_t preset) override
     {
+        invalidateStatus();
+
         // Maxwell supports presets 0-9 (mapped to device presets 1-10)
         // 0-5 are built-in presets, 6-9 are custom presets
         if (preset >= EQUALIZER_PRESETS_COUNT) {
@@ -413,6 +424,8 @@ public:
 
     Result<NoiseFilterResult> setNoiseFilter(hid_device* device_handle, uint8_t level) override
     {
+        invalidateStatus();
+
         // Maxwell 2 has three levels for the noise filter: high, low, and
         // off (2,1 and 0)
         if (level > 2) {
