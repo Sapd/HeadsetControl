@@ -205,13 +205,26 @@ std::optional<cli::ParseError> configureParser(cli::ArgumentParser& parser, Opti
         .long_flag("version", opts.show_version, "Show version information")
 
         // === Feature Controls ===
-        .value('s', "sidetone", opts.sidetone_level, uint8_t(0), uint8_t(128), "Set sidetone level", "LEVEL")
+        .custom('s', "sidetone", cli::ArgRequirement::Optional, [&opts](std::optional<std::string_view> arg) -> std::optional<cli::ParseError> {
+                if (!arg || arg->empty()) {
+                    opts.sidetone_level.reset();
+                    opts.request_sidetone = true;
+                    return std::nullopt;
+                }
+
+                uint8_t level {};
+                if (auto error = cli::parseInteger(*arg, level, uint8_t(0), uint8_t(128), "sidetone")) {
+                    return error;
+                }
+
+                opts.sidetone_level = level;
+                opts.request_sidetone = false;
+                return std::nullopt; }, "Get current sidetone level, or set it to LEVEL", "LEVEL")
         .flag('b', "battery", opts.request_battery, "Check battery level")
         .toggle('l', "light", opts.lights_enabled, "Turn lights off (0) or on (1)")
         .toggle('v', "voice-prompt", opts.voice_prompts_enabled, "Turn voice prompts off (0) or on (1)")
         .value('i', "inactive-time", opts.inactive_time, uint8_t(0), uint8_t(90), "Set inactive time in minutes", "MINUTES")
         .flag('m', "chatmix", opts.request_chatmix, "Get chat-mix level")
-        .long_flag("sidetone-status", opts.request_sidetone, "Get current sidetone level")
         .value('n', "notificate", opts.notification_sound, uint8_t(0), uint8_t(255), "Play notification sound", "SOUNDID")
         .toggle('r', "rotate-to-mute", opts.rotate_to_mute_enabled, "Toggle rotate to mute")
         .value('p', "equalizer-preset", opts.equalizer_preset, uint8_t(0), uint8_t(255), "Set equalizer preset", "PRESET")
@@ -790,13 +803,12 @@ namespace help {
             sections.back()
                 .add('b', "battery", "", "Show battery level and status", CAP_BATTERY_STATUS)
                 .add('m', "chatmix", "", "Show current chat-mix balance", CAP_CHATMIX_STATUS)
-                .add("sidetone-status", "", "Show current sidetone level", CAP_SIDETONE_STATUS)
                 .add("connected", "", "Check if headset is connected", std::nullopt, true);
 
             // Audio - value hints from capability descriptors
             sections.push_back({ "AUDIO", {} });
             sections.back()
-                .add('s', "sidetone", getValueHint(CAP_SIDETONE), "Mic feedback level (0=off)", CAP_SIDETONE)
+                .add('s', "sidetone", "[LEVEL]", "Get current level or set mic feedback (0-128)", CAP_SIDETONE)
                 .add("volume-limiter", getValueHint(CAP_VOLUME_LIMITER), "Enable/disable volume limiter", CAP_VOLUME_LIMITER);
 
             // Equalizer

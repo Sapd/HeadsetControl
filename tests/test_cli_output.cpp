@@ -352,7 +352,7 @@ void testCliSidetoneStatusOutputs()
 {
     std::cout << "  Testing sidetone status in all output formats..." << std::endl;
 
-    const std::string base = HEADSETCONTROL_EXE " --test-device -d 0xf00b:0xa00c --sidetone-status -o ";
+    const std::string base = HEADSETCONTROL_EXE " --test-device -d 0xf00b:0xa00c -s -o ";
 
     std::string json = exec((base + "json 2>&1").c_str());
     ASSERT_CONTAINS(json, "\"sidetone\": {", "JSON should have sidetone object");
@@ -370,9 +370,27 @@ void testCliSidetoneStatusOutputs()
     ASSERT_CONTAINS(env, "DEVICE_0_SIDETONE_DEVICE_LEVEL=2", "ENV should have native level");
     ASSERT_CONTAINS(env, "DEVICE_0_SIDETONE_NAME=\"Medium\"", "ENV should have named level");
 
-    std::string standard = exec(HEADSETCONTROL_EXE " --test-device -d 0xf00b:0xa00c --sidetone-status 2>&1");
+    std::string standard = exec(HEADSETCONTROL_EXE " --test-device -d 0xf00b:0xa00c -s 2>&1");
     ASSERT_CONTAINS(standard, "Sidetone: Medium (85; device level 2)",
         "standard output should show normalized, native, and named level");
+
+    std::string long_query = exec(HEADSETCONTROL_EXE " --test-device -d 0xf00b:0xa00c --sidetone 2>&1");
+    ASSERT_CONTAINS(long_query, "Sidetone: Medium (85; device level 2)",
+        "long sidetone option without a value should query");
+
+    std::string short_set = exec(HEADSETCONTROL_EXE " --test-device -d 0xf00b:0xa00c -s 64 2>&1");
+    ASSERT_CONTAINS(short_set, "Successfully set sidetone!",
+        "short sidetone option with a value should set");
+
+    std::string long_set = exec(HEADSETCONTROL_EXE " --test-device -d 0xf00b:0xa00c --sidetone 64 2>&1");
+    ASSERT_CONTAINS(long_set, "Successfully set sidetone!",
+        "long sidetone option with a value should set");
+
+    std::string help = exec(HEADSETCONTROL_EXE " --help-all 2>&1");
+    ASSERT_CONTAINS(help, "-s, --sidetone [LEVEL]",
+        "help should document the optional sidetone level");
+    ASSERT_NOT_CONTAINS(help, "--sidetone-status",
+        "help should not expose a separate sidetone status option");
 
     std::cout << "    ✓ Sidetone status output is correct" << std::endl;
 }

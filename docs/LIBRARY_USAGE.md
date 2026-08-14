@@ -72,7 +72,7 @@ Query and set values in one call:
 headsetcontrol -s 64 -b -o json
 
 # Read the current sidetone setting (when supported)
-headsetcontrol --sidetone-status -o json
+headsetcontrol -s -o json
 ```
 
 Action results include status:

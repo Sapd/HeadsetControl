@@ -215,7 +215,7 @@ headsetcontrol -b
 headsetcontrol -s 64
 
 # Read the current sidetone level (when supported)
-headsetcontrol --sidetone-status
+headsetcontrol -s
 
 # Turn off LEDs
 headsetcontrol -l 0
