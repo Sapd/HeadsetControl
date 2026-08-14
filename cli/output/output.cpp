@@ -181,8 +181,7 @@ void processFeatureRequest(const FeatureRequest& req, DeviceData& dev, std::stri
                 for (const auto& preset : presets->presets) {
                     preset_data.push_back(EqualizerPresetData {
                         .name   = preset.name,
-                        .values = preset.values
-                    });
+                        .values = preset.values });
                 }
                 dev.equalizer_presets = std::move(preset_data);
             }

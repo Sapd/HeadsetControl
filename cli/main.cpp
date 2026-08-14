@@ -37,8 +37,8 @@
 #include <algorithm>
 #include <cassert>
 #include <chrono>
-#include <cstdio>
 #include <csignal>
+#include <cstdio>
 #include <cstdlib>
 #include <format>
 #include <iostream>
@@ -420,7 +420,7 @@ public:
         if (devices_)
             hid_free_enumeration(devices_);
     }
-    HIDEnumeration(const HIDEnumeration&) = delete;
+    HIDEnumeration(const HIDEnumeration&)            = delete;
     HIDEnumeration& operator=(const HIDEnumeration&) = delete;
 
     hid_device_info* get() const { return devices_; }
@@ -1003,7 +1003,7 @@ void setupSignalHandler()
 #ifdef _WIN32
     signal(SIGINT, signalHandler);
 #else
-    struct sigaction act {};
+    struct sigaction act { };
     act.sa_handler = signalHandler;
     sigaction(SIGINT, &act, nullptr);
 #endif
