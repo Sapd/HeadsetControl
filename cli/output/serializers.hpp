@@ -558,7 +558,7 @@ public:
     {
         out_.flush();
         err_.flush();
-        err_ << "\nWarning: short output deprecated, use the -o option instead\n";
+        err_ << "\nWarning: output format SHORT is deprecated, use -o json, yaml, or env instead\n";
     }
 
     void beginObject(std::string_view) override { }

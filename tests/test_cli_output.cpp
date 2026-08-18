@@ -494,10 +494,39 @@ void testCliShortDeprecationWarning()
 
     std::string output = exec(HEADSETCONTROL_EXE " --test-device -b --short-output 2>&1");
 
-    // Short output should include deprecation warning on stderr
+    // Short output should include deprecation warning on stderr, naming SHORT
+    // itself (not -o, which is how you'd reach json/yaml/env too) as the
+    // deprecated part.
     ASSERT_CONTAINS(output, "deprecated", "Short output should show deprecation warning");
+    ASSERT_CONTAINS(output, "SHORT", "Warning should name SHORT as the deprecated format");
 
     std::cout << "    ✓ CLI short deprecation warning is present" << std::endl;
+}
+
+void testCliOutputShortDeprecationWarning()
+{
+    std::cout << "  Testing CLI '-o short' deprecation warning..." << std::endl;
+
+    // -o short is an alias for --short-output and should carry the same
+    // warning, worded so it's clear SHORT (not -o) is what's deprecated.
+    std::string output = exec(HEADSETCONTROL_EXE " --test-device -b -o short 2>&1");
+
+    ASSERT_CONTAINS(output, "deprecated", "-o short should show deprecation warning");
+    ASSERT_CONTAINS(output, "SHORT", "Warning should name SHORT as the deprecated format");
+
+    std::cout << "    ✓ CLI '-o short' deprecation warning is present" << std::endl;
+}
+
+void testCliHelpHidesShortOutput()
+{
+    std::cout << "  Testing CLI help no longer advertises short output..." << std::endl;
+
+    std::string output = exec(HEADSETCONTROL_EXE " --test-device --help-all 2>&1");
+
+    ASSERT_NOT_CONTAINS(output, "short-output", "Help should not advertise the deprecated --short-output flag");
+    ASSERT_NOT_CONTAINS(output, "standard, short", "Help should not list short as an -o output format choice");
+
+    std::cout << "    ✓ CLI help hides short output" << std::endl;
 }
 
 // ============================================================================
@@ -554,6 +583,8 @@ void runAllCliOutputTests()
     runTest("Short Output", testCliShortOutput);
     runTest("Short Battery", testCliShortBattery);
     runTest("Short Deprecation Warning", testCliShortDeprecationWarning);
+    runTest("Output Short Deprecation Warning", testCliOutputShortDeprecationWarning);
+    runTest("Help Hides Short Output", testCliHelpHidesShortOutput);
 
     std::cout << "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" << std::endl;
     std::cout << "CLI Output Tests: " << passed << " passed, " << failed << " failed" << std::endl;

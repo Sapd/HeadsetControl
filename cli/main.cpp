@@ -852,8 +852,7 @@ namespace help {
             // Output - always shown
             sections.push_back({ "OUTPUT", {} });
             sections.back()
-                .add('o', "output", "FORMAT", "json, yaml, env, standard, short")
-                .add('c', "short-output", "", "Compact output (same as -o short)")
+                .add('o', "output", "FORMAT", "json, yaml, env, standard")
                 .add("capabilities, --caps", "", "List device capabilities");
 
             // Advanced - only in --help-all
