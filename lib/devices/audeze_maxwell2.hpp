@@ -4,6 +4,7 @@
 #include "hid_device.hpp"
 #include <array>
 #include <chrono>
+#include <optional>
 #include <string_view>
 #include <thread>
 
@@ -32,7 +33,7 @@ class AudezeMaxwell2 : public HIDDevice {
 public:
     static constexpr std::array<uint16_t, 2> SUPPORTED_PRODUCT_IDS {
         0x4b29, // Maxwell 2 (PlayStation/PC version)
-        0x4b28  // Maxwell 2 (Xbox version)
+        0x4b28 // Maxwell 2 (Xbox version)
     };
 
     static constexpr int MSG_SIZE  = 62;
@@ -220,11 +221,56 @@ private:
         return status;
     }
 
+    static constexpr auto STATUS_REUSE_WINDOW = std::chrono::milliseconds(500);
+
+    /**
+     * @brief Reuse one status read for every info capability.
+     *
+     * getDeviceStatus() costs 21 packets at 60 ms and already returns everything,
+     * but each getter called it again. Keyed on the handle since one instance
+     * serves every attached Maxwell 2.
+     *
+     * The reused status also carries sidetone, equalizer and noise filter, so
+     * every setter that writes one of those calls invalidateStatus(). A getter
+     * built on top of this must keep that list in sync, otherwise a set followed
+     * by a get inside the window returns the value from before the write.
+     */
+    Result<MaxwellStatus> statusFor(hid_device* device_handle)
+    {
+        if (last_status_ && last_handle_ == device_handle
+            && std::chrono::steady_clock::now() - read_at_ < STATUS_REUSE_WINDOW) {
+            return *last_status_;
+        }
+
+        auto status = getDeviceStatus(device_handle);
+        if (!status) {
+            return status.error();
+        }
+
+        last_handle_ = device_handle;
+        last_status_ = *status;
+        // After the read, not before: it takes ~1.4 s, so a timestamp taken going
+        // in would already have expired.
+        read_at_ = std::chrono::steady_clock::now();
+
+        return *status;
+    }
+
+    // Drop the reused status after a write that changes one of its fields.
+    void invalidateStatus()
+    {
+        last_status_.reset();
+    }
+
+    hid_device* last_handle_ = nullptr;
+    std::optional<MaxwellStatus> last_status_;
+    std::chrono::steady_clock::time_point read_at_ {};
+
 public:
     // Rich Results V2 API
     Result<BatteryResult> getBattery(hid_device* device_handle) override
     {
-        auto status_result = getDeviceStatus(device_handle);
+        auto status_result = statusFor(device_handle);
         if (!status_result) {
             return status_result.error();
         }
@@ -234,6 +280,8 @@ public:
 
     Result<SidetoneResult> setSidetone(hid_device* device_handle, uint8_t level) override
     {
+        invalidateStatus();
+
         // Maxwell range: 0 to 31
         uint8_t mapped = map<uint8_t>(level, 0, 128, 0, 31);
 
@@ -332,7 +380,7 @@ public:
 
     Result<ChatmixResult> getChatmix(hid_device* device_handle) override
     {
-        auto status_result = getDeviceStatus(device_handle);
+        auto status_result = statusFor(device_handle);
         if (!status_result) {
             return status_result.error();
         }
@@ -359,6 +407,8 @@ public:
             return DeviceError::invalidParameter("Device only supports presets 0-9");
         }
 
+        invalidateStatus();
+
         // Device uses 1-10 range internally
         uint8_t device_preset = preset + 1;
 
@@ -379,6 +429,9 @@ public:
         if (level > 2) {
             return DeviceError::invalidParameter("Noise filter level must be 0, 1, or 2");
         }
+
+        invalidateStatus();
+
         std::array<uint8_t, MSG_SIZE> cmd { 0x06, 0x09, 0x80, 0x05, 0x5A, 0x05, 0x00, 0x00, 0x09, 0x24, 0x00, level };
 
         auto result = sendGetInputReport(device_handle, cmd);
