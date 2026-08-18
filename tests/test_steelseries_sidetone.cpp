@@ -235,6 +235,21 @@ void testSteelSeriesSidetoneAsyncStatusAndSave()
         "save write failure should remain a HID error");
 }
 
+void testSteelSeriesSidetoneShortAsyncStatus()
+{
+    // A status report is still one to skip even if it comes in short - the
+    // 0xb0 check has to run before the length check that guards the real
+    // settings response.
+    SidetoneMockHID hid;
+    TestableNova7 device(hid);
+    hid.reads.emplace_back(std::vector<uint8_t> { 0xb0 });
+    hid.reads.emplace_back(std::vector<uint8_t> { 0x20, 0x07, 0x02, 0x01 });
+
+    auto result = device.getSidetone(nullptr);
+    SIDETONE_ASSERT(result.hasValue(), "a short status report should be skipped, not fail the query");
+    SIDETONE_ASSERT(result->current_level == 85, "the real response after it should still be read");
+}
+
 void runAllSteelSeriesSidetoneTests()
 {
     std::cout << "\n=== SteelSeries Sidetone Tests ===" << std::endl;
@@ -242,6 +257,7 @@ void runAllSteelSeriesSidetoneTests()
     testSteelSeriesSidetoneValidation();
     testSteelSeriesSidetoneHIDErrors();
     testSteelSeriesSidetoneAsyncStatusAndSave();
+    testSteelSeriesSidetoneShortAsyncStatus();
     std::cout << "  SteelSeries sidetone tests passed" << std::endl;
 }
 

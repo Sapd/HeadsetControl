@@ -231,12 +231,13 @@ public:
                 return DeviceError::timeout("No SteelSeries settings response received");
             }
 
-            if (bytes_read < 4) {
-                return DeviceError::protocolError("SteelSeries settings response too short");
-            }
-
+            // A short 0xb0 report is still one to skip, not a bad response.
             if (response[0] == 0xb0) {
                 continue;
+            }
+
+            if (bytes_read < 4) {
+                return DeviceError::protocolError("SteelSeries settings response too short");
             }
 
             if (response[0] != 0x20) {
