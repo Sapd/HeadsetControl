@@ -808,7 +808,7 @@ namespace help {
             // Audio - value hints from capability descriptors
             sections.push_back({ "AUDIO", {} });
             sections.back()
-                .add('s', "sidetone", "[LEVEL]", "Get current level or set mic feedback (0-128)", CAP_SIDETONE)
+                .add('s', "sidetone", getValueHint(CAP_SIDETONE), "Get current level or set mic feedback (0-128)", CAP_SIDETONE)
                 .add("volume-limiter", getValueHint(CAP_VOLUME_LIMITER), "Enable/disable volume limiter", CAP_VOLUME_LIMITER);
 
             // Equalizer
