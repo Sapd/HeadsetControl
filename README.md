@@ -191,6 +191,7 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 | Plantronics Voyager 8200 UC (BT600) | L/W | x | x |   | x |   |   | x |   |   |   |   |   |   | x |   |   |   |   |
 | Sony INZONE Buds | All |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | Sony INZONE H5 | All | x | x |   |   |   | x |   |   |   |   |   |   | x |   |   |   |   |   |
+| MCHOSE X9 Wireless | L/W |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | HeadsetControl Test device | All | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x |
 
 **Platform:** All = Linux, macOS, Windows | L/M = Linux and macOS only | L/W = Linux and Windows only
