@@ -401,13 +401,13 @@ public:
 
     Result<EqualizerPresetResult> setEqualizerPreset(hid_device* device_handle, uint8_t preset) override
     {
-        invalidateStatus();
-
         // Maxwell supports presets 0-9 (mapped to device presets 1-10)
         // 0-5 are built-in presets, 6-9 are custom presets
         if (preset >= EQUALIZER_PRESETS_COUNT) {
             return DeviceError::invalidParameter("Device only supports presets 0-9");
         }
+
+        invalidateStatus();
 
         // Device uses 1-10 range internally
         uint8_t device_preset = preset + 1;
@@ -424,13 +424,14 @@ public:
 
     Result<NoiseFilterResult> setNoiseFilter(hid_device* device_handle, uint8_t level) override
     {
-        invalidateStatus();
-
         // Maxwell 2 has three levels for the noise filter: high, low, and
         // off (2,1 and 0)
         if (level > 2) {
             return DeviceError::invalidParameter("Noise filter level must be 0, 1, or 2");
         }
+
+        invalidateStatus();
+
         std::array<uint8_t, MSG_SIZE> cmd { 0x06, 0x09, 0x80, 0x05, 0x5A, 0x05, 0x00, 0x00, 0x09, 0x24, 0x00, level };
 
         auto result = sendGetInputReport(device_handle, cmd);
