@@ -1049,13 +1049,32 @@ std::vector<DeviceList> toLegacyDeviceList(std::vector<DiscoveredDevice>& device
     return legacy;
 }
 
+// Whether this device was asked to set something. Only counts requests that are
+// still live, so it has to run after handleMultiDeviceActions has had its say.
+bool hasRequestedAction(const DiscoveredDevice& device)
+{
+    for (const auto& req : device.feature_requests) {
+        if (req.type == CAPABILITYTYPE_ACTION && req.should_process) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 // Enable info requests for extended output formats (JSON, YAML, ENV)
+// Only for a pure query: the extra reads can cost far more than the action
+// itself (Maxwell 2: -s 20 is 0.07 s, -s 20 -o json is 2.90 s). Per device, so
+// an action on one headset does not silence the info reads of another.
 void enableExtendedInfoRequests(std::vector<DiscoveredDevice>& devices, bool extended)
 {
     if (!extended)
         return;
 
     for (auto& dev : devices) {
+        if (hasRequestedAction(dev))
+            continue;
+
         for (auto& req : dev.feature_requests) {
             if (req.type == CAPABILITYTYPE_INFO && !req.should_process && dev.hasCapability(req.cap)) {
                 req.should_process = true;
@@ -1219,8 +1238,11 @@ int main(int argc, char* argv[])
     // Initialize and configure feature requests
     initializeFeatureRequests(devices, opts);
     bool extended = opts.output_format == OUTPUT_YAML || opts.output_format == OUTPUT_JSON || opts.output_format == OUTPUT_ENV;
-    enableExtendedInfoRequests(devices, extended);
+    // Order matters: handleMultiDeviceActions neutralizes action requests, and
+    // enableExtendedInfoRequests has to see the result of that, not the requests
+    // as they were parsed.
     handleMultiDeviceActions(devices, opts);
+    enableExtendedInfoRequests(devices, extended);
 
     // Main loop
     do {

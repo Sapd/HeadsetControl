@@ -23,6 +23,9 @@ using namespace headsetcontrol::serializers;
 // Constants
 // ============================================================================
 
+// 1.5: an invocation that performs an action no longer reports info it was not
+// explicitly asked for, and structured output gained an additive "sidetone"
+// field for devices that support reading it back.
 constexpr std::string_view API_VERSION = "1.5";
 constexpr std::string_view APP_NAME    = "HeadsetControl";
 

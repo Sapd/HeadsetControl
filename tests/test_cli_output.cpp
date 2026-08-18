@@ -298,6 +298,54 @@ void testCliEnvShellSafe()
 }
 
 // ============================================================================
+// Action + Extended Output Tests
+// ============================================================================
+
+void testCliActionOnlyOmitsUnrequestedInfo()
+{
+    std::cout << "  Testing action-only invocation omits info not explicitly requested..." << std::endl;
+
+    // -s (sidetone) is an action; battery/chatmix were not asked for, so an
+    // extended-format invocation should not pay for reading them.
+    std::string output = exec(HEADSETCONTROL_EXE " --test-device -s 20 -o json 2>&1");
+
+    ASSERT_CONTAINS(output, "\"actions\":", "Should have actions array");
+    ASSERT_NOT_CONTAINS(output, "\"battery\":", "Battery info should be omitted when not requested");
+    ASSERT_NOT_CONTAINS(output, "\"chatmix\":", "Chatmix info should be omitted when not requested");
+
+    std::cout << "    ✓ Action-only invocation omits unrequested info" << std::endl;
+}
+
+void testCliActionWithExplicitInfoKeepsOnlyThat()
+{
+    std::cout << "  Testing action + explicit info request keeps only that info..." << std::endl;
+
+    // -b is explicitly requested alongside the -s action; chatmix was not
+    // asked for and should still be omitted.
+    std::string output = exec(HEADSETCONTROL_EXE " --test-device -b -s 20 -o json 2>&1");
+
+    ASSERT_CONTAINS(output, "\"actions\":", "Should have actions array");
+    ASSERT_CONTAINS(output, "\"battery\":", "Explicitly requested battery info should be present");
+    ASSERT_NOT_CONTAINS(output, "\"chatmix\":", "Chatmix info should be omitted when not requested");
+
+    std::cout << "    ✓ Action with explicit info request keeps only that info" << std::endl;
+}
+
+void testCliPureQueryStillReturnsAllInfo()
+{
+    std::cout << "  Testing pure query (no action) still returns all extended info..." << std::endl;
+
+    // No action requested, so the extended-format default of reading every
+    // supported info capability still applies.
+    std::string output = exec(HEADSETCONTROL_EXE " --test-device -o json 2>&1");
+
+    ASSERT_CONTAINS(output, "\"battery\":", "Pure query should still report battery");
+    ASSERT_CONTAINS(output, "\"chatmix\":", "Pure query should still report chatmix");
+
+    std::cout << "    ✓ Pure query still returns all extended info" << std::endl;
+}
+
+// ============================================================================
 // Standard Output Tests
 // ============================================================================
 
@@ -490,6 +538,11 @@ void runAllCliOutputTests()
     std::cout << "\n=== ENV CLI Tests ===" << std::endl;
     runTest("ENV Output", testCliEnvOutput);
     runTest("ENV Shell-Safe", testCliEnvShellSafe);
+
+    std::cout << "\n=== Action + Extended Output Tests ===" << std::endl;
+    runTest("Action-Only Omits Unrequested Info", testCliActionOnlyOmitsUnrequestedInfo);
+    runTest("Action With Explicit Info", testCliActionWithExplicitInfoKeepsOnlyThat);
+    runTest("Pure Query Still Returns All Info", testCliPureQueryStillReturnsAllInfo);
 
     std::cout << "\n=== Standard Output Tests ===" << std::endl;
     runTest("Standard Output", testCliStandardOutput);
