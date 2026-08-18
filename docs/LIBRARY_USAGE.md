@@ -28,7 +28,7 @@ headsetcontrol -o env
 {
   "name": "HeadsetControl",
   "version": "3.0.0",
-  "api_version": "1.4",
+  "api_version": "1.5",
   "device_count": 1,
   "devices": [
     {
