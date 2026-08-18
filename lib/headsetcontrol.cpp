@@ -74,7 +74,7 @@ namespace {
 class HeadsetImpl {
 public:
     HeadsetImpl(HIDDevice* device, uint16_t product_id,
-        bool is_test_device = false,
+        bool is_test_device     = false,
         std::string vendor_name = {}, std::string product_name = {})
         : device_(device)
         , product_id_(product_id)
@@ -253,6 +253,11 @@ Result<BatteryResult> Headset::getBattery()
 Result<ChatmixResult> Headset::getChatmix()
 {
     HEADSET_FEATURE_IMPL(CAP_CHATMIX_STATUS, getChatmix);
+}
+
+Result<SidetoneResult> Headset::getSidetone()
+{
+    HEADSET_FEATURE_IMPL(CAP_SIDETONE_STATUS, getSidetone);
 }
 
 Result<SidetoneResult> Headset::setSidetone(uint8_t level)

@@ -69,7 +69,7 @@ public:
             | B(CAP_EQUALIZER) | B(CAP_PARAMETRIC_EQUALIZER)
             | B(CAP_MICROPHONE_MUTE_LED_BRIGHTNESS) | B(CAP_MICROPHONE_VOLUME)
             | B(CAP_VOLUME_LIMITER) | B(CAP_BT_WHEN_POWERED_ON) | B(CAP_BT_CALL_VOLUME)
-            | B(CAP_NOISE_FILTER);
+            | B(CAP_NOISE_FILTER) | B(CAP_SIDETONE_STATUS);
     }
 
     std::optional<EqualizerInfo> getEqualizerInfo() const override
@@ -162,6 +162,23 @@ public:
             .current_level = level,
             .min_level     = 0,
             .max_level     = 128
+        };
+    }
+
+    Result<SidetoneResult> getSidetone([[maybe_unused]] hid_device* device_handle) override
+    {
+        if (test_profile == 1) {
+            return DeviceError::hidError("Test error condition");
+        }
+
+        return SidetoneResult {
+            .current_level = 85,
+            .min_level     = 0,
+            .max_level     = 128,
+            .device_min    = 0,
+            .device_max    = 3,
+            .device_level  = 2,
+            .level_name    = "Medium"
         };
     }
 

@@ -70,7 +70,7 @@ public:
     OutputData data;
     data.name           = "HeadsetControl";
     data.version        = "1.0.0-test";
-    data.api_version    = "1.4";
+    data.api_version    = "1.5";
     data.hidapi_version = "0.15.0";
 
     DeviceData dev;
@@ -87,7 +87,8 @@ public:
     bat.voltage_mv = 3800;
     dev.battery    = bat;
 
-    dev.chatmix = 64;
+    dev.chatmix  = 64;
+    dev.sidetone = SidetoneData { .level = 43, .device_level = 1, .name = "Low" };
 
     data.devices.push_back(dev);
 
@@ -403,6 +404,9 @@ void testFullJsonOutput()
     ASSERT_CONTAINS(result, "\"battery\": {", "Should have battery object");
     ASSERT_CONTAINS(result, "\"level\": 75", "Should have battery level");
     ASSERT_CONTAINS(result, "\"chatmix\": 64", "Should have chatmix");
+    ASSERT_CONTAINS(result, "\"sidetone\": {", "Should have sidetone object");
+    ASSERT_CONTAINS(result, "\"device_level\": 1", "Should have native sidetone level");
+    ASSERT_CONTAINS(result, "\"name\": \"Low\"", "Should have sidetone name");
 
     std::cout << "    ✓ Full JSON output is correct" << std::endl;
 }

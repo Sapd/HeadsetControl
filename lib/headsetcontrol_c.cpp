@@ -18,6 +18,7 @@ struct HeadsetWrapper {
     std::string vendor_name_str;
     std::string product_name_str;
     std::optional<EqualizerPresets> equalizer_presets_cache;
+    std::string sidetone_level_name_cache;
 
     explicit HeadsetWrapper(headsetcontrol::Headset&& h)
         : headset(std::move(h))
@@ -81,6 +82,19 @@ const EqualizerPresets* getCachedEqualizerPresets(HeadsetWrapper& wrapper)
     }
 
     return &(*wrapper.equalizer_presets_cache);
+}
+
+void copySidetoneStatus(const headsetcontrol::SidetoneResult& source,
+    hsc_sidetone_status_t& destination, std::string& level_name_cache)
+{
+    destination.current_level = source.current_level;
+    destination.min_level     = source.min_level;
+    destination.max_level     = source.max_level;
+    destination.device_level  = source.device_level;
+    destination.device_min    = source.device_min;
+    destination.device_max    = source.device_max;
+    level_name_cache          = source.level_name.value_or("");
+    destination.level_name    = level_name_cache.empty() ? nullptr : level_name_cache.c_str();
 }
 
 } // namespace
@@ -272,6 +286,22 @@ hsc_result_t hsc_get_chatmix(hsc_headset_t headset, hsc_chatmix_t* chatmix)
     return HSC_RESULT_OK;
 }
 
+hsc_result_t hsc_get_sidetone(hsc_headset_t headset, hsc_sidetone_status_t* sidetone)
+{
+    if (!headset || !sidetone) {
+        return HSC_RESULT_INVALID_PARAM;
+    }
+
+    auto& wrapper = *static_cast<HeadsetWrapper*>(headset);
+    auto result   = wrapper.headset.getSidetone();
+    if (!result) {
+        return toErrorCode(result.error());
+    }
+
+    copySidetoneStatus(*result, *sidetone, wrapper.sidetone_level_name_cache);
+    return HSC_RESULT_OK;
+}
+
 // ============================================================================
 // Audio Controls
 // ============================================================================
@@ -346,7 +376,7 @@ const char* hsc_get_equalizer_preset_name(hsc_headset_t headset, int preset)
         return nullptr;
     }
 
-    auto& wrapper = *static_cast<HeadsetWrapper*>(headset);
+    auto& wrapper       = *static_cast<HeadsetWrapper*>(headset);
     const auto* presets = getCachedEqualizerPresets(wrapper);
     if (!presets || preset >= static_cast<int>(presets->presets.size())) {
         return nullptr;
@@ -361,7 +391,7 @@ int hsc_get_equalizer_preset_band_count(hsc_headset_t headset, int preset)
         return 0;
     }
 
-    auto& wrapper = *static_cast<HeadsetWrapper*>(headset);
+    auto& wrapper       = *static_cast<HeadsetWrapper*>(headset);
     const auto* presets = getCachedEqualizerPresets(wrapper);
     if (!presets || preset >= static_cast<int>(presets->presets.size())) {
         return 0;
@@ -380,7 +410,7 @@ hsc_result_t hsc_get_equalizer_preset_bands(
         return HSC_RESULT_INVALID_PARAM;
     }
 
-    auto& wrapper = *static_cast<HeadsetWrapper*>(headset);
+    auto& wrapper       = *static_cast<HeadsetWrapper*>(headset);
     const auto* presets = getCachedEqualizerPresets(wrapper);
     if (!presets) {
         return HSC_RESULT_NOT_SUPPORTED;

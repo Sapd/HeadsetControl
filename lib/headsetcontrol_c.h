@@ -99,7 +99,9 @@ typedef enum {
     HSC_CAP_VOLUME_LIMITER                 = 13,
     HSC_CAP_BT_WHEN_POWERED_ON             = 14,
     HSC_CAP_BT_CALL_VOLUME                 = 15,
-    HSC_NUM_CAPABILITIES                   = 16,
+    HSC_CAP_NOISE_FILTER                   = 16,
+    HSC_CAP_SIDETONE_STATUS                = 17,
+    HSC_NUM_CAPABILITIES                   = 18,
 } hsc_capability_t;
 
 /* ============================================================================
@@ -131,6 +133,16 @@ typedef struct {
     uint8_t min_level;
     uint8_t max_level;
 } hsc_sidetone_t;
+
+typedef struct {
+    uint8_t current_level;
+    uint8_t min_level;
+    uint8_t max_level;
+    uint8_t device_level;
+    uint8_t device_min;
+    uint8_t device_max;
+    const char* level_name; /**< Name valid until next query or headset release; NULL if unavailable */
+} hsc_sidetone_status_t;
 
 typedef struct {
     int level; /**< Chat-mix level (0-128) */
@@ -270,6 +282,15 @@ HSC_API hsc_result_t hsc_get_battery(hsc_headset_t headset, hsc_battery_t* batte
  * @return HSC_RESULT_OK on success, negative error code on failure
  */
 HSC_API hsc_result_t hsc_get_chatmix(hsc_headset_t headset, hsc_chatmix_t* chatmix);
+
+/**
+ * @brief Get current sidetone level
+ *
+ * @param headset Headset handle
+ * @param[out] sidetone Sidetone info structure to fill
+ * @return HSC_RESULT_OK on success, negative error code on failure
+ */
+HSC_API hsc_result_t hsc_get_sidetone(hsc_headset_t headset, hsc_sidetone_status_t* sidetone);
 
 /* ============================================================================
  * Audio Controls

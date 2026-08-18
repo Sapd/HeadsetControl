@@ -340,6 +340,14 @@ inline void FeatureHandlerRegistry::registerAllHandlers()
             return r.error();
         return FeatureOutput::success(r->level);
     });
+
+    // CAP_SIDETONE_STATUS
+    registerHandler(CAP_SIDETONE_STATUS, [](HIDDevice* dev, hid_device* h, const FeatureParam&) -> Result<FeatureOutput> {
+        auto r = dev->getSidetone(h);
+        if (r.hasError())
+            return r.error();
+        return FeatureOutput::fromSidetone(r.value());
+    });
 }
 
 } // namespace headsetcontrol

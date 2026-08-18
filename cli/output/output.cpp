@@ -24,7 +24,8 @@ using namespace headsetcontrol::serializers;
 // ============================================================================
 
 // 1.5: an invocation that performs an action no longer reports info it was not
-// explicitly asked for.
+// explicitly asked for, and structured output gained an additive "sidetone"
+// field for devices that support reading it back.
 constexpr std::string_view API_VERSION = "1.5";
 constexpr std::string_view APP_NAME    = "HeadsetControl";
 
@@ -73,6 +74,20 @@ void processChatmixResult(const FeatureResult& result, DeviceData& dev)
     }
 }
 
+void processSidetoneResult(const FeatureResult& result, DeviceData& dev)
+{
+    if (result.status == FEATURE_SUCCESS || result.status == FEATURE_INFO) {
+        dev.sidetone = SidetoneData {
+            .level        = result.value,
+            .device_level = result.sidetone_device_level.value_or(0),
+            .name         = result.sidetone_level_name.value_or("")
+        };
+    } else if (result.status == FEATURE_ERROR) {
+        dev.errors.emplace_back(capability_to_string(CAP_SIDETONE_STATUS), result.message);
+        dev.status = STATUS_PARTIAL;
+    }
+}
+
 // Process action capability result and add to device actions
 void processActionResult(const FeatureRequest& req, DeviceData& dev, std::string_view device_name)
 {
@@ -101,6 +116,8 @@ void processFeatureRequest(const FeatureRequest& req, DeviceData& dev, std::stri
         processBatteryResult(req.result, dev);
     } else if (req.cap == CAP_CHATMIX_STATUS) {
         processChatmixResult(req.result, dev);
+    } else if (req.cap == CAP_SIDETONE_STATUS) {
+        processSidetoneResult(req.result, dev);
     } else if (req.type == CAPABILITYTYPE_ACTION) {
         processActionResult(req, dev, device_name);
     }
@@ -294,6 +311,10 @@ void outputYaml(const OutputData& data)
                 s.write("chatmix", *dev.chatmix);
             }
 
+            if (dev.sidetone.has_value()) {
+                dev.sidetone->serialize(s);
+            }
+
             if (!dev.errors.empty()) {
                 s.beginObject("errors");
                 for (const auto& err : dev.errors) {
@@ -405,6 +426,14 @@ void outputEnv(const OutputData& data)
             s.write(prefix + "_CHATMIX", *dev.chatmix);
         }
 
+        if (dev.sidetone.has_value()) {
+            s.write(prefix + "_SIDETONE_LEVEL", dev.sidetone->level);
+            s.write(prefix + "_SIDETONE_DEVICE_LEVEL", dev.sidetone->device_level);
+            if (!dev.sidetone->name.empty()) {
+                s.write(prefix + "_SIDETONE_NAME", dev.sidetone->name);
+            }
+        }
+
         s.write(prefix + "_ERROR_COUNT", static_cast<int>(dev.errors.size()));
         for (size_t j = 0; j < dev.errors.size(); ++j) {
             s.write(std::format("{}_ERROR_{}_SOURCE", prefix, j + 1), dev.errors[j].source);
@@ -469,6 +498,16 @@ void outputStandard(const OutputData& data, bool print_capabilities)
 
         if (dev.chatmix.has_value()) {
             s.println("Chatmix: {}", *dev.chatmix);
+            outputted = true;
+        }
+
+        if (dev.sidetone.has_value()) {
+            if (dev.sidetone->name.empty()) {
+                s.println("Sidetone: {} (device level {})", dev.sidetone->level, dev.sidetone->device_level);
+            } else {
+                s.println("Sidetone: {} ({}; device level {})", dev.sidetone->name,
+                    dev.sidetone->level, dev.sidetone->device_level);
+            }
             outputted = true;
         }
 
@@ -546,6 +585,8 @@ void outputShort(const OutputData& data, bool print_capabilities)
             }
         } else if (dev.chatmix.has_value()) {
             s.printValue(*dev.chatmix);
+        } else if (dev.sidetone.has_value()) {
+            s.printValue(dev.sidetone->level);
         }
     }
 

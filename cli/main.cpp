@@ -151,8 +151,9 @@ struct Options {
     std::optional<uint8_t> noise_filter;
 
     // Info requests
-    bool request_battery = false;
-    bool request_chatmix = false;
+    bool request_battery  = false;
+    bool request_chatmix  = false;
+    bool request_sidetone = false;
 
     // Complex settings
     std::optional<EqualizerSettings> equalizer;
@@ -204,7 +205,21 @@ std::optional<cli::ParseError> configureParser(cli::ArgumentParser& parser, Opti
         .long_flag("version", opts.show_version, "Show version information")
 
         // === Feature Controls ===
-        .value('s', "sidetone", opts.sidetone_level, uint8_t(0), uint8_t(128), "Set sidetone level", "LEVEL")
+        .custom('s', "sidetone", cli::ArgRequirement::Optional, [&opts](std::optional<std::string_view> arg) -> std::optional<cli::ParseError> {
+                if (!arg || arg->empty()) {
+                    opts.sidetone_level.reset();
+                    opts.request_sidetone = true;
+                    return std::nullopt;
+                }
+
+                uint8_t level {};
+                if (auto error = cli::parseInteger(*arg, level, uint8_t(0), uint8_t(128), "sidetone")) {
+                    return error;
+                }
+
+                opts.sidetone_level = level;
+                opts.request_sidetone = false;
+                return std::nullopt; }, "Get current sidetone level, or set it to LEVEL", "LEVEL")
         .flag('b', "battery", opts.request_battery, "Check battery level")
         .toggle('l', "light", opts.lights_enabled, "Turn lights off (0) or on (1)")
         .toggle('v', "voice-prompt", opts.voice_prompts_enabled, "Turn voice prompts off (0) or on (1)")
@@ -513,7 +528,9 @@ FeatureResult convertToFeatureResult(const headsetcontrol::FeatureOutput& output
 
     // Handle sidetone special case
     if (output.sidetone) {
-        result.value = output.sidetone->current_level;
+        result.value                 = output.sidetone->current_level;
+        result.sidetone_device_level = output.sidetone->device_level;
+        result.sidetone_level_name   = output.sidetone->level_name;
     }
 
     return result;
@@ -791,7 +808,7 @@ namespace help {
             // Audio - value hints from capability descriptors
             sections.push_back({ "AUDIO", {} });
             sections.back()
-                .add('s', "sidetone", getValueHint(CAP_SIDETONE), "Mic feedback level (0=off)", CAP_SIDETONE)
+                .add('s', "sidetone", getValueHint(CAP_SIDETONE), "Get current level or set mic feedback (0-128)", CAP_SIDETONE)
                 .add("volume-limiter", getValueHint(CAP_VOLUME_LIMITER), "Enable/disable volume limiter", CAP_VOLUME_LIMITER);
 
             // Equalizer
@@ -974,6 +991,7 @@ void initializeFeatureRequests(std::vector<DiscoveredDevice>& devices, const Opt
         { CAP_BATTERY_STATUS, CAPABILITYTYPE_INFO, std::monostate {}, opts.request_battery, {} },
         { CAP_INACTIVE_TIME, CAPABILITYTYPE_ACTION, g_feature_params.inactive_time_val, opts.inactive_time.has_value(), {} },
         { CAP_CHATMIX_STATUS, CAPABILITYTYPE_INFO, std::monostate {}, opts.request_chatmix, {} },
+        { CAP_SIDETONE_STATUS, CAPABILITYTYPE_INFO, std::monostate {}, opts.request_sidetone, {} },
         { CAP_VOICE_PROMPTS, CAPABILITYTYPE_ACTION, g_feature_params.voice_prompts_val, opts.voice_prompts_enabled.has_value(), {} },
         { CAP_ROTATE_TO_MUTE, CAPABILITYTYPE_ACTION, g_feature_params.rotate_to_mute_val, opts.rotate_to_mute_enabled.has_value(), {} },
         { CAP_EQUALIZER_PRESET, CAPABILITYTYPE_ACTION, g_feature_params.equalizer_preset_val, opts.equalizer_preset.has_value(), {} },

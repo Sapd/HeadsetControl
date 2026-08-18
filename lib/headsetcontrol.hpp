@@ -129,6 +129,12 @@ public:
      */
     [[nodiscard]] Result<ChatmixResult> getChatmix();
 
+    /**
+     * @brief Get the current sidetone level
+     * @return Sidetone info or error
+     */
+    [[nodiscard]] Result<SidetoneResult> getSidetone();
+
     // ========================================================================
     // Audio Controls
     // ========================================================================
