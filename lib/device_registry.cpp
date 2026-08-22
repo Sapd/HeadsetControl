@@ -1,9 +1,9 @@
 #include "device_registry.hpp"
 
 // Corsair devices
+#include "devices/corsair_virtuoso_xt.hpp"
 #include "devices/corsair_void_rich.hpp"
 #include "devices/corsair_void_v2w.hpp"
-#include "devices/corsair_virtuoso_xt.hpp"
 
 // Logitech devices
 #include "devices/logitech_astro_a50.hpp"
