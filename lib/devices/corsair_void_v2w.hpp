@@ -31,7 +31,7 @@ public:
     static constexpr std::array<uint16_t, 3> SUPPORTED_PRODUCT_IDS {
         0x2a08, // VOID WIRELESS V2 (receiver)
         0x2a02, // VIRTUOSO MAX WIRELESS (receiver)
-        0x0a97  // HS80 MAX Wireless (receiver)
+        0x0a97 // HS80 MAX Wireless (receiver)
     };
 
     std::vector<uint16_t> getProductIds() const override
@@ -99,10 +99,9 @@ public:
         uint16_t battery_level_vendor = static_cast<uint16_t>(battery_response[4] | (battery_response[5] << 8));
 
         const uint16_t battery_level_vendor_max = 1000;
-        const int battery_level_max_attempts = 3;
+        const int battery_level_max_attempts    = 3;
 
-        for (int attempt = 0; attempt < battery_level_max_attempts &&
-             (battery_level_vendor == 0 || battery_level_vendor > battery_level_vendor_max); ++attempt) {
+        for (int attempt = 0; attempt < battery_level_max_attempts && (battery_level_vendor == 0 || battery_level_vendor > battery_level_vendor_max); ++attempt) {
             if (auto result = writeHID(device_handle, battery_request, MSG_SIZE_WRITE); !result) {
                 return result.error();
             }
@@ -122,7 +121,7 @@ public:
             };
         }
 
-        status = BATTERY_AVAILABLE;
+        status    = BATTERY_AVAILABLE;
         int level = static_cast<int>(battery_level_vendor / 10);
 
         // Get the microphone mute state
