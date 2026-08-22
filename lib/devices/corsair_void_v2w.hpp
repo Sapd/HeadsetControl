@@ -51,7 +51,7 @@ public:
 
     // Override capability as this device needs the interface_id = 4
     constexpr capability_detail
-    getCapabilityDetail(enum capabilities cap) const override
+    getCapabilityDetail([[maybe_unused]] enum capabilities cap) const override
     {
         return { .usagepage = 0, .usageid = 0, .interface_id = 4 };
     }
@@ -158,12 +158,12 @@ public:
         constexpr uint8_t CORSAIR_MIN  = 0;
         constexpr uint16_t CORSAIR_MAX = 1000;
 
-        // Map from 0-128 to 200-255
-        uint16_t mapped_level   = map(level, 0, 128, CORSAIR_MIN, CORSAIR_MAX);
-        uint16_t sidetone_value = round_to_multiples(mapped_level, 10);
-        uint8_t low_byte        = sidetone_value & 0xFF;
-        uint8_t high_byte       = (sidetone_value >> 8) & 0xFF;
-        auto init_result        = initializeDevice(device_handle);
+        // Map from 0-128 to 0-1000
+        uint16_t mapped_level = map<uint16_t>(level, 0, 128, CORSAIR_MIN, CORSAIR_MAX);
+        auto sidetone_value   = round_to_multiples(mapped_level, 10);
+        uint8_t low_byte      = static_cast<uint8_t>(sidetone_value & 0xFF);
+        uint8_t high_byte     = static_cast<uint8_t>((sidetone_value >> 8) & 0xFF);
+        auto init_result      = initializeDevice(device_handle);
         if (init_result.valueOr(0) == 0) {
             return DeviceError::deviceOffline("Headset not connected to wireless receiver");
         }
