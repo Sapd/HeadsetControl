@@ -271,6 +271,16 @@ else()
     target_link_libraries(headsetcontrol_lib PUBLIC m ${HIDAPI_LIBRARIES})
 endif()
 
+# hidapi's macOS backend needs these frameworks. They are pulled in transitively
+# when linking the shared library, but not when linking hidapi statically (which
+# is what the portable release builds do).
+if(APPLE)
+    target_link_libraries(headsetcontrol_lib PUBLIC
+        "-framework IOKit"
+        "-framework CoreFoundation"
+    )
+endif()
+
 # Optionally build shared library for FFI bindings
 if(BUILD_SHARED_LIBRARY)
     add_library(headsetcontrol_shared SHARED ${LIBRARY_SOURCES} ${LIBRARY_HEADERS})
@@ -292,6 +302,13 @@ if(BUILD_SHARED_LIBRARY)
         target_link_libraries(headsetcontrol_shared PUBLIC ${HIDAPI_LIBRARIES})
     else()
         target_link_libraries(headsetcontrol_shared PUBLIC m ${HIDAPI_LIBRARIES})
+    endif()
+
+    if(APPLE)
+        target_link_libraries(headsetcontrol_shared PUBLIC
+            "-framework IOKit"
+            "-framework CoreFoundation"
+        )
     endif()
 
     # Export symbols for the C API on Windows

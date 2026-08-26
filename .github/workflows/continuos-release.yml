@@ -79,7 +79,7 @@ jobs:
           echo "" >> CHANGELOG.md
           echo "#### macOS" >> CHANGELOG.md
           for file in artifacts/*macos*.zip; do
-            [ -f "$file" ] && echo "- [$(basename "$file")](https://github.com/${{ github.repository }}/releases/download/continuous/$(basename "$file")) - Portable" >> CHANGELOG.md
+            [ -f "$file" ] && echo "- [$(basename "$file")](https://github.com/${{ github.repository }}/releases/download/continuous/$(basename "$file")) - Portable (universal, macOS 13.3+)" >> CHANGELOG.md
           done
 
           cat >> CHANGELOG.md << 'FOOTER'

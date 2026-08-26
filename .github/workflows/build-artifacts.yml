@@ -13,6 +13,14 @@ on:
         type: string
         default: ""
 
+env:
+  # Version of hidapi built from source for the portable macOS binary
+  HIDAPI_VERSION: "0.15.0"
+  # Oldest macOS the released binary supports. 13.3 is the floor for libc++'s
+  # std::format, which the codebase relies on.
+  MACOS_DEPLOYMENT_TARGET: "13.3"
+  MACOS_ARCHITECTURES: "arm64;x86_64"
+
 jobs:
   build:
     runs-on: ${{ matrix.os }}
@@ -36,10 +44,10 @@ jobs:
             architecture: x86_64
             shell: bash
             build_type: unix
-          # macOS (ARM64)
+          # macOS (universal: arm64 + x86_64)
           - os: macos-latest
             os_name: macos
-            architecture: arm64
+            architecture: universal
             shell: bash
             build_type: unix
 
@@ -81,25 +89,6 @@ jobs:
         with:
           path: /tmp/linuxdeploy
           key: linuxdeploy-x86_64-continuous
-
-      # =========== macOS Setup ===========
-      - name: Cache Homebrew
-        if: matrix.os_name == 'macos'
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/Library/Caches/Homebrew
-            /usr/local/Cellar/hidapi
-            /opt/homebrew/Cellar/hidapi
-          key: ${{ runner.os }}-brew-${{ hashFiles('.github/workflows/build-artifacts.yml') }}
-          restore-keys: |
-            ${{ runner.os }}-brew-
-
-      - name: Install dependencies (macOS)
-        if: matrix.os_name == 'macos'
-        run: |
-          brew install hidapi || true
-          brew link hidapi || true
 
       # =========== Windows Setup ===========
       - name: Setup vcpkg (Windows)
@@ -149,6 +138,37 @@ jobs:
         if: matrix.build_type == 'unix'
         uses: lukka/get-cmake@e6906078ebd1ccb8ce51ab4626ac46a1b5a517e3 # v4.4.0
 
+      # =========== macOS Setup ===========
+      # The released macOS binary has to be self-contained. Linking Homebrew's
+      # libhidapi makes it fail with
+      #   dyld: Library not loaded: /opt/homebrew/opt/hidapi/lib/libhidapi.0.dylib
+      # on any machine without that Homebrew install, so build a static,
+      # universal hidapi from source and link that instead.
+      - name: Cache static hidapi (macOS)
+        if: matrix.os_name == 'macos'
+        id: cache-hidapi
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/hidapi-prefix
+          key: macos-hidapi-static-${{ env.HIDAPI_VERSION }}-${{ env.MACOS_ARCHITECTURES }}-${{ env.MACOS_DEPLOYMENT_TARGET }}
+
+      - name: Build static hidapi (macOS)
+        if: matrix.os_name == 'macos' && steps.cache-hidapi.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch "hidapi-${HIDAPI_VERSION}" \
+            https://github.com/libusb/hidapi.git "${RUNNER_TEMP}/hidapi-src"
+          cmake -S "${RUNNER_TEMP}/hidapi-src" -B "${RUNNER_TEMP}/hidapi-src/build" \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DHIDAPI_BUILD_HIDTEST=OFF \
+            -DCMAKE_OSX_ARCHITECTURES="${MACOS_ARCHITECTURES}" \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET="${MACOS_DEPLOYMENT_TARGET}" \
+            -DCMAKE_INSTALL_PREFIX="${RUNNER_TEMP}/hidapi-prefix"
+          cmake --build "${RUNNER_TEMP}/hidapi-src/build" --target install
+          lipo -info "${RUNNER_TEMP}/hidapi-prefix/lib/libhidapi.a"
+
       # =========== Build ===========
       - name: Build and test (Windows)
         if: matrix.build_type == 'msvc'
@@ -158,16 +178,31 @@ jobs:
           buildPreset: 'windows-msvc'
           testPreset: 'windows-msvc'
 
-      - name: Build and test (Unix)
-        if: matrix.build_type == 'unix'
+      - name: Build and test (Linux)
+        if: matrix.os_name == 'linux'
         uses: lukka/run-cmake@5d55ea7949e25f69f0ecb516d8d572297e03a956 # v10.9
         with:
           configurePreset: 'default'
           buildPreset: 'default'
           testPreset: 'default'
         env:
-          CMAKE_C_COMPILER_LAUNCHER: ${{ matrix.os_name == 'linux' && 'ccache' || '' }}
-          CMAKE_CXX_COMPILER_LAUNCHER: ${{ matrix.os_name == 'linux' && 'ccache' || '' }}
+          CMAKE_C_COMPILER_LAUNCHER: ccache
+          CMAKE_CXX_COMPILER_LAUNCHER: ccache
+
+      # Same presets as Linux, but configured by hand so the release binary gets
+      # the statically linked hidapi, both architectures and a fixed minimum
+      # macOS version instead of whatever the runner happens to provide.
+      - name: Build and test (macOS)
+        if: matrix.os_name == 'macos'
+        run: |
+          set -euo pipefail
+          cmake --preset default \
+            -DCMAKE_OSX_ARCHITECTURES="${MACOS_ARCHITECTURES}" \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET="${MACOS_DEPLOYMENT_TARGET}" \
+            -DHIDAPI_LIBRARY="${RUNNER_TEMP}/hidapi-prefix/lib/libhidapi.a" \
+            -DHIDAPI_INCLUDE_DIR="${RUNNER_TEMP}/hidapi-prefix/include/hidapi"
+          cmake --build --preset default
+          ctest --preset default
 
       - name: Show ccache stats (Linux)
         if: matrix.os_name == 'linux'
@@ -225,6 +260,23 @@ jobs:
           cd build
           zip -9 headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip headsetcontrol
           sha256sum headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip > headsetcontrol-${{ matrix.os_name }}-${{ matrix.architecture }}.zip.sha256
+
+      - name: Verify portable binary (macOS)
+        if: matrix.os_name == 'macos'
+        run: |
+          set -euo pipefail
+          lipo -info build/headsetcontrol
+          otool -l build/headsetcontrol | grep -A3 LC_BUILD_VERSION | grep minos
+          otool -L build/headsetcontrol
+          external=$(otool -L build/headsetcontrol \
+            | grep -E '^[[:space:]]' \
+            | awk '{print $1}' \
+            | sort -u \
+            | grep -vE '^(/usr/lib/|/System/Library/)' || true)
+          if [ -n "$external" ]; then
+            echo "::error::macOS binary is not self-contained, it links: $external"
+            exit 1
+          fi
 
       - name: Package portable binary (macOS)
         if: matrix.os_name == 'macos'

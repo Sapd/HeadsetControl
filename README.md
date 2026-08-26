@@ -73,7 +73,7 @@ pkg install headsetcontrol
 ```bash
 brew install sapd/headsetcontrol/headsetcontrol
 ```
-Append `--HEAD` for the latest development version. A portable binary is also available on the [Releases](https://github.com/Sapd/HeadsetControl/releases) page.
+Append `--HEAD` for the latest development version. A portable binary is also available on the [Releases](https://github.com/Sapd/HeadsetControl/releases) page — it is a self-contained universal build (Apple Silicon and Intel) that needs no Homebrew and runs on macOS 13.3 or newer.
 
 ### Windows
 
