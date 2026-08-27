@@ -3,6 +3,10 @@ name: Bump Homebrew formula
 # When a versioned release is published, update the Homebrew tap formula
 # (Sapd/homebrew-headsetcontrol) to the new tarball URL + sha256.
 #
+# The bumped formula is built and tested on a macOS runner BEFORE it is pushed,
+# so the tap cannot ship a formula that produces a broken binary (4.1.0 shipped
+# reporting 0.0.0-unknown because nothing ever built it).
+#
 # Pushes to the tap over SSH using a dedicated write deploy key stored in the
 # repository secret HOMEBREW_TAP_DEPLOY_KEY (scoped to the tap repo only).
 on:
@@ -20,7 +24,11 @@ permissions:
 
 jobs:
   bump:
-    runs-on: ubuntu-latest
+    # macOS, because that is where the tap's users build it.
+    runs-on: macos-latest
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: 1
+      HOMEBREW_NO_ANALYTICS: 1
     steps:
       - name: Resolve tag, url and sha256
         id: src
@@ -28,7 +36,7 @@ jobs:
           TAG: ${{ github.event.release.tag_name || inputs.tag }}
         run: |
           url="https://github.com/${GITHUB_REPOSITORY}/archive/refs/tags/${TAG}.tar.gz"
-          sha="$(curl -fsSL "$url" | sha256sum | cut -d' ' -f1)"
+          sha="$(curl -fsSL "$url" | shasum -a 256 | cut -d' ' -f1)"
           echo "tag=$TAG"  >> "$GITHUB_OUTPUT"
           echo "url=$url"  >> "$GITHUB_OUTPUT"
           echo "sha=$sha"  >> "$GITHUB_OUTPUT"
@@ -39,8 +47,11 @@ jobs:
         with:
           repository: Sapd/homebrew-headsetcontrol
           ssh-key: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
+          path: tap
 
-      - name: Update and push formula
+      - name: Update formula
+        id: bump
+        working-directory: tap
         env:
           TAG: ${{ steps.src.outputs.tag }}
           URL: ${{ steps.src.outputs.url }}
@@ -48,13 +59,31 @@ jobs:
         run: |
           f="Formula/headsetcontrol.rb"
           # Only the stable `url` line (leave `head` untouched)
-          sed -i -E "s|^(  url ).*|\1\"${URL}\"|" "$f"
-          sed -i -E "s|^(  sha256 ).*|\1\"${SHA}\"|" "$f"
+          sed -i '' -E "s|^(  url ).*|\1\"${URL}\"|" "$f"
+          sed -i '' -E "s|^(  sha256 ).*|\1\"${SHA}\"|" "$f"
           grep -E "^  (url|sha256) " "$f"
           if git diff --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "Formula already up to date."; exit 0
           fi
+          # Commit locally only - `brew tap` below clones this repository, so the
+          # change has to be committed to be visible, and the push happens after
+          # the formula has been proven to work.
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -am "headsetcontrol ${TAG}"
-          git push
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Build and test the formula
+        if: steps.bump.outputs.changed == 'true'
+        run: |
+          brew tap sapd/headsetcontrol "${GITHUB_WORKSPACE}/tap"
+          brew install --build-from-source sapd/headsetcontrol/headsetcontrol
+          # The formula's test block asserts `--version` reports the formula
+          # version, which is what catches a broken version wiring.
+          brew test sapd/headsetcontrol/headsetcontrol
+
+      - name: Push formula
+        if: steps.bump.outputs.changed == 'true'
+        working-directory: tap
+        run: git push
