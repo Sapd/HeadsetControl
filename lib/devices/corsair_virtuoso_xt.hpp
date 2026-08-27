@@ -31,9 +31,11 @@ namespace headsetcontrol {
  */
 class CorsairVirtuosoXT : public CorsairDevice {
 public:
-    static constexpr std::array<uint16_t, 2> SUPPORTED_PRODUCT_IDS {
-        0x0a64, // Wireless receiver
-        0x0a62  // Wired USB
+    static constexpr std::array<uint16_t, 4> SUPPORTED_PRODUCT_IDS {
+        0x0a64, // Wireless receiver (Virtuoso XT)
+        0x0a62, // Wired USB (Virtuoso XT)
+        0x0a3e, // Wireless receiver (Virtuoso SE / Slipstream)
+        0x0a3d  // Wired USB (Virtuoso SE)
     };
 
     std::vector<uint16_t> getProductIds() const override
@@ -43,7 +45,7 @@ public:
 
     std::string_view getDeviceName() const override
     {
-        return "Corsair Virtuoso XT"sv;
+        return "Corsair Virtuoso"sv;
     }
 
     constexpr int getCapabilities() const override
