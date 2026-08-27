@@ -1,6 +1,7 @@
 name: Build in COPR
 
-# On a published release, build the source RPM (version taken from the tag)
+# Called by release.yml once a release is published: build the source RPM
+# (version taken from the tag)
 # in a Fedora container and submit it to COPR (thesapd/headsetcontrol), which
 # builds the binary RPMs for the configured Fedora/EPEL chroots.
 #
@@ -8,8 +9,12 @@ name: Build in COPR
 # COPR API config (from https://copr.fedorainfracloud.org/api/), i.e. the
 # `[copr-cli]` block with login/username/token/copr_url.
 on:
-  release:
-    types: [published]
+  workflow_call:
+    inputs:
+      tag:
+        description: "Release tag to build (e.g. 4.1.0)"
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       tag:
@@ -24,12 +29,12 @@ jobs:
   copr:
     runs-on: ubuntu-latest
     env:
-      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      TAG: ${{ inputs.tag }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-          ref: ${{ github.event.release.tag_name || inputs.tag }}
+          ref: ${{ inputs.tag }}
 
       - name: Write COPR config
         env:

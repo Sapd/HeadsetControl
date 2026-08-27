@@ -99,3 +99,20 @@ jobs:
           # manually curated notes); notes are still generated for new tags.
           omitBodyDuringUpdate: true
           token: ${{ secrets.GITHUB_TOKEN }}
+
+  # GitHub does not start workflow runs from events raised by GITHUB_TOKEN, so
+  # the release created above never fires a `release: published` trigger. Call
+  # the two package workflows directly instead.
+  copr:
+    needs: [release]
+    uses: ./.github/workflows/copr-build.yml
+    with:
+      tag: ${{ github.event.inputs.tag || github.ref_name }}
+    secrets: inherit
+
+  homebrew:
+    needs: [release]
+    uses: ./.github/workflows/bump-homebrew.yml
+    with:
+      tag: ${{ github.event.inputs.tag || github.ref_name }}
+    secrets: inherit
