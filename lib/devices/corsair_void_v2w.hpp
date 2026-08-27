@@ -28,10 +28,11 @@ namespace headsetcontrol {
  */
 class CorsairVoidV2W : public CorsairDevice {
 public:
-    static constexpr std::array<uint16_t, 3> SUPPORTED_PRODUCT_IDS {
+    static constexpr std::array<uint16_t, 4> SUPPORTED_PRODUCT_IDS {
         0x2a08, // VOID WIRELESS V2 (receiver)
         0x2a02, // VIRTUOSO MAX WIRELESS (receiver)
-        0x0a97 // HS80 MAX Wireless (receiver)
+        0x0a97, // HS80 MAX Wireless (receiver)
+        0x0a3e // VIRTUOSO SE Wireless (receiver)
     };
 
     std::vector<uint16_t> getProductIds() const override
@@ -46,7 +47,7 @@ public:
 
     constexpr int getCapabilities() const override
     {
-        return B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_INACTIVE_TIME);
+        return B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_INACTIVE_TIME) | B(CAP_LIGHTS);
     }
 
     // Override capability as this device needs the interface_id = 4
@@ -251,6 +252,30 @@ public:
         };
     }
 
+    Result<LightsResult> setLights(hid_device* device_handle, bool on) override
+    {
+        auto init_result = initializeDevice(device_handle);
+        if (init_result.valueOr(0) == 0) {
+            return DeviceError::deviceOffline("Headset not connected to wireless receiver");
+        }
+
+        if (auto result = initLEDs(device_handle); !result) {
+            return result.error();
+        }
+
+        if (on) {
+            if (auto result = setZoneRGB(device_handle, 0xFF, 0xFF, 0xFF); !result) {
+                return result.error();
+            }
+        } else {
+            if (auto result = setZoneRGB(device_handle, 0x00, 0x00, 0x00); !result) {
+                return result.error();
+            }
+        }
+
+        return LightsResult { .enabled = on };
+    }
+
     Result<CapabilityInfo> getCapabilityInfo(enum capabilities cap) override
     {
         auto info = HIDDevice::getCapabilityInfo(cap);
@@ -366,6 +391,36 @@ private:
         std::array<uint8_t, MSG_SIZE_READ> heartbeat_response {};
         auto read_headset_result = readHIDTimeout(device_handle, heartbeat_response, hsc_device_timeout);
         return read_headset_result;
+    }
+
+    Result<void> initLEDs(hid_device* device_handle) const
+    {
+        // Initialize LED endpoint (required before RGB commands)
+        std::array<uint8_t, MSG_SIZE_WRITE> led_init {
+            0x00, 0x02, RECEIVER_ENDPOINT, 0x0d, 0x00, 0x01
+        };
+        if (auto result = writeHID(device_handle, led_init, MSG_SIZE_WRITE); !result) {
+            return result.error();
+        }
+        return flushHIDBuffer(device_handle);
+    }
+
+    Result<void> setZoneRGB(hid_device* device_handle, uint8_t r, uint8_t g, uint8_t b) const
+    {
+        // V2W LED command: [report_id, 0x02, endpoint, 0x06, payload...]
+        // Payload: [0x00, 0x09, 0x00, 0x00, 0x00, R, 0, 0, G, 0, 0, B, 0, 0]
+        // Only logo zone is set; mic and battery zones are zeroed
+        std::array<uint8_t, MSG_SIZE_WRITE> rgb_cmd {
+            0x00, 0x02, RECEIVER_ENDPOINT, 0x06,
+            0x00, 0x09, 0x00, 0x00, 0x00,
+            r, 0x00, 0x00, // R: logo, batt, mic
+            g, 0x00, 0x00, // G: logo, batt, mic
+            b, 0x00, 0x00 // B: logo, batt, mic
+        };
+        if (auto result = writeHID(device_handle, rgb_cmd, MSG_SIZE_WRITE); !result) {
+            return result.error();
+        }
+        return flushHIDBuffer(device_handle);
     }
 
     Result<void> flushHIDBuffer(hid_device* device_handle) const
