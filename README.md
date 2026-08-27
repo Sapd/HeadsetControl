@@ -166,6 +166,7 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 | Logitech ASTRO A50 Gen 5 | All | x | x |   | x |   | x |   |   |   |   | x |   |   |   |   |   | x |   |
 | Corsair Headset Device | All | x | x | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | Corsair Wireless V2 Headset Device | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |
+| Corsair Virtuoso XT/SE | All |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | SteelSeries Arctis (1/7X/7P) Wireless | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | SteelSeries Arctis (7/Pro) | All | x | x |   | x | x | x |   |   |   |   |   |   |   |   |   |   |   |   |
 | SteelSeries Arctis 9 | All | x | x |   |   | x | x |   |   |   |   |   |   |   |   |   |   |   |   |
