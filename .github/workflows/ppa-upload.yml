@@ -76,18 +76,22 @@ jobs:
           dch -b --newversion "${version}-1~${{ matrix.series }}1" \
               --distribution "${{ matrix.series }}" \
               "Automated PPA build of ${version} for ${{ matrix.series }}."
-          # debsign runs gpg with no passphrase, so it tries to prompt on
-          # /dev/tty, which the runner does not have. Give it a wrapper that
-          # signs non-interactively.
+          # -d: skip the build-dependency check. This is a source-only build,
+          # nothing is compiled here - Launchpad's builders resolve
+          # Build-Depends themselves. Build unsigned and sign afterwards:
+          # debuild sanitises the environment, so a gpg wrapper started from
+          # inside it never sees GPG_PASSPHRASE.
+          debuild -S -sa -d -us -uc
+          # debsign would run gpg with no passphrase and try to prompt on
+          # /dev/tty, which the runner does not have; this wrapper signs
+          # non-interactively instead.
           cat > "${RUNNER_TEMP}/gpg-loopback" <<'EOF'
           #!/bin/sh
           exec gpg --batch --pinentry-mode loopback --passphrase "$GPG_PASSPHRASE" "$@"
           EOF
           chmod +x "${RUNNER_TEMP}/gpg-loopback"
-          # -d: skip the build-dependency check. This is a source-only build,
-          # nothing is compiled here - Launchpad's builders resolve
-          # Build-Depends themselves.
-          debuild -S -sa -d -k"${SIGN_KEY}" -p"${RUNNER_TEMP}/gpg-loopback"
+          debsign -p"${RUNNER_TEMP}/gpg-loopback" -k"${SIGN_KEY}" \
+            "${pkgdir}"/headsetcontrol_*_source.changes
 
       - name: Upload to PPA
         run: dput ppa:sapd/headsetcontrol "${RUNNER_TEMP}"/pkg/headsetcontrol_*_source.changes
