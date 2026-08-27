@@ -65,9 +65,17 @@ jobs:
       - name: Build and sign source package
         run: |
           version="${TAG}"
-          # Pristine upstream tarball (debian/ is export-ignore'd)
+          pkgdir="${RUNNER_TEMP}/pkg"
+          mkdir -p "${pkgdir}"
+          # Pristine upstream tarball. .gitattributes keeps the packaging files
+          # (debian/, headsetcontrol.spec) out of it, so the checkout is NOT the
+          # same tree - build from the tarball and lay debian/ on top, or
+          # dpkg-source rejects the extra files as upstream changes.
           git archive --format=tar.gz --prefix="headsetcontrol-${version}/" \
-            -o "../headsetcontrol_${version}.orig.tar.gz" "${TAG}"
+            -o "${pkgdir}/headsetcontrol_${version}.orig.tar.gz" "${TAG}"
+          tar -xzf "${pkgdir}/headsetcontrol_${version}.orig.tar.gz" -C "${pkgdir}"
+          cp -a debian "${pkgdir}/headsetcontrol-${version}/"
+          cd "${pkgdir}/headsetcontrol-${version}"
           # Per-series versioned changelog entry (e.g. 4.1.0-1~noble1)
           dch -b --newversion "${version}-1~${{ matrix.series }}1" \
               --distribution "${{ matrix.series }}" \
@@ -78,4 +86,4 @@ jobs:
           debuild -S -sa -d -k"${SIGN_KEY}"
 
       - name: Upload to PPA
-        run: dput ppa:sapd/headsetcontrol ../headsetcontrol_*_source.changes
+        run: dput ppa:sapd/headsetcontrol "${RUNNER_TEMP}"/pkg/headsetcontrol_*_source.changes
