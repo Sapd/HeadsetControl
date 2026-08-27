@@ -13,7 +13,9 @@
 #include "devices/headsetcontrol_test.hpp"
 
 #include <cstdint>
+#include <format>
 #include <iostream>
+#include <map>
 #include <set>
 #include <sstream>
 #include <stdexcept>
@@ -343,6 +345,31 @@ void testDeviceProductIds()
     std::cout << "    OK device product IDs" << std::endl;
 }
 
+void testUniqueProductIds()
+{
+    std::cout << "  Testing product ID uniqueness..." << std::endl;
+
+    auto& registry = DeviceRegistry::instance();
+    registry.initialize();
+
+    // getDevice() returns the first registered match, so if two devices claim
+    // the same vendor/product pair one of them is silently never used, and
+    // which one wins depends on the order of the registerDevice() calls.
+    std::map<std::pair<uint16_t, uint16_t>, std::string_view> claimed_by;
+
+    for (const auto& device : registry.getAllDevices()) {
+        const uint16_t vendor_id = device->getVendorId();
+        for (uint16_t pid : device->getProductIds()) {
+            auto [it, inserted] = claimed_by.emplace(std::pair { vendor_id, pid }, device->getDeviceName());
+            ASSERT_TRUE(inserted,
+                std::format("{:04x}:{:04x} is claimed by both \"{}\" and \"{}\"",
+                    vendor_id, pid, it->second, device->getDeviceName()));
+        }
+    }
+
+    std::cout << "    OK product IDs are unique" << std::endl;
+}
+
 // ============================================================================
 // Known Vendor Tests
 // ============================================================================
@@ -497,6 +524,7 @@ void runAllDeviceRegistryTests()
     runTest("Vendor Distribution", testDeviceVendorDistribution);
     runTest("Device Capabilities", testRegisteredDeviceCapabilities);
     runTest("Product IDs", testDeviceProductIds);
+    runTest("Unique Product IDs", testUniqueProductIds);
 
     std::cout << "\n=== Vendor Tests ===" << std::endl;
     runTest("Known Vendors", testKnownVendors);
