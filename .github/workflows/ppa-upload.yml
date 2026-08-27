@@ -49,20 +49,16 @@ jobs:
       - name: Import GPG signing subkey
         env:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: |
-          mkdir -p ~/.gnupg && chmod 700 ~/.gnupg
-          printf 'allow-loopback-pinentry\nallow-preset-passphrase\n' > ~/.gnupg/gpg-agent.conf
-          printf 'pinentry-mode loopback\n' > ~/.gnupg/gpg.conf
-          gpgconf --kill gpg-agent || true
+          # As in release.yml: the secret holds only the signing SUBKEY plus a
+          # primary-key stub, so agent passphrase presets aimed at the primary
+          # keygrip do not work. Plain import, and sign via loopback below.
           printf '%s\n' "$GPG_PRIVATE_KEY" | gpg --batch --import
-          # Preset the passphrase into the agent for the signing subkey's keygrip
-          grip="$(gpg --batch --with-colons --with-keygrip --list-secret-keys "$SIGN_KEY" \
-                  | awk -F: '$1=="ssb"{s=1} s && $1=="grp"{print $10; exit}')"
-          hex="$(printf '%s' "$GPG_PASSPHRASE" | od -An -tx1 | tr -d ' \n')"
-          gpg-connect-agent "PRESET_PASSPHRASE $grip -1 $hex" /bye
+          gpg --list-secret-keys --with-subkey-fingerprints
 
       - name: Build and sign source package
+        env:
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: |
           version="${TAG}"
           pkgdir="${RUNNER_TEMP}/pkg"
@@ -80,10 +76,18 @@ jobs:
           dch -b --newversion "${version}-1~${{ matrix.series }}1" \
               --distribution "${{ matrix.series }}" \
               "Automated PPA build of ${version} for ${{ matrix.series }}."
+          # debsign runs gpg with no passphrase, so it tries to prompt on
+          # /dev/tty, which the runner does not have. Give it a wrapper that
+          # signs non-interactively.
+          cat > "${RUNNER_TEMP}/gpg-loopback" <<'EOF'
+          #!/bin/sh
+          exec gpg --batch --pinentry-mode loopback --passphrase "$GPG_PASSPHRASE" "$@"
+          EOF
+          chmod +x "${RUNNER_TEMP}/gpg-loopback"
           # -d: skip the build-dependency check. This is a source-only build,
           # nothing is compiled here - Launchpad's builders resolve
           # Build-Depends themselves.
-          debuild -S -sa -d -k"${SIGN_KEY}"
+          debuild -S -sa -d -k"${SIGN_KEY}" -p"${RUNNER_TEMP}/gpg-loopback"
 
       - name: Upload to PPA
         run: dput ppa:sapd/headsetcontrol "${RUNNER_TEMP}"/pkg/headsetcontrol_*_source.changes
