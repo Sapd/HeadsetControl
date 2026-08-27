@@ -72,7 +72,10 @@ jobs:
           dch -b --newversion "${version}-1~${{ matrix.series }}1" \
               --distribution "${{ matrix.series }}" \
               "Automated PPA build of ${version} for ${{ matrix.series }}."
-          debuild -S -sa -k"${SIGN_KEY}"
+          # -d: skip the build-dependency check. This is a source-only build,
+          # nothing is compiled here - Launchpad's builders resolve
+          # Build-Depends themselves.
+          debuild -S -sa -d -k"${SIGN_KEY}"
 
       - name: Upload to PPA
         run: dput ppa:sapd/headsetcontrol ../headsetcontrol_*_source.changes
