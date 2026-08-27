@@ -188,7 +188,9 @@ Quick overview:
 2. Capture USB traffic with Wireshark
 3. Create device class in `lib/devices/yourdevice.hpp`
 4. Register in `lib/device_registry.cpp`
-5. Test and generate docs with `./headsetcontrol --readme-helper`
+5. Test and generate docs with `./headsetcontrol --readme-helper` - paste the
+   whole table into the README. Capabilities that only some of a device's
+   product IDs report are marked `x*`.
 
 ## Adding a New Capability
 

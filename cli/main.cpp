@@ -324,9 +324,34 @@ std::optional<cli::ParseError> configureParser(cli::ArgumentParser& parser, Opti
                     std::cout << "| " << device->getDeviceName() << " |";
                     uint8_t platforms = device->getSupportedPlatforms();
                     std::cout << platformsToTableString(platforms) << "|";
-                    int caps = device->getCapabilities();
+
+                    // getCapabilities() may depend on the matched product ID, so ask
+                    // each variant: capabilities all of them report get an "x", ones
+                    // only some report get an "x*" (explained by a footnote below the
+                    // table in the README).
+                    int caps_any = 0;
+                    int caps_all = 0;
+                    bool first    = true;
+                    for (uint16_t pid : device->getProductIds()) {
+                        device->setMatchedProductId(pid);
+                        const int caps = device->getCapabilities();
+                        caps_any |= caps;
+                        caps_all = first ? caps : (caps_all & caps);
+                        first    = false;
+                    }
+                    device->setMatchedProductId(0);
+                    if (first) { // device without product IDs
+                        caps_any = caps_all = device->getCapabilities();
+                    }
+
                     for (int j = 0; j < NUM_CAPABILITIES; j++) {
-                        std::cout << ((caps & B(j)) ? " x " : "   ") << "|";
+                        if (caps_all & B(j)) {
+                            std::cout << " x |";
+                        } else if (caps_any & B(j)) {
+                            std::cout << " x* |";
+                        } else {
+                            std::cout << "   |";
+                        }
                     }
                     std::cout << '\n';
                 }

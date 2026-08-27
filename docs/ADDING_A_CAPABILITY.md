@@ -255,4 +255,4 @@ Error: sidetone must be <= 128
 1. **Look at similar capabilities** - Find an existing capability similar to yours and use it as a template
 2. **Test device first** - The test device (`lib/devices/headsetcontrol_test.hpp`) implements all capabilities - add yours there first
 3. **Check output formats** - Make sure JSON/YAML output includes your new data if needed
-4. **Update README** - Run `./headsetcontrol --readme-helper` to generate the device table
+4. **Update README** - Run `./headsetcontrol --readme-helper` to generate the device table and replace the old one wholesale (`x*` marks capabilities only some product IDs of a device report)

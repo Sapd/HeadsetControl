@@ -154,6 +154,7 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 
 | Device | Platform | sidetone | battery | notification sound | lights | inactive time | chatmix | voice prompts | rotate to mute | equalizer preset | equalizer | parametric equalizer | microphone mute led brightness | microphone volume | volume limiter | bluetooth when powered on | bluetooth call volume | microphone noise filter | sidetone status |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Logitech ASTRO A50 Gen 5 | All | x | x |   | x |   | x |   |   |   |   | x |   |   |   |   |   | x |   |
 | Logitech G522 LIGHTSPEED | All | x | x |   |   | x |   |   |   |   |   |   | x |   |   |   |   |   |   |
 | Logitech G533 | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | Logitech G535 | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |
@@ -163,7 +164,6 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 | Logitech G PRO X 2 LIGHTSPEED | All | x | x |   |   | x |   |   |   | x | x | x |   |   |   |   |   |   |   |
 | Logitech G PRO Series | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | Logitech Zone Wired/Zone 750 | All | x |   |   |   |   |   | x | x |   |   |   |   |   |   |   |   |   |   |
-| Logitech ASTRO A50 Gen 5 | All | x | x |   | x |   | x |   |   |   |   | x |   |   |   |   |   | x |   |
 | Corsair Headset Device | All | x | x | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | Corsair Wireless V2 Headset Device | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | Corsair Virtuoso XT/SE | All |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
@@ -178,12 +178,12 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 | SteelSeries Arctis 7+ | All | x | x |   |   | x | x |   |   | x | x |   |   |   |   |   |   |   |   |
 | SteelSeries Arctis Nova Pro Wireless | All | x | x |   | x | x |   |   |   | x | x |   |   |   |   |   |   |   |   |
 | SteelSeries Arctis Nova 3P Wireless | All | x | x |   |   | x |   |   |   | x | x | x |   | x |   |   |   |   |   |
-| SteelSeries Arctis Buds | All |  | x |   |   |  |   |   |   |  |  |  |   |  |   |   |   |   |   |
+| SteelSeries Arctis GameBuds | All |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | HyperX Cloud Alpha Wireless | All | x | x |   |   | x |   | x |   |   |   |   |   |   |   |   |   |   |   |
 | HyperX Cloud Flight Wireless | All |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | HyperX Cloud II Wireless | All |   | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |
-| HyperX Cloud 3 | All | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | HyperX Cloud II Wireless (Kingston) | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |
+| HyperX Cloud 3 | All | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | ROCCAT Elo 7.1 Air | All |   |   |   | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | ROCCAT Elo 7.1 USB | All |   |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | Audeze Maxwell | All | x | x |   |   | x | x | x |   | x |   |   |   |   | x |   |   | x |   |
@@ -197,7 +197,7 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 
 **Platform:** All = Linux, macOS, Windows | L/M = Linux and macOS only | L/W = Linux and Windows only
 
-\* Sidetone status reading is currently verified only for the SteelSeries Arctis Nova 7 Gen 2 (`1038:227e`).
+\* Only available on some product variants of that device. Sidetone status reading, for instance, is verified only for the SteelSeries Arctis Nova 7 Gen 2 (`1038:227e`).
 
 > **Note:** Some Corsair headsets may need additional configuration - see [Adding a Corsair device](docs/ADDING_A_CORSAIR_DEVICE.md). Some headsets (HS80, HS70 wired, RGB Elite, Virtuoso) expose sidetone via ALSA mixer instead.
 
