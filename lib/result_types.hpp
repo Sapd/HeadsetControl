@@ -320,6 +320,13 @@ struct NoiseFilterResult {
 };
 
 /**
+ * @brief Active noise cancellation result
+ */
+struct AncResult {
+    uint8_t mode; // 0 = off, 1 = ANC, 2 = ambient sound
+};
+
+/**
  * @brief Capability information with details
  */
 struct CapabilityInfo {

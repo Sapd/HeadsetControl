@@ -241,6 +241,18 @@ inline constexpr std::array<CapabilityDescriptor, NUM_CAPABILITIES> CAPABILITY_D
         .min_value   = std::nullopt,
         .max_value   = std::nullopt,
         .value_hint  = "" },
+
+    // CAP_ANC
+    {
+        .cap         = CAP_ANC,
+        .type        = CAPABILITYTYPE_ACTION,
+        .name        = "anc",
+        .short_flag  = "",
+        .description = "Set active noise cancellation mode (0=off, 1=ANC, 2=ambient sound)",
+        .min_value   = 0,
+        .max_value   = 2,
+        .value_hint  = "<0|1|2>" },
+
 } };
 
 /**

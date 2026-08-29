@@ -318,6 +318,14 @@ public:
         return DeviceError::notSupported("Device does not support mic noise filtering");
     }
 
+    /**
+     * @brief Set headphone active noise cancellation mode (0=off, 1=ANC, 2=ambient)
+     */
+    virtual Result<AncResult> setANC(hid_device* /*device_handle*/, uint8_t /*mode*/)
+    {
+        return DeviceError::notSupported("Device does not support ANC");
+    }
+
     // ========================================================================
     // C interface conversion
     // ========================================================================
