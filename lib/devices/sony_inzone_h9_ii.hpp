@@ -33,7 +33,8 @@ public:
     {
         return B(CAP_BATTERY_STATUS) | B(CAP_CHATMIX_STATUS)
             | B(CAP_SIDETONE) | B(CAP_INACTIVE_TIME)
-            | B(CAP_VOICE_PROMPTS) | B(CAP_BT_WHEN_POWERED_ON);
+            | B(CAP_VOICE_PROMPTS) | B(CAP_BT_WHEN_POWERED_ON)
+            | B(CAP_ANC);
     }
 
     constexpr capability_detail getCapabilityDetail([[maybe_unused]] enum capabilities cap) const override
@@ -69,6 +70,11 @@ public:
     Result<BluetoothWhenPoweredOnResult> setBluetoothWhenPoweredOn(hid_device* device_handle, bool enabled) override
     {
         return setSonyBluetoothWhenPoweredOn(device_handle, enabled);
+    }
+
+    Result<AncResult> setANC(hid_device* device_handle, uint8_t mode) override
+    {
+        return setSonyANC(device_handle, mode);
     }
 
     // Mic volume on the H9 II is the Windows capture endpoint volume (AudioEndpointVolume.MasterVolumeLevelScalar)

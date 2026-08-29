@@ -348,6 +348,15 @@ inline void FeatureHandlerRegistry::registerAllHandlers()
             return r.error();
         return FeatureOutput::fromSidetone(r.value());
     });
+
+    // CAP_ANC
+    registerHandler(CAP_ANC, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
+        auto r = dev->setANC(h, getUint8(p));
+        if (r.hasError())
+            return r.error();
+        return FeatureOutput::success(r->mode);
+    });
+
 }
 
 } // namespace headsetcontrol

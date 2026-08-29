@@ -69,7 +69,7 @@ public:
             | B(CAP_EQUALIZER) | B(CAP_PARAMETRIC_EQUALIZER)
             | B(CAP_MICROPHONE_MUTE_LED_BRIGHTNESS) | B(CAP_MICROPHONE_VOLUME)
             | B(CAP_VOLUME_LIMITER) | B(CAP_BT_WHEN_POWERED_ON) | B(CAP_BT_CALL_VOLUME)
-            | B(CAP_NOISE_FILTER) | B(CAP_SIDETONE_STATUS);
+            | B(CAP_NOISE_FILTER) | B(CAP_SIDETONE_STATUS) | B(CAP_ANC);
     }
 
     std::optional<EqualizerInfo> getEqualizerInfo() const override
@@ -242,6 +242,15 @@ public:
         }
 
         return NoiseFilterResult { .level = level };
+    }
+
+    Result<AncResult> setANC([[maybe_unused]] hid_device* device_handle, uint8_t mode) override
+    {
+        if (test_profile == 1) {
+            return DeviceError::hidError("Test error condition");
+        }
+
+        return AncResult { .mode = mode };
     }
 
     Result<NotificationSoundResult> notificationSound([[maybe_unused]] hid_device* device_handle, uint8_t sound_id) override
