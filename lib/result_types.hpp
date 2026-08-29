@@ -334,6 +334,13 @@ struct AncStartupModeResult {
 };
 
 /**
+ * @brief Boom mic physical attachment status
+ */
+struct MicAttachedResult {
+    bool attached; // true = boom mic physically connected
+};
+
+/**
  * @brief Capability information with details
  */
 struct CapabilityInfo {

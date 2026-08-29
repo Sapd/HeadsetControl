@@ -69,7 +69,7 @@ public:
             | B(CAP_EQUALIZER) | B(CAP_PARAMETRIC_EQUALIZER)
             | B(CAP_MICROPHONE_MUTE_LED_BRIGHTNESS) | B(CAP_MICROPHONE_VOLUME)
             | B(CAP_VOLUME_LIMITER) | B(CAP_BT_WHEN_POWERED_ON) | B(CAP_BT_CALL_VOLUME)
-            | B(CAP_NOISE_FILTER) | B(CAP_SIDETONE_STATUS) | B(CAP_ANC) | B(CAP_ANC_STARTUP_MODE);
+            | B(CAP_NOISE_FILTER) | B(CAP_SIDETONE_STATUS) | B(CAP_ANC) | B(CAP_ANC_STARTUP_MODE) | B(CAP_MIC_STATUS);
     }
 
     std::optional<EqualizerInfo> getEqualizerInfo() const override
@@ -260,6 +260,15 @@ public:
         }
 
         return AncStartupModeResult { .mode = mode };
+    }
+
+    Result<MicAttachedResult> getMicAttached([[maybe_unused]] hid_device* device_handle) override
+    {
+        if (test_profile == 1) {
+            return DeviceError::hidError("Test error condition");
+        }
+
+        return MicAttachedResult { .attached = true };
     }
 
     Result<NotificationSoundResult> notificationSound([[maybe_unused]] hid_device* device_handle, uint8_t sound_id) override
