@@ -326,6 +326,14 @@ public:
         return DeviceError::notSupported("Device does not support ANC");
     }
 
+    /**
+     * @brief Set ANC mode used at startup (0=off, 1=NC, 2=ambient, 3=restore last)
+     */
+    virtual Result<AncStartupModeResult> setANCStartupMode(hid_device* /*device_handle*/, uint8_t /*mode*/)
+    {
+        return DeviceError::notSupported("Device does not support ANC startup mode");
+    }
+
     // ========================================================================
     // C interface conversion
     // ========================================================================

@@ -150,6 +150,7 @@ struct Options {
     std::optional<uint8_t> bt_call_volume;
     std::optional<uint8_t> noise_filter;
     std::optional<uint8_t> anc_mode;
+    std::optional<uint8_t> anc_startup_mode;
 
     // Info requests
     bool request_battery  = false;
@@ -231,6 +232,7 @@ std::optional<cli::ParseError> configureParser(cli::ArgumentParser& parser, Opti
         .value('p', "equalizer-preset", opts.equalizer_preset, uint8_t(0), uint8_t(255), "Set equalizer preset", "PRESET")
         .long_value("noise-filter", opts.noise_filter, uint8_t(0), uint8_t(2), "Set microphone noise filter level", "LEVEL")
         .long_value("anc", opts.anc_mode, uint8_t(0), uint8_t(2), "Set headphone ANC mode (0=off, 1=ANC, 2=ambient)", "MODE")
+        .long_value("anc-startup-mode", opts.anc_startup_mode, uint8_t(0), uint8_t(3), "Set ANC mode at startup (0=off, 1=NC, 2=ambient, 3=restore last)", "MODE")
 
         // === Equalizer (custom parsing) ===
         .custom('e', "equalizer", cli::ArgRequirement::Required, [&opts](std::optional<std::string_view> arg) -> std::optional<cli::ParseError> {
@@ -876,7 +878,8 @@ namespace help {
                 .add('i', "inactive-time", getValueHint(CAP_INACTIVE_TIME), "Auto-off after N minutes (0=never)", CAP_INACTIVE_TIME)
                 .add("bt-when-powered-on", getValueHint(CAP_BT_WHEN_POWERED_ON), "Enable Bluetooth at power-on", CAP_BT_WHEN_POWERED_ON)
                 .add("bt-call-volume", getValueHint(CAP_BT_CALL_VOLUME), "Bluetooth call volume", CAP_BT_CALL_VOLUME)
-                .add("anc", getValueHint(CAP_ANC), "ANC mode (0=off, 1=noise cancelling, 2=ambient sound)", CAP_ANC);
+                .add("anc", getValueHint(CAP_ANC), "ANC mode (0=off, 1=noise cancelling, 2=ambient sound)", CAP_ANC)
+                .add("anc-startup-mode", getValueHint(CAP_ANC_STARTUP_MODE), "ANC mode at startup (0=off, 1=NC, 2=ambient, 3=restore last)", CAP_ANC_STARTUP_MODE);
 
             // Output - always shown
             sections.push_back({ "OUTPUT", {} });
@@ -958,8 +961,9 @@ struct FeatureParamStorage {
     int bt_call_vol_val      = 0;
     int battery_req          = 0;
     int chatmix_req          = 0;
-    int noise_filter_val = 0;
-    int anc_mode_val     = 0;
+    int noise_filter_val     = 0;
+    int anc_mode_val         = 0;
+    int anc_startup_mode_val = 0;
 
     // Store copies of complex settings to avoid const_cast
     EqualizerSettings equalizer_settings;
@@ -995,6 +999,8 @@ struct FeatureParamStorage {
             noise_filter_val = *opts.noise_filter;
         if (opts.anc_mode.has_value())
             anc_mode_val = *opts.anc_mode;
+        if (opts.anc_startup_mode.has_value())
+            anc_startup_mode_val = *opts.anc_startup_mode;
         battery_req = opts.request_battery ? 1 : 0;
         chatmix_req = opts.request_chatmix ? 1 : 0;
 
@@ -1034,7 +1040,8 @@ void initializeFeatureRequests(std::vector<DiscoveredDevice>& devices, const Opt
         { CAP_BT_WHEN_POWERED_ON, CAPABILITYTYPE_ACTION, g_feature_params.bt_power_val, opts.bt_when_powered_on.has_value(), {} },
         { CAP_BT_CALL_VOLUME, CAPABILITYTYPE_ACTION, g_feature_params.bt_call_vol_val, opts.bt_call_volume.has_value(), {} },
         { CAP_NOISE_FILTER, CAPABILITYTYPE_ACTION, g_feature_params.noise_filter_val, opts.noise_filter.has_value(), {} },
-        { CAP_ANC, CAPABILITYTYPE_ACTION, g_feature_params.anc_mode_val, opts.anc_mode.has_value(), {} }
+        { CAP_ANC, CAPABILITYTYPE_ACTION, g_feature_params.anc_mode_val, opts.anc_mode.has_value(), {} },
+        { CAP_ANC_STARTUP_MODE, CAPABILITYTYPE_ACTION, g_feature_params.anc_startup_mode_val, opts.anc_startup_mode.has_value(), {} }
     };
 
     for (auto& dev : devices) {

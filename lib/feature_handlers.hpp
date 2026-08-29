@@ -357,6 +357,14 @@ inline void FeatureHandlerRegistry::registerAllHandlers()
         return FeatureOutput::success(r->mode);
     });
 
+    // CAP_ANC_STARTUP_MODE
+    registerHandler(CAP_ANC_STARTUP_MODE, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
+        auto r = dev->setANCStartupMode(h, getUint8(p));
+        if (r.hasError())
+            return r.error();
+        return FeatureOutput::success(r->mode);
+    });
+
 }
 
 } // namespace headsetcontrol
