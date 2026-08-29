@@ -253,6 +253,17 @@ inline constexpr std::array<CapabilityDescriptor, NUM_CAPABILITIES> CAPABILITY_D
         .max_value   = 2,
         .value_hint  = "<0|1|2>" },
 
+    // CAP_ANC_STARTUP_MODE
+    {
+        .cap         = CAP_ANC_STARTUP_MODE,
+        .type        = CAPABILITYTYPE_ACTION,
+        .name        = "anc-startup-mode",
+        .short_flag  = "",
+        .description = "Set ANC mode at startup (0=off, 1=NC, 2=ambient, 3=restore last)",
+        .min_value   = 0,
+        .max_value   = 3,
+        .value_hint  = "<0|1|2|3>" },
+
 } };
 
 /**

@@ -327,6 +327,13 @@ struct AncResult {
 };
 
 /**
+ * @brief ANC startup mode result
+ */
+struct AncStartupModeResult {
+    uint8_t mode; // 0 = off, 1 = NC, 2 = ambient, 3 = restore last
+};
+
+/**
  * @brief Capability information with details
  */
 struct CapabilityInfo {
