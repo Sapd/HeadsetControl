@@ -365,6 +365,13 @@ inline void FeatureHandlerRegistry::registerAllHandlers()
         return FeatureOutput::success(r->mode);
     });
 
+    // CAP_MIC_STATUS
+    registerHandler(CAP_MIC_STATUS, [](HIDDevice* dev, hid_device* h, const FeatureParam&) -> Result<FeatureOutput> {
+        auto r = dev->getMicAttached(h);
+        if (r.hasError())
+            return r.error();
+        return FeatureOutput::success(r->attached ? 1 : 0, r->attached ? "attached" : "detached");
+    });
 }
 
 } // namespace headsetcontrol

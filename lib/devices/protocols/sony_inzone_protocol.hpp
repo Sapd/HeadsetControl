@@ -51,6 +51,7 @@ protected:
     static constexpr uint8_t EID_AUTO_POWER_OFF_SETTING  = 0x81;
     static constexpr uint8_t EID_BT_STARTUP_MODE         = 0x63;
     static constexpr uint8_t EID_GUIDANCE_SETTING        = 0x84;
+    static constexpr uint8_t EID_MIC_ATTACHED_STATUS     = 0x8F;
 
     static constexpr uint8_t DEVICE_VOLUME_MAX   = 50;
     static constexpr uint8_t DEVICE_BALANCE_MAX  = 90;
@@ -202,6 +203,18 @@ protected:
         }
 
         return VoicePromptsResult { .enabled = enabled };
+    }
+
+    Result<MicAttachedResult> getSonyMicAttached(hid_device* device_handle)
+    {
+        auto resp = exchange(device_handle, ADDR_PC_TO_RX, EID_MIC_ATTACHED_STATUS, ETYPE_GET, {});
+        if (!resp) {
+            return resp.error();
+        }
+        if (resp->payload.empty()) {
+            return DeviceError::protocolError("MIC_ATTACHED_STATUS payload empty");
+        }
+        return MicAttachedResult { .attached = (resp->payload[0] == 0) };
     }
 
     Result<AncStartupModeResult> setSonyANCStartupMode(hid_device* device_handle, uint8_t mode)

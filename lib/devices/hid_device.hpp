@@ -334,6 +334,14 @@ public:
         return DeviceError::notSupported("Device does not support ANC startup mode");
     }
 
+    /**
+     * @brief Query whether the detachable boom mic is physically attached
+     */
+    virtual Result<MicAttachedResult> getMicAttached(hid_device* /*device_handle*/)
+    {
+        return DeviceError::notSupported("Device does not support mic attachment status");
+    }
+
     // ========================================================================
     // C interface conversion
     // ========================================================================

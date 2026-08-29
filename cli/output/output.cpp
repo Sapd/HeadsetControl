@@ -88,6 +88,16 @@ void processSidetoneResult(const FeatureResult& result, DeviceData& dev)
     }
 }
 
+void processMicStatusResult(const FeatureResult& result, DeviceData& dev)
+{
+    if (result.status == FEATURE_SUCCESS || result.status == FEATURE_INFO) {
+        dev.mic_attached = (result.value != 0);
+    } else if (result.status == FEATURE_ERROR) {
+        dev.errors.emplace_back(capability_to_string(CAP_MIC_STATUS), result.message);
+        dev.status = STATUS_PARTIAL;
+    }
+}
+
 // Process action capability result and add to device actions
 void processActionResult(const FeatureRequest& req, DeviceData& dev, std::string_view device_name)
 {
@@ -118,6 +128,8 @@ void processFeatureRequest(const FeatureRequest& req, DeviceData& dev, std::stri
         processChatmixResult(req.result, dev);
     } else if (req.cap == CAP_SIDETONE_STATUS) {
         processSidetoneResult(req.result, dev);
+    } else if (req.cap == CAP_MIC_STATUS) {
+        processMicStatusResult(req.result, dev);
     } else if (req.type == CAPABILITYTYPE_ACTION) {
         processActionResult(req, dev, device_name);
     }
@@ -315,6 +327,10 @@ void outputYaml(const OutputData& data)
                 dev.sidetone->serialize(s);
             }
 
+            if (dev.mic_attached.has_value()) {
+                s.write("mic_attached", *dev.mic_attached);
+            }
+
             if (!dev.errors.empty()) {
                 s.beginObject("errors");
                 for (const auto& err : dev.errors) {
@@ -434,6 +450,10 @@ void outputEnv(const OutputData& data)
             }
         }
 
+        if (dev.mic_attached.has_value()) {
+            s.write(prefix + "_MIC_ATTACHED", *dev.mic_attached ? 1 : 0);
+        }
+
         s.write(prefix + "_ERROR_COUNT", static_cast<int>(dev.errors.size()));
         for (size_t j = 0; j < dev.errors.size(); ++j) {
             s.write(std::format("{}_ERROR_{}_SOURCE", prefix, j + 1), dev.errors[j].source);
@@ -508,6 +528,11 @@ void outputStandard(const OutputData& data, bool print_capabilities)
                 s.println("Sidetone: {} ({}; device level {})", dev.sidetone->name,
                     dev.sidetone->level, dev.sidetone->device_level);
             }
+            outputted = true;
+        }
+
+        if (dev.mic_attached.has_value()) {
+            s.println("Mic: {}", *dev.mic_attached ? "attached" : "detached");
             outputted = true;
         }
 

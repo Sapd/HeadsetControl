@@ -264,6 +264,16 @@ inline constexpr std::array<CapabilityDescriptor, NUM_CAPABILITIES> CAPABILITY_D
         .max_value   = 3,
         .value_hint  = "<0|1|2|3>" },
 
+    // CAP_MIC_STATUS
+    {
+        .cap         = CAP_MIC_STATUS,
+        .type        = CAPABILITYTYPE_INFO,
+        .name        = "mic-status",
+        .short_flag  = "",
+        .description = "Show whether the detachable boom mic is physically attached",
+        .min_value   = std::nullopt,
+        .max_value   = std::nullopt,
+        .value_hint  = "" },
 } };
 
 /**
