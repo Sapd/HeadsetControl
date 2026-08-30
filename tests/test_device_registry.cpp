@@ -219,6 +219,29 @@ void testLookupLogitechProX2Lightspeed()
     std::cout << "    OK lookup Logitech PRO X2 LIGHTSPEED" << std::endl;
 }
 
+void testLookupSonyINZONEH9II()
+{
+    std::cout << "  Testing lookup of Sony INZONE H9 II (0x0fa8)..." << std::endl;
+
+    auto& registry = DeviceRegistry::instance();
+    registry.initialize();
+
+    auto* device = registry.getDevice(0x054c, 0x0fa8);
+    ASSERT_NOT_NULL(device, "Sony INZONE H9 II should be found");
+    ASSERT_EQ("Sony INZONE H9 II", std::string(device->getDeviceName()), "Device name should match");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_BATTERY_STATUS)) != 0, "H9 II should expose battery capability");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_CHATMIX_STATUS)) != 0, "H9 II should expose chatmix capability");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_SIDETONE)) != 0, "H9 II should expose sidetone capability");
+    ASSERT_FALSE((device->getCapabilities() & B(CAP_MICROPHONE_VOLUME)) != 0, "H9 II should not expose direct headset microphone volume");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_MICROPHONE_MUTE_STATUS)) != 0, "H9 II should expose microphone mute status capability");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_ANC_TOGGLE_MODES)) != 0, "H9 II should expose ANC toggle modes capability");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_INACTIVE_TIME)) != 0, "H9 II should expose inactive time capability");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_VOICE_PROMPTS)) != 0, "H9 II should expose voice prompts capability");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_BT_WHEN_POWERED_ON)) != 0, "H9 II should expose Bluetooth power-on capability");
+
+    std::cout << "    OK lookup Sony INZONE H9 II" << std::endl;
+}
+
 void testLookupPlantronicsBT600()
 {
     std::cout << "  Testing lookup of Plantronics BT600 (0x02ee)..." << std::endl;
@@ -514,6 +537,7 @@ void runAllDeviceRegistryTests()
     std::cout << "\n=== Device Lookup Tests ===" << std::endl;
     runTest("Lookup Test Device", testLookupTestDevice);
     runTest("Lookup Logitech PRO X2 LIGHTSPEED", testLookupLogitechProX2Lightspeed);
+    runTest("Lookup Sony INZONE H9 II", testLookupSonyINZONEH9II);
     runTest("Lookup Plantronics BT600", testLookupPlantronicsBT600);
     runTest("Lookup Non-Existent", testLookupNonExistentDevice);
     runTest("Lookup Wrong Product ID", testLookupWithWrongProductId);

@@ -302,6 +302,21 @@ hsc_result_t hsc_get_sidetone(hsc_headset_t headset, hsc_sidetone_status_t* side
     return HSC_RESULT_OK;
 }
 
+hsc_result_t hsc_get_mic_mute_status(hsc_headset_t headset, hsc_mic_mute_status_t* status)
+{
+    if (!headset || !status) {
+        return HSC_RESULT_INVALID_PARAM;
+    }
+
+    auto result = static_cast<HeadsetWrapper*>(headset)->headset.getMicMuteStatus();
+    if (!result) {
+        return toErrorCode(result.error());
+    }
+
+    status->muted = result->muted;
+    return HSC_RESULT_OK;
+}
+
 // ============================================================================
 // Audio Controls
 // ============================================================================
@@ -539,6 +554,18 @@ hsc_result_t hsc_set_bluetooth_call_volume(hsc_headset_t headset, uint8_t volume
     }
 
     auto result = static_cast<HeadsetWrapper*>(headset)->headset.setBluetoothCallVolume(volume);
+    return result ? HSC_RESULT_OK : toErrorCode(result.error());
+}
+
+hsc_result_t hsc_set_anc_toggle_modes(
+    hsc_headset_t headset, bool off_enabled, bool anc_enabled, bool ambient_enabled)
+{
+    if (!headset) {
+        return HSC_RESULT_INVALID_PARAM;
+    }
+
+    auto result = static_cast<HeadsetWrapper*>(headset)->headset.setANCToggleModes(
+        off_enabled, anc_enabled, ambient_enabled);
     return result ? HSC_RESULT_OK : toErrorCode(result.error());
 }
 

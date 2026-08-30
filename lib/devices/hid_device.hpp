@@ -318,6 +318,47 @@ public:
         return DeviceError::notSupported("Device does not support mic noise filtering");
     }
 
+    /**
+     * @brief Set headphone active noise cancellation mode (0=off, 1=ANC, 2=ambient)
+     */
+    virtual Result<AncResult> setANC(hid_device* /*device_handle*/, uint8_t /*mode*/)
+    {
+        return DeviceError::notSupported("Device does not support ANC");
+    }
+
+    /**
+     * @brief Set ANC mode used at power-on (0=off, 1=NC, 2=ambient, 3=mode at power off)
+     */
+    virtual Result<AncStartupModeResult> setANCStartupMode(hid_device* /*device_handle*/, uint8_t /*mode*/)
+    {
+        return DeviceError::notSupported("Device does not support ANC startup mode");
+    }
+
+    /**
+     * @brief Set ANC modes included in the headset toggle cycle
+     */
+    virtual Result<AncToggleModesResult> setANCToggleModes(
+        hid_device* /*device_handle*/, bool /*off_enabled*/, bool /*anc_enabled*/, bool /*ambient_enabled*/)
+    {
+        return DeviceError::notSupported("Device does not support ANC toggle modes");
+    }
+
+    /**
+     * @brief Query whether the detachable boom mic is physically attached
+     */
+    virtual Result<MicAttachedResult> getMicAttached(hid_device* /*device_handle*/)
+    {
+        return DeviceError::notSupported("Device does not support mic attachment status");
+    }
+
+    /**
+     * @brief Query whether the microphone is muted
+     */
+    virtual Result<MicMuteStatusResult> getMicMuteStatus(hid_device* /*device_handle*/)
+    {
+        return DeviceError::notSupported("Device does not support microphone mute status");
+    }
+
     // ========================================================================
     // C interface conversion
     // ========================================================================

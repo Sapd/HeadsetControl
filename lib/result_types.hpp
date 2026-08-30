@@ -320,6 +320,43 @@ struct NoiseFilterResult {
 };
 
 /**
+ * @brief Active noise cancellation result
+ */
+struct AncResult {
+    uint8_t mode; // 0 = off, 1 = ANC, 2 = ambient sound
+};
+
+/**
+ * @brief ANC startup mode result
+ */
+struct AncStartupModeResult {
+    uint8_t mode; // 0 = off, 1 = NC, 2 = ambient, 3 = mode at power off
+};
+
+/**
+ * @brief ANC modes included in the headset toggle cycle
+ */
+struct AncToggleModesResult {
+    bool off_enabled;
+    bool anc_enabled;
+    bool ambient_enabled;
+};
+
+/**
+ * @brief Boom mic physical attachment status
+ */
+struct MicAttachedResult {
+    bool attached; // true = boom mic physically connected
+};
+
+/**
+ * @brief Microphone mute status
+ */
+struct MicMuteStatusResult {
+    bool muted; // true = microphone is muted
+};
+
+/**
  * @brief Capability information with details
  */
 struct CapabilityInfo {

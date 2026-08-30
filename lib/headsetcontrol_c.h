@@ -101,7 +101,12 @@ typedef enum {
     HSC_CAP_BT_CALL_VOLUME                 = 15,
     HSC_CAP_NOISE_FILTER                   = 16,
     HSC_CAP_SIDETONE_STATUS                = 17,
-    HSC_NUM_CAPABILITIES                   = 18,
+    HSC_CAP_ANC                            = 18,
+    HSC_CAP_ANC_STARTUP_MODE               = 19,
+    HSC_CAP_MICROPHONE_ATTACHMENT_STATUS = 20,
+    HSC_CAP_MICROPHONE_MUTE_STATUS       = 21,
+    HSC_CAP_ANC_TOGGLE_MODES             = 22,
+    HSC_NUM_CAPABILITIES                 = 23,
 } hsc_capability_t;
 
 /* ============================================================================
@@ -155,6 +160,10 @@ typedef struct {
     uint8_t min_minutes;
     uint8_t max_minutes;
 } hsc_inactive_time_t;
+
+typedef struct {
+    bool muted;
+} hsc_mic_mute_status_t;
 
 /* ============================================================================
  * Discovery Functions
@@ -291,6 +300,15 @@ HSC_API hsc_result_t hsc_get_chatmix(hsc_headset_t headset, hsc_chatmix_t* chatm
  * @return HSC_RESULT_OK on success, negative error code on failure
  */
 HSC_API hsc_result_t hsc_get_sidetone(hsc_headset_t headset, hsc_sidetone_status_t* sidetone);
+
+/**
+ * @brief Get microphone mute status
+ *
+ * @param headset Headset handle
+ * @param[out] status Microphone mute status to fill
+ * @return HSC_RESULT_OK on success, negative error code on failure
+ */
+HSC_API hsc_result_t hsc_get_mic_mute_status(hsc_headset_t headset, hsc_mic_mute_status_t* status);
 
 /* ============================================================================
  * Audio Controls
@@ -472,6 +490,23 @@ HSC_API hsc_result_t hsc_set_bluetooth_when_powered_on(hsc_headset_t headset, bo
  * @return HSC_RESULT_OK on success, negative error code on failure
  */
 HSC_API hsc_result_t hsc_set_bluetooth_call_volume(hsc_headset_t headset, uint8_t volume);
+
+/**
+ * @brief Set ANC modes included in the headset toggle cycle
+ *
+ * At least one mode must be enabled.
+ *
+ * @param headset Headset handle
+ * @param off_enabled Include off mode
+ * @param anc_enabled Include noise cancelling mode
+ * @param ambient_enabled Include ambient sound mode
+ * @return HSC_RESULT_OK on success, negative error code on failure
+ */
+HSC_API hsc_result_t hsc_set_anc_toggle_modes(
+    hsc_headset_t headset,
+    bool off_enabled,
+    bool anc_enabled,
+    bool ambient_enabled);
 
 /* ============================================================================
  * Test Device Mode

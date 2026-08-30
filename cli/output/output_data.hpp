@@ -196,6 +196,8 @@ struct DeviceData {
     std::optional<BatteryData> battery;
     std::optional<int> chatmix;
     std::optional<SidetoneData> sidetone;
+    std::optional<bool> mic_attached;
+    std::optional<bool> mic_muted;
     std::optional<EqualizerData> equalizer;
     std::optional<int> equalizer_presets_count;
     std::optional<std::vector<EqualizerPresetData>> equalizer_presets;
@@ -253,6 +255,14 @@ struct DeviceData {
 
         if (sidetone.has_value()) {
             sidetone->serialize(s);
+        }
+
+        if (mic_attached.has_value()) {
+            s.write("mic_attached", *mic_attached);
+        }
+
+        if (mic_muted.has_value()) {
+            s.write("mic_muted", *mic_muted);
         }
 
         if (!errors.empty()) {

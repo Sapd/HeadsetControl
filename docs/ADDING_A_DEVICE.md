@@ -382,6 +382,13 @@ return makeCapabilityDetail(0xffc0, 0x1, 3);
 | `CAP_VOLUME_LIMITER` | Action | Volume limiter toggle |
 | `CAP_BT_WHEN_POWERED_ON` | Action | Bluetooth auto-connect |
 | `CAP_BT_CALL_VOLUME` | Action | Bluetooth call volume |
+| `CAP_NOISE_FILTER` | Action | Microphone noise filter |
+| `CAP_SIDETONE_STATUS` | Info | Current sidetone level |
+| `CAP_ANC` | Action | Active noise cancellation mode |
+| `CAP_ANC_STARTUP_MODE` | Action | ANC mode used at power-on |
+| `CAP_MICROPHONE_ATTACHMENT_STATUS` | Info | Detachable boom mic attachment status |
+| `CAP_MICROPHONE_MUTE_STATUS` | Info | Microphone mute status |
+| `CAP_ANC_TOGGLE_MODES` | Action | ANC modes included in the headset toggle cycle |
 
 ## Example: Complete Device Implementation
 

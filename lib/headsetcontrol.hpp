@@ -212,6 +212,11 @@ public:
     [[nodiscard]] Result<MicMuteLedBrightnessResult> setMicMuteLedBrightness(uint8_t brightness);
 
     /**
+     * @brief Get microphone mute status
+     */
+    [[nodiscard]] Result<MicMuteStatusResult> getMicMuteStatus();
+
+    /**
      * @brief Set rotate-to-mute feature
      * @param enabled Enable/disable
      */
@@ -260,6 +265,15 @@ public:
      * @param volume Volume level
      */
     [[nodiscard]] Result<BluetoothCallVolumeResult> setBluetoothCallVolume(uint8_t volume);
+
+    /**
+     * @brief Set ANC modes included in the headset toggle cycle
+     * @param off_enabled Include off mode
+     * @param anc_enabled Include noise cancelling mode
+     * @param ambient_enabled Include ambient sound mode
+     */
+    [[nodiscard]] Result<AncToggleModesResult> setANCToggleModes(
+        bool off_enabled, bool anc_enabled, bool ambient_enabled);
 
 private:
     friend class HeadsetImpl;
