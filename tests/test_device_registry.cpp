@@ -234,6 +234,7 @@ void testLookupSonyINZONEH9II()
     ASSERT_TRUE((device->getCapabilities() & B(CAP_SIDETONE)) != 0, "H9 II should expose sidetone capability");
     ASSERT_FALSE((device->getCapabilities() & B(CAP_MICROPHONE_VOLUME)) != 0, "H9 II should not expose direct headset microphone volume");
     ASSERT_TRUE((device->getCapabilities() & B(CAP_MICROPHONE_MUTE_STATUS)) != 0, "H9 II should expose microphone mute status capability");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_ANC_TOGGLE_MODES)) != 0, "H9 II should expose ANC toggle modes capability");
     ASSERT_TRUE((device->getCapabilities() & B(CAP_INACTIVE_TIME)) != 0, "H9 II should expose inactive time capability");
     ASSERT_TRUE((device->getCapabilities() & B(CAP_VOICE_PROMPTS)) != 0, "H9 II should expose voice prompts capability");
     ASSERT_TRUE((device->getCapabilities() & B(CAP_BT_WHEN_POWERED_ON)) != 0, "H9 II should expose Bluetooth power-on capability");

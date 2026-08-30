@@ -259,7 +259,7 @@ inline constexpr std::array<CapabilityDescriptor, NUM_CAPABILITIES> CAPABILITY_D
         .type        = CAPABILITYTYPE_ACTION,
         .name        = "anc-startup-mode",
         .short_flag  = "",
-        .description = "Set ANC mode at startup (0=off, 1=NC, 2=ambient, 3=restore last)",
+        .description = "Set ANC mode at power-on (0=off, 1=NC, 2=ambient, 3=mode at power off)",
         .min_value   = 0,
         .max_value   = 3,
         .value_hint  = "<0|1|2|3>" },
@@ -285,6 +285,17 @@ inline constexpr std::array<CapabilityDescriptor, NUM_CAPABILITIES> CAPABILITY_D
         .min_value   = std::nullopt,
         .max_value   = std::nullopt,
         .value_hint  = "" },
+
+    // CAP_ANC_TOGGLE_MODES
+    {
+        .cap         = CAP_ANC_TOGGLE_MODES,
+        .type        = CAPABILITYTYPE_ACTION,
+        .name        = "anc-toggle-modes",
+        .short_flag  = "",
+        .description = "Set ANC modes included in the headset toggle cycle",
+        .min_value   = 1,
+        .max_value   = 7,
+        .value_hint  = "<off,anc,ambient>" },
 } };
 
 /**

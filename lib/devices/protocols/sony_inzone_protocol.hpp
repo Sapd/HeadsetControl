@@ -47,6 +47,7 @@ protected:
     static constexpr uint8_t EID_SIDETONE_VOLUME        = 0x23;
     static constexpr uint8_t EID_MIC_VOLUME             = 0x24;
     static constexpr uint8_t EID_AMB_SETTING             = 0x41;
+    static constexpr uint8_t EID_NC_TOGGLE_SETTING       = 0x42;
     static constexpr uint8_t EID_NC_STARTUP_MODE         = 0x43;
     static constexpr uint8_t EID_AUTO_POWER_OFF_SETTING  = 0x81;
     static constexpr uint8_t EID_BT_STARTUP_MODE         = 0x63;
@@ -236,7 +237,7 @@ protected:
     Result<AncStartupModeResult> setSonyANCStartupMode(hid_device* device_handle, uint8_t mode)
     {
         if (mode > 3) {
-            return DeviceError::invalidParameter("ANC startup mode must be 0 (off), 1 (NC), 2 (ambient), or 3 (restore last)");
+            return DeviceError::invalidParameter("ANC startup mode must be 0 (off), 1 (NC), 2 (ambient), or 3 (mode at power off)");
         }
         const std::array<uint8_t, 1> payload { mode };
         auto resp = exchange(device_handle, ADDR_PC_TO_RX, EID_NC_STARTUP_MODE, ETYPE_SET,
@@ -260,6 +261,30 @@ protected:
             return resp.error();
         }
         return AncResult { .mode = mode };
+    }
+
+    Result<AncToggleModesResult> setSonyANCToggleModes(
+        hid_device* device_handle, bool off_enabled, bool anc_enabled, bool ambient_enabled)
+    {
+        if (!off_enabled && !anc_enabled && !ambient_enabled) {
+            return DeviceError::invalidParameter("At least one ANC toggle mode must be enabled");
+        }
+
+        const std::array<uint8_t, 3> payload {
+            static_cast<uint8_t>(off_enabled ? 1 : 0),
+            static_cast<uint8_t>(anc_enabled ? 1 : 0),
+            static_cast<uint8_t>(ambient_enabled ? 1 : 0),
+        };
+        auto resp = exchange(device_handle, ADDR_PC_TO_RX, EID_NC_TOGGLE_SETTING, ETYPE_SET,
+            std::span<const uint8_t> { payload });
+        if (!resp) {
+            return resp.error();
+        }
+        return AncToggleModesResult {
+            .off_enabled     = off_enabled,
+            .anc_enabled     = anc_enabled,
+            .ambient_enabled = ambient_enabled,
+        };
     }
 
     Result<BluetoothWhenPoweredOnResult> setSonyBluetoothWhenPoweredOn(hid_device* device_handle, bool enabled)

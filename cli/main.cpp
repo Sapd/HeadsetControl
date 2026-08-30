@@ -37,6 +37,7 @@
 #include <algorithm>
 #include <cassert>
 #include <chrono>
+#include <cctype>
 #include <csignal>
 #include <cstdio>
 #include <cstdlib>
@@ -111,6 +112,58 @@ void eprintln(std::format_string<Args...> fmt, Args&&... args)
     return " ? ";
 }
 
+[[nodiscard]] std::optional<cli::ParseError> parseANCToggleModes(
+    std::optional<std::string_view> arg, int& out)
+{
+    if (!arg || arg->empty()) {
+        return cli::ParseError { "requires one or more modes: off,anc,ambient", "anc-toggle-modes" };
+    }
+
+    int mask       = 0;
+    bool saw_token = false;
+    std::string token;
+    auto consume_token = [&]() -> std::optional<cli::ParseError> {
+        if (token.empty()) {
+            return std::nullopt;
+        }
+
+        saw_token = true;
+        if (token == "off") {
+            mask |= 0x01;
+        } else if (token == "anc" || token == "nc") {
+            mask |= 0x02;
+        } else if (token == "ambient" || token == "amb") {
+            mask |= 0x04;
+        } else {
+            return cli::ParseError { std::format("unknown ANC toggle mode '{}'", token), "anc-toggle-modes" };
+        }
+
+        token.clear();
+        return std::nullopt;
+    };
+
+    for (unsigned char c : *arg) {
+        if (c == ',' || std::isspace(c) != 0) {
+            if (auto error = consume_token()) {
+                return error;
+            }
+            continue;
+        }
+        token += static_cast<char>(std::tolower(c));
+    }
+
+    if (auto error = consume_token()) {
+        return error;
+    }
+
+    if (!saw_token || mask == 0) {
+        return cli::ParseError { "requires at least one ANC toggle mode", "anc-toggle-modes" };
+    }
+
+    out = mask;
+    return std::nullopt;
+}
+
 // ============================================================================
 // Command-line options - Clean data structure
 // ============================================================================
@@ -151,6 +204,7 @@ struct Options {
     std::optional<uint8_t> noise_filter;
     std::optional<uint8_t> anc_mode;
     std::optional<uint8_t> anc_startup_mode;
+    std::optional<int> anc_toggle_modes;
 
     // Info requests
     bool request_battery    = false;
@@ -234,7 +288,14 @@ std::optional<cli::ParseError> configureParser(cli::ArgumentParser& parser, Opti
         .value('p', "equalizer-preset", opts.equalizer_preset, uint8_t(0), uint8_t(255), "Set equalizer preset", "PRESET")
         .long_value("noise-filter", opts.noise_filter, uint8_t(0), uint8_t(2), "Set microphone noise filter level", "LEVEL")
         .long_value("anc", opts.anc_mode, uint8_t(0), uint8_t(2), "Set headphone ANC mode (0=off, 1=ANC, 2=ambient)", "MODE")
-        .long_value("anc-startup-mode", opts.anc_startup_mode, uint8_t(0), uint8_t(3), "Set ANC mode at startup (0=off, 1=NC, 2=ambient, 3=restore last)", "MODE")
+        .long_value("anc-startup-mode", opts.anc_startup_mode, uint8_t(0), uint8_t(3), "Set ANC mode at power-on (0=off, 1=NC, 2=ambient, 3=mode at power off)", "MODE")
+        .long_custom("anc-toggle-modes", cli::ArgRequirement::Required, [&opts](std::optional<std::string_view> arg) -> std::optional<cli::ParseError> {
+                int modes = 0;
+                if (auto error = parseANCToggleModes(arg, modes)) {
+                    return error;
+                }
+                opts.anc_toggle_modes = modes;
+                return std::nullopt; }, "Set ANC headset toggle cycle modes", "off,anc,ambient")
         .long_flag("microphone-attachment-status", opts.request_microphone_attachment_status, "Show whether the boom mic is attached")
         .long_flag("microphone-mute-status", opts.request_microphone_mute_status, "Show whether the microphone is muted")
 
@@ -884,7 +945,8 @@ namespace help {
                 .add("bt-when-powered-on", getValueHint(CAP_BT_WHEN_POWERED_ON), "Enable Bluetooth at power-on", CAP_BT_WHEN_POWERED_ON)
                 .add("bt-call-volume", getValueHint(CAP_BT_CALL_VOLUME), "Bluetooth call volume", CAP_BT_CALL_VOLUME)
                 .add("anc", getValueHint(CAP_ANC), "ANC mode (0=off, 1=noise cancelling, 2=ambient sound)", CAP_ANC)
-                .add("anc-startup-mode", getValueHint(CAP_ANC_STARTUP_MODE), "ANC mode at startup (0=off, 1=NC, 2=ambient, 3=restore last)", CAP_ANC_STARTUP_MODE);
+                .add("anc-startup-mode", getValueHint(CAP_ANC_STARTUP_MODE), "ANC mode at power-on (0=off, 1=NC, 2=ambient, 3=mode at power off)", CAP_ANC_STARTUP_MODE)
+                .add("anc-toggle-modes", "off,anc,ambient", "ANC modes included in headset toggle cycle", CAP_ANC_TOGGLE_MODES);
 
             // Output - always shown
             sections.push_back({ "OUTPUT", {} });
@@ -969,6 +1031,7 @@ struct FeatureParamStorage {
     int noise_filter_val     = 0;
     int anc_mode_val         = 0;
     int anc_startup_mode_val = 0;
+    int anc_toggle_modes_val = 0;
 
     // Store copies of complex settings to avoid const_cast
     EqualizerSettings equalizer_settings;
@@ -1006,6 +1069,8 @@ struct FeatureParamStorage {
             anc_mode_val = *opts.anc_mode;
         if (opts.anc_startup_mode.has_value())
             anc_startup_mode_val = *opts.anc_startup_mode;
+        if (opts.anc_toggle_modes.has_value())
+            anc_toggle_modes_val = *opts.anc_toggle_modes;
         battery_req = opts.request_battery ? 1 : 0;
         chatmix_req = opts.request_chatmix ? 1 : 0;
 
@@ -1047,6 +1112,7 @@ void initializeFeatureRequests(std::vector<DiscoveredDevice>& devices, const Opt
         { CAP_NOISE_FILTER, CAPABILITYTYPE_ACTION, g_feature_params.noise_filter_val, opts.noise_filter.has_value(), {} },
         { CAP_ANC, CAPABILITYTYPE_ACTION, g_feature_params.anc_mode_val, opts.anc_mode.has_value(), {} },
         { CAP_ANC_STARTUP_MODE, CAPABILITYTYPE_ACTION, g_feature_params.anc_startup_mode_val, opts.anc_startup_mode.has_value(), {} },
+        { CAP_ANC_TOGGLE_MODES, CAPABILITYTYPE_ACTION, g_feature_params.anc_toggle_modes_val, opts.anc_toggle_modes.has_value(), {} },
         { CAP_MICROPHONE_ATTACHMENT_STATUS, CAPABILITYTYPE_INFO, std::monostate {}, opts.request_microphone_attachment_status, {} },
         { CAP_MICROPHONE_MUTE_STATUS, CAPABILITYTYPE_INFO, std::monostate {}, opts.request_microphone_mute_status, {} }
     };

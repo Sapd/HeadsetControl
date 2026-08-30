@@ -105,7 +105,8 @@ typedef enum {
     HSC_CAP_ANC_STARTUP_MODE               = 19,
     HSC_CAP_MICROPHONE_ATTACHMENT_STATUS = 20,
     HSC_CAP_MICROPHONE_MUTE_STATUS       = 21,
-    HSC_NUM_CAPABILITIES                   = 22,
+    HSC_CAP_ANC_TOGGLE_MODES             = 22,
+    HSC_NUM_CAPABILITIES                 = 23,
 } hsc_capability_t;
 
 /* ============================================================================
@@ -489,6 +490,23 @@ HSC_API hsc_result_t hsc_set_bluetooth_when_powered_on(hsc_headset_t headset, bo
  * @return HSC_RESULT_OK on success, negative error code on failure
  */
 HSC_API hsc_result_t hsc_set_bluetooth_call_volume(hsc_headset_t headset, uint8_t volume);
+
+/**
+ * @brief Set ANC modes included in the headset toggle cycle
+ *
+ * At least one mode must be enabled.
+ *
+ * @param headset Headset handle
+ * @param off_enabled Include off mode
+ * @param anc_enabled Include noise cancelling mode
+ * @param ambient_enabled Include ambient sound mode
+ * @return HSC_RESULT_OK on success, negative error code on failure
+ */
+HSC_API hsc_result_t hsc_set_anc_toggle_modes(
+    hsc_headset_t headset,
+    bool off_enabled,
+    bool anc_enabled,
+    bool ambient_enabled);
 
 /* ============================================================================
  * Test Device Mode

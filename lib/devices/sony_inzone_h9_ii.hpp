@@ -35,7 +35,7 @@ public:
             | B(CAP_SIDETONE) | B(CAP_INACTIVE_TIME)
             | B(CAP_VOICE_PROMPTS) | B(CAP_BT_WHEN_POWERED_ON)
             | B(CAP_ANC) | B(CAP_ANC_STARTUP_MODE) | B(CAP_MICROPHONE_ATTACHMENT_STATUS)
-            | B(CAP_MICROPHONE_MUTE_STATUS);
+            | B(CAP_MICROPHONE_MUTE_STATUS) | B(CAP_ANC_TOGGLE_MODES);
     }
 
     constexpr capability_detail getCapabilityDetail([[maybe_unused]] enum capabilities cap) const override
@@ -81,6 +81,12 @@ public:
     Result<AncStartupModeResult> setANCStartupMode(hid_device* device_handle, uint8_t mode) override
     {
         return setSonyANCStartupMode(device_handle, mode);
+    }
+
+    Result<AncToggleModesResult> setANCToggleModes(
+        hid_device* device_handle, bool off_enabled, bool anc_enabled, bool ambient_enabled) override
+    {
+        return setSonyANCToggleModes(device_handle, off_enabled, anc_enabled, ambient_enabled);
     }
 
     Result<MicAttachedResult> getMicAttached(hid_device* device_handle) override

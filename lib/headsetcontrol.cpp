@@ -356,6 +356,12 @@ Result<BluetoothCallVolumeResult> Headset::setBluetoothCallVolume(uint8_t volume
     HEADSET_FEATURE_IMPL(CAP_BT_CALL_VOLUME, setBluetoothCallVolume, volume);
 }
 
+Result<AncToggleModesResult> Headset::setANCToggleModes(
+    bool off_enabled, bool anc_enabled, bool ambient_enabled)
+{
+    HEADSET_FEATURE_IMPL(CAP_ANC_TOGGLE_MODES, setANCToggleModes, off_enabled, anc_enabled, ambient_enabled);
+}
+
 #undef HEADSET_FEATURE_IMPL
 
 // ============================================================================
