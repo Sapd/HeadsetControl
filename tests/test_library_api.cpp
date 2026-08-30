@@ -429,7 +429,7 @@ void testCTestDeviceMode()
             ASSERT_TRUE(hsc_supports(headsets[i], HSC_CAP_BATTERY_STATUS), "Should support battery");
             ASSERT_TRUE(hsc_supports(headsets[i], HSC_CAP_SIDETONE), "Should support sidetone");
             ASSERT_TRUE(hsc_supports(headsets[i], HSC_CAP_SIDETONE_STATUS), "Should support sidetone status");
-            ASSERT_TRUE(hsc_supports(headsets[i], HSC_CAP_MIC_MUTE_STATUS), "Should support mic mute status");
+            ASSERT_TRUE(hsc_supports(headsets[i], HSC_CAP_MICROPHONE_MUTE_STATUS), "Should support microphone mute status");
 
             // Test battery
             hsc_battery_t battery;

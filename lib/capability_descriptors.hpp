@@ -264,22 +264,22 @@ inline constexpr std::array<CapabilityDescriptor, NUM_CAPABILITIES> CAPABILITY_D
         .max_value   = 3,
         .value_hint  = "<0|1|2|3>" },
 
-    // CAP_MIC_STATUS
+    // CAP_MICROPHONE_ATTACHMENT_STATUS
     {
-        .cap         = CAP_MIC_STATUS,
+        .cap         = CAP_MICROPHONE_ATTACHMENT_STATUS,
         .type        = CAPABILITYTYPE_INFO,
-        .name        = "mic-status",
+        .name        = "microphone-attachment-status",
         .short_flag  = "",
         .description = "Show whether the detachable boom mic is physically attached",
         .min_value   = std::nullopt,
         .max_value   = std::nullopt,
         .value_hint  = "" },
 
-    // CAP_MIC_MUTE_STATUS
+    // CAP_MICROPHONE_MUTE_STATUS
     {
-        .cap         = CAP_MIC_MUTE_STATUS,
+        .cap         = CAP_MICROPHONE_MUTE_STATUS,
         .type        = CAPABILITYTYPE_INFO,
-        .name        = "mic-mute-status",
+        .name        = "microphone-mute-status",
         .short_flag  = "",
         .description = "Show whether the microphone is muted",
         .min_value   = std::nullopt,

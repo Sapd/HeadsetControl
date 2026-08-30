@@ -103,8 +103,8 @@ typedef enum {
     HSC_CAP_SIDETONE_STATUS                = 17,
     HSC_CAP_ANC                            = 18,
     HSC_CAP_ANC_STARTUP_MODE               = 19,
-    HSC_CAP_MIC_STATUS                     = 20,
-    HSC_CAP_MIC_MUTE_STATUS                = 21,
+    HSC_CAP_MICROPHONE_ATTACHMENT_STATUS = 20,
+    HSC_CAP_MICROPHONE_MUTE_STATUS       = 21,
     HSC_NUM_CAPABILITIES                   = 22,
 } hsc_capability_t;
 

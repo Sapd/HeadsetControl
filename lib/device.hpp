@@ -59,8 +59,8 @@ extern int hsc_device_timeout;
     X(CAP_SIDETONE_STATUS, "sidetone status", '\0')                              \
     X(CAP_ANC, "anc", '\0')                                                      \
     X(CAP_ANC_STARTUP_MODE, "anc startup mode", '\0')                            \
-    X(CAP_MIC_STATUS, "mic status", '\0')                                        \
-    X(CAP_MIC_MUTE_STATUS, "mic mute status", '\0')
+    X(CAP_MICROPHONE_ATTACHMENT_STATUS, "microphone attachment status", '\0')     \
+    X(CAP_MICROPHONE_MUTE_STATUS, "microphone mute status", '\0')
 
 /** @brief A list of all features settable/queryable for headsets
  *

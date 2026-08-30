@@ -34,8 +34,8 @@ public:
         return B(CAP_BATTERY_STATUS) | B(CAP_CHATMIX_STATUS)
             | B(CAP_SIDETONE) | B(CAP_INACTIVE_TIME)
             | B(CAP_VOICE_PROMPTS) | B(CAP_BT_WHEN_POWERED_ON)
-            | B(CAP_ANC) | B(CAP_ANC_STARTUP_MODE) | B(CAP_MIC_STATUS)
-            | B(CAP_MIC_MUTE_STATUS);
+            | B(CAP_ANC) | B(CAP_ANC_STARTUP_MODE) | B(CAP_MICROPHONE_ATTACHMENT_STATUS)
+            | B(CAP_MICROPHONE_MUTE_STATUS);
     }
 
     constexpr capability_detail getCapabilityDetail([[maybe_unused]] enum capabilities cap) const override
@@ -94,7 +94,7 @@ public:
     }
 
     // H9 II microphone volume is the Windows capture endpoint volume (AudioEndpointVolume.MasterVolumeLevelScalar).
-    // Sony EID 0x24 reports headset mic mute state in payload byte 0, so it is exposed as CAP_MIC_MUTE_STATUS.
+    // Sony EID 0x24 reports headset mic mute state in payload byte 0, so it is exposed as CAP_MICROPHONE_MUTE_STATUS.
     Result<MicVolumeResult> setMicVolume([[maybe_unused]] hid_device* device_handle, [[maybe_unused]] uint8_t volume) override
     {
         return DeviceError::notSupported("H9 II mic volume is a Windows audio endpoint setting, not a HID command");
