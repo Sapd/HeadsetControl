@@ -347,7 +347,7 @@ public:
      */
     virtual Result<MicMuteStatusResult> getMicMuteStatus(hid_device* /*device_handle*/)
     {
-        return DeviceError::notSupported("Device does not support mic mute status");
+        return DeviceError::notSupported("Device does not support microphone mute status");
     }
 
     // ========================================================================

@@ -93,7 +93,7 @@ void processMicStatusResult(const FeatureResult& result, DeviceData& dev)
     if (result.status == FEATURE_SUCCESS || result.status == FEATURE_INFO) {
         dev.mic_attached = (result.value != 0);
     } else if (result.status == FEATURE_ERROR) {
-        dev.errors.emplace_back(capability_to_string(CAP_MIC_STATUS), result.message);
+        dev.errors.emplace_back(capability_to_string(CAP_MICROPHONE_ATTACHMENT_STATUS), result.message);
         dev.status = STATUS_PARTIAL;
     }
 }
@@ -103,7 +103,7 @@ void processMicMuteStatusResult(const FeatureResult& result, DeviceData& dev)
     if (result.status == FEATURE_SUCCESS || result.status == FEATURE_INFO) {
         dev.mic_muted = (result.value != 0);
     } else if (result.status == FEATURE_ERROR) {
-        dev.errors.emplace_back(capability_to_string(CAP_MIC_MUTE_STATUS), result.message);
+        dev.errors.emplace_back(capability_to_string(CAP_MICROPHONE_MUTE_STATUS), result.message);
         dev.status = STATUS_PARTIAL;
     }
 }
@@ -138,9 +138,9 @@ void processFeatureRequest(const FeatureRequest& req, DeviceData& dev, std::stri
         processChatmixResult(req.result, dev);
     } else if (req.cap == CAP_SIDETONE_STATUS) {
         processSidetoneResult(req.result, dev);
-    } else if (req.cap == CAP_MIC_STATUS) {
+    } else if (req.cap == CAP_MICROPHONE_ATTACHMENT_STATUS) {
         processMicStatusResult(req.result, dev);
-    } else if (req.cap == CAP_MIC_MUTE_STATUS) {
+    } else if (req.cap == CAP_MICROPHONE_MUTE_STATUS) {
         processMicMuteStatusResult(req.result, dev);
     } else if (req.type == CAPABILITYTYPE_ACTION) {
         processActionResult(req, dev, device_name);

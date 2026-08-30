@@ -156,8 +156,8 @@ struct Options {
     bool request_battery    = false;
     bool request_chatmix    = false;
     bool request_sidetone   = false;
-    bool request_mic_status = false;
-    bool request_mic_mute_status = false;
+    bool request_microphone_attachment_status = false;
+    bool request_microphone_mute_status = false;
 
     // Complex settings
     std::optional<EqualizerSettings> equalizer;
@@ -235,8 +235,8 @@ std::optional<cli::ParseError> configureParser(cli::ArgumentParser& parser, Opti
         .long_value("noise-filter", opts.noise_filter, uint8_t(0), uint8_t(2), "Set microphone noise filter level", "LEVEL")
         .long_value("anc", opts.anc_mode, uint8_t(0), uint8_t(2), "Set headphone ANC mode (0=off, 1=ANC, 2=ambient)", "MODE")
         .long_value("anc-startup-mode", opts.anc_startup_mode, uint8_t(0), uint8_t(3), "Set ANC mode at startup (0=off, 1=NC, 2=ambient, 3=restore last)", "MODE")
-        .long_flag("mic-status", opts.request_mic_status, "Show whether the boom mic is attached")
-        .long_flag("mic-mute-status", opts.request_mic_mute_status, "Show whether the microphone is muted")
+        .long_flag("microphone-attachment-status", opts.request_microphone_attachment_status, "Show whether the boom mic is attached")
+        .long_flag("microphone-mute-status", opts.request_microphone_mute_status, "Show whether the microphone is muted")
 
         // === Equalizer (custom parsing) ===
         .custom('e', "equalizer", cli::ArgRequirement::Required, [&opts](std::optional<std::string_view> arg) -> std::optional<cli::ParseError> {
@@ -867,8 +867,8 @@ namespace help {
                 .add("microphone-mute-led-brightness", getValueHint(CAP_MICROPHONE_MUTE_LED_BRIGHTNESS), "Mute LED brightness", CAP_MICROPHONE_MUTE_LED_BRIGHTNESS)
                 .add("microphone-volume", getValueHint(CAP_MICROPHONE_VOLUME), "Microphone gain level", CAP_MICROPHONE_VOLUME)
                 .add("noise-filter", getValueHint(CAP_NOISE_FILTER), "Microphone noise filter level (0=off, 1=low, 2=high)", CAP_NOISE_FILTER)
-                .add("mic-status", "", "Show whether the boom mic is physically attached", CAP_MIC_STATUS)
-                .add("mic-mute-status", "", "Show whether the microphone is muted", CAP_MIC_MUTE_STATUS);
+                .add("microphone-attachment-status", "", "Show whether the boom mic is physically attached", CAP_MICROPHONE_ATTACHMENT_STATUS)
+                .add("microphone-mute-status", "", "Show whether the microphone is muted", CAP_MICROPHONE_MUTE_STATUS);
 
             // Lights & Audio Cues - value hints from capability descriptors
             sections.push_back({ "LIGHTS & AUDIO CUES", {} });
@@ -1047,8 +1047,8 @@ void initializeFeatureRequests(std::vector<DiscoveredDevice>& devices, const Opt
         { CAP_NOISE_FILTER, CAPABILITYTYPE_ACTION, g_feature_params.noise_filter_val, opts.noise_filter.has_value(), {} },
         { CAP_ANC, CAPABILITYTYPE_ACTION, g_feature_params.anc_mode_val, opts.anc_mode.has_value(), {} },
         { CAP_ANC_STARTUP_MODE, CAPABILITYTYPE_ACTION, g_feature_params.anc_startup_mode_val, opts.anc_startup_mode.has_value(), {} },
-        { CAP_MIC_STATUS, CAPABILITYTYPE_INFO, std::monostate {}, opts.request_mic_status, {} },
-        { CAP_MIC_MUTE_STATUS, CAPABILITYTYPE_INFO, std::monostate {}, opts.request_mic_mute_status, {} }
+        { CAP_MICROPHONE_ATTACHMENT_STATUS, CAPABILITYTYPE_INFO, std::monostate {}, opts.request_microphone_attachment_status, {} },
+        { CAP_MICROPHONE_MUTE_STATUS, CAPABILITYTYPE_INFO, std::monostate {}, opts.request_microphone_mute_status, {} }
     };
 
     for (auto& dev : devices) {
