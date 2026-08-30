@@ -217,6 +217,22 @@ protected:
         return MicAttachedResult { .attached = (resp->payload[0] == 0) };
     }
 
+    Result<MicMuteStatusResult> getSonyMicMuteStatus(hid_device* device_handle)
+    {
+        auto resp = exchange(device_handle, ADDR_PC_TO_RX, EID_MIC_VOLUME, ETYPE_GET, {});
+        if (!resp) {
+            return resp.error();
+        }
+        if (resp->payload.empty()) {
+            return DeviceError::protocolError("MIC_VOLUME payload empty");
+        }
+        if (resp->payload[0] != 0 && resp->payload[0] != 1) {
+            return DeviceError::protocolError(
+                std::format("Invalid mic mute status: {}", resp->payload[0]));
+        }
+        return MicMuteStatusResult { .muted = (resp->payload[0] == 1) };
+    }
+
     Result<AncStartupModeResult> setSonyANCStartupMode(hid_device* device_handle, uint8_t mode)
     {
         if (mode > 3) {

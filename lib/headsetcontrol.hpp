@@ -212,6 +212,11 @@ public:
     [[nodiscard]] Result<MicMuteLedBrightnessResult> setMicMuteLedBrightness(uint8_t brightness);
 
     /**
+     * @brief Get microphone mute status
+     */
+    [[nodiscard]] Result<MicMuteStatusResult> getMicMuteStatus();
+
+    /**
      * @brief Set rotate-to-mute feature
      * @param enabled Enable/disable
      */

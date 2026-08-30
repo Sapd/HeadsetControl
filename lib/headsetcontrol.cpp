@@ -316,6 +316,11 @@ Result<MicMuteLedBrightnessResult> Headset::setMicMuteLedBrightness(uint8_t brig
     HEADSET_FEATURE_IMPL(CAP_MICROPHONE_MUTE_LED_BRIGHTNESS, setMicMuteLedBrightness, brightness);
 }
 
+Result<MicMuteStatusResult> Headset::getMicMuteStatus()
+{
+    HEADSET_FEATURE_IMPL(CAP_MIC_MUTE_STATUS, getMicMuteStatus);
+}
+
 Result<RotateToMuteResult> Headset::setRotateToMute(bool enabled)
 {
     HEADSET_FEATURE_IMPL(CAP_ROTATE_TO_MUTE, setRotateToMute, enabled);

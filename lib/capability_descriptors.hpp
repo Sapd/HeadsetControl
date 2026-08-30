@@ -274,6 +274,17 @@ inline constexpr std::array<CapabilityDescriptor, NUM_CAPABILITIES> CAPABILITY_D
         .min_value   = std::nullopt,
         .max_value   = std::nullopt,
         .value_hint  = "" },
+
+    // CAP_MIC_MUTE_STATUS
+    {
+        .cap         = CAP_MIC_MUTE_STATUS,
+        .type        = CAPABILITYTYPE_INFO,
+        .name        = "mic-mute-status",
+        .short_flag  = "",
+        .description = "Show whether the microphone is muted",
+        .min_value   = std::nullopt,
+        .max_value   = std::nullopt,
+        .value_hint  = "" },
 } };
 
 /**

@@ -372,6 +372,14 @@ inline void FeatureHandlerRegistry::registerAllHandlers()
             return r.error();
         return FeatureOutput::success(r->attached ? 1 : 0, r->attached ? "attached" : "detached");
     });
+
+    // CAP_MIC_MUTE_STATUS
+    registerHandler(CAP_MIC_MUTE_STATUS, [](HIDDevice* dev, hid_device* h, const FeatureParam&) -> Result<FeatureOutput> {
+        auto r = dev->getMicMuteStatus(h);
+        if (r.hasError())
+            return r.error();
+        return FeatureOutput::success(r->muted ? 1 : 0, r->muted ? "muted" : "unmuted");
+    });
 }
 
 } // namespace headsetcontrol
