@@ -342,6 +342,14 @@ public:
         return DeviceError::notSupported("Device does not support mic attachment status");
     }
 
+    /**
+     * @brief Query whether the microphone is muted
+     */
+    virtual Result<MicMuteStatusResult> getMicMuteStatus(hid_device* /*device_handle*/)
+    {
+        return DeviceError::notSupported("Device does not support mic mute status");
+    }
+
     // ========================================================================
     // C interface conversion
     // ========================================================================

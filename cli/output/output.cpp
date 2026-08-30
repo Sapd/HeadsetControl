@@ -98,6 +98,16 @@ void processMicStatusResult(const FeatureResult& result, DeviceData& dev)
     }
 }
 
+void processMicMuteStatusResult(const FeatureResult& result, DeviceData& dev)
+{
+    if (result.status == FEATURE_SUCCESS || result.status == FEATURE_INFO) {
+        dev.mic_muted = (result.value != 0);
+    } else if (result.status == FEATURE_ERROR) {
+        dev.errors.emplace_back(capability_to_string(CAP_MIC_MUTE_STATUS), result.message);
+        dev.status = STATUS_PARTIAL;
+    }
+}
+
 // Process action capability result and add to device actions
 void processActionResult(const FeatureRequest& req, DeviceData& dev, std::string_view device_name)
 {
@@ -130,6 +140,8 @@ void processFeatureRequest(const FeatureRequest& req, DeviceData& dev, std::stri
         processSidetoneResult(req.result, dev);
     } else if (req.cap == CAP_MIC_STATUS) {
         processMicStatusResult(req.result, dev);
+    } else if (req.cap == CAP_MIC_MUTE_STATUS) {
+        processMicMuteStatusResult(req.result, dev);
     } else if (req.type == CAPABILITYTYPE_ACTION) {
         processActionResult(req, dev, device_name);
     }
@@ -533,6 +545,11 @@ void outputStandard(const OutputData& data, bool print_capabilities)
 
         if (dev.mic_attached.has_value()) {
             s.println("Mic: {}", *dev.mic_attached ? "attached" : "detached");
+            outputted = true;
+        }
+
+        if (dev.mic_muted.has_value()) {
+            s.println("Mic mute: {}", *dev.mic_muted ? "muted" : "unmuted");
             outputted = true;
         }
 

@@ -101,7 +101,11 @@ typedef enum {
     HSC_CAP_BT_CALL_VOLUME                 = 15,
     HSC_CAP_NOISE_FILTER                   = 16,
     HSC_CAP_SIDETONE_STATUS                = 17,
-    HSC_NUM_CAPABILITIES                   = 18,
+    HSC_CAP_ANC                            = 18,
+    HSC_CAP_ANC_STARTUP_MODE               = 19,
+    HSC_CAP_MIC_STATUS                     = 20,
+    HSC_CAP_MIC_MUTE_STATUS                = 21,
+    HSC_NUM_CAPABILITIES                   = 22,
 } hsc_capability_t;
 
 /* ============================================================================
@@ -155,6 +159,10 @@ typedef struct {
     uint8_t min_minutes;
     uint8_t max_minutes;
 } hsc_inactive_time_t;
+
+typedef struct {
+    bool muted;
+} hsc_mic_mute_status_t;
 
 /* ============================================================================
  * Discovery Functions
@@ -291,6 +299,15 @@ HSC_API hsc_result_t hsc_get_chatmix(hsc_headset_t headset, hsc_chatmix_t* chatm
  * @return HSC_RESULT_OK on success, negative error code on failure
  */
 HSC_API hsc_result_t hsc_get_sidetone(hsc_headset_t headset, hsc_sidetone_status_t* sidetone);
+
+/**
+ * @brief Get microphone mute status
+ *
+ * @param headset Headset handle
+ * @param[out] status Microphone mute status to fill
+ * @return HSC_RESULT_OK on success, negative error code on failure
+ */
+HSC_API hsc_result_t hsc_get_mic_mute_status(hsc_headset_t headset, hsc_mic_mute_status_t* status);
 
 /* ============================================================================
  * Audio Controls

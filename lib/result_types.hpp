@@ -341,6 +341,13 @@ struct MicAttachedResult {
 };
 
 /**
+ * @brief Microphone mute status
+ */
+struct MicMuteStatusResult {
+    bool muted; // true = microphone is muted
+};
+
+/**
  * @brief Capability information with details
  */
 struct CapabilityInfo {
