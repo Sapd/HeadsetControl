@@ -269,6 +269,7 @@ void testCNullHandling()
     hsc_mic_mute_status_t mic_mute_status;
     ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_get_mic_mute_status(nullptr, &mic_mute_status), "get_mic_mute_status(null) should fail");
 
+    ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_anc_toggle_modes(nullptr, true, true, false), "set_anc_toggle_modes(null) should fail");
     ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_sidetone(nullptr, 64, nullptr), "set_sidetone(null) should fail");
     ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_lights(nullptr, true), "set_lights(null) should fail");
 
@@ -430,6 +431,7 @@ void testCTestDeviceMode()
             ASSERT_TRUE(hsc_supports(headsets[i], HSC_CAP_SIDETONE), "Should support sidetone");
             ASSERT_TRUE(hsc_supports(headsets[i], HSC_CAP_SIDETONE_STATUS), "Should support sidetone status");
             ASSERT_TRUE(hsc_supports(headsets[i], HSC_CAP_MICROPHONE_MUTE_STATUS), "Should support microphone mute status");
+            ASSERT_TRUE(hsc_supports(headsets[i], HSC_CAP_ANC_TOGGLE_MODES), "Should support ANC toggle modes");
 
             // Test battery
             hsc_battery_t battery;
@@ -451,6 +453,8 @@ void testCTestDeviceMode()
             hsc_mic_mute_status_t mic_mute_status;
             ASSERT_EQ(HSC_RESULT_OK, hsc_get_mic_mute_status(headsets[i], &mic_mute_status), "Mic mute status should succeed");
             ASSERT_FALSE(mic_mute_status.muted, "Mic mute status should be unmuted");
+
+            ASSERT_EQ(HSC_RESULT_OK, hsc_set_anc_toggle_modes(headsets[i], true, true, false), "ANC toggle modes should succeed");
 
             ASSERT_EQ(4, hsc_get_equalizer_presets_count(headsets[i]), "Preset count should be 4");
             ASSERT_EQ(std::string("Flat"), std::string(hsc_get_equalizer_preset_name(headsets[i], 0)), "Flat preset name should match");

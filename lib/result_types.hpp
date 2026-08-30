@@ -330,7 +330,16 @@ struct AncResult {
  * @brief ANC startup mode result
  */
 struct AncStartupModeResult {
-    uint8_t mode; // 0 = off, 1 = NC, 2 = ambient, 3 = restore last
+    uint8_t mode; // 0 = off, 1 = NC, 2 = ambient, 3 = mode at power off
+};
+
+/**
+ * @brief ANC modes included in the headset toggle cycle
+ */
+struct AncToggleModesResult {
+    bool off_enabled;
+    bool anc_enabled;
+    bool ambient_enabled;
 };
 
 /**
