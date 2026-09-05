@@ -191,9 +191,18 @@ std::optional<cli::ParseError> configureParser(cli::ArgumentParser& parser, Opti
         .custom('d', "device", cli::ArgRequirement::Required, [&opts](std::optional<std::string_view> arg) -> std::optional<cli::ParseError> {
                 if (!arg)
                     return cli::ParseError { "requires vendor:product", "device" };
-                auto ids = headsetcontrol::parse_two_ids(*arg);
+                // USB IDs are hex, and are written without a 0x prefix by lsusb
+                // and by our own device listing.
+                auto ids = headsetcontrol::parse_two_ids(*arg, 16);
                 if (!ids) {
                     return cli::ParseError { "format: vendorid:productid", "device" };
+                }
+                // Narrowing an out-of-range ID would wrap it, and a wrapped-to-zero
+                // ID reads as "no filter" - so -d 10000:10000 would silently match
+                // every device instead of none.
+                constexpr int id_max = 0xffff;
+                if (ids->first < 0 || ids->first > id_max || ids->second < 0 || ids->second > id_max) {
+                    return cli::ParseError { "ids must be between 0 and ffff", "device" };
                 }
                 opts.vendor_id = static_cast<uint16_t>(ids->first);
                 opts.product_id = static_cast<uint16_t>(ids->second);
