@@ -468,6 +468,33 @@ void testParseTwoIds()
     auto empty = parse_two_ids("");
     ASSERT_FALSE(empty.has_value(), "Empty string should fail");
 
+    // A token that is only partly numeric must be rejected, not truncated
+    auto partial = parse_two_ids("1b1c:0a64");
+    ASSERT_FALSE(partial.has_value(), "Bare hex should not parse as decimal");
+
+    // Bare hex, as lsusb and our own device listing print USB IDs
+    auto bare_hex = parse_two_ids("1b1c:0a64", 16);
+    ASSERT_TRUE(bare_hex.has_value(), "Should parse bare hex in base 16");
+    ASSERT_EQ(0x1b1c, bare_hex->first, "First ID should be 0x1b1c");
+    ASSERT_EQ(0x0a64, bare_hex->second, "Second ID should be 0x0a64");
+
+    // An explicit prefix still wins over the requested base
+    auto prefixed = parse_two_ids("0x1b1c:0x0a64", 16);
+    ASSERT_TRUE(prefixed.has_value(), "Prefixed hex should parse in base 16");
+    ASSERT_EQ(0x1b1c, prefixed->first, "First ID should be 0x1b1c");
+
+    // Digits that are decimal in base 10 and hex in base 16
+    auto as_decimal = parse_two_ids("1038:1234");
+    ASSERT_TRUE(as_decimal.has_value(), "Digits should parse as decimal by default");
+    ASSERT_EQ(1038, as_decimal->first, "Base 10 by default");
+    auto as_hex = parse_two_ids("1038:1234", 16);
+    ASSERT_TRUE(as_hex.has_value(), "Digits should parse as hex when asked");
+    ASSERT_EQ(0x1038, as_hex->first, "Base 16 when requested");
+
+    // Not a number in either base
+    auto garbage = parse_two_ids("zz:yy", 16);
+    ASSERT_FALSE(garbage.has_value(), "Non-numeric should fail in base 16 too");
+
     std::cout << "    ✓ parse_two_ids works correctly" << std::endl;
 }
 

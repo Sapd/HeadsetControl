@@ -87,10 +87,19 @@ ParametricEqualizerSettings parse_parametric_equalizer_settings(std::string_view
 /**
  * @brief Parse two IDs from a string like "123:456" or "0x1b1c:0x1b27"
  *
+ * A token carrying an explicit 0x prefix is always read as hexadecimal. Bare
+ * tokens are read in @p default_base, so callers parsing USB vendor and product
+ * IDs should pass 16: those are conventionally written unprefixed in hex, which
+ * is how lsusb and this tool's own device listing print them.
+ *
+ * A token that is only partly numeric is rejected rather than truncated - read
+ * as decimal, "1b1c" would otherwise silently become 1.
+ *
  * @param input string to parse
+ * @param default_base base for tokens without a 0x prefix
  * @return pair of IDs if successful, nullopt otherwise
  */
-std::optional<std::pair<int, int>> parse_two_ids(std::string_view input);
+std::optional<std::pair<int, int>> parse_two_ids(std::string_view input, int default_base = 10);
 
 /**
  * @brief Cross-platform sleep for milliseconds

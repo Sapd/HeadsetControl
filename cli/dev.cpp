@@ -212,10 +212,10 @@ struct DevOptions {
     for (int c; (c = getopt_long(argc, argv, "d:i:lu:s:m:f:rg:t:hR:", long_opts.data(), &option_index)) != -1;) {
         switch (c) {
         case 'd': {
-            auto ids = headsetcontrol::parse_two_ids(optarg);
+            auto ids = headsetcontrol::parse_two_ids(optarg, 16);
             if (!ids || !in_range(ids->first, 1, 65535) || !in_range(ids->second, 1, 65535)) {
-                std::cerr << "Invalid --device. Use format: VENDORID:PRODUCTID (1-65535 or 0x1-0xffff)\n"
-                          << "  Example: --device 0x1b1c:0x1b27\n";
+                std::cerr << "Invalid --device. Use format: VENDORID:PRODUCTID (hex, 1-ffff)\n"
+                          << "  Example: --device 1b1c:1b27\n";
                 return std::nullopt;
             }
             opts.vendorid  = static_cast<uint16_t>(ids->first);
