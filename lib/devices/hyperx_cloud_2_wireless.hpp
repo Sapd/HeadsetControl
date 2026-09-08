@@ -20,8 +20,9 @@ namespace headsetcontrol {
 class HyperXCloud2Wireless : public HIDDevice {
 public:
     static constexpr uint16_t VENDOR_HYPERX = 0x03f0;
-    static constexpr std::array<uint16_t, 1> SUPPORTED_PRODUCT_IDS {
-        0x0696 // Cloud II Wireless
+    static constexpr std::array<uint16_t, 2> SUPPORTED_PRODUCT_IDS {
+        0x0696, // Cloud II Wireless
+        0x018b // Cloud II Wireless (newer dongle revision)
     };
 
     static constexpr int WRITE_PACKET_SIZE = 52;
