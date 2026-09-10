@@ -83,13 +83,13 @@ void print_devices(uint16_t vendorid, uint16_t productid)
             cur->vendor_id, cur->product_id, cur->path);
 
         if (cur->serial_number) {
-            std::cout << "  Serial: " << headsetcontrol::wstring_to_string(cur->serial_number) << '\n';
+            std::cout << "  Serial: " << headsetcontrol::wstring_to_utf8(cur->serial_number) << '\n';
         }
         if (cur->manufacturer_string) {
-            std::cout << "  Manufacturer: " << headsetcontrol::wstring_to_string(cur->manufacturer_string) << '\n';
+            std::cout << "  Manufacturer: " << headsetcontrol::wstring_to_utf8(cur->manufacturer_string) << '\n';
         }
         if (cur->product_string) {
-            std::cout << "  Product: " << headsetcontrol::wstring_to_string(cur->product_string) << '\n';
+            std::cout << "  Product: " << headsetcontrol::wstring_to_utf8(cur->product_string) << '\n';
         }
 
         std::cout << std::format(

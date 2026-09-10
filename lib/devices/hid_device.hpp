@@ -185,15 +185,15 @@ public:
         wchar_t serial[128]       = {};
 
         if (hid_get_manufacturer_string(device_handle, manufacturer, 128) == 0) {
-            meta.manufacturer = wstring_to_string(manufacturer);
+            meta.manufacturer = wstring_to_utf8(manufacturer);
         }
 
         if (hid_get_product_string(device_handle, product, 128) == 0) {
-            meta.product = wstring_to_string(product);
+            meta.product = wstring_to_utf8(product);
         }
 
         if (hid_get_serial_number_string(device_handle, serial, 128) == 0 && serial[0] != 0) {
-            meta.serial_number = wstring_to_string(serial);
+            meta.serial_number = wstring_to_utf8(serial);
         }
 
         return meta;

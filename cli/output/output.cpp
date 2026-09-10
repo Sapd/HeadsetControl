@@ -269,8 +269,8 @@ void outputYaml(const OutputData& data)
             s.writeListItem("status", statusToString(dev.status));
             s.pushIndent(1); // Align subsequent keys with "status" after "- "
             s.write("device", dev.device_name);
-            s.write("vendor", dev.vendor_name.empty() ? "" : headsetcontrol::wstring_to_string(dev.vendor_name.c_str()));
-            s.write("product", dev.product_name.empty() ? "" : headsetcontrol::wstring_to_string(dev.product_name.c_str()));
+            s.write("vendor", dev.vendor_name.empty() ? "" : headsetcontrol::wstring_to_utf8(dev.vendor_name));
+            s.write("product", dev.product_name.empty() ? "" : headsetcontrol::wstring_to_utf8(dev.product_name));
             s.write("id_vendor", dev.vendor_id);
             s.write("id_product", dev.product_id);
 
@@ -463,7 +463,7 @@ void outputStandard(const OutputData& data, bool print_capabilities)
 
     for (const auto& dev : data.devices) {
         if (!dev.product_name.empty()) {
-            s.println(" {} ({}) [{}:{}]", dev.device_name, headsetcontrol::wstring_to_string(dev.product_name.c_str()), dev.vendor_id, dev.product_id);
+            s.println(" {} ({}) [{}:{}]", dev.device_name, headsetcontrol::wstring_to_utf8(dev.product_name), dev.vendor_id, dev.product_id);
         } else {
             s.println(" {} [{}:{}]", dev.device_name, dev.vendor_id, dev.product_id);
         }
