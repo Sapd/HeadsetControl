@@ -54,6 +54,10 @@
 // Plantronics / Poly devices
 #include "devices/plantronics_bt600.hpp"
 
+// Jabra devices
+#include "devices/jabra_evolve2_65_flex.hpp"
+#include "devices/jabra_link_390.hpp"
+
 // Sony devices
 #include "devices/sony_inzone_buds.hpp"
 #include "devices/sony_inzone_h5.hpp"
@@ -155,6 +159,10 @@ void DeviceRegistry::initialize()
 
         // Plantronics / Poly devices
         registerDevice(std::make_unique<PlantronicsBT600>());
+
+        // Jabra devices
+        registerDevice(std::make_unique<JabraLink390>());
+        registerDevice(std::make_unique<JabraEvolve265Flex>());
 
         // Sony devices
         registerDevice(std::make_unique<SonyINZONEBuds>());

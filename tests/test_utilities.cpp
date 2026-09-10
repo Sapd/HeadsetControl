@@ -106,6 +106,26 @@ void testMapSidetoneToDiscrete11Levels()
     std::cout << "    ✓ mapSidetoneToDiscrete<11> works correctly" << std::endl;
 }
 
+void testMapDiscreteToSidetoneRoundTrip()
+{
+    std::cout << "  Testing mapDiscreteToSidetone<N> round-trips through mapSidetoneToDiscrete<N>..." << std::endl;
+
+    ASSERT_EQ(16, mapDiscreteToSidetone<4>(0), "N=4 index 0 should report 16");
+    ASSERT_EQ(112, mapDiscreteToSidetone<4>(3), "N=4 index 3 should report 112");
+    ASSERT_EQ(112, mapDiscreteToSidetone<4>(9), "out-of-range index should clamp to the last level");
+
+    for (uint8_t i = 0; i < 3; ++i)
+        ASSERT_EQ(i, mapSidetoneToDiscrete<3>(mapDiscreteToSidetone<3>(i)), "N=3 round trip");
+    for (uint8_t i = 0; i < 4; ++i)
+        ASSERT_EQ(i, mapSidetoneToDiscrete<4>(mapDiscreteToSidetone<4>(i)), "N=4 round trip");
+    for (uint8_t i = 0; i < 6; ++i)
+        ASSERT_EQ(i, mapSidetoneToDiscrete<6>(mapDiscreteToSidetone<6>(i)), "N=6 round trip");
+    for (uint8_t i = 0; i < 11; ++i)
+        ASSERT_EQ(i, mapSidetoneToDiscrete<11>(mapDiscreteToSidetone<11>(i)), "N=11 round trip");
+
+    std::cout << "    ✓ mapDiscreteToSidetone<N> round-trips" << std::endl;
+}
+
 void testMapSidetoneWithToggle()
 {
     std::cout << "  Testing mapSidetoneWithToggle..." << std::endl;
@@ -712,6 +732,7 @@ void runAllUtilityTests()
     std::cout << "=== device_utils.hpp Tests ===" << std::endl;
     runTest("mapSidetoneToDiscrete<4>", testMapSidetoneToDiscrete4Levels);
     runTest("mapSidetoneToDiscrete<11>", testMapSidetoneToDiscrete11Levels);
+    runTest("mapDiscreteToSidetone round trip", testMapDiscreteToSidetoneRoundTrip);
     runTest("mapSidetoneWithToggle", testMapSidetoneWithToggle);
     runTest("map", testDeviceUtilsMap);
     runTest("mapDiscrete", testMapDiscrete);
