@@ -150,6 +150,7 @@ private:
     {
         for (auto& [key, handle] : connections_) {
             if (handle) {
+                device_->onConnectionClosed(handle);
                 hid_close(handle);
             }
         }

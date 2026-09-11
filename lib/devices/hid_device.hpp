@@ -84,6 +84,14 @@ public:
     }
 
     /**
+     * @brief Release per-connection protocol state before a HID handle is closed.
+     *
+     * Connection owners must call this before hid_close(), including callers using
+     * device implementations directly rather than the Headset API.
+     */
+    virtual void onConnectionClosed(hid_device* /*device_handle*/) const { }
+
+    /**
      * @brief Get equalizer presets count
      */
     virtual uint8_t getEqualizerPresetsCount() const
