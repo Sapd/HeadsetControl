@@ -24,13 +24,17 @@ namespace headsetcontrol {
  * Logitech-era ASTRO product on Astro Gaming's legacy vendor ID. Verified on the
  * PlayStation/PC edition only; whether the Xbox/PC edition shares 002c is unknown. The
  * base's mode switch must be on PC: in console mode it re-enumerates as 9886:002b with
- * audio interfaces only and no HID.
+ * audio interfaces only and no HID. Hardware-verified on Linux only; Windows and macOS
+ * are untested.
  *
  * Transport: one vendor HID interface (interface 6, usage page 0xFF32 / usage 0x74),
  * report ID 0x02, 64-byte frames, strictly one reply per request, no unsolicited frames
- * (unlike the Gen 5). After a timeout, subsequent requests on that connection are blocked
- * until the outstanding reply is consumed. Command codes come from the MIT-licensed
- * eh-fifty project and were re-verified on hardware.
+ * (unlike the Gen 5). After a timeout, the next request on that connection first waits
+ * briefly for the outstanding reply and discards it. Command codes come from the
+ * MIT-licensed eh-fifty project and were re-verified on hardware.
+ *
+ * Settings are not saved to flash: every write changes the active value only and is
+ * lost when the base station power-cycles.
  *
  *   Request: 02 CMD [LEN PAYLOAD...] 00-padded
  *   Reply:   02 STATUS LEN PAYLOAD...    STATUS 0x02 = OK with payload,
@@ -581,20 +585,15 @@ private:
     {
         const std::lock_guard lock(request_mutex_);
         if (pending_replies_.contains(device_handle)) {
-            // No command identifier exists in several reply layouts. Consume the outstanding
-            // reply before issuing another request, or remain unsynchronized and fail closed.
+            // Several reply layouts carry no command identifier, so give the outstanding
+            // reply one bounded chance to arrive and discard it. Proceed either way: a reply
+            // that never comes (lost, or a handle address reused without onConnectionClosed())
+            // must not block the connection forever. Every supported command answers within
+            // milliseconds; a later frame would be read by the next request, which the
+            // per-command echo checks catch for the setters.
             constexpr int RECOVERY_TIMEOUT_MS = 1000;
             std::array<uint8_t, FRAME_SIZE> stale {};
-            auto recovered = readHIDTimeout(device_handle, stale, RECOVERY_TIMEOUT_MS);
-            if (!recovered) {
-                return recovered.error();
-            }
-            if (*recovered == 0) {
-                return DeviceError::timeout("ASTRO A50 Gen 4: still waiting for the previous reply");
-            }
-            if (*recovered != FRAME_SIZE || stale[0] != REPORT_ID) {
-                return DeviceError::protocolError("ASTRO A50 Gen 4: cannot resynchronize the previous reply; reconnect the device");
-            }
+            static_cast<void>(readHIDTimeout(device_handle, stale, RECOVERY_TIMEOUT_MS));
             pending_replies_.erase(device_handle);
         }
 

@@ -422,7 +422,9 @@ public:
     void close()
     {
         if (handle_) {
-            device_->onConnectionClosed(handle_);
+            if (device_) {
+                device_->onConnectionClosed(handle_);
+            }
             hid_close(handle_);
             handle_ = nullptr;
         }

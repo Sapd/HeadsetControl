@@ -1242,32 +1242,52 @@ void testAstroA50Gen4TimeoutRecovery()
     using Dev = LogitechAstroA50Gen4;
     // Real HIDInterface returns an error on timeout; also cover the zero-byte variant.
     for (bool zero_bytes : { false, true }) {
+        auto no_reply = [zero_bytes]() -> Result<std::vector<uint8_t>> {
+            if (zero_bytes) {
+                return std::vector<uint8_t> {};
+            }
+            return DeviceError::timeout("Scripted timeout");
+        };
+
+        // A lost reply must not block the connection: one bounded recovery read, then proceed.
         TestableAstroA50Gen4 dev;
         dev.hid.replies.push_back(a50Reply(Dev::STATUS_OK, { 2 }));
-        if (zero_bytes) {
-            dev.hid.replies.push_back(std::vector<uint8_t> {});
-        } else {
-            dev.hid.replies.push_back(DeviceError::timeout("Delayed battery"));
-        }
+        dev.hid.replies.push_back(no_reply());
         ASSERT_TRUE(dev.getBattery(nullptr).hasError(), "Battery times out");
         ASSERT_EQ(2u, dev.hid.writes.size(), "Status and battery query issued");
-        ASSERT_TRUE(dev.getChatmix(nullptr).hasError(), "No outstanding reply yet: remain unsynchronized");
-        ASSERT_EQ(2u, dev.hid.writes.size(), "Recovery must not issue new requests");
-        ASSERT_TRUE(dev.hid.read_timeouts.back() > 0 && dev.hid.read_timeouts.back() <= 1000, "Recovery has bounded positive wait");
 
-        // Battery reply arrives after the first failed recovery. It must not become link status.
+        dev.hid.replies.push_back(no_reply());
+        dev.hid.replies.push_back(a50Reply(Dev::STATUS_OK, { 2 }));
+        dev.hid.replies.push_back(a50Reply(Dev::STATUS_OK, { 130 }));
+        size_t reads = dev.hid.writes_at_read.size();
+        auto chatmix = dev.getChatmix(nullptr);
+        ASSERT_TRUE(chatmix.hasValue(), "Lost reply: recovery gives up and the request proceeds");
+        ASSERT_EQ(64, chatmix->level, "Fresh chatmix after a lost reply");
+        ASSERT_EQ(4u, dev.hid.writes.size(), "Two new requests after recovery");
+        ASSERT_EQ(2u, dev.hid.writes_at_read[reads], "Recovery read precedes the status request");
+        ASSERT_TRUE(dev.hid.read_timeouts[reads] > 0 && dev.hid.read_timeouts[reads] <= 1000, "Recovery has bounded positive wait");
+        ASSERT_TRUE(dev.hid.replies.empty(), "All replies consumed");
+
+        dev.hid.replies.push_back(a50Reply(Dev::STATUS_OK, { 2 }));
+        dev.hid.replies.push_back(a50Reply(Dev::STATUS_OK, { 130 }));
+        reads = dev.hid.writes_at_read.size();
+        ASSERT_TRUE(dev.getChatmix(nullptr).hasValue(), "Connection is synchronized again");
+        ASSERT_EQ(hsc_device_timeout, dev.hid.read_timeouts[reads], "No recovery read once the pending state is cleared");
+
+        // A late reply arriving during recovery is discarded, not misread as link status.
+        dev.hid.replies.push_back(a50Reply(Dev::STATUS_OK, { 2 }));
+        dev.hid.replies.push_back(no_reply());
+        ASSERT_TRUE(dev.getBattery(nullptr).hasError(), "Battery times out again");
         dev.hid.replies.push_back(a50Reply(Dev::STATUS_OK, { 98 }));
         dev.hid.replies.push_back(a50Reply(Dev::STATUS_OK, { 2 }));
         dev.hid.replies.push_back(a50Reply(Dev::STATUS_OK, { 130 }));
-        const auto reads = dev.hid.writes_at_read.size();
-        auto chatmix     = dev.getChatmix(nullptr);
+        chatmix = dev.getChatmix(nullptr);
         ASSERT_TRUE(chatmix.hasValue(), "Recover then read fresh chatmix");
         ASSERT_EQ(64, chatmix->level, "Late battery and status must not become balance");
-        ASSERT_EQ(2u, dev.hid.writes_at_read[reads], "Read outstanding response before issuing status request");
-        ASSERT_EQ(4u, dev.hid.writes.size(), "Only two new requests after recovery");
         ASSERT_TRUE(dev.hid.replies.empty(), "All replies consumed in correct order");
     }
     {
+        // Handles are independent, and a reused handle address recovers without the hook.
         TestableAstroA50Gen4 dev;
         int token_a = 0, token_b = 0;
         auto* handle_a = reinterpret_cast<hid_device*>(&token_a);
@@ -1276,20 +1296,35 @@ void testAstroA50Gen4TimeoutRecovery()
         dev.hid.replies.push_back(a50Reply(Dev::STATUS_OK, { 0x68, 5, 50, 50 }));
         ASSERT_TRUE(dev.getSidetone(handle_b).hasValue(), "Other connection is not blocked");
         ASSERT_EQ(2u, dev.hid.writes.size(), "Independent connection sends its query");
+
+        dev.hid.replies.push_back(DeviceError::timeout("Old connection's reply never arrives"));
+        dev.hid.replies.push_back(a50Reply(Dev::STATUS_OK, { 0x68, 5, 50, 50 }));
+        ASSERT_TRUE(dev.getSidetone(handle_a).hasValue(), "Reused handle address recovers without onConnectionClosed()");
+        ASSERT_EQ(3u, dev.hid.writes.size(), "Reused connection sends its query after one recovery read");
+
+        ASSERT_TRUE(dev.getSidetone(handle_a).hasError(), "Connection times out again");
         dev.onConnectionClosed(handle_a);
         dev.hid.replies.push_back(a50Reply(Dev::STATUS_OK, { 0x68, 5, 50, 50 }));
-        ASSERT_TRUE(dev.getSidetone(handle_a).hasValue(), "Reused handle address has no stale recovery state");
-        ASSERT_EQ(3u, dev.hid.writes.size(), "Reopened connection sends its query");
+        const size_t reads = dev.hid.writes_at_read.size();
+        ASSERT_TRUE(dev.getSidetone(handle_a).hasValue(), "Reopened connection works");
+        ASSERT_EQ(hsc_device_timeout, dev.hid.read_timeouts[reads], "Hook skips the recovery wait");
     }
     {
+        // Read errors and malformed frames during recovery are discarded, not propagated.
         TestableAstroA50Gen4 dev;
         dev.hid.replies.push_back(DeviceError::hidError("Read failed"));
         ASSERT_TRUE(dev.getSidetone(nullptr).hasError(), "Read failure leaves an outstanding request");
-        dev.hid.replies.push_back(std::vector<uint8_t> { 2 });
-        ASSERT_TRUE(dev.getSidetone(nullptr).hasError(), "Truncated recovery frame cannot restore synchronization");
+        ASSERT_EQ(1u, dev.hid.writes.size(), "One request so far");
         dev.hid.replies.push_back(DeviceError::hidError("Still failed"));
-        ASSERT_TRUE(dev.getSidetone(nullptr).hasError(), "Recovery read error is propagated");
-        ASSERT_EQ(1u, dev.hid.writes.size(), "No requests while recovery fails");
+        dev.hid.replies.push_back(a50Reply(Dev::STATUS_OK, { 0x68, 5, 50, 50 }));
+        ASSERT_TRUE(dev.getSidetone(nullptr).hasValue(), "Recovery read error does not block the request");
+        ASSERT_EQ(2u, dev.hid.writes.size(), "Request issued after the failed recovery read");
+
+        ASSERT_TRUE(dev.getSidetone(nullptr).hasError(), "Times out again");
+        dev.hid.replies.push_back(std::vector<uint8_t> { 2 });
+        dev.hid.replies.push_back(a50Reply(Dev::STATUS_OK, { 0x68, 5, 50, 50 }));
+        ASSERT_TRUE(dev.getSidetone(nullptr).hasValue(), "Truncated recovery frame is discarded");
+        ASSERT_TRUE(dev.hid.replies.empty(), "All replies consumed");
     }
 }
 

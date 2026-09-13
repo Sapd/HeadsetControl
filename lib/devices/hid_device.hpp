@@ -84,10 +84,11 @@ public:
     }
 
     /**
-     * @brief Release per-connection protocol state before a HID handle is closed.
+     * @brief Release per-connection protocol state when a HID handle is closed.
      *
-     * Connection owners must call this before hid_close(), including callers using
-     * device implementations directly rather than the Headset API.
+     * Optional. Devices that keep per-handle state recover on their own if this is
+     * skipped; calling it before hid_close() avoids a bounded delay on the next
+     * request if the handle address is reused.
      */
     virtual void onConnectionClosed(hid_device* /*device_handle*/) const { }
 
