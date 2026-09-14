@@ -7,8 +7,6 @@
 #include <chrono>
 #include <cstdint>
 #include <format>
-#include <span>
-#include <string>
 #include <string_view>
 
 using namespace std::string_view_literals;
@@ -42,11 +40,11 @@ namespace headsetcontrol {
  * switching back, so they are bracketed by a scope guard that hands the headset
  * straight back to hardware mode instead of parking it in software mode.
  *
- * Lighting is not a property but a block of data pushed through the protocol's
- * open/write/close handle sequence. The frame written that way sticks: the LEDs
- * keep showing it even once the headset drops back to hardware mode, which it
- * does on its own shortly after the host stops talking to it. What hardware mode
- * does not do is resume whatever effect was running beforehand.
+ * Lights are switched with the brightness property (0x02) rather than by painting
+ * a frame. Brightness is the headset's own persisted setting and gates whatever
+ * effect it is running, so 0 turns the LEDs off and full brightness brings back
+ * the user's own effect. On the XT this was tested on, brightness 0 survived a
+ * power cycle.
  *
  * The device also broadcasts unsolicited volume events on report 0x0e, which have
  * to be skipped when looking for a reply.
@@ -95,28 +93,24 @@ public:
     {
         auto start_time = std::chrono::steady_clock::now();
 
-        auto target = resolveTarget(device_handle);
-        if (!target) {
-            return target.error();
+        // Resolving the target already reads the battery level. Neither that nor
+        // the charge state needs software mode, which keeps the headset from
+        // producing an audible pop just to report its battery.
+        auto resolved = resolveTarget(device_handle);
+        if (!resolved) {
+            return resolved.error();
         }
-
-        // Reading does not need software mode, which keeps the headset from
-        // producing an audible pop just to report its battery level.
-        auto level = readProperty(device_handle, *target, PROP_BATTERY_LEVEL);
-        if (!level) {
-            return level.error();
-        }
+        const uint32_t level = resolved->battery_level;
 
         // The level is reported in tenths of a percent.
-        if (*level > BATTERY_LEVEL_MAX) {
-            return DeviceError::protocolError(
-                std::format("Battery level out of range: {}", *level));
+        if (level > BATTERY_LEVEL_MAX) {
+            return DeviceError::protocolError(std::format("Battery level out of range: {}", level));
         }
 
         // Charge state is a separate property; treat it as advisory so that a
         // firmware which does not implement it still yields a usable level.
         auto status = BATTERY_AVAILABLE;
-        if (auto charge_state = readProperty(device_handle, *target, PROP_BATTERY_STATUS);
+        if (auto charge_state = readProperty(device_handle, resolved->target, PROP_BATTERY_STATUS);
             charge_state && *charge_state == CHARGE_STATE_CHARGING) {
             status = BATTERY_CHARGING;
         }
@@ -125,7 +119,7 @@ public:
             std::chrono::steady_clock::now() - start_time);
 
         return BatteryResult {
-            .level_percent  = static_cast<int>(*level / 10),
+            .level_percent  = static_cast<int>(level / 10),
             .status         = status,
             .mic_status     = MICROPHONE_UNKNOWN,
             .query_duration = duration,
@@ -140,19 +134,20 @@ public:
         const auto sidetone_value
             = static_cast<uint16_t>(round_to_multiples(mapped_level, 10));
 
-        auto target = resolveTarget(device_handle);
-        if (!target) {
-            return target.error();
+        auto resolved = resolveTarget(device_handle);
+        if (!resolved) {
+            return resolved.error();
         }
+        const uint8_t target = resolved->target;
 
-        if (auto result = writeProperty(device_handle, *target, PROP_MODE, MODE_SOFTWARE);
+        if (auto result = writeProperty(device_handle, target, PROP_MODE, MODE_SOFTWARE);
             !result) {
             return result.error();
         }
-        SoftwareModeGuard guard { *this, device_handle, *target };
+        SoftwareModeGuard guard { *this, device_handle, target };
 
         // Level 0 switches sidetone off outright rather than turning it down.
-        if (auto result = writeProperty(device_handle, *target, PROP_SIDETONE_ENABLED,
+        if (auto result = writeProperty(device_handle, target, PROP_SIDETONE_ENABLED,
                 level == 0 ? 0 : 1);
             !result) {
             return result.error();
@@ -160,7 +155,7 @@ public:
 
         if (level > 0) {
             if (auto result
-                = writeProperty(device_handle, *target, PROP_SIDETONE_VOLUME, sidetone_value);
+                = writeProperty(device_handle, target, PROP_SIDETONE_VOLUME, sidetone_value);
                 !result) {
                 return result.error();
             }
@@ -183,19 +178,20 @@ public:
             minutes = MAX_INACTIVE_MINUTES;
         }
 
-        auto target = resolveTarget(device_handle);
-        if (!target) {
-            return target.error();
+        auto resolved = resolveTarget(device_handle);
+        if (!resolved) {
+            return resolved.error();
         }
+        const uint8_t target = resolved->target;
 
-        if (auto result = writeProperty(device_handle, *target, PROP_MODE, MODE_SOFTWARE);
+        if (auto result = writeProperty(device_handle, target, PROP_MODE, MODE_SOFTWARE);
             !result) {
             return result.error();
         }
-        SoftwareModeGuard guard { *this, device_handle, *target };
+        SoftwareModeGuard guard { *this, device_handle, target };
 
         if (auto result
-            = writeProperty(device_handle, *target, PROP_SLEEP_ENABLED, minutes == 0 ? 0 : 1);
+            = writeProperty(device_handle, target, PROP_SLEEP_ENABLED, minutes == 0 ? 0 : 1);
             !result) {
             return result.error();
         }
@@ -204,7 +200,7 @@ public:
         if (minutes > 0) {
             const uint32_t timeout_ms = static_cast<uint32_t>(minutes) * 60U * 1000U;
             if (auto result
-                = writeProperty(device_handle, *target, PROP_SLEEP_TIMEOUT, timeout_ms);
+                = writeProperty(device_handle, target, PROP_SLEEP_TIMEOUT, timeout_ms);
                 !result) {
                 return result.error();
             }
@@ -219,39 +215,28 @@ public:
 
     Result<LightsResult> setLights(hid_device* device_handle, bool on) override
     {
-        auto target = resolveTarget(device_handle);
-        if (!target) {
-            return target.error();
+        auto resolved = resolveTarget(device_handle);
+        if (!resolved) {
+            return resolved.error();
         }
+        const uint8_t target = resolved->target;
 
-        // No scope guard here, deliberately. Hardware mode drives the LEDs from the
-        // effect the headset runs itself, which paints straight over the frame
-        // written below - restoring it makes turning the lights off do nothing at
-        // all. Staying in software mode is what makes the frame stick. The headset
-        // drops back to hardware mode by itself within a few minutes of the host
-        // going quiet, and the frame it was last given survives that.
-        if (auto result = writeProperty(device_handle, *target, PROP_MODE, MODE_SOFTWARE);
+        if (auto result = writeProperty(device_handle, target, PROP_MODE, MODE_SOFTWARE);
+            !result) {
+            return result.error();
+        }
+        SoftwareModeGuard guard { *this, device_handle, target };
+
+        // Brightness is the headset's own persisted setting rather than a frame we
+        // paint, so it gates whatever effect the headset is running: 0 switches the
+        // LEDs off, full brightness brings back the user's own effect.
+        if (auto result
+            = writeProperty(device_handle, target, PROP_BRIGHTNESS, on ? BRIGHTNESS_MAX : 0);
             !result) {
             return result.error();
         }
 
-        if (auto result = writeProperty(device_handle, *target, PROP_BRIGHTNESS, BRIGHTNESS_MAX);
-            !result) {
-            return result.error();
-        }
-
-        // This capability is only on/off, so "on" paints every zone static white
-        // rather than restoring whatever effect the headset was running before -
-        // that effect is not something the protocol lets us read back and replay.
-        const uint8_t level = on ? 0xff : 0x00;
-        if (auto result = writeLighting(device_handle, *target, level, level, level); !result) {
-            return result.error();
-        }
-
-        return LightsResult {
-            .enabled = on,
-            .mode    = on ? std::optional<std::string> { "static" } : std::nullopt,
-        };
+        return LightsResult { .enabled = on };
     }
 
     Result<CapabilityInfo> getCapabilityInfo(enum capabilities cap) override
@@ -292,21 +277,8 @@ private:
     static constexpr uint8_t REPLY_FROM_HEADSET = 0x01;
     static constexpr uint8_t REPLY_FROM_SELF    = 0x00;
 
-    static constexpr uint8_t BRAGI_SET          = 0x01;
-    static constexpr uint8_t BRAGI_GET          = 0x02;
-    static constexpr uint8_t BRAGI_CLOSE_HANDLE = 0x05;
-    static constexpr uint8_t BRAGI_WRITE_DATA   = 0x06;
-    static constexpr uint8_t BRAGI_OPEN_HANDLE  = 0x0d;
-
-    // Handle and resource numbering follow ckb-next, which drives the LEDs on
-    // Corsair's other Bragi devices the same way.
-    static constexpr uint8_t LIGHTING_HANDLE   = 0x00;
-    static constexpr uint8_t LIGHTING_RESOURCE = 0x01;
-    // The firmware expects a frame for three LEDs, stored one colour channel at a
-    // time: every red byte, then every green byte, then every blue byte.
-    static constexpr uint8_t LIGHTING_ZONES         = 3;
-    static constexpr uint8_t LIGHTING_PAYLOAD_SIZE  = LIGHTING_ZONES * 3;
-    static constexpr size_t LIGHTING_PAYLOAD_OFFSET = 8;
+    static constexpr uint8_t BRAGI_SET = 0x01;
+    static constexpr uint8_t BRAGI_GET = 0x02;
 
     static constexpr uint8_t STATUS_OK          = 0x00;
     static constexpr uint8_t STATUS_NO_PROPERTY = 0x05;
@@ -335,16 +307,23 @@ private:
     // Unsolicited reports (volume events) to skip before giving up on a reply
     static constexpr int MAX_READ_ATTEMPTS = 8;
     // Long enough for a reply from a device that is listening, short enough that
-    // asking the wrong target does not stall the command
+    // asking the wrong target does not stall the command. A headset slower than
+    // this is reported offline, and its reply can still turn up afterwards: replies
+    // carry no property ID, so the next read on this handle for the same target
+    // and command would take that late reply for its own.
     static constexpr int TARGET_PROBE_TIMEOUT_MS = 300;
 
     /**
      * @brief Restores hardware mode when leaving the scope of a write
      *
-     * Settings written in software mode persist, so there is nothing to gain by
-     * keeping the headset there once the write is done - including a write that
-     * failed part way through. It drops back on its own after a few minutes of
-     * silence anyway; handing it back immediately just keeps that window short.
+     * Settings written in software mode persist - sidetone, the sleep timer and
+     * brightness all survived a power cycle on the XT this was tested on - so there
+     * is nothing to gain by keeping the headset there once the write is done,
+     * including a write that failed part way through.
+     *
+     * That XT also dropped back to hardware mode by itself after a few minutes
+     * without host traffic, but that was measured on one unit and nothing here
+     * relies on it.
      */
     class SoftwareModeGuard {
     public:
@@ -389,9 +368,15 @@ private:
      *
      * The battery level is used as the probe because a receiver answers identity
      * properties for itself even when no headset is paired with it, and would
-     * otherwise look like a valid target.
+     * otherwise look like a valid target. The level is handed back so that
+     * getBattery() does not have to ask for it a second time.
      */
-    [[nodiscard]] Result<uint8_t> resolveTarget(hid_device* device_handle)
+    struct ResolvedTarget {
+        uint8_t target;
+        uint32_t battery_level;
+    };
+
+    [[nodiscard]] Result<ResolvedTarget> resolveTarget(hid_device* device_handle)
     {
         const auto product_id = getMatchedProductId();
         const bool wired      = product_id == PID_XT_WIRED || product_id == PID_SE_WIRED;
@@ -400,9 +385,9 @@ private:
         const uint8_t alternate = wired ? TARGET_HEADSET : TARGET_SELF;
 
         for (const uint8_t candidate : { hinted, alternate }) {
-            if (readProperty(
+            if (auto level = readProperty(
                     device_handle, candidate, PROP_BATTERY_LEVEL, TARGET_PROBE_TIMEOUT_MS)) {
-                return candidate;
+                return ResolvedTarget { .target = candidate, .battery_level = *level };
             }
         }
 
@@ -468,71 +453,6 @@ private:
             return DeviceError::protocolError(
                 std::format("Write of property 0x{:02x} rejected with status 0x{:02x}", property,
                     (*response)[3]));
-        }
-        return {};
-    }
-
-    /**
-     * @brief Paint every LED zone one colour
-     *
-     * Lighting is not a property but a block of data, so it goes through the
-     * open/write/close sequence the Bragi protocol uses for bulk transfers. The
-     * headset has to already be in software mode for the frame to be applied.
-     */
-    [[nodiscard]] Result<void> writeLighting(
-        hid_device* device_handle, uint8_t target, uint8_t red, uint8_t green, uint8_t blue)
-    {
-        std::array<uint8_t, MSG_SIZE> open_request { REPORT_ID_OUT, target, BRAGI_OPEN_HANDLE,
-            LIGHTING_HANDLE, LIGHTING_RESOURCE, 0x00 };
-        if (auto result = sendLightingCommand(device_handle, target, open_request,
-                BRAGI_OPEN_HANDLE, "open lighting handle");
-            !result) {
-            return result.error();
-        }
-
-        std::array<uint8_t, MSG_SIZE> write_request { REPORT_ID_OUT, target, BRAGI_WRITE_DATA,
-            LIGHTING_HANDLE, LIGHTING_PAYLOAD_SIZE, 0x00, 0x00, 0x00 };
-        for (uint8_t zone = 0; zone < LIGHTING_ZONES; ++zone) {
-            write_request[LIGHTING_PAYLOAD_OFFSET + zone]                        = red;
-            write_request[LIGHTING_PAYLOAD_OFFSET + LIGHTING_ZONES + zone]       = green;
-            write_request[LIGHTING_PAYLOAD_OFFSET + (2 * LIGHTING_ZONES) + zone] = blue;
-        }
-        auto write_result = sendLightingCommand(
-            device_handle, target, write_request, BRAGI_WRITE_DATA, "write lighting frame");
-
-        // Close the handle even if the frame was rejected, so a failure does not
-        // leave the transfer open and block the next one.
-        std::array<uint8_t, MSG_SIZE> close_request { REPORT_ID_OUT, target, BRAGI_CLOSE_HANDLE,
-            0x01, LIGHTING_HANDLE };
-        auto close_result = sendLightingCommand(
-            device_handle, target, close_request, BRAGI_CLOSE_HANDLE, "close lighting handle");
-
-        if (!write_result) {
-            return write_result.error();
-        }
-        if (!close_result) {
-            return close_result.error();
-        }
-        return {};
-    }
-
-    /**
-     * @brief Send one step of the lighting transfer and check that it was accepted
-     */
-    [[nodiscard]] Result<void> sendLightingCommand(hid_device* device_handle, uint8_t target,
-        std::span<const uint8_t> request, uint8_t command, std::string_view step)
-    {
-        if (auto result = writeHID(device_handle, request, MSG_SIZE); !result) {
-            return result.error();
-        }
-
-        auto response = readReply(device_handle, target, command, hsc_device_timeout);
-        if (!response) {
-            return response.error();
-        }
-        if ((*response)[3] != STATUS_OK) {
-            return DeviceError::protocolError(
-                std::format("Failed to {} (status 0x{:02x})", step, (*response)[3]));
         }
         return {};
     }
