@@ -26,7 +26,9 @@ using namespace headsetcontrol::serializers;
 // 1.5: an invocation that performs an action no longer reports info it was not
 // explicitly asked for, and structured output gained an additive "sidetone"
 // field for devices that support reading it back.
-constexpr std::string_view API_VERSION = "1.5";
+// 1.6: action entries gained an additive "color" field ("#rrggbb") for
+// CAP_LIGHT_COLOR, whose "value" packs 0xRRGGBB and is reported even for black.
+constexpr std::string_view API_VERSION = "1.6";
 constexpr std::string_view APP_NAME    = "HeadsetControl";
 
 // ============================================================================
@@ -98,6 +100,10 @@ void processActionResult(const FeatureRequest& req, DeviceData& dev, std::string
     action.status         = req.result.status == FEATURE_SUCCESS ? STATUS_SUCCESS : STATUS_FAILURE;
     action.value          = req.result.value;
     action.error_message  = req.result.message;
+    if (req.result.light_color) {
+        const auto& c = *req.result.light_color;
+        action.color  = std::format("#{:02x}{:02x}{:02x}", c.r, c.g, c.b);
+    }
     dev.actions.push_back(std::move(action));
 }
 
@@ -251,8 +257,10 @@ void outputYaml(const OutputData& data)
                 s.pushIndent(1); // Align subsequent keys with "capability" after "- "
                 s.write("device", action.device);
                 s.write("status", statusToString(action.status));
-                if (action.value > 0)
+                if (action.hasValue())
                     s.write("value", action.value);
+                if (action.color)
+                    s.write("color", *action.color);
                 if (!action.error_message.empty())
                     s.write("error_message", action.error_message);
                 s.popIndent(1);
@@ -357,8 +365,11 @@ void outputEnv(const OutputData& data)
             s.write(prefix + "_CAPABILITY", action.capability);
             s.write(prefix + "_DEVICE", action.device);
             s.write(prefix + "_STATUS", statusToString(action.status));
-            if (action.value > 0) {
+            if (action.hasValue()) {
                 s.write(prefix + "_VALUE", action.value);
+            }
+            if (action.color) {
+                s.write(prefix + "_COLOR", *action.color);
             }
             if (!action.error_message.empty()) {
                 s.write(prefix + "_ERROR_MESSAGE", action.error_message);

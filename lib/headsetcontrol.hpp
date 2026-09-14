@@ -228,6 +228,16 @@ public:
     [[nodiscard]] Result<LightsResult> setLights(bool enabled);
 
     /**
+     * @brief Set the color of the lights, which also turns them on
+     *
+     * Applies to every LED zone. Black is a valid color and may switch the
+     * lights off on some devices.
+     *
+     * @param color Color to set
+     */
+    [[nodiscard]] Result<LightColorResult> setLightColor(const LightColorSettings& color);
+
+    /**
      * @brief Set voice prompts on/off
      * @param enabled Enable/disable voice prompts
      */

@@ -382,6 +382,9 @@ return makeCapabilityDetail(0xffc0, 0x1, 3);
 | `CAP_VOLUME_LIMITER` | Action | Volume limiter toggle |
 | `CAP_BT_WHEN_POWERED_ON` | Action | Bluetooth auto-connect |
 | `CAP_BT_CALL_VOLUME` | Action | Bluetooth call volume |
+| `CAP_NOISE_FILTER` | Action | Microphone noise filter level |
+| `CAP_SIDETONE_STATUS` | Info | Read the current sidetone level |
+| `CAP_LIGHT_COLOR` | Action | Set the light color (implies lights on) |
 
 ## Example: Complete Device Implementation
 

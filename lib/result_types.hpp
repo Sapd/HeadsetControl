@@ -197,6 +197,13 @@ struct LightsResult {
 };
 
 /**
+ * @brief Light color information
+ */
+struct LightColorResult {
+    LightColorSettings color; // Color applied to the lights
+};
+
+/**
  * @brief Inactive time information
  */
 struct InactiveTimeResult {
