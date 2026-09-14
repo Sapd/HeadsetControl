@@ -74,7 +74,7 @@ public:
             | B(CAP_VOLUME_LIMITER) | B(CAP_BT_WHEN_POWERED_ON) | B(CAP_BT_CALL_VOLUME)
             | B(CAP_NOISE_FILTER) | B(CAP_ANC) | B(CAP_ANC_STARTUP_MODE)
             | B(CAP_ANC_BUTTON_MODES) | B(CAP_MICROPHONE_ATTACHMENT_STATUS) | B(CAP_MICROPHONE_MUTE_STATUS)
-            | B(CAP_HEADSET_VOLUME);
+            | B(CAP_HEADSET_VOLUME) | B(CAP_LIGHT_COLOR);
     }
 
     int getReadableCapabilities() const override
@@ -224,6 +224,12 @@ public:
     Result<LightsResult> setLights([[maybe_unused]] hid_device* device_handle, bool on) override
     {
         return LightsResult { .enabled = on };
+    }
+
+    Result<LightColorResult> setLightColor([[maybe_unused]] hid_device* device_handle,
+        const LightColorSettings& color) override
+    {
+        return LightColorResult { .color = color };
     }
 
     Result<InactiveTimeResult> setInactiveTime([[maybe_unused]] hid_device* device_handle, uint8_t minutes) override
