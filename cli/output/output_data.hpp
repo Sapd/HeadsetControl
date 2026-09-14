@@ -209,8 +209,8 @@ struct DeviceData {
         s.beginObject("");
         s.write("status", statusToString(status));
         s.write("device", device_name);
-        s.write("vendor", vendor_name.empty() ? "" : headsetcontrol::wstring_to_string(vendor_name.c_str()));
-        s.write("product", product_name.empty() ? "" : headsetcontrol::wstring_to_string(product_name.c_str()));
+        s.write("vendor", vendor_name.empty() ? "" : headsetcontrol::wstring_to_utf8(vendor_name));
+        s.write("product", product_name.empty() ? "" : headsetcontrol::wstring_to_utf8(product_name));
         s.write("id_vendor", vendor_id);
         s.write("id_product", product_id);
 

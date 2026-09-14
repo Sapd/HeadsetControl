@@ -29,6 +29,7 @@
 #include "hid_utility.hpp"
 #include "output.hpp"
 #include "result_types.hpp"
+#include "string_utils.hpp"
 #include "utility.hpp"
 #include "version.h"
 
@@ -191,9 +192,18 @@ std::optional<cli::ParseError> configureParser(cli::ArgumentParser& parser, Opti
         .custom('d', "device", cli::ArgRequirement::Required, [&opts](std::optional<std::string_view> arg) -> std::optional<cli::ParseError> {
                 if (!arg)
                     return cli::ParseError { "requires vendor:product", "device" };
-                auto ids = headsetcontrol::parse_two_ids(*arg);
+                // USB IDs are hex, and are written without a 0x prefix by lsusb
+                // and by our own device listing.
+                auto ids = headsetcontrol::parse_two_ids(*arg, 16);
                 if (!ids) {
                     return cli::ParseError { "format: vendorid:productid", "device" };
+                }
+                // Narrowing an out-of-range ID would wrap it, and a wrapped-to-zero
+                // ID reads as "no filter" - so -d 10000:10000 would silently match
+                // every device instead of none.
+                constexpr int id_max = 0xffff;
+                if (ids->first < 0 || ids->first > id_max || ids->second < 0 || ids->second > id_max) {
+                    return cli::ParseError { "ids must be between 0 and ffff", "device" };
                 }
                 opts.vendor_id = static_cast<uint16_t>(ids->first);
                 opts.product_id = static_cast<uint16_t>(ids->second);
@@ -431,6 +441,7 @@ struct DiscoveredDevice {
     std::vector<FeatureRequest> feature_requests;
     std::wstring vendor_name;
     std::wstring product_name;
+    bool metadata_queried = false;
 
     [[nodiscard]] uint16_t vendorId() const
     {
@@ -513,6 +524,23 @@ std::vector<DiscoveredDevice> discoverDevices(const Options& opts)
 // Feature handling
 // ============================================================================
 
+/**
+ * @brief Let the device refine the product name once it is open.
+ *
+ * A device may know more than its USB strings, e.g. which headset is currently
+ * paired to a generic dongle. The default getMetadata() returns the HID strings,
+ * so devices without such knowledge are unaffected.
+ */
+static void refineProductName(DiscoveredDevice& dev, hid_device* handle)
+{
+    if (dev.metadata_queried)
+        return;
+    dev.metadata_queried = true;
+
+    if (auto meta = dev.device->getMetadata(handle); meta && !meta->product.empty())
+        dev.product_name = headsetcontrol::string_to_wstring(meta->product);
+}
+
 hid_device* connectForCapability(HIDConnection& conn, const HIDDevice* device, uint16_t product_id, capabilities cap)
 {
     auto detail   = device->getCapabilityDetail(cap);
@@ -584,6 +612,7 @@ FeatureResult handleFeature(DiscoveredDevice& dev, capabilities cap, const Featu
         if (!handle) {
             return make_error(-1, "Could not open device");
         }
+        refineProductName(dev, handle);
     }
 
     // Execute via handler registry (no more giant switch!)

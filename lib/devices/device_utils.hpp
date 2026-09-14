@@ -50,6 +50,28 @@ template <size_t N>
 }
 
 /**
+ * @brief Inverse of mapSidetoneToDiscrete: the normalised 0-128 level to report for a
+ * discrete step so that a value read from the device round-trips through setSidetone.
+ *
+ * Returns the middle of the bucket that mapSidetoneToDiscrete<N>() maps onto @p index,
+ * so mapSidetoneToDiscrete<N>(mapDiscreteToSidetone<N>(i)) == i for every step.
+ *
+ * Example (N=4, step 32): index 0 -> 16, 1 -> 48, 2 -> 80, 3 -> 112.
+ *
+ * @tparam N Number of discrete levels the device supports
+ * @param index Device level (0 .. N-1)
+ * @return Normalised level (1-128)
+ */
+template <size_t N>
+[[nodiscard]] constexpr uint8_t mapDiscreteToSidetone(uint8_t index)
+{
+    static_assert(N > 0, "Device must support at least 1 level");
+    constexpr uint8_t step = 128 / N;
+    const uint8_t clamped  = index < N ? index : static_cast<uint8_t>(N - 1);
+    return static_cast<uint8_t>(step * clamped + step / 2);
+}
+
+/**
  * @brief Map sidetone level (0-128) to device range with on/off support
  *
  * For devices that have both an on/off toggle AND a level range.

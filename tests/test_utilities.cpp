@@ -6,7 +6,7 @@
  * - device_utils.hpp: mapSidetoneToDiscrete, mapSidetoneWithToggle, map, voltageToPercent, etc.
  * - utility.hpp: round_to_multiples, spline_battery_level, parse_byte_data, etc.
  * - result_types.hpp: Result<T>, DeviceError
- * - string_utils.hpp: wstring_to_string
+ * - string_utils.hpp: wstring_to_string, string_to_wstring, wstring_to_utf8
  * - feature_utils.hpp: make_success, make_info, make_error
  * - output/output_data.hpp: statusToString, batteryStatusToString
  */
@@ -104,6 +104,26 @@ void testMapSidetoneToDiscrete11Levels()
     ASSERT_EQ(5, mapSidetoneToDiscrete<11>(64), "64 should map to ~5");
 
     std::cout << "    ✓ mapSidetoneToDiscrete<11> works correctly" << std::endl;
+}
+
+void testMapDiscreteToSidetoneRoundTrip()
+{
+    std::cout << "  Testing mapDiscreteToSidetone<N> round-trips through mapSidetoneToDiscrete<N>..." << std::endl;
+
+    ASSERT_EQ(16, mapDiscreteToSidetone<4>(0), "N=4 index 0 should report 16");
+    ASSERT_EQ(112, mapDiscreteToSidetone<4>(3), "N=4 index 3 should report 112");
+    ASSERT_EQ(112, mapDiscreteToSidetone<4>(9), "out-of-range index should clamp to the last level");
+
+    for (uint8_t i = 0; i < 3; ++i)
+        ASSERT_EQ(i, mapSidetoneToDiscrete<3>(mapDiscreteToSidetone<3>(i)), "N=3 round trip");
+    for (uint8_t i = 0; i < 4; ++i)
+        ASSERT_EQ(i, mapSidetoneToDiscrete<4>(mapDiscreteToSidetone<4>(i)), "N=4 round trip");
+    for (uint8_t i = 0; i < 6; ++i)
+        ASSERT_EQ(i, mapSidetoneToDiscrete<6>(mapDiscreteToSidetone<6>(i)), "N=6 round trip");
+    for (uint8_t i = 0; i < 11; ++i)
+        ASSERT_EQ(i, mapSidetoneToDiscrete<11>(mapDiscreteToSidetone<11>(i)), "N=11 round trip");
+
+    std::cout << "    ✓ mapDiscreteToSidetone<N> round-trips" << std::endl;
 }
 
 void testMapSidetoneWithToggle()
@@ -468,6 +488,33 @@ void testParseTwoIds()
     auto empty = parse_two_ids("");
     ASSERT_FALSE(empty.has_value(), "Empty string should fail");
 
+    // A token that is only partly numeric must be rejected, not truncated
+    auto partial = parse_two_ids("1b1c:0a64");
+    ASSERT_FALSE(partial.has_value(), "Bare hex should not parse as decimal");
+
+    // Bare hex, as lsusb and our own device listing print USB IDs
+    auto bare_hex = parse_two_ids("1b1c:0a64", 16);
+    ASSERT_TRUE(bare_hex.has_value(), "Should parse bare hex in base 16");
+    ASSERT_EQ(0x1b1c, bare_hex->first, "First ID should be 0x1b1c");
+    ASSERT_EQ(0x0a64, bare_hex->second, "Second ID should be 0x0a64");
+
+    // An explicit prefix still wins over the requested base
+    auto prefixed = parse_two_ids("0x1b1c:0x0a64", 16);
+    ASSERT_TRUE(prefixed.has_value(), "Prefixed hex should parse in base 16");
+    ASSERT_EQ(0x1b1c, prefixed->first, "First ID should be 0x1b1c");
+
+    // Digits that are decimal in base 10 and hex in base 16
+    auto as_decimal = parse_two_ids("1038:1234");
+    ASSERT_TRUE(as_decimal.has_value(), "Digits should parse as decimal by default");
+    ASSERT_EQ(1038, as_decimal->first, "Base 10 by default");
+    auto as_hex = parse_two_ids("1038:1234", 16);
+    ASSERT_TRUE(as_hex.has_value(), "Digits should parse as hex when asked");
+    ASSERT_EQ(0x1038, as_hex->first, "Base 16 when requested");
+
+    // Not a number in either base
+    auto garbage = parse_two_ids("zz:yy", 16);
+    ASSERT_FALSE(garbage.has_value(), "Non-numeric should fail in base 16 too");
+
     std::cout << "    ✓ parse_two_ids works correctly" << std::endl;
 }
 
@@ -579,6 +626,83 @@ void testWstringToString()
     std::cout << "    ✓ wstring_to_string works correctly" << std::endl;
 }
 
+void testStringToWstring()
+{
+    std::cout << "  Testing string_to_wstring..." << std::endl;
+
+    ASSERT_TRUE(string_to_wstring("Hello") == L"Hello", "ASCII should convert unchanged");
+    ASSERT_TRUE(string_to_wstring("").empty(), "Empty should give empty");
+
+    // The point of the function: a multi-byte sequence is one character, not one
+    // per byte. "Muller" with an umlaut is 7 UTF-8 bytes but 6 characters.
+    const std::string umlaut = "M\xC3\xBCller";
+    ASSERT_EQ(7u, umlaut.size(), "Input should be 7 UTF-8 bytes");
+    const std::wstring wide = string_to_wstring(umlaut);
+    ASSERT_EQ(6u, wide.size(), "Should decode to 6 characters, not 7");
+    ASSERT_TRUE(wide[1] == static_cast<wchar_t>(0x00FC), "Second character should be U+00FC");
+
+    // Three-byte sequence (U+20AC EURO SIGN)
+    const std::wstring euro = string_to_wstring("\xE2\x82\xAC");
+    ASSERT_EQ(1u, euro.size(), "Euro sign should decode to one character");
+    ASSERT_TRUE(euro[0] == static_cast<wchar_t>(0x20AC), "Should be U+20AC");
+
+    // Four-byte sequence (U+1F50A SPEAKER). One character where wchar_t is 32 bits,
+    // a surrogate pair where it is 16.
+    const std::wstring speaker = string_to_wstring("\xF0\x9F\x94\x8A");
+    ASSERT_EQ(sizeof(wchar_t) >= 4 ? 1u : 2u, speaker.size(), "Astral codepoint width");
+
+    // Malformed input keeps the rest of the string rather than discarding it
+    const std::wstring truncated = string_to_wstring("A\xC3");
+    ASSERT_EQ(2u, truncated.size(), "Truncated sequence should not eat the string");
+    ASSERT_TRUE(truncated[0] == L'A', "Leading character should survive");
+    ASSERT_TRUE(truncated[1] == static_cast<wchar_t>(0xFFFD), "Truncated byte becomes U+FFFD");
+
+    const std::wstring lone = string_to_wstring("\x80z");
+    ASSERT_EQ(2u, lone.size(), "Stray continuation byte should be replaced, not dropped");
+    ASSERT_TRUE(lone[0] == static_cast<wchar_t>(0xFFFD), "Stray continuation becomes U+FFFD");
+    ASSERT_TRUE(lone[1] == L'z', "Following character should survive");
+
+    // Overlong encoding of '/' must not decode to '/'
+    const std::wstring overlong = string_to_wstring("\xC0\xAF");
+    ASSERT_TRUE(overlong[0] == static_cast<wchar_t>(0xFFFD), "Overlong encoding should be rejected");
+
+    std::cout << "    ✓ string_to_wstring works correctly" << std::endl;
+}
+
+void testUtf8RoundTrip()
+{
+    std::cout << "  Testing string_to_wstring/wstring_to_utf8 round trip..." << std::endl;
+
+    // The pair has to be an exact inverse regardless of locale: these are the
+    // conversions a device-supplied name goes through on its way to the output.
+    const char* cases[] = {
+        "",
+        "Jabra Evolve2 65 Flex",
+        "M\xC3\xBCller", // U+00FC, two UTF-8 bytes
+        "\xE2\x82\xAC", // U+20AC euro sign, three bytes
+        "\xF0\x9F\x94\x8A", // U+1F50A speaker, four bytes (surrogate pair on Windows)
+        "caf\xC3\xA9 \xE2\x82\xAC 5",
+    };
+
+    for (const char* text : cases) {
+        ASSERT_EQ(std::string(text), wstring_to_utf8(string_to_wstring(text)),
+            "UTF-8 should survive the round trip unchanged");
+    }
+
+    // Sign extension check: a byte above 0x7F must not become a negative wchar_t.
+    // Widening byte by byte instead of decoding is what this guards against.
+    const std::wstring wide = string_to_wstring("\xC3\xBC");
+    ASSERT_EQ(1u, wide.size(), "Two UTF-8 bytes are one character");
+    ASSERT_TRUE(wide[0] > 0, "Decoded character must not be negative");
+
+    // An unpaired surrogate cannot be encoded and must not produce invalid UTF-8
+    const std::wstring lone_surrogate(1, static_cast<wchar_t>(0xD800));
+    const std::string encoded = wstring_to_utf8(lone_surrogate);
+    ASSERT_EQ("\xEF\xBF\xBD", encoded, "Unpaired surrogate should become U+FFFD");
+
+    std::cout << "    ✓ UTF-8 round trip works correctly" << std::endl;
+}
+
 // ============================================================================
 // feature_utils.hpp Tests
 // ============================================================================
@@ -685,6 +809,7 @@ void runAllUtilityTests()
     std::cout << "=== device_utils.hpp Tests ===" << std::endl;
     runTest("mapSidetoneToDiscrete<4>", testMapSidetoneToDiscrete4Levels);
     runTest("mapSidetoneToDiscrete<11>", testMapSidetoneToDiscrete11Levels);
+    runTest("mapDiscreteToSidetone round trip", testMapDiscreteToSidetoneRoundTrip);
     runTest("mapSidetoneWithToggle", testMapSidetoneWithToggle);
     runTest("map", testDeviceUtilsMap);
     runTest("mapDiscrete", testMapDiscrete);
@@ -715,6 +840,8 @@ void runAllUtilityTests()
 
     std::cout << "\n=== string_utils.hpp Tests ===" << std::endl;
     runTest("wstring_to_string", testWstringToString);
+    runTest("string_to_wstring", testStringToWstring);
+    runTest("UTF-8 round trip", testUtf8RoundTrip);
 
     std::cout << "\n=== feature_utils.hpp Tests ===" << std::endl;
     runTest("make_success", testMakeSuccess);

@@ -219,6 +219,28 @@ void testLookupLogitechProX2Lightspeed()
     std::cout << "    OK lookup Logitech PRO X2 LIGHTSPEED" << std::endl;
 }
 
+void testLookupJabraLink390()
+{
+    std::cout << "  Testing lookup of Jabra Link 390 (0x2e57)..." << std::endl;
+
+    auto& registry = DeviceRegistry::instance();
+    registry.initialize();
+
+    auto* device = registry.getDevice(0x0b0e, 0x2e57);
+    ASSERT_NOT_NULL(device, "Jabra Link 390 should be found");
+    ASSERT_EQ("Jabra Link 390 (paired headset)", std::string(device->getDeviceName()), "Device name should match");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_SIDETONE)) != 0, "Link 390 should expose sidetone capability");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_BATTERY_STATUS)) != 0, "Link 390 should expose battery capability");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_LIGHTS)) != 0, "Link 390 should expose lights capability");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_INACTIVE_TIME)) != 0, "Link 390 should expose inactive time capability");
+
+    auto* flex = registry.getDevice(0x0b0e, 0x2519);
+    ASSERT_NOT_NULL(flex, "Evolve2 65 Flex (USB) should be found");
+    ASSERT_EQ(device->getCapabilities(), flex->getCapabilities(), "Dongle and USB headset share the GNP feature set");
+
+    std::cout << "    PASS" << std::endl;
+}
+
 void testLookupPlantronicsBT600()
 {
     std::cout << "  Testing lookup of Plantronics BT600 (0x02ee)..." << std::endl;
@@ -515,6 +537,7 @@ void runAllDeviceRegistryTests()
     runTest("Lookup Test Device", testLookupTestDevice);
     runTest("Lookup Logitech PRO X2 LIGHTSPEED", testLookupLogitechProX2Lightspeed);
     runTest("Lookup Plantronics BT600", testLookupPlantronicsBT600);
+    runTest("Lookup Jabra Link 390", testLookupJabraLink390);
     runTest("Lookup Non-Existent", testLookupNonExistentDevice);
     runTest("Lookup Wrong Product ID", testLookupWithWrongProductId);
     runTest("Lookup Wrong Vendor ID", testLookupWithWrongVendorId);

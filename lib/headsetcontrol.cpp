@@ -28,7 +28,7 @@ namespace {
 
     std::string hidStringOrEmpty(const wchar_t* value)
     {
-        return value ? wstring_to_string(value) : std::string();
+        return value ? wstring_to_utf8(value) : std::string();
     }
 
     class LibraryState {

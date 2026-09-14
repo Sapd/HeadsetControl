@@ -83,13 +83,13 @@ void print_devices(uint16_t vendorid, uint16_t productid)
             cur->vendor_id, cur->product_id, cur->path);
 
         if (cur->serial_number) {
-            std::cout << "  Serial: " << headsetcontrol::wstring_to_string(cur->serial_number) << '\n';
+            std::cout << "  Serial: " << headsetcontrol::wstring_to_utf8(cur->serial_number) << '\n';
         }
         if (cur->manufacturer_string) {
-            std::cout << "  Manufacturer: " << headsetcontrol::wstring_to_string(cur->manufacturer_string) << '\n';
+            std::cout << "  Manufacturer: " << headsetcontrol::wstring_to_utf8(cur->manufacturer_string) << '\n';
         }
         if (cur->product_string) {
-            std::cout << "  Product: " << headsetcontrol::wstring_to_string(cur->product_string) << '\n';
+            std::cout << "  Product: " << headsetcontrol::wstring_to_utf8(cur->product_string) << '\n';
         }
 
         std::cout << std::format(
@@ -212,10 +212,10 @@ struct DevOptions {
     for (int c; (c = getopt_long(argc, argv, "d:i:lu:s:m:f:rg:t:hR:", long_opts.data(), &option_index)) != -1;) {
         switch (c) {
         case 'd': {
-            auto ids = headsetcontrol::parse_two_ids(optarg);
+            auto ids = headsetcontrol::parse_two_ids(optarg, 16);
             if (!ids || !in_range(ids->first, 1, 65535) || !in_range(ids->second, 1, 65535)) {
-                std::cerr << "Invalid --device. Use format: VENDORID:PRODUCTID (1-65535 or 0x1-0xffff)\n"
-                          << "  Example: --device 0x1b1c:0x1b27\n";
+                std::cerr << "Invalid --device. Use format: VENDORID:PRODUCTID (hex, 1-ffff)\n"
+                          << "  Example: --device 1b1c:1b27\n";
                 return std::nullopt;
             }
             opts.vendorid  = static_cast<uint16_t>(ids->first);
