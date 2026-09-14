@@ -176,8 +176,10 @@ Capabilities are enumerated in `lib/device.hpp` via the `CAPABILITIES_XLIST` mac
 - `CAP_BT_WHEN_POWERED_ON` — Bluetooth-on-power-on behavior
 - `CAP_BT_CALL_VOLUME`
 - `CAP_NOISE_FILTER`
+- `CAP_SIDETONE_STATUS` — Read the current sidetone level
+- `CAP_LIGHT_COLOR` — Set the light color (`LightColorSettings`), implies lights on
 
-When adding a capability, update both `CAPABILITIES_XLIST` and the descriptor/handler tables (see Data-Driven Feature System below).
+When adding a capability, append it at the end of `CAPABILITIES_XLIST` (never mid-list — the values are C ABI), mirror it in `hsc_capability_t` in `lib/headsetcontrol_c.h`, and update the descriptor/handler tables (see Data-Driven Feature System below).
 
 ### Data-Driven Feature System
 

@@ -326,6 +326,11 @@ Result<LightsResult> Headset::setLights(bool enabled)
     HEADSET_FEATURE_IMPL(CAP_LIGHTS, setLights, enabled);
 }
 
+Result<LightColorResult> Headset::setLightColor(const LightColorSettings& color)
+{
+    HEADSET_FEATURE_IMPL(CAP_LIGHT_COLOR, setLightColor, color);
+}
+
 Result<VoicePromptsResult> Headset::setVoicePrompts(bool enabled)
 {
     HEADSET_FEATURE_IMPL(CAP_VOICE_PROMPTS, setVoicePrompts, enabled);

@@ -69,7 +69,7 @@ public:
             | B(CAP_EQUALIZER) | B(CAP_PARAMETRIC_EQUALIZER)
             | B(CAP_MICROPHONE_MUTE_LED_BRIGHTNESS) | B(CAP_MICROPHONE_VOLUME)
             | B(CAP_VOLUME_LIMITER) | B(CAP_BT_WHEN_POWERED_ON) | B(CAP_BT_CALL_VOLUME)
-            | B(CAP_NOISE_FILTER) | B(CAP_SIDETONE_STATUS);
+            | B(CAP_NOISE_FILTER) | B(CAP_SIDETONE_STATUS) | B(CAP_LIGHT_COLOR);
     }
 
     std::optional<EqualizerInfo> getEqualizerInfo() const override
@@ -185,6 +185,12 @@ public:
     Result<LightsResult> setLights([[maybe_unused]] hid_device* device_handle, bool on) override
     {
         return LightsResult { .enabled = on };
+    }
+
+    Result<LightColorResult> setLightColor([[maybe_unused]] hid_device* device_handle,
+        const LightColorSettings& color) override
+    {
+        return LightColorResult { .color = color };
     }
 
     Result<InactiveTimeResult> setInactiveTime([[maybe_unused]] hid_device* device_handle, uint8_t minutes) override

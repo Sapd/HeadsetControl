@@ -84,7 +84,20 @@ struct ActionData {
     std::string device;
     Status status = STATUS_SUCCESS;
     int value     = 0;
+    std::optional<std::string> color; // "#rrggbb", only for CAP_LIGHT_COLOR
     std::string error_message;
+
+    /**
+     * @brief Whether value carries information worth printing
+     *
+     * Most actions report 0 when they have nothing to say (the equalizer always
+     * does) and -1 on failure, so only positive values are shown. A color is the
+     * exception: black packs to 0 and is still the value that was set.
+     */
+    [[nodiscard]] bool hasValue() const
+    {
+        return value > 0 || (color.has_value() && status == STATUS_SUCCESS);
+    }
 
     void serialize(Serializer& s) const
     {
@@ -92,8 +105,11 @@ struct ActionData {
         s.write("capability", capability);
         s.write("device", device);
         s.write("status", statusToString(status));
-        if (value > 0) {
+        if (hasValue()) {
             s.write("value", value);
+        }
+        if (color) {
+            s.write("color", *color);
         }
         if (!error_message.empty()) {
             s.write("error_message", error_message);

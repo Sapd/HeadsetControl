@@ -2,6 +2,7 @@
 #include "device.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <cerrno>
 #include <charconv>
 #include <cmath>
@@ -226,6 +227,33 @@ std::optional<std::pair<int, int>> parse_two_ids(std::string_view input, int def
     }
 
     return std::make_pair(static_cast<int>(values[0]), static_cast<int>(values[1]));
+}
+
+std::optional<LightColorSettings> parse_light_color(std::string_view input)
+{
+    if (input.starts_with('#')) {
+        input.remove_prefix(1);
+    }
+    if (input.size() != 6) {
+        return std::nullopt;
+    }
+
+    // from_chars would accept a sign or stop early, so check every digit first.
+    if (!std::ranges::all_of(input, [](char c) { return std::isxdigit(static_cast<unsigned char>(c)) != 0; })) {
+        return std::nullopt;
+    }
+
+    uint32_t rgb   = 0;
+    auto [ptr, ec] = std::from_chars(input.data(), input.data() + input.size(), rgb, 16);
+    if (ec != std::errc() || ptr != input.data() + input.size()) {
+        return std::nullopt;
+    }
+
+    return LightColorSettings {
+        .r = static_cast<uint8_t>((rgb >> 16) & 0xFF),
+        .g = static_cast<uint8_t>((rgb >> 8) & 0xFF),
+        .b = static_cast<uint8_t>(rgb & 0xFF),
+    };
 }
 
 /**

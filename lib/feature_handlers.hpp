@@ -22,6 +22,7 @@ struct FeatureOutput {
     std::optional<BatteryResult> battery; // Extended battery info
     std::optional<ChatmixResult> chatmix; // Extended chatmix info
     std::optional<SidetoneResult> sidetone; // Extended sidetone info
+    std::optional<LightColorSettings> light_color; // Color that was set
 
     static FeatureOutput success(int val, std::string msg = "")
     {
@@ -52,6 +53,15 @@ struct FeatureOutput {
             .value    = s.current_level,
             .message  = "",
             .sidetone = s
+        };
+    }
+
+    static FeatureOutput fromLightColor(const LightColorResult& c)
+    {
+        return {
+            .value       = (c.color.r << 16) | (c.color.g << 8) | c.color.b,
+            .message     = "",
+            .light_color = c.color
         };
     }
 };
@@ -193,6 +203,11 @@ namespace detail {
     inline const ParametricEqualizerSettings& getParametricEq(const FeatureParam& p)
     {
         return std::get<ParametricEqualizerSettings>(p);
+    }
+
+    inline const LightColorSettings& getLightColor(const FeatureParam& p)
+    {
+        return std::get<LightColorSettings>(p);
     }
 
 } // namespace detail
@@ -347,6 +362,14 @@ inline void FeatureHandlerRegistry::registerAllHandlers()
         if (r.hasError())
             return r.error();
         return FeatureOutput::fromSidetone(r.value());
+    });
+
+    // CAP_LIGHT_COLOR
+    registerHandler(CAP_LIGHT_COLOR, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
+        auto r = dev->setLightColor(h, getLightColor(p));
+        if (r.hasError())
+            return r.error();
+        return FeatureOutput::fromLightColor(r.value());
     });
 }
 

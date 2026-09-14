@@ -443,6 +443,51 @@ void testCliSidetoneStatusOutputs()
     std::cout << "    ✓ Sidetone status output is correct" << std::endl;
 }
 
+void testCliLightColorOutputs()
+{
+    std::cout << "  Testing light color in all output formats..." << std::endl;
+
+    const std::string base = HEADSETCONTROL_EXE " --test-device -d 0xf00b:0xa00c --light-color 000000 -o ";
+
+    // Black packs to 0, and every format must still report it
+    std::string json = exec((base + "json 2>&1").c_str());
+    ASSERT_CONTAINS(json, "\"capability\": \"CAP_LIGHT_COLOR\"", "JSON should have the light color action");
+    ASSERT_CONTAINS(json, "\"value\": 0", "JSON should keep black's value");
+    ASSERT_CONTAINS(json, "\"color\": \"#000000\"", "JSON should have the color");
+
+    std::string yaml = exec((base + "yaml 2>&1").c_str());
+    ASSERT_CONTAINS(yaml, "value: 0", "YAML should keep black's value");
+    ASSERT_CONTAINS(yaml, "color: \"#000000\"", "YAML should have the color");
+
+    std::string env = exec((base + "env 2>&1").c_str());
+    ASSERT_CONTAINS(env, "ACTION_0_VALUE=0", "ENV should keep black's value");
+    ASSERT_CONTAINS(env, "ACTION_0_COLOR=\"#000000\"", "ENV should have the color");
+
+    std::string standard = exec(HEADSETCONTROL_EXE " --test-device -d 0xf00b:0xa00c --light-color ff8000 2>&1");
+    ASSERT_CONTAINS(standard, "Successfully set light color!", "standard output should confirm");
+
+    // With -l on the same command line, the color is applied last
+    std::string both = exec(HEADSETCONTROL_EXE " --test-device -d 0xf00b:0xa00c -l 0 --light-color '#FF8000' -o json 2>&1");
+    ASSERT_CONTAINS(both, "\"value\": 16744448", "value should pack 0xRRGGBB");
+    ASSERT_CONTAINS(both, "\"color\": \"#ff8000\"", "color should be normalised to lower case");
+    const auto lights_at = both.find("\"CAP_LIGHTS\"");
+    const auto color_at  = both.find("\"CAP_LIGHT_COLOR\"");
+    ASSERT_TRUE(lights_at != std::string::npos && color_at != std::string::npos && lights_at < color_at,
+        "-l should run before --light-color");
+
+    // -l on its own keeps its existing output: no value for 0
+    std::string lights_off = exec(HEADSETCONTROL_EXE " --test-device -d 0xf00b:0xa00c -l 0 -o json 2>&1");
+    ASSERT_NOT_CONTAINS(lights_off, "\"value\"", "-l 0 should still omit value");
+
+    std::string invalid = exec(HEADSETCONTROL_EXE " --test-device --light-color 12345 2>&1");
+    ASSERT_CONTAINS(invalid, "format: RRGGBB or #RRGGBB", "invalid color should be rejected");
+
+    std::string help = exec(HEADSETCONTROL_EXE " --help-all 2>&1");
+    ASSERT_CONTAINS(help, "--light-color <RRGGBB>", "help should document --light-color");
+
+    std::cout << "    ✓ Light color output is correct" << std::endl;
+}
+
 // ============================================================================
 // Short Output Tests
 // ============================================================================
@@ -578,6 +623,7 @@ void runAllCliOutputTests()
     runTest("Standard Battery Details", testCliStandardBatteryDetails);
     runTest("Standard No Args", testCliStandardNoArgs);
     runTest("Sidetone Status Outputs", testCliSidetoneStatusOutputs);
+    runTest("Light Color Outputs", testCliLightColorOutputs);
 
     std::cout << "\n=== Short Output Tests ===" << std::endl;
     runTest("Short Output", testCliShortOutput);

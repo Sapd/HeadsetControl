@@ -5,6 +5,16 @@
 #include <string>
 #include <vector>
 
+// hsc_capability_t mirrors the C++ capabilities enum by value, and nothing else
+// ties the two together - which is how a capability once went missing from the
+// C header and shifted every value after it. Check each entry and the count.
+#define X(id, name, short_char) \
+    static_assert(static_cast<int>(HSC_##id) == static_cast<int>(id), "hsc_capability_t out of sync with capabilities: " #id);
+CAPABILITIES_XLIST
+#undef X
+static_assert(static_cast<int>(HSC_NUM_CAPABILITIES) == static_cast<int>(NUM_CAPABILITIES),
+    "hsc_capability_t out of sync with capabilities: count differs");
+
 // ============================================================================
 // Internal State
 // ============================================================================
@@ -474,6 +484,17 @@ hsc_result_t hsc_set_lights(hsc_headset_t headset, bool enabled)
     }
 
     auto result = static_cast<HeadsetWrapper*>(headset)->headset.setLights(enabled);
+    return result ? HSC_RESULT_OK : toErrorCode(result.error());
+}
+
+hsc_result_t hsc_set_light_color(hsc_headset_t headset, uint8_t r, uint8_t g, uint8_t b)
+{
+    if (!headset) {
+        return HSC_RESULT_INVALID_PARAM;
+    }
+
+    auto result = static_cast<HeadsetWrapper*>(headset)->headset.setLightColor(
+        LightColorSettings { .r = r, .g = g, .b = b });
     return result ? HSC_RESULT_OK : toErrorCode(result.error());
 }
 
