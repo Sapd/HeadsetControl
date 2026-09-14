@@ -370,10 +370,11 @@ private:
     static constexpr int MAX_READ_ATTEMPTS = 8;
     // Long enough for a reply from a device that is listening, short enough that
     // asking the wrong target does not stall the command. A headset slower than
-    // this is reported offline, and its reply can still turn up afterwards: replies
-    // carry no property ID, so the next read on this handle for the same target
-    // and command would take that late reply for its own.
+    // this is reported offline.
     static constexpr int TARGET_PROBE_TIMEOUT_MS = 300;
+    // Upper bound on queued reports thrown away before a request, so a device
+    // that never stops sending cannot stall it
+    static constexpr int MAX_STALE_REPORTS = 32;
 
     /**
      * @brief Restores hardware mode when leaving the scope of a write
@@ -447,9 +448,19 @@ private:
         const uint8_t alternate = wired ? TARGET_HEADSET : TARGET_SELF;
 
         for (const uint8_t candidate : { hinted, alternate }) {
-            if (auto level = readProperty(
-                    device_handle, candidate, PROP_BATTERY_LEVEL, TARGET_PROBE_TIMEOUT_MS)) {
+            auto level
+                = readProperty(device_handle, candidate, PROP_BATTERY_LEVEL, TARGET_PROBE_TIMEOUT_MS);
+            if (level) {
                 return ResolvedTarget { .target = candidate, .battery_level = *level };
+            }
+
+            // Silence means nothing is listening on that target, and "no such
+            // property" is a receiver answering for itself with no headset behind
+            // it. Anything else - a failed HID write, an unexpected status - is a
+            // real fault, and reporting it as offline would hide it.
+            const auto code = level.error().code;
+            if (code != DeviceError::Code::DeviceOffline && code != DeviceError::Code::NotSupported) {
+                return level.error();
             }
         }
 
@@ -465,12 +476,8 @@ private:
     [[nodiscard]] Result<uint32_t> readProperty(
         hid_device* device_handle, uint8_t target, uint8_t property, int timeout_ms = 0)
     {
-        std::array<uint8_t, MSG_SIZE> request { REPORT_ID_OUT, target, BRAGI_GET, property };
-        if (auto result = writeHID(device_handle, request, MSG_SIZE); !result) {
-            return result.error();
-        }
-
-        auto response = readReply(device_handle, target, BRAGI_GET,
+        const std::array<uint8_t, MSG_SIZE> request { REPORT_ID_OUT, target, BRAGI_GET, property };
+        auto response = transact(device_handle, target, request, BRAGI_GET,
             timeout_ms == 0 ? hsc_device_timeout : timeout_ms);
         if (!response) {
             return response.error();
@@ -499,14 +506,10 @@ private:
     [[nodiscard]] Result<void> writeProperty(
         hid_device* device_handle, uint8_t target, uint8_t property, uint32_t value)
     {
-        std::array<uint8_t, MSG_SIZE> request { REPORT_ID_OUT, target, BRAGI_SET, property, 0x00,
-            static_cast<uint8_t>(value & 0xFF), static_cast<uint8_t>((value >> 8) & 0xFF),
+        const std::array<uint8_t, MSG_SIZE> request { REPORT_ID_OUT, target, BRAGI_SET, property,
+            0x00, static_cast<uint8_t>(value & 0xFF), static_cast<uint8_t>((value >> 8) & 0xFF),
             static_cast<uint8_t>((value >> 16) & 0xFF), static_cast<uint8_t>((value >> 24) & 0xFF) };
-        if (auto result = writeHID(device_handle, request, MSG_SIZE); !result) {
-            return result.error();
-        }
-
-        auto response = readReply(device_handle, target, BRAGI_SET, hsc_device_timeout);
+        auto response = transact(device_handle, target, request, BRAGI_SET, hsc_device_timeout);
         if (!response) {
             return response.error();
         }
@@ -579,11 +582,7 @@ private:
     [[nodiscard]] Result<uint8_t> sendHandleCommand(hid_device* device_handle, uint8_t target,
         std::span<const uint8_t> request, uint8_t command)
     {
-        if (auto result = writeHID(device_handle, request, MSG_SIZE); !result) {
-            return result.error();
-        }
-
-        auto response = readReply(device_handle, target, command, hsc_device_timeout);
+        auto response = transact(device_handle, target, request, command, hsc_device_timeout);
         if (!response) {
             return response.error();
         }
@@ -598,6 +597,45 @@ private:
         if (*status != STATUS_OK) {
             return DeviceError::protocolError(
                 std::format("Failed to {} (status 0x{:02x})", step, *status));
+        }
+        return {};
+    }
+
+    /**
+     * @brief Send a request and wait for its reply
+     *
+     * Replies carry no property or handle ID, only who sent them and the command
+     * they answer. A reply that arrives after its request has already timed out
+     * would otherwise be taken by the next request of the same kind, so anything
+     * still queued is thrown away first.
+     */
+    [[nodiscard]] Result<std::array<uint8_t, MSG_SIZE>> transact(hid_device* device_handle,
+        uint8_t target, std::span<const uint8_t> request, uint8_t command, int timeout_ms)
+    {
+        if (auto result = discardStaleReports(device_handle); !result) {
+            return result.error();
+        }
+        if (auto result = writeHID(device_handle, request, MSG_SIZE); !result) {
+            return result.error();
+        }
+        return readReply(device_handle, target, command, timeout_ms);
+    }
+
+    /**
+     * @brief Throw away reports already waiting on the handle, without blocking
+     */
+    [[nodiscard]] Result<void> discardStaleReports(hid_device* device_handle)
+    {
+        std::array<uint8_t, MSG_SIZE> stale {};
+        for (int discarded = 0; discarded < MAX_STALE_REPORTS; ++discarded) {
+            auto result = readHIDTimeout(device_handle, stale, 0);
+            if (!result) {
+                // An empty queue shows up as a timeout on a non-blocking read.
+                if (result.error().code == DeviceError::Code::Timeout) {
+                    return {};
+                }
+                return result.error();
+            }
         }
         return {};
     }
