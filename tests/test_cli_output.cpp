@@ -467,7 +467,7 @@ void testCliLightColorOutputs()
     ASSERT_CONTAINS(standard, "Successfully set light color!", "standard output should confirm");
 
     // With -l on the same command line, the color is applied last
-    std::string both = exec(HEADSETCONTROL_EXE " --test-device -d 0xf00b:0xa00c -l 0 --light-color '#FF8000' -o json 2>&1");
+    std::string both = exec(HEADSETCONTROL_EXE " --test-device -d 0xf00b:0xa00c -l 0 --light-color \"#FF8000\" -o json 2>&1");
     ASSERT_CONTAINS(both, "\"value\": 16744448", "value should pack 0xRRGGBB");
     ASSERT_CONTAINS(both, "\"color\": \"#ff8000\"", "color should be normalised to lower case");
     const auto lights_at = both.find("\"CAP_LIGHTS\"");
