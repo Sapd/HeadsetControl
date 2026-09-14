@@ -166,7 +166,7 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 | Logitech Zone Wired/Zone 750 | All | x |   |   |   |   |   | x | x |   |   |   |   |   |   |   |   |   |   |   |
 | Corsair Headset Device | All | x | x | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | Corsair Wireless V2 Headset Device | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
-| Corsair Virtuoso XT/SE | All | x | x |   | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
+| Corsair Virtuoso XT/SE | All | x | x |   | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   | x |
 | SteelSeries Arctis (1/7X/7P) Wireless | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | SteelSeries Arctis (7/Pro) | All | x | x |   | x | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | SteelSeries Arctis 9 | All | x | x |   |   | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |
@@ -202,6 +202,8 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 \* Only available on some product variants of that device. Sidetone status reading, for instance, is verified only for the SteelSeries Arctis Nova 7 Gen 2 (`1038:227e`).
 
 > **Note:** Some Corsair headsets may need additional configuration - see [Adding a Corsair device](docs/ADDING_A_CORSAIR_DEVICE.md). Some headsets (HS80, HS70 wired, RGB Elite, Virtuoso other than the XT/SE) expose sidetone via ALSA mixer instead.
+
+> **Note:** On the Corsair Virtuoso XT/SE, `--light-color` is temporary: the headset returns to its own lighting effect about a minute after the last command. `-l 1` brings its own effect back straight away.
 
 ## Usage
 

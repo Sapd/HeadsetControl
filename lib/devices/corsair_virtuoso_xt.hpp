@@ -7,6 +7,7 @@
 #include <chrono>
 #include <cstdint>
 #include <format>
+#include <span>
 #include <string_view>
 
 using namespace std::string_view_literals;
@@ -46,6 +47,22 @@ namespace headsetcontrol {
  * the user's own effect. On the XT this was tested on, brightness 0 survived a
  * power cycle.
  *
+ * A light color is not a property but a frame, pushed through the protocol's
+ * open/write/close handle sequence. Three things set it apart from every other
+ * write, all checked on that XT:
+ *   - Brightness gates a painted frame too, so a frame painted while the lights
+ *     are off stays dark. Setting a color raises brightness, since it implies on.
+ *   - Handing the headset back to hardware mode replaces the frame with the
+ *     headset's own effect straight away, so a color write stays in software
+ *     mode. That also means -l 1 after a color brings the user's effect back.
+ *   - The color is therefore temporary. Once nothing is talking to it, the headset
+ *     drops back to hardware mode on its own - between 45 and 90 seconds after
+ *     the last command on that XT - and its own effect returns. Vendor software
+ *     gets a lasting color by staying connected. No property or readable resource
+ *     stores a hardware-mode color: a sweep of every 16-bit property and resource
+ *     ID found only resources 0x14 and 0x2a as candidates, and neither can be read
+ *     back, so nothing here writes to them.
+ *
  * The device also broadcasts unsolicited volume events on report 0x0e, which have
  * to be skipped when looking for a reply.
  *
@@ -79,7 +96,8 @@ public:
 
     constexpr int getCapabilities() const override
     {
-        return B(CAP_BATTERY_STATUS) | B(CAP_SIDETONE) | B(CAP_INACTIVE_TIME) | B(CAP_LIGHTS);
+        return B(CAP_BATTERY_STATUS) | B(CAP_SIDETONE) | B(CAP_INACTIVE_TIME) | B(CAP_LIGHTS)
+            | B(CAP_LIGHT_COLOR);
     }
 
     constexpr capability_detail
@@ -239,6 +257,35 @@ public:
         return LightsResult { .enabled = on };
     }
 
+    Result<LightColorResult> setLightColor(
+        hid_device* device_handle, const LightColorSettings& color) override
+    {
+        auto resolved = resolveTarget(device_handle);
+        if (!resolved) {
+            return resolved.error();
+        }
+        const uint8_t target = resolved->target;
+
+        // No scope guard: restoring hardware mode would swap the frame for the
+        // headset's own effect before anyone saw it.
+        if (auto result = writeProperty(device_handle, target, PROP_MODE, MODE_SOFTWARE);
+            !result) {
+            return result.error();
+        }
+
+        // Brightness gates the frame as well, and a color implies the lights are on.
+        if (auto result = writeProperty(device_handle, target, PROP_BRIGHTNESS, BRIGHTNESS_MAX);
+            !result) {
+            return result.error();
+        }
+
+        if (auto result = writeLighting(device_handle, target, color); !result) {
+            return result.error();
+        }
+
+        return LightColorResult { .color = color };
+    }
+
     Result<CapabilityInfo> getCapabilityInfo(enum capabilities cap) override
     {
         auto info = HIDDevice::getCapabilityInfo(cap);
@@ -277,11 +324,26 @@ private:
     static constexpr uint8_t REPLY_FROM_HEADSET = 0x01;
     static constexpr uint8_t REPLY_FROM_SELF    = 0x00;
 
-    static constexpr uint8_t BRAGI_SET = 0x01;
-    static constexpr uint8_t BRAGI_GET = 0x02;
+    static constexpr uint8_t BRAGI_SET          = 0x01;
+    static constexpr uint8_t BRAGI_GET          = 0x02;
+    static constexpr uint8_t BRAGI_CLOSE_HANDLE = 0x05;
+    static constexpr uint8_t BRAGI_WRITE_DATA   = 0x06;
+    static constexpr uint8_t BRAGI_OPEN_HANDLE  = 0x0d;
+
+    // Handle and resource numbering follow ckb-next, which drives the LEDs on
+    // Corsair's other Bragi devices the same way.
+    static constexpr uint8_t LIGHTING_HANDLE   = 0x00;
+    static constexpr uint8_t LIGHTING_RESOURCE = 0x01;
+    // The firmware takes a frame for three LEDs, one color channel at a time:
+    // every red byte, then every green byte, then every blue byte.
+    static constexpr uint8_t LIGHTING_ZONES         = 3;
+    static constexpr uint8_t LIGHTING_PAYLOAD_SIZE  = LIGHTING_ZONES * 3;
+    static constexpr size_t LIGHTING_PAYLOAD_OFFSET = 8;
 
     static constexpr uint8_t STATUS_OK          = 0x00;
     static constexpr uint8_t STATUS_NO_PROPERTY = 0x05;
+    // Returned when opening a handle that is already open
+    static constexpr uint8_t STATUS_HANDLE_OPEN = 0x03;
 
     static constexpr uint8_t PROP_BRIGHTNESS       = 0x02;
     static constexpr uint8_t PROP_MODE             = 0x03;
@@ -453,6 +515,89 @@ private:
             return DeviceError::protocolError(
                 std::format("Write of property 0x{:02x} rejected with status 0x{:02x}", property,
                     (*response)[3]));
+        }
+        return {};
+    }
+
+    /**
+     * @brief Paint every LED zone one color
+     *
+     * The headset has to already be in software mode for the frame to apply.
+     */
+    [[nodiscard]] Result<void> writeLighting(
+        hid_device* device_handle, uint8_t target, const LightColorSettings& color)
+    {
+        const std::array<uint8_t, MSG_SIZE> open_request { REPORT_ID_OUT, target,
+            BRAGI_OPEN_HANDLE, LIGHTING_HANDLE, LIGHTING_RESOURCE, 0x00 };
+        const std::array<uint8_t, MSG_SIZE> close_request { REPORT_ID_OUT, target,
+            BRAGI_CLOSE_HANDLE, 0x01, LIGHTING_HANDLE };
+
+        auto opened = sendHandleCommand(device_handle, target, open_request, BRAGI_OPEN_HANDLE);
+        // A transfer that was never closed - a run that failed between open and
+        // close, say - leaves the handle open, and the headset then refuses to
+        // open it again. Close it and retry once, as ckb-next does.
+        if (opened && *opened == STATUS_HANDLE_OPEN) {
+            if (auto closed = sendHandleCommand(
+                    device_handle, target, close_request, BRAGI_CLOSE_HANDLE);
+                !closed) {
+                return closed.error();
+            }
+            opened = sendHandleCommand(device_handle, target, open_request, BRAGI_OPEN_HANDLE);
+        }
+        if (auto result = expectOk(opened, "open the lighting handle"); !result) {
+            return result.error();
+        }
+
+        std::array<uint8_t, MSG_SIZE> write_request { REPORT_ID_OUT, target, BRAGI_WRITE_DATA,
+            LIGHTING_HANDLE, LIGHTING_PAYLOAD_SIZE, 0x00, 0x00, 0x00 };
+        for (uint8_t zone = 0; zone < LIGHTING_ZONES; ++zone) {
+            write_request[LIGHTING_PAYLOAD_OFFSET + zone]                        = color.r;
+            write_request[LIGHTING_PAYLOAD_OFFSET + LIGHTING_ZONES + zone]       = color.g;
+            write_request[LIGHTING_PAYLOAD_OFFSET + (2 * LIGHTING_ZONES) + zone] = color.b;
+        }
+        auto written = expectOk(
+            sendHandleCommand(device_handle, target, write_request, BRAGI_WRITE_DATA),
+            "write the lighting frame");
+
+        // Close even if the frame was rejected, so this run does not leave the
+        // handle open for the next one.
+        auto closed = expectOk(
+            sendHandleCommand(device_handle, target, close_request, BRAGI_CLOSE_HANDLE),
+            "close the lighting handle");
+
+        if (!written) {
+            return written.error();
+        }
+        return closed;
+    }
+
+    /**
+     * @brief Send one step of a handle transfer
+     *
+     * @return The status byte from the reply, left for the caller to interpret
+     */
+    [[nodiscard]] Result<uint8_t> sendHandleCommand(hid_device* device_handle, uint8_t target,
+        std::span<const uint8_t> request, uint8_t command)
+    {
+        if (auto result = writeHID(device_handle, request, MSG_SIZE); !result) {
+            return result.error();
+        }
+
+        auto response = readReply(device_handle, target, command, hsc_device_timeout);
+        if (!response) {
+            return response.error();
+        }
+        return (*response)[3];
+    }
+
+    [[nodiscard]] static Result<void> expectOk(const Result<uint8_t>& status, std::string_view step)
+    {
+        if (!status) {
+            return status.error();
+        }
+        if (*status != STATUS_OK) {
+            return DeviceError::protocolError(
+                std::format("Failed to {} (status 0x{:02x})", step, *status));
         }
         return {};
     }
