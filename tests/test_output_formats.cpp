@@ -70,7 +70,7 @@ public:
     OutputData data;
     data.name           = "HeadsetControl";
     data.version        = "1.0.0-test";
-    data.api_version    = "1.5";
+    data.api_version    = "1.6";
     data.hidapi_version = "0.15.0";
 
     DeviceData dev;

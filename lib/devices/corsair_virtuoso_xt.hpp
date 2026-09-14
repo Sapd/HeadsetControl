@@ -266,12 +266,14 @@ public:
         }
         const uint8_t target = resolved->target;
 
-        // No scope guard: restoring hardware mode would swap the frame for the
-        // headset's own effect before anyone saw it.
         if (auto result = writeProperty(device_handle, target, PROP_MODE, MODE_SOFTWARE);
             !result) {
             return result.error();
         }
+        // Restoring hardware mode would swap the frame for the headset's own effect
+        // before anyone saw it, so a successful write stays in software mode. A
+        // failed one has nothing on screen worth keeping and is handed back.
+        SoftwareModeGuard restore_on_failure { *this, device_handle, target };
 
         // Brightness gates the frame as well, and a color implies the lights are on.
         if (auto result = writeProperty(device_handle, target, PROP_BRIGHTNESS, BRIGHTNESS_MAX);
@@ -283,6 +285,7 @@ public:
             return result.error();
         }
 
+        restore_on_failure.dismiss();
         return LightColorResult { .color = color };
     }
 
@@ -404,15 +407,22 @@ private:
 
         ~SoftwareModeGuard()
         {
+            if (dismissed_) {
+                return;
+            }
             // Best effort; there is nothing useful to do if the restore fails.
             static_cast<void>(
                 device_.writeProperty(device_handle_, target_, PROP_MODE, MODE_HARDWARE));
         }
 
+        /// Leave the headset in software mode after all
+        void dismiss() noexcept { dismissed_ = true; }
+
     private:
         CorsairVirtuosoXT& device_;
         hid_device* device_handle_;
         uint8_t target_;
+        bool dismissed_ = false;
     };
 
     static constexpr uint8_t replySourceFor(uint8_t target)

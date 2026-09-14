@@ -26,7 +26,9 @@ using namespace headsetcontrol::serializers;
 // 1.5: an invocation that performs an action no longer reports info it was not
 // explicitly asked for, and structured output gained an additive "sidetone"
 // field for devices that support reading it back.
-constexpr std::string_view API_VERSION = "1.5";
+// 1.6: action entries gained an additive "color" field ("#rrggbb") for
+// CAP_LIGHT_COLOR, whose "value" packs 0xRRGGBB and is reported even for black.
+constexpr std::string_view API_VERSION = "1.6";
 constexpr std::string_view APP_NAME    = "HeadsetControl";
 
 // ============================================================================

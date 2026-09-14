@@ -207,12 +207,67 @@ void testVirtuosoTargetResolutionErrors()
     std::cout << "    OK target resolution errors" << std::endl;
 }
 
+/// Whether a write is SET mode (property 0x03) to the given value
+bool setsMode(const std::vector<uint8_t>& write, uint8_t mode)
+{
+    return write.size() > 5 && write[2] == 0x01 && write[3] == 0x03 && write[5] == mode;
+}
+
+void testVirtuosoLightColorSoftwareMode()
+{
+    std::cout << "  Testing light color leaves software mode only on failure..." << std::endl;
+
+    constexpr uint8_t SET = 0x01, CLOSE = 0x05, WRITE = 0x06, OPEN = 0x0d;
+
+    // Success: probe, mode, brightness, open, frame, close - and the headset
+    // stays in software mode so the frame remains visible.
+    VirtuosoMockHID ok;
+    TestableVirtuoso ok_device(ok, PID_WIRED);
+    ok.reply(1, FROM_SELF, GET, STATUS_OK, 900);
+    ok.reply(2, FROM_SELF, SET, STATUS_OK);
+    ok.reply(3, FROM_SELF, SET, STATUS_OK);
+    ok.reply(4, FROM_SELF, OPEN, STATUS_OK);
+    ok.reply(5, FROM_SELF, WRITE, STATUS_OK);
+    ok.reply(6, FROM_SELF, CLOSE, STATUS_OK);
+    auto color = ok_device.setLightColor(nullptr, LightColorSettings { .r = 0xff, .g = 0x80, .b = 0x00 });
+    VIRTUOSO_ASSERT(color.hasValue(), "a clean color write should succeed");
+    VIRTUOSO_ASSERT(ok.writes.size() == 6, "a clean color write takes six requests");
+    VIRTUOSO_ASSERT(setsMode(ok.writes[1], 2), "the second request should enter software mode");
+    for (const auto& write : ok.writes) {
+        VIRTUOSO_ASSERT(!setsMode(write, 1), "a successful color write must not restore hardware mode");
+    }
+    const auto& frame = ok.writes[4];
+    VIRTUOSO_ASSERT(frame[8] == 0xff && frame[10] == 0xff && frame[11] == 0x80 && frame[14] == 0x00,
+        "the frame should be planar: three red bytes, then green, then blue");
+
+    // Failure: the frame write fails, so the handle is still closed and the
+    // headset is handed back to hardware mode.
+    VirtuosoMockHID failing;
+    TestableVirtuoso failing_device(failing, PID_WIRED);
+    failing.reply(1, FROM_SELF, GET, STATUS_OK, 900);
+    failing.reply(2, FROM_SELF, SET, STATUS_OK);
+    failing.reply(3, FROM_SELF, SET, STATUS_OK);
+    failing.reply(4, FROM_SELF, OPEN, STATUS_OK);
+    failing.fail_on_write = 5;
+    failing.reply(6, FROM_SELF, CLOSE, STATUS_OK);
+    failing.reply(7, FROM_SELF, SET, STATUS_OK);
+    color = failing_device.setLightColor(nullptr, LightColorSettings { .r = 0xff });
+    VIRTUOSO_ASSERT(color.hasError(), "a failed frame write should fail");
+    VIRTUOSO_ASSERT(color.error().code == DeviceError::Code::HIDError, "the frame write error should be returned");
+    VIRTUOSO_ASSERT(failing.writes.size() == 7, "the handle should be closed and hardware mode restored");
+    VIRTUOSO_ASSERT(failing.writes[5][2] == CLOSE, "the handle should be closed after the failed write");
+    VIRTUOSO_ASSERT(setsMode(failing.writes.back(), 1), "a failed color write should restore hardware mode");
+
+    std::cout << "    OK light color software mode" << std::endl;
+}
+
 void runAllCorsairVirtuosoTests()
 {
     std::cout << "\n=== Corsair Virtuoso Tests ===" << std::endl;
     testVirtuosoBattery();
     testVirtuosoStaleReplyIsDiscarded();
     testVirtuosoTargetResolutionErrors();
+    testVirtuosoLightColorSoftwareMode();
     std::cout << "  Corsair Virtuoso tests passed" << std::endl;
 }
 
