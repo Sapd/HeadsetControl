@@ -159,6 +159,18 @@ public:
     }
 
     /**
+     * @brief Set the color of the lights
+     *
+     * Implies the lights are on. Takes a struct rather than three bytes so that
+     * per-zone colors can be added later without changing the signature.
+     */
+    virtual Result<LightColorResult> setLightColor(
+        hid_device* /*device_handle*/, const LightColorSettings& /*color*/)
+    {
+        return DeviceError::notSupported("Device does not support setting the light color");
+    }
+
+    /**
      * @brief Set inactive time with rich result
      */
     virtual Result<InactiveTimeResult> setInactiveTime(hid_device* /*device_handle*/, uint8_t /*minutes*/)

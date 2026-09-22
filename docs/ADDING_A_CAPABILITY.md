@@ -22,6 +22,7 @@ A capability is a feature like sidetone, battery status, or LED control. Adding 
 | `lib/capability_descriptors.hpp` | CLI metadata (flags, description, validation) |
 | `lib/result_types.hpp` | Result struct for the feature |
 | `lib/devices/hid_device.hpp` | Virtual method in base class |
+| `lib/headsetcontrol_c.h` | Mirror the new value in `hsc_capability_t` |
 | `lib/feature_handlers.hpp` | Handler registration |
 | `cli/main.cpp` | CLI argument parsing |
 | `lib/devices/*.hpp` | Device implementations |
@@ -41,6 +42,8 @@ Add a single line to `CAPABILITIES_XLIST`. The enum, string name, and short char
 ```
 
 That's it! The enum value `CAP_YOUR_FEATURE` and all string conversion functions are generated from this single line.
+
+**New capabilities are appended at the end - never inserted mid-list.** The enum values are part of the C ABI: `hsc_capability_t` in `lib/headsetcontrol_c.h` mirrors them by value, so inserting an entry shifts every capability after it for anyone linked against the library. Add the matching `HSC_CAP_YOUR_FEATURE` with the next value and bump `HSC_NUM_CAPABILITIES`; `headsetcontrol_c.cpp` has `static_assert`s that fail the build if the two drift apart. The `CAPABILITY_DESCRIPTORS` array is indexed by the enum, so its new entry goes at the end too.
 
 ### 2. Add Descriptor (`lib/capability_descriptors.hpp`)
 
@@ -67,6 +70,8 @@ inline constexpr std::array<CapabilityDescriptor, NUM_CAPABILITIES> CAPABILITY_D
 **Capability types:**
 - `CAPABILITYTYPE_ACTION` - Takes a parameter (sidetone, lights, inactive time)
 - `CAPABILITYTYPE_INFO` - Query only, no parameter (battery, chatmix)
+
+**Parameter types:** an `int` in `FeatureParam` is only for a scalar in a range, validated through `min_value`/`max_value`. Anything else - a color, a list of bands - gets its own typed struct added to the `FeatureParam` variant in `lib/device.hpp`, with `min_value`/`max_value` left as `std::nullopt`. See `LightColorSettings` and `EqualizerSettings`.
 
 ### 3. Add Result Type (`lib/result_types.hpp`)
 

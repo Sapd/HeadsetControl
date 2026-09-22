@@ -56,7 +56,8 @@ extern int hsc_device_timeout;
     X(CAP_BT_WHEN_POWERED_ON, "bluetooth when powered on", '\0')                 \
     X(CAP_BT_CALL_VOLUME, "bluetooth call volume", '\0')                         \
     X(CAP_NOISE_FILTER, "microphone noise filter", '\0')                         \
-    X(CAP_SIDETONE_STATUS, "sidetone status", '\0')
+    X(CAP_SIDETONE_STATUS, "sidetone status", '\0')                              \
+    X(CAP_LIGHT_COLOR, "light color", '\0')
 
 /** @brief A list of all features settable/queryable for headsets
  *
@@ -183,6 +184,17 @@ constexpr auto FEATURE_DEVICE_FAILED_OPEN = FeatureStatus::DeviceFailedOpen;
 constexpr auto FEATURE_INFO               = FeatureStatus::Info;
 constexpr auto FEATURE_NOT_PROCESSED      = FeatureStatus::NotProcessed;
 
+/** @brief Color to set the lights to
+ *
+ * Applies to every LED zone the device has. Black (all zero) is a valid color
+ * that a device may treat as switching the lights off.
+ */
+struct LightColorSettings {
+    uint8_t r = 0;
+    uint8_t g = 0;
+    uint8_t b = 0;
+};
+
 struct FeatureResult {
     FeatureStatus status = FeatureStatus::NotProcessed;
     /// Can hold battery level, error codes, or special status codes
@@ -198,6 +210,8 @@ struct FeatureResult {
     std::optional<int> battery_time_to_empty_min;
     std::optional<int> sidetone_device_level;
     std::optional<std::string> sidetone_level_name;
+    // Color that was set (only populated for CAP_LIGHT_COLOR)
+    std::optional<LightColorSettings> light_color;
 };
 
 // FeatureRequest is defined after EqualizerSettings and ParametricEqualizerSettings
@@ -273,8 +287,11 @@ using parametric_equalizer_band     = ParametricEqualizerBand;
  * - int: Simple integer parameters (sidetone level, lights on/off, etc.)
  * - EqualizerSettings: For CAP_EQUALIZER
  * - ParametricEqualizerSettings: For CAP_PARAMETRIC_EQUALIZER
+ * - LightColorSettings: For CAP_LIGHT_COLOR
+ *
+ * int is only for a scalar in a range; anything else gets its own typed struct.
  */
-using FeatureParam = std::variant<std::monostate, int, EqualizerSettings, ParametricEqualizerSettings>;
+using FeatureParam = std::variant<std::monostate, int, EqualizerSettings, ParametricEqualizerSettings, LightColorSettings>;
 
 /** @brief Represents a pending feature request
  */

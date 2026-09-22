@@ -159,6 +159,7 @@ struct Options {
     // Complex settings
     std::optional<EqualizerSettings> equalizer;
     std::optional<ParametricEqualizerSettings> parametric_equalizer;
+    std::optional<LightColorSettings> light_color;
 
     // Helper
     [[nodiscard]] bool hasDeviceFilter() const
@@ -232,6 +233,15 @@ std::optional<cli::ParseError> configureParser(cli::ArgumentParser& parser, Opti
                 return std::nullopt; }, "Get current sidetone level, or set it to LEVEL", "LEVEL")
         .flag('b', "battery", opts.request_battery, "Check battery level")
         .toggle('l', "light", opts.lights_enabled, "Turn lights off (0) or on (1)")
+        .long_custom("light-color", cli::ArgRequirement::Required, [&opts](std::optional<std::string_view> arg) -> std::optional<cli::ParseError> {
+                if (!arg)
+                    return cli::ParseError { "requires a color", "light-color" };
+                auto color = headsetcontrol::parse_light_color(*arg);
+                if (!color) {
+                    return cli::ParseError { "format: RRGGBB or #RRGGBB", "light-color" };
+                }
+                opts.light_color = *color;
+                return std::nullopt; }, "Set light color, which also turns the lights on", "RRGGBB")
         .toggle('v', "voice-prompt", opts.voice_prompts_enabled, "Turn voice prompts off (0) or on (1)")
         .value('i', "inactive-time", opts.inactive_time, uint8_t(0), uint8_t(90), "Set inactive time in minutes", "MINUTES")
         .flag('m', "chatmix", opts.request_chatmix, "Get chat-mix level")
@@ -586,6 +596,8 @@ FeatureResult convertToFeatureResult(const headsetcontrol::FeatureOutput& output
         result.sidetone_level_name   = output.sidetone->level_name;
     }
 
+    result.light_color = output.light_color;
+
     return result;
 }
 
@@ -893,6 +905,7 @@ namespace help {
             sections.push_back({ "LIGHTS & AUDIO CUES", {} });
             sections.back()
                 .add('l', "light", getValueHint(CAP_LIGHTS), "RGB/LED lights off/on", CAP_LIGHTS)
+                .add("light-color", getValueHint(CAP_LIGHT_COLOR), "Set light color; turns lights on, and wins over -l", CAP_LIGHT_COLOR)
                 .add('v', "voice-prompt", getValueHint(CAP_VOICE_PROMPTS), "Voice prompts off/on", CAP_VOICE_PROMPTS)
                 .add('n', "notificate", getValueHint(CAP_NOTIFICATION_SOUND), "Play notification sound", CAP_NOTIFICATION_SOUND);
 
@@ -988,6 +1001,7 @@ struct FeatureParamStorage {
     // Store copies of complex settings to avoid const_cast
     EqualizerSettings equalizer_settings;
     ParametricEqualizerSettings parametric_eq_settings;
+    LightColorSettings light_color_settings;
 
     void updateFrom(const Options& opts)
     {
@@ -1025,6 +1039,8 @@ struct FeatureParamStorage {
             equalizer_settings = *opts.equalizer;
         if (opts.parametric_equalizer.has_value())
             parametric_eq_settings = *opts.parametric_equalizer;
+        if (opts.light_color.has_value())
+            light_color_settings = *opts.light_color;
     }
 };
 
@@ -1055,7 +1071,10 @@ void initializeFeatureRequests(std::vector<DiscoveredDevice>& devices, const Opt
         { CAP_VOLUME_LIMITER, CAPABILITYTYPE_ACTION, g_feature_params.volume_limiter_val, opts.volume_limiter_enabled.has_value(), {} },
         { CAP_BT_WHEN_POWERED_ON, CAPABILITYTYPE_ACTION, g_feature_params.bt_power_val, opts.bt_when_powered_on.has_value(), {} },
         { CAP_BT_CALL_VOLUME, CAPABILITYTYPE_ACTION, g_feature_params.bt_call_vol_val, opts.bt_call_volume.has_value(), {} },
-        { CAP_NOISE_FILTER, CAPABILITYTYPE_ACTION, g_feature_params.noise_filter_val, opts.noise_filter.has_value(), {} }
+        { CAP_NOISE_FILTER, CAPABILITYTYPE_ACTION, g_feature_params.noise_filter_val, opts.noise_filter.has_value(), {} },
+        // Last on purpose: requests run in this order, so with both -l and
+        // --light-color on one command line the color is applied after -l and wins.
+        { CAP_LIGHT_COLOR, CAPABILITYTYPE_ACTION, opts.light_color.has_value() ? FeatureParam { g_feature_params.light_color_settings } : FeatureParam { std::monostate {} }, opts.light_color.has_value(), {} }
     };
 
     for (auto& dev : devices) {
