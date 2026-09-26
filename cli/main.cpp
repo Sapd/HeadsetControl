@@ -129,9 +129,9 @@ void eprintln(std::format_string<Args...> fmt, Args&&... args)
 
         if (token == "off") {
             modes.off = true;
-        } else if (token == "anc" || token == "nc") {
+        } else if (token == "anc") {
             modes.anc = true;
-        } else if (token == "ambient" || token == "amb") {
+        } else if (token == "ambient") {
             modes.ambient = true;
         } else {
             return cli::ParseError { std::format("unknown ANC button mode '{}'", token), "anc-button-modes" };
