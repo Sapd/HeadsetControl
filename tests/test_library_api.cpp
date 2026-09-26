@@ -274,7 +274,8 @@ void testCNullHandling()
 
     ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_anc(nullptr, 1), "set_anc(null) should fail");
     ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_anc_startup_mode(nullptr, 1), "set_anc_startup_mode(null) should fail");
-    ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_anc_button_modes(nullptr, true, true, false), "set_anc_button_modes(null) should fail");
+    hsc_anc_button_modes_t anc_button_modes = { .off = true, .anc = true, .ambient = false };
+    ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_anc_button_modes(nullptr, &anc_button_modes), "set_anc_button_modes(null) should fail");
     ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_sidetone(nullptr, 64, nullptr), "set_sidetone(null) should fail");
     ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_lights(nullptr, true), "set_lights(null) should fail");
 
@@ -468,8 +469,11 @@ void testCTestDeviceMode()
 
             ASSERT_EQ(HSC_RESULT_OK, hsc_set_anc(headsets[i], 2), "ANC should succeed");
             ASSERT_EQ(HSC_RESULT_OK, hsc_set_anc_startup_mode(headsets[i], 3), "ANC startup mode should succeed");
-            ASSERT_EQ(HSC_RESULT_OK, hsc_set_anc_button_modes(headsets[i], true, true, false), "ANC button modes should succeed");
-            ASSERT_TRUE(HSC_RESULT_OK != hsc_set_anc_button_modes(headsets[i], false, false, false), "ANC button modes with no mode should fail");
+            hsc_anc_button_modes_t anc_button_modes = { .off = true, .anc = true, .ambient = false };
+            ASSERT_EQ(HSC_RESULT_OK, hsc_set_anc_button_modes(headsets[i], &anc_button_modes), "ANC button modes should succeed");
+            hsc_anc_button_modes_t no_modes = { .off = false, .anc = false, .ambient = false };
+            ASSERT_TRUE(HSC_RESULT_OK != hsc_set_anc_button_modes(headsets[i], &no_modes), "ANC button modes with no mode should fail");
+            ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_anc_button_modes(headsets[i], nullptr), "ANC button modes with null modes should fail");
 
             ASSERT_EQ(4, hsc_get_equalizer_presets_count(headsets[i]), "Preset count should be 4");
             ASSERT_EQ(std::string("Flat"), std::string(hsc_get_equalizer_preset_name(headsets[i], 0)), "Flat preset name should match");

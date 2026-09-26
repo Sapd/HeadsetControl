@@ -770,8 +770,9 @@ hsc_set_voice_prompts(headset, false);
 
 // ANC (0 = off, 1 = noise cancelling, 2 = ambient sound)
 hsc_set_anc(headset, 1);
-hsc_set_anc_startup_mode(headset, 3);                  // 3 = mode at power off
-hsc_set_anc_button_modes(headset, true, true, false);  // off, anc, ambient
+hsc_set_anc_startup_mode(headset, 3); // 3 = mode at power off
+hsc_anc_button_modes_t modes = { .off = true, .anc = true, .ambient = false };
+hsc_set_anc_button_modes(headset, &modes);
 
 // Microphone status
 hsc_mic_attachment_status_t attachment;

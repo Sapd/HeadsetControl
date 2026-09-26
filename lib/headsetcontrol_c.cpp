@@ -592,15 +592,14 @@ hsc_result_t hsc_set_anc_startup_mode(hsc_headset_t headset, uint8_t mode)
     return result ? HSC_RESULT_OK : toErrorCode(result.error());
 }
 
-hsc_result_t hsc_set_anc_button_modes(
-    hsc_headset_t headset, bool off, bool anc, bool ambient)
+hsc_result_t hsc_set_anc_button_modes(hsc_headset_t headset, const hsc_anc_button_modes_t* modes)
 {
-    if (!headset) {
+    if (!headset || !modes) {
         return HSC_RESULT_INVALID_PARAM;
     }
 
     auto result = static_cast<HeadsetWrapper*>(headset)->headset.setAncButtonModes(
-        AncButtonModes { .off = off, .anc = anc, .ambient = ambient });
+        AncButtonModes { .off = modes->off, .anc = modes->anc, .ambient = modes->ambient });
     return result ? HSC_RESULT_OK : toErrorCode(result.error());
 }
 

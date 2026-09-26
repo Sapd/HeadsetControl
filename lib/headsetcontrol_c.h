@@ -169,6 +169,12 @@ typedef struct {
     bool attached;
 } hsc_mic_attachment_status_t;
 
+typedef struct {
+    bool off; /* Include off mode */
+    bool anc; /* Include noise cancelling mode */
+    bool ambient; /* Include ambient sound mode */
+} hsc_anc_button_modes_t;
+
 /* ============================================================================
  * Discovery Functions
  * ============================================================================ */
@@ -528,16 +534,10 @@ HSC_API hsc_result_t hsc_set_anc_startup_mode(hsc_headset_t headset, uint8_t mod
  * At least one mode must be enabled.
  *
  * @param headset Headset handle
- * @param off Include off mode
- * @param anc Include noise cancelling mode
- * @param ambient Include ambient sound mode
+ * @param modes Modes the ANC button cycles through
  * @return HSC_RESULT_OK on success, negative error code on failure
  */
-HSC_API hsc_result_t hsc_set_anc_button_modes(
-    hsc_headset_t headset,
-    bool off,
-    bool anc,
-    bool ambient);
+HSC_API hsc_result_t hsc_set_anc_button_modes(hsc_headset_t headset, const hsc_anc_button_modes_t* modes);
 
 /* ============================================================================
  * Test Device Mode
