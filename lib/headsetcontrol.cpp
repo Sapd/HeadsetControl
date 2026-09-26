@@ -321,6 +321,11 @@ Result<MicMuteStatusResult> Headset::getMicMuteStatus()
     HEADSET_FEATURE_IMPL(CAP_MICROPHONE_MUTE_STATUS, getMicMuteStatus);
 }
 
+Result<MicAttachmentStatusResult> Headset::getMicAttachmentStatus()
+{
+    HEADSET_FEATURE_IMPL(CAP_MICROPHONE_ATTACHMENT_STATUS, getMicAttachmentStatus);
+}
+
 Result<RotateToMuteResult> Headset::setRotateToMute(bool enabled)
 {
     HEADSET_FEATURE_IMPL(CAP_ROTATE_TO_MUTE, setRotateToMute, enabled);
@@ -354,6 +359,16 @@ Result<BluetoothWhenPoweredOnResult> Headset::setBluetoothWhenPoweredOn(bool ena
 Result<BluetoothCallVolumeResult> Headset::setBluetoothCallVolume(uint8_t volume)
 {
     HEADSET_FEATURE_IMPL(CAP_BT_CALL_VOLUME, setBluetoothCallVolume, volume);
+}
+
+Result<AncResult> Headset::setAnc(uint8_t mode)
+{
+    HEADSET_FEATURE_IMPL(CAP_ANC, setAnc, mode);
+}
+
+Result<AncStartupModeResult> Headset::setAncStartupMode(uint8_t mode)
+{
+    HEADSET_FEATURE_IMPL(CAP_ANC_STARTUP_MODE, setAncStartupMode, mode);
 }
 
 Result<AncButtonModesResult> Headset::setAncButtonModes(const AncButtonModes& modes)

@@ -432,6 +432,33 @@ if (headset.supports(CAP_BT_CALL_VOLUME)) {
 }
 ```
 
+### Noise Cancelling & Microphone Status
+
+```cpp
+// ANC mode (0 = off, 1 = noise cancelling, 2 = ambient sound)
+if (headset.supports(CAP_ANC)) {
+    headset.setAnc(1);
+}
+
+// ANC mode at power-on (0-2 as above, 3 = mode at power off)
+if (headset.supports(CAP_ANC_STARTUP_MODE)) {
+    headset.setAncStartupMode(3);
+}
+
+// Modes the headset's ANC button cycles through (at least one)
+if (headset.supports(CAP_ANC_BUTTON_MODES)) {
+    headset.setAncButtonModes({ .off = true, .anc = true, .ambient = false });
+}
+
+if (auto r = headset.getMicAttachmentStatus()) {
+    std::cout << "Boom mic: " << (r->attached ? "attached" : "detached") << "\n";
+}
+
+if (auto r = headset.getMicMuteStatus()) {
+    std::cout << "Mic: " << (r->muted ? "muted" : "unmuted") << "\n";
+}
+```
+
 ## Error Handling
 
 All feature methods return `Result<T>` for proper error handling:
@@ -740,6 +767,18 @@ hsc_set_mic_volume(headset, 100);
 
 // Voice prompts
 hsc_set_voice_prompts(headset, false);
+
+// ANC (0 = off, 1 = noise cancelling, 2 = ambient sound)
+hsc_set_anc(headset, 1);
+hsc_set_anc_startup_mode(headset, 3);                  // 3 = mode at power off
+hsc_set_anc_button_modes(headset, true, true, false);  // off, anc, ambient
+
+// Microphone status
+hsc_mic_attachment_status_t attachment;
+hsc_get_mic_attachment_status(headset, &attachment);
+
+hsc_mic_mute_status_t mute;
+hsc_get_mic_mute_status(headset, &mute);
 ```
 
 ### Error Handling

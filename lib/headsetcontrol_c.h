@@ -165,6 +165,10 @@ typedef struct {
     bool muted;
 } hsc_mic_mute_status_t;
 
+typedef struct {
+    bool attached;
+} hsc_mic_attachment_status_t;
+
 /* ============================================================================
  * Discovery Functions
  * ============================================================================ */
@@ -309,6 +313,15 @@ HSC_API hsc_result_t hsc_get_sidetone(hsc_headset_t headset, hsc_sidetone_status
  * @return HSC_RESULT_OK on success, negative error code on failure
  */
 HSC_API hsc_result_t hsc_get_mic_mute_status(hsc_headset_t headset, hsc_mic_mute_status_t* status);
+
+/**
+ * @brief Get whether the detachable boom mic is attached
+ *
+ * @param headset Headset handle
+ * @param[out] status Microphone attachment status to fill
+ * @return HSC_RESULT_OK on success, negative error code on failure
+ */
+HSC_API hsc_result_t hsc_get_mic_attachment_status(hsc_headset_t headset, hsc_mic_attachment_status_t* status);
 
 /* ============================================================================
  * Audio Controls
@@ -490,6 +503,24 @@ HSC_API hsc_result_t hsc_set_bluetooth_when_powered_on(hsc_headset_t headset, bo
  * @return HSC_RESULT_OK on success, negative error code on failure
  */
 HSC_API hsc_result_t hsc_set_bluetooth_call_volume(hsc_headset_t headset, uint8_t volume);
+
+/**
+ * @brief Set active noise cancellation mode
+ *
+ * @param headset Headset handle
+ * @param mode 0 = off, 1 = noise cancelling, 2 = ambient sound
+ * @return HSC_RESULT_OK on success, negative error code on failure
+ */
+HSC_API hsc_result_t hsc_set_anc(hsc_headset_t headset, uint8_t mode);
+
+/**
+ * @brief Set ANC mode used at power-on
+ *
+ * @param headset Headset handle
+ * @param mode 0 = off, 1 = noise cancelling, 2 = ambient sound, 3 = mode at power off
+ * @return HSC_RESULT_OK on success, negative error code on failure
+ */
+HSC_API hsc_result_t hsc_set_anc_startup_mode(hsc_headset_t headset, uint8_t mode);
 
 /**
  * @brief Set ANC modes the headset's ANC button cycles through

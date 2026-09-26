@@ -317,6 +317,21 @@ hsc_result_t hsc_get_mic_mute_status(hsc_headset_t headset, hsc_mic_mute_status_
     return HSC_RESULT_OK;
 }
 
+hsc_result_t hsc_get_mic_attachment_status(hsc_headset_t headset, hsc_mic_attachment_status_t* status)
+{
+    if (!headset || !status) {
+        return HSC_RESULT_INVALID_PARAM;
+    }
+
+    auto result = static_cast<HeadsetWrapper*>(headset)->headset.getMicAttachmentStatus();
+    if (!result) {
+        return toErrorCode(result.error());
+    }
+
+    status->attached = result->attached;
+    return HSC_RESULT_OK;
+}
+
 // ============================================================================
 // Audio Controls
 // ============================================================================
@@ -554,6 +569,26 @@ hsc_result_t hsc_set_bluetooth_call_volume(hsc_headset_t headset, uint8_t volume
     }
 
     auto result = static_cast<HeadsetWrapper*>(headset)->headset.setBluetoothCallVolume(volume);
+    return result ? HSC_RESULT_OK : toErrorCode(result.error());
+}
+
+hsc_result_t hsc_set_anc(hsc_headset_t headset, uint8_t mode)
+{
+    if (!headset) {
+        return HSC_RESULT_INVALID_PARAM;
+    }
+
+    auto result = static_cast<HeadsetWrapper*>(headset)->headset.setAnc(mode);
+    return result ? HSC_RESULT_OK : toErrorCode(result.error());
+}
+
+hsc_result_t hsc_set_anc_startup_mode(hsc_headset_t headset, uint8_t mode)
+{
+    if (!headset) {
+        return HSC_RESULT_INVALID_PARAM;
+    }
+
+    auto result = static_cast<HeadsetWrapper*>(headset)->headset.setAncStartupMode(mode);
     return result ? HSC_RESULT_OK : toErrorCode(result.error());
 }
 
