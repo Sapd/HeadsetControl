@@ -88,7 +88,7 @@ void processSidetoneResult(const FeatureResult& result, DeviceData& dev)
     }
 }
 
-void processMicStatusResult(const FeatureResult& result, DeviceData& dev)
+void processMicAttachmentStatusResult(const FeatureResult& result, DeviceData& dev)
 {
     if (result.status == FEATURE_SUCCESS || result.status == FEATURE_INFO) {
         dev.mic_attached = (result.value != 0);
@@ -139,7 +139,7 @@ void processFeatureRequest(const FeatureRequest& req, DeviceData& dev, std::stri
     } else if (req.cap == CAP_SIDETONE_STATUS) {
         processSidetoneResult(req.result, dev);
     } else if (req.cap == CAP_MICROPHONE_ATTACHMENT_STATUS) {
-        processMicStatusResult(req.result, dev);
+        processMicAttachmentStatusResult(req.result, dev);
     } else if (req.cap == CAP_MICROPHONE_MUTE_STATUS) {
         processMicMuteStatusResult(req.result, dev);
     } else if (req.type == CAPABILITYTYPE_ACTION) {
@@ -343,6 +343,10 @@ void outputYaml(const OutputData& data)
                 s.write("mic_attached", *dev.mic_attached);
             }
 
+            if (dev.mic_muted.has_value()) {
+                s.write("mic_muted", *dev.mic_muted);
+            }
+
             if (!dev.errors.empty()) {
                 s.beginObject("errors");
                 for (const auto& err : dev.errors) {
@@ -464,6 +468,10 @@ void outputEnv(const OutputData& data)
 
         if (dev.mic_attached.has_value()) {
             s.write(prefix + "_MIC_ATTACHED", *dev.mic_attached ? 1 : 0);
+        }
+
+        if (dev.mic_muted.has_value()) {
+            s.write(prefix + "_MIC_MUTED", *dev.mic_muted ? 1 : 0);
         }
 
         s.write(prefix + "_ERROR_COUNT", static_cast<int>(dev.errors.size()));

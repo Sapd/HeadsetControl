@@ -396,6 +396,31 @@ void testCliStandardNoArgs()
     std::cout << "    ✓ CLI standard no-args output is correct" << std::endl;
 }
 
+void testCliMicStatusOutputs()
+{
+    std::cout << "  Testing microphone status in all output formats..." << std::endl;
+
+    const std::string base = HEADSETCONTROL_EXE " --test-device -d 0xf00b:0xa00c --microphone-attachment-status --microphone-mute-status -o ";
+
+    std::string json = exec((base + "json 2>&1").c_str());
+    ASSERT_CONTAINS(json, "\"mic_attached\": 1", "JSON should have mic_attached");
+    ASSERT_CONTAINS(json, "\"mic_muted\": 0", "JSON should have mic_muted");
+
+    std::string yaml = exec((base + "yaml 2>&1").c_str());
+    ASSERT_CONTAINS(yaml, "mic_attached: 1", "YAML should have mic_attached");
+    ASSERT_CONTAINS(yaml, "mic_muted: 0", "YAML should have mic_muted");
+
+    std::string env = exec((base + "env 2>&1").c_str());
+    ASSERT_CONTAINS(env, "DEVICE_0_MIC_ATTACHED=1", "ENV should have mic_attached");
+    ASSERT_CONTAINS(env, "DEVICE_0_MIC_MUTED=0", "ENV should have mic_muted");
+
+    std::string standard = exec(HEADSETCONTROL_EXE " --test-device -d 0xf00b:0xa00c --microphone-attachment-status --microphone-mute-status 2>&1");
+    ASSERT_CONTAINS(standard, "Mic: attached", "standard output should show attachment status");
+    ASSERT_CONTAINS(standard, "Mic mute: unmuted", "standard output should show mute status");
+
+    std::cout << "    OK microphone status outputs" << std::endl;
+}
+
 void testCliSidetoneStatusOutputs()
 {
     std::cout << "  Testing sidetone status in all output formats..." << std::endl;
@@ -578,6 +603,7 @@ void runAllCliOutputTests()
     runTest("Standard Battery Details", testCliStandardBatteryDetails);
     runTest("Standard No Args", testCliStandardNoArgs);
     runTest("Sidetone Status Outputs", testCliSidetoneStatusOutputs);
+    runTest("Mic Status Outputs", testCliMicStatusOutputs);
 
     std::cout << "\n=== Short Output Tests ===" << std::endl;
     runTest("Short Output", testCliShortOutput);
