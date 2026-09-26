@@ -280,8 +280,26 @@ protected:
         if (mode > 2) {
             return DeviceError::invalidParameter("ANC mode must be 0 (off), 1 (ANC), or 2 (ambient sound)");
         }
-        // Payload: [nc_setting, ambient_volume_value, ambient_volume_percent, voice_focus]
-        const std::array<uint8_t, 4> payload { mode, 20, 0xFF, 0 };
+
+        // AMB_SETTING payload: [nc_mode, ambient_level, ambient_level_percent, voice_focus]
+        // The SET always carries all four bytes, so read the current setting
+        // first and only replace nc_mode. That keeps the ambient level and
+        // voice focus configured in INZONE Hub.
+        // Observed GET reply on an H9 II: 01 14 FF 00 (ANC, level 20, 0xFF, off).
+        // The headset applies a new mode asynchronously: a GET sent right after
+        // the SET can still report the previous nc_mode for a moment.
+        auto current = exchange(device_handle, ADDR_PC_TO_RX, EID_AMB_SETTING, ETYPE_GET, {});
+        if (!current) {
+            return current.error();
+        }
+        if (current->payload.size() < 4) {
+            return DeviceError::protocolError("AMB_SETTING payload too short");
+        }
+
+        std::array<uint8_t, 4> payload {};
+        std::copy_n(current->payload.begin(), payload.size(), payload.begin());
+        payload[0] = mode;
+
         auto resp = exchange(device_handle, ADDR_PC_TO_RX, EID_AMB_SETTING, ETYPE_SET,
             std::span<const uint8_t> { payload });
         if (!resp) {
