@@ -15,8 +15,10 @@ namespace headsetcontrol {
  * @brief Sony INZONE H5 (WH-G500) wireless gaming headset
  *
  * Communicates via a 2.4 GHz USB dongle (VID 0x054C, PID 0x0EBF).
- * The control protocol is Sony vendor HCI-over-HID on usage page 0xFF04,
- * report ID 0x02.
+ *
+ * The dongle exposes three HID top-level collections. The control protocol
+ * lives on the Sony-vendor collection with usage page 0xFF04 (report ID 0x02,
+ * 63-byte payload); see protocols::SonyINZONEProtocol for the wire format.
  */
 class SonyINZONEH5 : public protocols::SonyINZONEProtocol {
 public:
@@ -33,6 +35,15 @@ public:
     {
         return B(CAP_BATTERY_STATUS) | B(CAP_CHATMIX_STATUS)
             | B(CAP_SIDETONE) | B(CAP_MICROPHONE_VOLUME);
+    }
+
+    // The control protocol lives on the Sony-vendor collection (usage page
+    // 0xFF04, usage 0x0002). The usagepage/usageid hints are used to pick
+    // the right top-level collection on Windows; on Linux the dongle's HID
+    // interface is selected by first match if interface_id is 0.
+    constexpr capability_detail getCapabilityDetail([[maybe_unused]] enum capabilities cap) const override
+    {
+        return { .usagepage = 0xFF04, .usageid = 0x0002, .interface_id = 0 };
     }
 
     Result<BatteryResult> getBattery(hid_device* device_handle) override

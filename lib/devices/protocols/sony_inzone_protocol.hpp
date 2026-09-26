@@ -4,6 +4,7 @@
 #include "../device_utils.hpp"
 #include "../hid_device.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <format>
@@ -13,33 +14,54 @@
 
 namespace headsetcontrol::protocols {
 
+/**
+ * @brief Sony INZONE vendor HCI-over-HID protocol (INZONE H5, H9 II)
+ *
+ * The 2.4 GHz dongles expose the control protocol on a Sony-vendor HID
+ * collection with usage page 0xFF04 (report ID 0x02, 63-byte payload). It is
+ * a thin Sony vendor layer over standard Bluetooth HCI: each report carries
+ * an HCI packet where the host issues commands with opcode 0xFC00 and the
+ * dongle replies with vendor event code 0xFF.
+ *
+ * Which HID interface/collection carries the protocol differs per dongle, so
+ * each device provides its own getCapabilityDetail().
+ */
 class SonyINZONEProtocol : public HIDDevice {
 protected:
     static constexpr uint16_t VENDOR_SONY = 0x054C;
 
+    // HID transport
     static constexpr int REPORT_SIZE   = 64;
     static constexpr uint8_t REPORT_ID = 0x02;
 
+    // HCI shell constants
     static constexpr uint8_t HCI_TYPE_COMMAND = 0x01;
     static constexpr uint8_t HCI_TYPE_EVENT   = 0x04;
     static constexpr uint8_t SONY_EVENT_CODE  = 0xFF;
-    static constexpr uint8_t SONY_OPCODE_LO   = 0x00;
+    static constexpr uint8_t SONY_OPCODE_LO   = 0x00; // 0xFC00 LE
     static constexpr uint8_t SONY_OPCODE_HI   = 0xFC;
     static constexpr uint8_t SONY_KEY_ID_LO   = 0x96;
     static constexpr uint8_t SONY_KEY_ID_HI   = 0xC3;
 
+    // Command framing: report ID + 12 header bytes before the payload, and a
+    // trailing checksum byte after it.
+    static constexpr size_t MAX_PAYLOAD_SIZE = REPORT_SIZE - 14;
+
+    // ADDRESS nibbles
     static constexpr uint8_t ADDR_PC       = 0x1;
     static constexpr uint8_t ADDR_TX       = 0x2;
     static constexpr uint8_t ADDR_RX       = 0x4;
-    static constexpr uint8_t ADDR_PC_TO_RX = (ADDR_RX << 4) | ADDR_PC;
-    static constexpr uint8_t ADDR_PC_TO_TX = (ADDR_TX << 4) | ADDR_PC;
+    static constexpr uint8_t ADDR_PC_TO_RX = (ADDR_RX << 4) | ADDR_PC; // 0x41
+    static constexpr uint8_t ADDR_PC_TO_TX = (ADDR_TX << 4) | ADDR_PC; // 0x21
 
+    // EVENT_TYPE values
     static constexpr uint8_t ETYPE_GET         = 0x01;
     static constexpr uint8_t ETYPE_SET         = 0x02;
     static constexpr uint8_t ETYPE_RET         = 0x10;
     static constexpr uint8_t ETYPE_NTFY        = 0x20;
     static constexpr uint8_t ETYPE_NTFY_ACTIVE = 0xA0;
 
+    // EVENT_ID values
     static constexpr uint8_t EID_2GHZ_CONNECT_STATUS    = 0x01;
     static constexpr uint8_t EID_BATTERY_INFO           = 0x04;
     static constexpr uint8_t EID_HEADPHONE_VOLUME       = 0x21;
@@ -54,11 +76,15 @@ protected:
     static constexpr uint8_t EID_GUIDANCE_SETTING        = 0x84;
     static constexpr uint8_t EID_MIC_ATTACHED_STATUS     = 0x8F;
 
+    // Device-side ranges. Headphone volume is 0..50 and balance is 0..90 in
+    // steps of 10. Sidetone and mic ranges are not yet verified — assumed to
+    // follow the headphone convention (0..50); the setters clamp via map().
     static constexpr uint8_t DEVICE_VOLUME_MAX   = 50;
-    static constexpr uint8_t DEVICE_BALANCE_MAX  = 90;
+    static constexpr uint8_t DEVICE_BALANCE_MAX  = 90; // step 10
     static constexpr uint8_t DEVICE_SIDETONE_MAX = 50;
     static constexpr uint8_t DEVICE_MIC_VOL_MAX  = 50;
 
+    // Timeouts for matched-response wait
     static constexpr int READ_TIMEOUT_MS   = 500;
     static constexpr int MAX_READ_ATTEMPTS = 10;
 
@@ -71,11 +97,6 @@ protected:
     };
 
     constexpr uint16_t getVendorId() const override { return VENDOR_SONY; }
-
-    constexpr capability_detail getCapabilityDetail([[maybe_unused]] enum capabilities cap) const override
-    {
-        return { .usagepage = 0xFF04, .usageid = 0x0002, .interface_id = 5 };
-    }
 
     Result<BatteryResult> getSonyBattery(hid_device* device_handle)
     {
@@ -90,6 +111,8 @@ protected:
 
         const uint8_t charger = payload[0];
         const uint8_t percent = payload[1];
+
+        // 0xFF placeholder = headset offline / no cached value
         if (percent == 0xFF) {
             return DeviceError::deviceOffline("Headset reports battery=0xFF (offline)");
         }
@@ -116,6 +139,7 @@ protected:
             return DeviceError::protocolError("GAME_CHAT_MIX_BALANCE payload empty");
         }
 
+        // payload[0] = mixBalance: 0..90 in steps of 10, 0=full game, 90=full chat.
         const uint8_t balance = payload[0];
         if (balance == 0xFF) {
             return DeviceError::deviceOffline("Headset offline");
@@ -139,6 +163,8 @@ protected:
     Result<SidetoneResult> setSonySidetone(hid_device* device_handle, uint8_t level)
     {
         const uint8_t dev_level = map<uint8_t>(level, 0, 128, 0, DEVICE_SIDETONE_MAX);
+        // SIDETONE_VOLUME payload: [sidetoneVolValue, sidetoneVolPercent]
+        // The percent byte is a UI label; the Hub sends 0xFF as placeholder.
         const std::array<uint8_t, 2> payload { dev_level, 0xFF };
 
         auto resp = exchange(device_handle, ADDR_PC_TO_RX, EID_SIDETONE_VOLUME, ETYPE_SET,
@@ -159,6 +185,7 @@ protected:
     Result<MicVolumeResult> setSonyMicVolume(hid_device* device_handle, uint8_t volume)
     {
         const uint8_t dev_level = map<uint8_t>(volume, 0, 128, 0, DEVICE_MIC_VOL_MAX);
+        // MIC_VOLUME payload: [micMute, micVolValue, micVolPercent]
         const std::array<uint8_t, 3> payload { 0x00, dev_level, 0xFF };
 
         auto resp = exchange(device_handle, ADDR_PC_TO_RX, EID_MIC_VOLUME, ETYPE_SET,
@@ -299,11 +326,27 @@ protected:
         return BluetoothWhenPoweredOnResult { .enabled = enabled };
     }
 
+    /**
+     * @brief Send an HCI COMMAND and wait for the matching EVENT response.
+     *
+     * The dongle responds to a GET with EVENT_TYPE.RET and to a SET with
+     * EVENT_TYPE.NTFY, both carrying back the same TID we sent. Unsolicited
+     * NTFY_ACTIVE events may arrive on the same channel; we skip frames that
+     * don't match our request.
+     */
     Result<ParsedEvent> exchange(hid_device* device_handle, uint8_t address,
         uint8_t event_id, uint8_t event_type, std::span<const uint8_t> payload)
     {
+        if (payload.size() > MAX_PAYLOAD_SIZE) {
+            return DeviceError::invalidParameter(
+                std::format("Payload of {} bytes exceeds maximum of {}", payload.size(), MAX_PAYLOAD_SIZE));
+        }
+
         uint16_t tid = ++transaction_counter_;
         if (tid <= 1) {
+            // Skip TID 0 (overflow) and TID 1: the dongle's own unsolicited
+            // NTFY_ACTIVE pushes carry TID=1, so reusing it would let a push be
+            // matched as our reply.
             tid = transaction_counter_ = 2;
         }
 
@@ -328,27 +371,52 @@ protected:
 
             auto parsed = parseEvent(resp);
             if (!parsed) {
-                continue;
+                continue; // not an HCI event, or failed validation
             }
 
+            // Prefer a response that matches both event_id and our TID
+            // (which also implicitly filters out unsolicited NTFY_ACTIVE,
+            // since those carry TID=1 originated by the dongle).
             if (parsed->event_id == event_id
                 && parsed->transaction_id == tid
                 && (parsed->event_type == want_type
                     || parsed->event_type == ETYPE_NTFY_ACTIVE)) {
                 return *parsed;
             }
+            // Otherwise keep reading — it may be an unrelated NTFY_ACTIVE.
         }
 
         return DeviceError::timeout(
             std::format("No response for event_id 0x{:02x} (TID {})", event_id, tid));
     }
 
+    /**
+     * @brief Build a Sony vendor HCI COMMAND in the host write buffer.
+     *
+     * Layout (post-report-ID offsets):
+     *   [0]      hid_length  = 12 + len(payload)
+     *   [1]      hci_type    = 0x01 (COMMAND)
+     *   [2..3]   opcode      = 0xFC00 (LE)
+     *   [4]      param_length = 8 + len(payload)
+     *   [5..6]   sony_key_id = 0xC396 (LE)
+     *   [7]      address     = (Dst<<4) | Src
+     *   [8]      event_id
+     *   [9]      event_type
+     *   [10..11] transaction_id (LE)
+     *   [12..]   payload
+     *   [..]     checksum    = sum(post-rid[4..end-1]) & 0xFF
+     *
+     * Map to buf indices (buf[0] = report ID): each post-rid offset N maps to
+     * buf[N+1].
+     *
+     * The caller must ensure payload.size() <= MAX_PAYLOAD_SIZE.
+     */
     static void buildCommand(std::array<uint8_t, REPORT_SIZE>& buf,
         uint8_t address, uint8_t event_id, uint8_t event_type,
         uint16_t tid, std::span<const uint8_t> payload)
     {
-        const size_t payload_len = payload.size();
-        const size_t hid_length  = 12 + payload_len;
+        const size_t payload_len = std::min(payload.size(), MAX_PAYLOAD_SIZE);
+        const size_t hid_length  = 12 + payload_len; // HCI byte count
 
         buf[0] = REPORT_ID;
         buf[1] = static_cast<uint8_t>(hid_length);
@@ -356,7 +424,7 @@ protected:
         buf[2]  = HCI_TYPE_COMMAND;
         buf[3]  = SONY_OPCODE_LO;
         buf[4]  = SONY_OPCODE_HI;
-        buf[5]  = static_cast<uint8_t>(8 + payload_len);
+        buf[5]  = static_cast<uint8_t>(8 + payload_len); // param_length
         buf[6]  = SONY_KEY_ID_LO;
         buf[7]  = SONY_KEY_ID_HI;
         buf[8]  = address;
@@ -369,6 +437,7 @@ protected:
             buf[13 + i] = payload[i];
         }
 
+        // checksum = sum(buf[6..12+payload_len]) & 0xFF
         unsigned sum = 0;
         for (size_t i = 6; i <= 12 + payload_len; ++i) {
             sum += buf[i];
@@ -376,6 +445,12 @@ protected:
         buf[13 + payload_len] = static_cast<uint8_t>(sum & 0xFF);
     }
 
+    /**
+     * @brief Validate and parse an incoming HCI EVENT report.
+     *
+     * Returns std::nullopt for any frame that isn't a well-formed Sony
+     * vendor EVENT addressed to the host. The HCI checksum is verified.
+     */
     static std::optional<ParsedEvent> parseEvent(const std::array<uint8_t, REPORT_SIZE>& buf)
     {
         if (buf[0] != REPORT_ID) {
@@ -386,19 +461,24 @@ protected:
             return std::nullopt;
         }
 
+        // HCI shell checks
         if (buf[2] != HCI_TYPE_EVENT)
             return std::nullopt;
         if (buf[3] != SONY_EVENT_CODE)
             return std::nullopt;
-        if (buf[5] != 0x00)
+        // buf[4] = param_length (informational; ignore)
+        if (buf[5] != 0x00) // dummy byte
             return std::nullopt;
         if (buf[6] != SONY_KEY_ID_LO || buf[7] != SONY_KEY_ID_HI)
             return std::nullopt;
 
         const uint8_t address = buf[8];
+        // Destination must be PC (high nibble == 1)
         if ((address >> 4) != ADDR_PC)
             return std::nullopt;
 
+        // Checksum: sum(HCI[3..N-1]) & 0xFF == HCI[N], where HCI[i] = buf[i+2].
+        // i.e. sum(buf[5..hid_length]) & 0xFF == buf[hid_length+1].
         unsigned sum = 0;
         for (size_t i = 5; i <= hid_length; ++i) {
             sum += buf[i];
@@ -407,6 +487,7 @@ protected:
             return std::nullopt;
         }
 
+        // Payload runs from buf[13] up to buf[hid_length] inclusive.
         return ParsedEvent {
             .event_id       = buf[9],
             .event_type     = buf[10],
