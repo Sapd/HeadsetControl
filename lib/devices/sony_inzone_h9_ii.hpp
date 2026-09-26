@@ -99,12 +99,9 @@ public:
         return getSonyMicMuteStatus(device_handle);
     }
 
-    // H9 II microphone volume is the Windows capture endpoint volume (AudioEndpointVolume.MasterVolumeLevelScalar).
-    // Sony EID 0x24 reports headset mic mute state in payload byte 0, so it is exposed as CAP_MICROPHONE_MUTE_STATUS.
-    Result<MicVolumeResult> setMicVolume([[maybe_unused]] hid_device* device_handle, [[maybe_unused]] uint8_t volume) override
-    {
-        return DeviceError::notSupported("H9 II mic volume is a Windows audio endpoint setting, not a HID command");
-    }
+    // No CAP_MICROPHONE_VOLUME: H9 II microphone volume is the Windows capture endpoint volume
+    // (AudioEndpointVolume.MasterVolumeLevelScalar), not a HID command. Sony EID 0x24 reports
+    // headset mic mute state in payload byte 0, so it is exposed as CAP_MICROPHONE_MUTE_STATUS.
 
     // Auto Gain Control uses the Sony APO mic-side DRC pipeline (writing a mic YAML via apoCommunication.MakeMicYamlFile())
 };

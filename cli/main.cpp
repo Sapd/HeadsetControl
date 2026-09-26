@@ -37,8 +37,8 @@
 
 #include <algorithm>
 #include <cassert>
-#include <chrono>
 #include <cctype>
+#include <chrono>
 #include <csignal>
 #include <cstdio>
 #include <cstdlib>
@@ -206,11 +206,11 @@ struct Options {
     std::optional<AncButtonModes> anc_button_modes;
 
     // Info requests
-    bool request_battery    = false;
-    bool request_chatmix    = false;
-    bool request_sidetone   = false;
+    bool request_battery                      = false;
+    bool request_chatmix                      = false;
+    bool request_sidetone                     = false;
     bool request_microphone_attachment_status = false;
-    bool request_microphone_mute_status = false;
+    bool request_microphone_mute_status       = false;
 
     // Complex settings
     std::optional<EqualizerSettings> equalizer;
@@ -930,7 +930,9 @@ namespace help {
             sections.push_back({ "AUDIO", {} });
             sections.back()
                 .add('s', "sidetone", getValueHint(CAP_SIDETONE), "Get current level or set mic feedback (0-128)", CAP_SIDETONE)
-                .add("volume-limiter", getValueHint(CAP_VOLUME_LIMITER), "Enable/disable volume limiter", CAP_VOLUME_LIMITER);
+                .add("volume-limiter", getValueHint(CAP_VOLUME_LIMITER), "Enable/disable volume limiter", CAP_VOLUME_LIMITER)
+                .add("anc", getValueHint(CAP_ANC), "ANC mode (0=off, 1=noise cancelling, 2=ambient sound)", CAP_ANC)
+                .add("anc-button-modes", getValueHint(CAP_ANC_BUTTON_MODES), "ANC modes the headset's ANC button cycles through", CAP_ANC_BUTTON_MODES);
 
             // Equalizer
             sections.push_back({ "EQUALIZER", {} });
@@ -971,9 +973,7 @@ namespace help {
                 .add('i', "inactive-time", getValueHint(CAP_INACTIVE_TIME), "Auto-off after N minutes (0=never)", CAP_INACTIVE_TIME)
                 .add("bt-when-powered-on", getValueHint(CAP_BT_WHEN_POWERED_ON), "Enable Bluetooth at power-on", CAP_BT_WHEN_POWERED_ON)
                 .add("bt-call-volume", getValueHint(CAP_BT_CALL_VOLUME), "Bluetooth call volume", CAP_BT_CALL_VOLUME)
-                .add("anc", getValueHint(CAP_ANC), "ANC mode (0=off, 1=noise cancelling, 2=ambient sound)", CAP_ANC)
-                .add("anc-startup-mode", getValueHint(CAP_ANC_STARTUP_MODE), "ANC mode at power-on (0=off, 1=NC, 2=ambient, 3=mode at power off)", CAP_ANC_STARTUP_MODE)
-                .add("anc-button-modes", "off,anc,ambient", "ANC modes included in headset toggle cycle", CAP_ANC_BUTTON_MODES);
+                .add("anc-startup-mode", getValueHint(CAP_ANC_STARTUP_MODE), "ANC mode at power-on (0=off, 1=NC, 2=ambient, 3=mode at power off)", CAP_ANC_STARTUP_MODE);
 
             // Output - always shown
             sections.push_back({ "OUTPUT", {} });

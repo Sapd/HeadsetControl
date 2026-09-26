@@ -68,13 +68,13 @@ protected:
     static constexpr uint8_t EID_GAME_CHAT_MIX_BALANCE  = 0x22;
     static constexpr uint8_t EID_SIDETONE_VOLUME        = 0x23;
     static constexpr uint8_t EID_MIC_VOLUME             = 0x24;
-    static constexpr uint8_t EID_AMB_SETTING             = 0x41;
-    static constexpr uint8_t EID_NC_TOGGLE_SETTING       = 0x42;
-    static constexpr uint8_t EID_NC_STARTUP_MODE         = 0x43;
-    static constexpr uint8_t EID_AUTO_POWER_OFF_SETTING  = 0x81;
-    static constexpr uint8_t EID_BT_STARTUP_MODE         = 0x63;
-    static constexpr uint8_t EID_GUIDANCE_SETTING        = 0x84;
-    static constexpr uint8_t EID_MIC_ATTACHED_STATUS     = 0x8F;
+    static constexpr uint8_t EID_AMB_SETTING            = 0x41;
+    static constexpr uint8_t EID_NC_TOGGLE_SETTING      = 0x42;
+    static constexpr uint8_t EID_NC_STARTUP_MODE        = 0x43;
+    static constexpr uint8_t EID_AUTO_POWER_OFF_SETTING = 0x81;
+    static constexpr uint8_t EID_BT_STARTUP_MODE        = 0x63;
+    static constexpr uint8_t EID_GUIDANCE_SETTING       = 0x84;
+    static constexpr uint8_t EID_MIC_ATTACHED_STATUS    = 0x8F;
 
     // Device-side ranges. Headphone volume is 0..50 and balance is 0..90 in
     // steps of 10. Sidetone and mic ranges are not yet verified — assumed to
