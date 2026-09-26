@@ -195,6 +195,11 @@ namespace detail {
         return std::get<ParametricEqualizerSettings>(p);
     }
 
+    inline const AncButtonModes& getAncButtonModes(const FeatureParam& p)
+    {
+        return std::get<AncButtonModes>(p);
+    }
+
 } // namespace detail
 
 // ============================================================================
@@ -351,7 +356,7 @@ inline void FeatureHandlerRegistry::registerAllHandlers()
 
     // CAP_ANC
     registerHandler(CAP_ANC, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
-        auto r = dev->setANC(h, getUint8(p));
+        auto r = dev->setAnc(h, getUint8(p));
         if (r.hasError())
             return r.error();
         return FeatureOutput::success(r->mode);
@@ -359,25 +364,23 @@ inline void FeatureHandlerRegistry::registerAllHandlers()
 
     // CAP_ANC_STARTUP_MODE
     registerHandler(CAP_ANC_STARTUP_MODE, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
-        auto r = dev->setANCStartupMode(h, getUint8(p));
+        auto r = dev->setAncStartupMode(h, getUint8(p));
         if (r.hasError())
             return r.error();
         return FeatureOutput::success(r->mode);
     });
 
-    // CAP_ANC_TOGGLE_MODES
-    registerHandler(CAP_ANC_TOGGLE_MODES, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
-        const int modes = getInt(p);
-        auto r = dev->setANCToggleModes(h, (modes & 0x01) != 0, (modes & 0x02) != 0, (modes & 0x04) != 0);
+    // CAP_ANC_BUTTON_MODES
+    registerHandler(CAP_ANC_BUTTON_MODES, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
+        auto r = dev->setAncButtonModes(h, getAncButtonModes(p));
         if (r.hasError())
             return r.error();
-        return FeatureOutput::success(
-            (r->off_enabled ? 0x01 : 0) | (r->anc_enabled ? 0x02 : 0) | (r->ambient_enabled ? 0x04 : 0));
+        return FeatureOutput::success(0);
     });
 
     // CAP_MICROPHONE_ATTACHMENT_STATUS
     registerHandler(CAP_MICROPHONE_ATTACHMENT_STATUS, [](HIDDevice* dev, hid_device* h, const FeatureParam&) -> Result<FeatureOutput> {
-        auto r = dev->getMicAttached(h);
+        auto r = dev->getMicAttachmentStatus(h);
         if (r.hasError())
             return r.error();
         return FeatureOutput::success(r->attached ? 1 : 0, r->attached ? "attached" : "detached");

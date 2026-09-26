@@ -267,13 +267,10 @@ public:
     [[nodiscard]] Result<BluetoothCallVolumeResult> setBluetoothCallVolume(uint8_t volume);
 
     /**
-     * @brief Set ANC modes included in the headset toggle cycle
-     * @param off_enabled Include off mode
-     * @param anc_enabled Include noise cancelling mode
-     * @param ambient_enabled Include ambient sound mode
+     * @brief Set ANC modes the headset's ANC button cycles through
+     * @param modes Modes to include; at least one must be set
      */
-    [[nodiscard]] Result<AncToggleModesResult> setANCToggleModes(
-        bool off_enabled, bool anc_enabled, bool ambient_enabled);
+    [[nodiscard]] Result<AncButtonModesResult> setAncButtonModes(const AncButtonModes& modes);
 
 private:
     friend class HeadsetImpl;

@@ -34,8 +34,8 @@ public:
         return B(CAP_BATTERY_STATUS) | B(CAP_CHATMIX_STATUS)
             | B(CAP_SIDETONE) | B(CAP_INACTIVE_TIME)
             | B(CAP_VOICE_PROMPTS) | B(CAP_BT_WHEN_POWERED_ON)
-            | B(CAP_ANC) | B(CAP_ANC_STARTUP_MODE) | B(CAP_MICROPHONE_ATTACHMENT_STATUS)
-            | B(CAP_MICROPHONE_MUTE_STATUS) | B(CAP_ANC_TOGGLE_MODES);
+            | B(CAP_ANC) | B(CAP_ANC_STARTUP_MODE) | B(CAP_ANC_BUTTON_MODES)
+            | B(CAP_MICROPHONE_ATTACHMENT_STATUS) | B(CAP_MICROPHONE_MUTE_STATUS);
     }
 
     constexpr capability_detail getCapabilityDetail([[maybe_unused]] enum capabilities cap) const override
@@ -73,25 +73,25 @@ public:
         return setSonyBluetoothWhenPoweredOn(device_handle, enabled);
     }
 
-    Result<AncResult> setANC(hid_device* device_handle, uint8_t mode) override
+    Result<AncResult> setAnc(hid_device* device_handle, uint8_t mode) override
     {
-        return setSonyANC(device_handle, mode);
+        return setSonyAnc(device_handle, mode);
     }
 
-    Result<AncStartupModeResult> setANCStartupMode(hid_device* device_handle, uint8_t mode) override
+    Result<AncStartupModeResult> setAncStartupMode(hid_device* device_handle, uint8_t mode) override
     {
-        return setSonyANCStartupMode(device_handle, mode);
+        return setSonyAncStartupMode(device_handle, mode);
     }
 
-    Result<AncToggleModesResult> setANCToggleModes(
-        hid_device* device_handle, bool off_enabled, bool anc_enabled, bool ambient_enabled) override
+    Result<AncButtonModesResult> setAncButtonModes(
+        hid_device* device_handle, const AncButtonModes& modes) override
     {
-        return setSonyANCToggleModes(device_handle, off_enabled, anc_enabled, ambient_enabled);
+        return setSonyAncButtonModes(device_handle, modes);
     }
 
-    Result<MicAttachedResult> getMicAttached(hid_device* device_handle) override
+    Result<MicAttachmentStatusResult> getMicAttachmentStatus(hid_device* device_handle) override
     {
-        return getSonyMicAttached(device_handle);
+        return getSonyMicAttachmentStatus(device_handle);
     }
 
     Result<MicMuteStatusResult> getMicMuteStatus(hid_device* device_handle) override

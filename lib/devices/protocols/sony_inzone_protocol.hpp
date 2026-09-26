@@ -233,7 +233,7 @@ protected:
         return VoicePromptsResult { .enabled = enabled };
     }
 
-    Result<MicAttachedResult> getSonyMicAttached(hid_device* device_handle)
+    Result<MicAttachmentStatusResult> getSonyMicAttachmentStatus(hid_device* device_handle)
     {
         auto resp = exchange(device_handle, ADDR_PC_TO_RX, EID_MIC_ATTACHED_STATUS, ETYPE_GET, {});
         if (!resp) {
@@ -242,7 +242,7 @@ protected:
         if (resp->payload.empty()) {
             return DeviceError::protocolError("MIC_ATTACHED_STATUS payload empty");
         }
-        return MicAttachedResult { .attached = (resp->payload[0] == 0) };
+        return MicAttachmentStatusResult { .attached = (resp->payload[0] == 0) };
     }
 
     Result<MicMuteStatusResult> getSonyMicMuteStatus(hid_device* device_handle)
@@ -261,7 +261,7 @@ protected:
         return MicMuteStatusResult { .muted = (resp->payload[0] == 1) };
     }
 
-    Result<AncStartupModeResult> setSonyANCStartupMode(hid_device* device_handle, uint8_t mode)
+    Result<AncStartupModeResult> setSonyAncStartupMode(hid_device* device_handle, uint8_t mode)
     {
         if (mode > 3) {
             return DeviceError::invalidParameter("ANC startup mode must be 0 (off), 1 (NC), 2 (ambient), or 3 (mode at power off)");
@@ -275,7 +275,7 @@ protected:
         return AncStartupModeResult { .mode = mode };
     }
 
-    Result<AncResult> setSonyANC(hid_device* device_handle, uint8_t mode)
+    Result<AncResult> setSonyAnc(hid_device* device_handle, uint8_t mode)
     {
         if (mode > 2) {
             return DeviceError::invalidParameter("ANC mode must be 0 (off), 1 (ANC), or 2 (ambient sound)");
@@ -290,27 +290,27 @@ protected:
         return AncResult { .mode = mode };
     }
 
-    Result<AncToggleModesResult> setSonyANCToggleModes(
-        hid_device* device_handle, bool off_enabled, bool anc_enabled, bool ambient_enabled)
+    Result<AncButtonModesResult> setSonyAncButtonModes(
+        hid_device* device_handle, const AncButtonModes& modes)
     {
-        if (!off_enabled && !anc_enabled && !ambient_enabled) {
-            return DeviceError::invalidParameter("At least one ANC toggle mode must be enabled");
+        if (!modes.any()) {
+            return DeviceError::invalidParameter("At least one ANC button mode must be enabled");
         }
 
         const std::array<uint8_t, 3> payload {
-            static_cast<uint8_t>(off_enabled ? 1 : 0),
-            static_cast<uint8_t>(anc_enabled ? 1 : 0),
-            static_cast<uint8_t>(ambient_enabled ? 1 : 0),
+            static_cast<uint8_t>(modes.off ? 1 : 0),
+            static_cast<uint8_t>(modes.anc ? 1 : 0),
+            static_cast<uint8_t>(modes.ambient ? 1 : 0),
         };
         auto resp = exchange(device_handle, ADDR_PC_TO_RX, EID_NC_TOGGLE_SETTING, ETYPE_SET,
             std::span<const uint8_t> { payload });
         if (!resp) {
             return resp.error();
         }
-        return AncToggleModesResult {
-            .off_enabled     = off_enabled,
-            .anc_enabled     = anc_enabled,
-            .ambient_enabled = ambient_enabled,
+        return AncButtonModesResult {
+            .off     = modes.off,
+            .anc     = modes.anc,
+            .ambient = modes.ambient,
         };
     }
 

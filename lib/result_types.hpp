@@ -334,18 +334,18 @@ struct AncStartupModeResult {
 };
 
 /**
- * @brief ANC modes included in the headset toggle cycle
+ * @brief ANC modes the headset's ANC button cycles through
  */
-struct AncToggleModesResult {
-    bool off_enabled;
-    bool anc_enabled;
-    bool ambient_enabled;
+struct AncButtonModesResult {
+    bool off;
+    bool anc;
+    bool ambient;
 };
 
 /**
  * @brief Boom mic physical attachment status
  */
-struct MicAttachedResult {
+struct MicAttachmentStatusResult {
     bool attached; // true = boom mic physically connected
 };
 

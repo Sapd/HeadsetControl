@@ -70,7 +70,7 @@ public:
             | B(CAP_MICROPHONE_MUTE_LED_BRIGHTNESS) | B(CAP_MICROPHONE_VOLUME)
             | B(CAP_VOLUME_LIMITER) | B(CAP_BT_WHEN_POWERED_ON) | B(CAP_BT_CALL_VOLUME)
             | B(CAP_NOISE_FILTER) | B(CAP_SIDETONE_STATUS) | B(CAP_ANC) | B(CAP_ANC_STARTUP_MODE)
-            | B(CAP_MICROPHONE_ATTACHMENT_STATUS) | B(CAP_MICROPHONE_MUTE_STATUS) | B(CAP_ANC_TOGGLE_MODES);
+            | B(CAP_ANC_BUTTON_MODES) | B(CAP_MICROPHONE_ATTACHMENT_STATUS) | B(CAP_MICROPHONE_MUTE_STATUS);
     }
 
     std::optional<EqualizerInfo> getEqualizerInfo() const override
@@ -245,7 +245,7 @@ public:
         return NoiseFilterResult { .level = level };
     }
 
-    Result<AncResult> setANC([[maybe_unused]] hid_device* device_handle, uint8_t mode) override
+    Result<AncResult> setAnc([[maybe_unused]] hid_device* device_handle, uint8_t mode) override
     {
         if (test_profile == 1) {
             return DeviceError::hidError("Test error condition");
@@ -254,7 +254,7 @@ public:
         return AncResult { .mode = mode };
     }
 
-    Result<AncStartupModeResult> setANCStartupMode([[maybe_unused]] hid_device* device_handle, uint8_t mode) override
+    Result<AncStartupModeResult> setAncStartupMode([[maybe_unused]] hid_device* device_handle, uint8_t mode) override
     {
         if (test_profile == 1) {
             return DeviceError::hidError("Test error condition");
@@ -263,30 +263,30 @@ public:
         return AncStartupModeResult { .mode = mode };
     }
 
-    Result<AncToggleModesResult> setANCToggleModes(
-        [[maybe_unused]] hid_device* device_handle, bool off_enabled, bool anc_enabled, bool ambient_enabled) override
+    Result<AncButtonModesResult> setAncButtonModes(
+        [[maybe_unused]] hid_device* device_handle, const AncButtonModes& modes) override
     {
         if (test_profile == 1) {
             return DeviceError::hidError("Test error condition");
         }
-        if (!off_enabled && !anc_enabled && !ambient_enabled) {
-            return DeviceError::invalidParameter("At least one ANC toggle mode must be enabled");
+        if (!modes.any()) {
+            return DeviceError::invalidParameter("At least one ANC button mode must be enabled");
         }
 
-        return AncToggleModesResult {
-            .off_enabled     = off_enabled,
-            .anc_enabled     = anc_enabled,
-            .ambient_enabled = ambient_enabled,
+        return AncButtonModesResult {
+            .off     = modes.off,
+            .anc     = modes.anc,
+            .ambient = modes.ambient,
         };
     }
 
-    Result<MicAttachedResult> getMicAttached([[maybe_unused]] hid_device* device_handle) override
+    Result<MicAttachmentStatusResult> getMicAttachmentStatus([[maybe_unused]] hid_device* device_handle) override
     {
         if (test_profile == 1) {
             return DeviceError::hidError("Test error condition");
         }
 
-        return MicAttachedResult { .attached = true };
+        return MicAttachmentStatusResult { .attached = true };
     }
 
     Result<MicMuteStatusResult> getMicMuteStatus([[maybe_unused]] hid_device* device_handle) override

@@ -321,7 +321,7 @@ public:
     /**
      * @brief Set headphone active noise cancellation mode (0=off, 1=ANC, 2=ambient)
      */
-    virtual Result<AncResult> setANC(hid_device* /*device_handle*/, uint8_t /*mode*/)
+    virtual Result<AncResult> setAnc(hid_device* /*device_handle*/, uint8_t /*mode*/)
     {
         return DeviceError::notSupported("Device does not support ANC");
     }
@@ -329,24 +329,24 @@ public:
     /**
      * @brief Set ANC mode used at power-on (0=off, 1=NC, 2=ambient, 3=mode at power off)
      */
-    virtual Result<AncStartupModeResult> setANCStartupMode(hid_device* /*device_handle*/, uint8_t /*mode*/)
+    virtual Result<AncStartupModeResult> setAncStartupMode(hid_device* /*device_handle*/, uint8_t /*mode*/)
     {
         return DeviceError::notSupported("Device does not support ANC startup mode");
     }
 
     /**
-     * @brief Set ANC modes included in the headset toggle cycle
+     * @brief Set ANC modes the headset's ANC button cycles through
      */
-    virtual Result<AncToggleModesResult> setANCToggleModes(
-        hid_device* /*device_handle*/, bool /*off_enabled*/, bool /*anc_enabled*/, bool /*ambient_enabled*/)
+    virtual Result<AncButtonModesResult> setAncButtonModes(
+        hid_device* /*device_handle*/, const AncButtonModes& /*modes*/)
     {
-        return DeviceError::notSupported("Device does not support ANC toggle modes");
+        return DeviceError::notSupported("Device does not support ANC button modes");
     }
 
     /**
      * @brief Query whether the detachable boom mic is physically attached
      */
-    virtual Result<MicAttachedResult> getMicAttached(hid_device* /*device_handle*/)
+    virtual Result<MicAttachmentStatusResult> getMicAttachmentStatus(hid_device* /*device_handle*/)
     {
         return DeviceError::notSupported("Device does not support mic attachment status");
     }
