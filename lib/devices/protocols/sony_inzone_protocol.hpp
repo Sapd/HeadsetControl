@@ -242,7 +242,18 @@ protected:
         if (resp->payload.empty()) {
             return DeviceError::protocolError("MIC_ATTACHED_STATUS payload empty");
         }
-        return MicAttachmentStatusResult { .attached = (resp->payload[0] == 0) };
+
+        // payload[0] is a "removed" flag despite the event name. Observed on an
+        // H9 II: 0x01 with the boom mic unplugged, 0x00 with it plugged in.
+        const uint8_t removed = resp->payload[0];
+        if (removed == 0xFF) {
+            return DeviceError::deviceOffline("Headset offline");
+        }
+        if (removed > 1) {
+            return DeviceError::protocolError(
+                std::format("Invalid mic attachment status: {}", removed));
+        }
+        return MicAttachmentStatusResult { .attached = (removed == 0) };
     }
 
     Result<MicMuteStatusResult> getSonyMicMuteStatus(hid_device* device_handle)
