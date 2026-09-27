@@ -241,6 +241,54 @@ void testLookupJabraLink390()
     std::cout << "    PASS" << std::endl;
 }
 
+void testLookupSonyINZONEH9II()
+{
+    std::cout << "  Testing lookup of Sony INZONE H9 II (0x0fa8)..." << std::endl;
+
+    auto& registry = DeviceRegistry::instance();
+    registry.initialize();
+
+    auto* device = registry.getDevice(0x054c, 0x0fa8);
+    ASSERT_NOT_NULL(device, "Sony INZONE H9 II should be found");
+    ASSERT_EQ("Sony INZONE H9 II", std::string(device->getDeviceName()), "Device name should match");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_BATTERY_STATUS)) != 0, "H9 II should expose battery capability");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_CHATMIX_STATUS)) != 0, "H9 II should expose chatmix capability");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_SIDETONE)) != 0, "H9 II should expose sidetone capability");
+    ASSERT_FALSE((device->getCapabilities() & B(CAP_MICROPHONE_VOLUME)) != 0, "H9 II should not expose direct headset microphone volume");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_MICROPHONE_MUTE_STATUS)) != 0, "H9 II should expose microphone mute status capability");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_ANC_BUTTON_MODES)) != 0, "H9 II should expose ANC button modes capability");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_INACTIVE_TIME)) != 0, "H9 II should expose inactive time capability");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_VOICE_PROMPTS)) != 0, "H9 II should expose voice prompts capability");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_BT_WHEN_POWERED_ON)) != 0, "H9 II should expose Bluetooth power-on capability");
+
+    std::cout << "    OK lookup Sony INZONE H9 II" << std::endl;
+}
+
+void testSonyINZONEInterfaceSelection()
+{
+    std::cout << "  Testing Sony INZONE HID interface selection..." << std::endl;
+
+    auto& registry = DeviceRegistry::instance();
+    registry.initialize();
+
+    // H5: interface_id 0 means "first match" on Linux/macOS; the dongle relies on it.
+    auto* h5 = registry.getDevice(0x054c, 0x0ebf);
+    ASSERT_NOT_NULL(h5, "Sony INZONE H5 should be found");
+    auto h5_detail = h5->getCapabilityDetail(CAP_BATTERY_STATUS);
+    ASSERT_EQ(0xFF04, h5_detail.usagepage, "H5 usage page");
+    ASSERT_EQ(0x0002, h5_detail.usageid, "H5 usage id");
+    ASSERT_EQ(0, h5_detail.interface_id, "H5 must select the first matching interface");
+
+    auto* h9ii = registry.getDevice(0x054c, 0x0fa8);
+    ASSERT_NOT_NULL(h9ii, "Sony INZONE H9 II should be found");
+    auto h9ii_detail = h9ii->getCapabilityDetail(CAP_BATTERY_STATUS);
+    ASSERT_EQ(0xFF04, h9ii_detail.usagepage, "H9 II usage page");
+    ASSERT_EQ(0x0001, h9ii_detail.usageid, "H9 II usage id");
+    ASSERT_EQ(5, h9ii_detail.interface_id, "H9 II control collection is on interface 5");
+
+    std::cout << "    OK Sony INZONE interface selection" << std::endl;
+}
+
 void testLookupPlantronicsBT600()
 {
     std::cout << "  Testing lookup of Plantronics BT600 (0x02ee)..." << std::endl;
@@ -536,6 +584,8 @@ void runAllDeviceRegistryTests()
     std::cout << "\n=== Device Lookup Tests ===" << std::endl;
     runTest("Lookup Test Device", testLookupTestDevice);
     runTest("Lookup Logitech PRO X2 LIGHTSPEED", testLookupLogitechProX2Lightspeed);
+    runTest("Lookup Sony INZONE H9 II", testLookupSonyINZONEH9II);
+    runTest("Sony INZONE Interface Selection", testSonyINZONEInterfaceSelection);
     runTest("Lookup Plantronics BT600", testLookupPlantronicsBT600);
     runTest("Lookup Jabra Link 390", testLookupJabraLink390);
     runTest("Lookup Non-Existent", testLookupNonExistentDevice);

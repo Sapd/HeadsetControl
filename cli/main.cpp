@@ -37,6 +37,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cctype>
 #include <chrono>
 #include <csignal>
 #include <cstdio>
@@ -112,6 +113,56 @@ void eprintln(std::format_string<Args...> fmt, Args&&... args)
     return " ? ";
 }
 
+[[nodiscard]] std::optional<cli::ParseError> parseAncButtonModes(
+    std::optional<std::string_view> arg, AncButtonModes& out)
+{
+    if (!arg || arg->empty()) {
+        return cli::ParseError { "requires one or more modes: off,anc,ambient", "anc-button-modes" };
+    }
+
+    AncButtonModes modes;
+    std::string token;
+    auto consume_token = [&]() -> std::optional<cli::ParseError> {
+        if (token.empty()) {
+            return std::nullopt;
+        }
+
+        if (token == "off") {
+            modes.off = true;
+        } else if (token == "anc") {
+            modes.anc = true;
+        } else if (token == "ambient") {
+            modes.ambient = true;
+        } else {
+            return cli::ParseError { std::format("unknown ANC button mode '{}'", token), "anc-button-modes" };
+        }
+
+        token.clear();
+        return std::nullopt;
+    };
+
+    for (unsigned char c : *arg) {
+        if (c == ',' || std::isspace(c) != 0) {
+            if (auto error = consume_token()) {
+                return error;
+            }
+            continue;
+        }
+        token += static_cast<char>(std::tolower(c));
+    }
+
+    if (auto error = consume_token()) {
+        return error;
+    }
+
+    if (!modes.any()) {
+        return cli::ParseError { "requires at least one ANC button mode", "anc-button-modes" };
+    }
+
+    out = modes;
+    return std::nullopt;
+}
+
 // ============================================================================
 // Command-line options - Clean data structure
 // ============================================================================
@@ -150,11 +201,16 @@ struct Options {
     std::optional<bool> bt_when_powered_on;
     std::optional<uint8_t> bt_call_volume;
     std::optional<uint8_t> noise_filter;
+    std::optional<uint8_t> anc_mode;
+    std::optional<uint8_t> anc_startup_mode;
+    std::optional<AncButtonModes> anc_button_modes;
 
     // Info requests
-    bool request_battery  = false;
-    bool request_chatmix  = false;
-    bool request_sidetone = false;
+    bool request_battery                      = false;
+    bool request_chatmix                      = false;
+    bool request_sidetone                     = false;
+    bool request_microphone_attachment_status = false;
+    bool request_microphone_mute_status       = false;
 
     // Complex settings
     std::optional<EqualizerSettings> equalizer;
@@ -239,6 +295,17 @@ std::optional<cli::ParseError> configureParser(cli::ArgumentParser& parser, Opti
         .toggle('r', "rotate-to-mute", opts.rotate_to_mute_enabled, "Toggle rotate to mute")
         .value('p', "equalizer-preset", opts.equalizer_preset, uint8_t(0), uint8_t(255), "Set equalizer preset", "PRESET")
         .long_value("noise-filter", opts.noise_filter, uint8_t(0), uint8_t(2), "Set microphone noise filter level", "LEVEL")
+        .long_value("anc", opts.anc_mode, uint8_t(0), uint8_t(2), "Set headphone ANC mode (0=off, 1=ANC, 2=ambient)", "MODE")
+        .long_value("anc-startup-mode", opts.anc_startup_mode, uint8_t(0), uint8_t(3), "Set ANC mode at power-on (0=off, 1=NC, 2=ambient, 3=mode at power off)", "MODE")
+        .long_custom("anc-button-modes", cli::ArgRequirement::Required, [&opts](std::optional<std::string_view> arg) -> std::optional<cli::ParseError> {
+                AncButtonModes modes;
+                if (auto error = parseAncButtonModes(arg, modes)) {
+                    return error;
+                }
+                opts.anc_button_modes = modes;
+                return std::nullopt; }, "Set ANC modes the headset button cycles through", "off,anc,ambient")
+        .long_flag("microphone-attachment-status", opts.request_microphone_attachment_status, "Show whether the boom mic is attached")
+        .long_flag("microphone-mute-status", opts.request_microphone_mute_status, "Show whether the microphone is muted")
 
         // === Equalizer (custom parsing) ===
         .custom('e', "equalizer", cli::ArgRequirement::Required, [&opts](std::optional<std::string_view> arg) -> std::optional<cli::ParseError> {
@@ -863,7 +930,9 @@ namespace help {
             sections.push_back({ "AUDIO", {} });
             sections.back()
                 .add('s', "sidetone", getValueHint(CAP_SIDETONE), "Get current level or set mic feedback (0-128)", CAP_SIDETONE)
-                .add("volume-limiter", getValueHint(CAP_VOLUME_LIMITER), "Enable/disable volume limiter", CAP_VOLUME_LIMITER);
+                .add("volume-limiter", getValueHint(CAP_VOLUME_LIMITER), "Enable/disable volume limiter", CAP_VOLUME_LIMITER)
+                .add("anc", getValueHint(CAP_ANC), "ANC mode (0=off, 1=noise cancelling, 2=ambient sound)", CAP_ANC)
+                .add("anc-button-modes", getValueHint(CAP_ANC_BUTTON_MODES), "ANC modes the headset's ANC button cycles through", CAP_ANC_BUTTON_MODES);
 
             // Equalizer
             sections.push_back({ "EQUALIZER", {} });
@@ -887,7 +956,9 @@ namespace help {
                 .add('r', "rotate-to-mute", getValueHint(CAP_ROTATE_TO_MUTE), "Mute when boom arm raised", CAP_ROTATE_TO_MUTE)
                 .add("microphone-mute-led-brightness", getValueHint(CAP_MICROPHONE_MUTE_LED_BRIGHTNESS), "Mute LED brightness", CAP_MICROPHONE_MUTE_LED_BRIGHTNESS)
                 .add("microphone-volume", getValueHint(CAP_MICROPHONE_VOLUME), "Microphone gain level", CAP_MICROPHONE_VOLUME)
-                .add("noise-filter", getValueHint(CAP_NOISE_FILTER), "Microphone noise filter level (0=off, 1=low, 2=high)", CAP_NOISE_FILTER);
+                .add("noise-filter", getValueHint(CAP_NOISE_FILTER), "Microphone noise filter level (0=off, 1=low, 2=high)", CAP_NOISE_FILTER)
+                .add("microphone-attachment-status", "", "Show whether the boom mic is physically attached", CAP_MICROPHONE_ATTACHMENT_STATUS)
+                .add("microphone-mute-status", "", "Show whether the microphone is muted", CAP_MICROPHONE_MUTE_STATUS);
 
             // Lights & Audio Cues - value hints from capability descriptors
             sections.push_back({ "LIGHTS & AUDIO CUES", {} });
@@ -901,7 +972,8 @@ namespace help {
             sections.back()
                 .add('i', "inactive-time", getValueHint(CAP_INACTIVE_TIME), "Auto-off after N minutes (0=never)", CAP_INACTIVE_TIME)
                 .add("bt-when-powered-on", getValueHint(CAP_BT_WHEN_POWERED_ON), "Enable Bluetooth at power-on", CAP_BT_WHEN_POWERED_ON)
-                .add("bt-call-volume", getValueHint(CAP_BT_CALL_VOLUME), "Bluetooth call volume", CAP_BT_CALL_VOLUME);
+                .add("bt-call-volume", getValueHint(CAP_BT_CALL_VOLUME), "Bluetooth call volume", CAP_BT_CALL_VOLUME)
+                .add("anc-startup-mode", getValueHint(CAP_ANC_STARTUP_MODE), "ANC mode at power-on (0=off, 1=NC, 2=ambient, 3=mode at power off)", CAP_ANC_STARTUP_MODE);
 
             // Output - always shown
             sections.push_back({ "OUTPUT", {} });
@@ -984,10 +1056,13 @@ struct FeatureParamStorage {
     int battery_req          = 0;
     int chatmix_req          = 0;
     int noise_filter_val     = 0;
+    int anc_mode_val         = 0;
+    int anc_startup_mode_val = 0;
 
     // Store copies of complex settings to avoid const_cast
     EqualizerSettings equalizer_settings;
     ParametricEqualizerSettings parametric_eq_settings;
+    AncButtonModes anc_button_modes;
 
     void updateFrom(const Options& opts)
     {
@@ -1017,6 +1092,12 @@ struct FeatureParamStorage {
             bt_call_vol_val = *opts.bt_call_volume;
         if (opts.noise_filter.has_value())
             noise_filter_val = *opts.noise_filter;
+        if (opts.anc_mode.has_value())
+            anc_mode_val = *opts.anc_mode;
+        if (opts.anc_startup_mode.has_value())
+            anc_startup_mode_val = *opts.anc_startup_mode;
+        if (opts.anc_button_modes.has_value())
+            anc_button_modes = *opts.anc_button_modes;
         battery_req = opts.request_battery ? 1 : 0;
         chatmix_req = opts.request_chatmix ? 1 : 0;
 
@@ -1055,7 +1136,12 @@ void initializeFeatureRequests(std::vector<DiscoveredDevice>& devices, const Opt
         { CAP_VOLUME_LIMITER, CAPABILITYTYPE_ACTION, g_feature_params.volume_limiter_val, opts.volume_limiter_enabled.has_value(), {} },
         { CAP_BT_WHEN_POWERED_ON, CAPABILITYTYPE_ACTION, g_feature_params.bt_power_val, opts.bt_when_powered_on.has_value(), {} },
         { CAP_BT_CALL_VOLUME, CAPABILITYTYPE_ACTION, g_feature_params.bt_call_vol_val, opts.bt_call_volume.has_value(), {} },
-        { CAP_NOISE_FILTER, CAPABILITYTYPE_ACTION, g_feature_params.noise_filter_val, opts.noise_filter.has_value(), {} }
+        { CAP_NOISE_FILTER, CAPABILITYTYPE_ACTION, g_feature_params.noise_filter_val, opts.noise_filter.has_value(), {} },
+        { CAP_ANC, CAPABILITYTYPE_ACTION, g_feature_params.anc_mode_val, opts.anc_mode.has_value(), {} },
+        { CAP_ANC_STARTUP_MODE, CAPABILITYTYPE_ACTION, g_feature_params.anc_startup_mode_val, opts.anc_startup_mode.has_value(), {} },
+        { CAP_ANC_BUTTON_MODES, CAPABILITYTYPE_ACTION, opts.anc_button_modes.has_value() ? FeatureParam { g_feature_params.anc_button_modes } : FeatureParam { std::monostate {} }, opts.anc_button_modes.has_value(), {} },
+        { CAP_MICROPHONE_ATTACHMENT_STATUS, CAPABILITYTYPE_INFO, std::monostate {}, opts.request_microphone_attachment_status, {} },
+        { CAP_MICROPHONE_MUTE_STATUS, CAPABILITYTYPE_INFO, std::monostate {}, opts.request_microphone_mute_status, {} }
     };
 
     for (auto& dev : devices) {
