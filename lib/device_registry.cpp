@@ -51,6 +51,9 @@
 // Lenovo devices
 #include "devices/lenovo_wireless_voip.hpp"
 
+// Razer devices
+#include "devices/razer_kraken_v4.hpp"
+
 // Plantronics / Poly devices
 #include "devices/plantronics_bt600.hpp"
 
@@ -156,6 +159,9 @@ void DeviceRegistry::initialize()
 
         // Lenovo devices
         registerDevice(std::make_unique<LenovoWirelessVoip>());
+
+        // Razer devices
+        registerDevice(std::make_unique<RazerKrakenV4>());
 
         // Plantronics / Poly devices
         registerDevice(std::make_unique<PlantronicsBT600>());

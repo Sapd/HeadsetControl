@@ -189,6 +189,7 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 | Audeze Maxwell | All | x | x |   |   | x | x | x |   | x |   |   |   |   | x |   |   | x |   |
 | Audeze Maxwell 2 | All | x | x |   |   | x | x | x |   | x |   |   |   |   |   |   |   | x |   |
 | Lenovo Wireless VoIP Headset | All | x | x |   |   | x |   | x | x | x |   |   | x |   | x |   |   |   |   |
+| Razer Kraken V4 (2.4 GHz receiver) | Linux |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | Plantronics Voyager 8200 UC (BT600) | L/W | x | x |   | x |   |   | x |   |   |   |   |   |   | x |   |   |   |   |
 | Jabra Link 390 (paired headset) | L/M | x | x |   | x | x |   | x |   |   |   |   |   |   | x |   |   |   | x |
 | Jabra Evolve2 65 Flex (USB) | L/M | x | x |   | x | x |   | x |   |   |   |   |   |   | x |   |   |   | x |
