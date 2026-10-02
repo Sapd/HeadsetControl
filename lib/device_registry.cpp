@@ -7,6 +7,7 @@
 
 // Logitech devices
 #include "devices/logitech_astro_a50.hpp"
+#include "devices/logitech_astro_a50_gen4.hpp"
 
 // Logitech devices with HIDPPDevice protocol template
 #include "devices/logitech_g432.hpp"
@@ -107,6 +108,7 @@ void DeviceRegistry::initialize()
         // Each device is managed by a unique_ptr for automatic cleanup
 
         // Logitech devices
+        registerDevice(std::make_unique<LogitechAstroA50Gen4>());
         registerDevice(std::make_unique<LogitechAstroA50>());
 
         // Logitech devices (using HIDPPDevice protocol template)
