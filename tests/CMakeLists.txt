@@ -15,6 +15,7 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/test_library_api.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/test_protocols.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/test_steelseries_sidetone.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/test_hyperx_cloud_alpha_2_wireless.cpp
 )
 
 # Export to parent scope
