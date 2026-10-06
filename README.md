@@ -181,7 +181,7 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 | SteelSeries Arctis Nova 3P Wireless | All | x | x |   |   | x |   |   |   | x | x | x |   | x |   |   |   |   |   |
 | SteelSeries Arctis GameBuds | All |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | HyperX Cloud Alpha Wireless | All | x | x |   |   | x |   | x |   |   |   |   |   |   |   |   |   |   |   |
-| HyperX Cloud Alpha 2 Wireless | All |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
+| HyperX Cloud Alpha 2 Wireless | All | x | x |   |   |   | x |   |   | x |   |   |   |   |   |   |   |   | x |
 | HyperX Cloud Flight Wireless | All |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | HyperX Cloud II Wireless | All |   | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | HyperX Cloud II Wireless (Kingston) | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |
