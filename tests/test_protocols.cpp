@@ -10,6 +10,8 @@
  */
 
 #include "device.hpp"
+#include "devices/audeze_maxwell.hpp"
+#include "devices/audeze_maxwell2.hpp"
 #include "devices/corsair_device.hpp"
 #include "devices/logitech_astro_a50_gen4.hpp"
 #include "devices/logitech_gpro_x2_lightspeed.hpp"
@@ -22,6 +24,7 @@
 #include "utility.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <deque>
 #include <initializer_list>
@@ -1332,6 +1335,556 @@ void testAstroA50Gen4TimeoutRecovery()
 // Test Runner
 // ============================================================================
 
+// ============================================================================
+// Audeze Maxwell Tests
+// ============================================================================
+
+/**
+ * @brief Serves queued input reports; once the queue is empty the dongle has nothing
+ * new and answers with a zero-length report.
+ */
+class MaxwellScriptedHID : public ScriptedHIDInterface {
+public:
+    /// Number of requests that get no reply before the queue is served
+    size_t silent_writes = 0;
+
+    [[nodiscard]] auto getInputReport(hid_device* /*device_handle*/, std::span<uint8_t> data)
+        -> Result<size_t> override
+    {
+        std::vector<uint8_t> report { 0x07, 0x00, 0x80 };
+
+        // An empty queued reply leaves the current request unanswered
+        if (!replies.empty() && replies.front() && replies.front()->empty()) {
+            if (unanswered_write_ == 0) {
+                unanswered_write_ = writes.size();
+            }
+            if (writes.size() > unanswered_write_) {
+                replies.pop_front();
+                unanswered_write_ = 0;
+            }
+        }
+
+        if (!replies.empty() && unanswered_write_ == 0 && writes.size() >= silent_writes + 1) {
+            auto reply = std::move(replies.front());
+            replies.pop_front();
+            if (!reply) {
+                return reply.error();
+            }
+            report = std::move(*reply);
+        }
+        report.resize(data.size(), 0);
+        std::copy(report.begin(), report.end(), data.begin());
+        return data.size();
+    }
+
+private:
+    size_t unanswered_write_ = 0;
+};
+
+class TestableAudezeMaxwell : public AudezeMaxwell {
+public:
+    mutable MaxwellScriptedHID hid;
+
+    TestableAudezeMaxwell()
+    {
+        response_timeout_     = std::chrono::milliseconds(20);
+        poll_interval_        = std::chrono::milliseconds(0);
+        eq_timeout_           = std::chrono::milliseconds(20);
+        eq_fragment_interval_ = std::chrono::milliseconds(0);
+    }
+
+    [[nodiscard]] auto getHIDInterface() const -> HIDInterface& override { return hid; }
+};
+
+/// Build an input report: 07 LEN 80 FRAGMENT..., followed by leftover bytes as on the real dongle
+static std::vector<uint8_t> maxwellReport(std::initializer_list<uint8_t> fragment)
+{
+    std::vector<uint8_t> report { 0x07, static_cast<uint8_t>(fragment.size()), 0x80 };
+    report.insert(report.end(), fragment.begin(), fragment.end());
+    // Stale battery result, as seen after the valid bytes in the capture
+    for (uint8_t stale : { 0x05, 0x5D, 0x05, 0x00, 0xD6, 0x0C, 0x00, 0x00, 0x3E }) {
+        report.push_back(stale);
+    }
+    report.resize(AudezeMaxwell::MSG_SIZE, 0);
+    return report;
+}
+
+static std::vector<uint8_t> maxwellWritePrefix(const std::vector<uint8_t>& write, size_t count)
+{
+    return { write.begin(), write.begin() + std::min(count, write.size()) };
+}
+
+void testAudezeMaxwellFraming()
+{
+    std::cout << "  Testing Audeze Maxwell framing..." << std::endl;
+
+    std::array<uint8_t, 4> body { 0x01, 0x09, 0x22, 0x00 };
+    auto message = AudezeMaxwell::buildMessage(AudezeMaxwell::TYPE_REQUEST, body);
+    auto reports = AudezeMaxwell::buildReports(message);
+    ASSERT_EQ(1, static_cast<int>(reports.size()), "Short message should fit one report");
+
+    std::vector<uint8_t> expected { 0x06, 0x08, 0x80, 0x05, 0x5A, 0x04, 0x00, 0x01, 0x09, 0x22, 0x00 };
+    expected.resize(AudezeMaxwell::MSG_SIZE, 0);
+    ASSERT_TRUE(std::equal(expected.begin(), expected.end(), reports[0].begin()), "Mic mute read should match the captured report");
+
+    // A long message is split into 59-byte fragments
+    std::vector<uint8_t> long_body(100, 0xAA);
+    auto long_reports = AudezeMaxwell::buildReports(AudezeMaxwell::buildMessage(AudezeMaxwell::TYPE_REQUEST, long_body));
+    ASSERT_EQ(2, static_cast<int>(long_reports.size()), "104 bytes should need two reports");
+    ASSERT_EQ(59, static_cast<int>(long_reports[0][1]), "First fragment should be full");
+    ASSERT_EQ(45, static_cast<int>(long_reports[1][1]), "Second fragment should hold the rest");
+    ASSERT_EQ(100, static_cast<int>(long_reports[0][5]), "Body length should be little endian");
+
+    // A zero-length report carries nothing, whatever follows the header
+    auto stale = maxwellReport({});
+    ASSERT_TRUE(AudezeMaxwell::reportFragment(stale).empty(), "Zero-length report should yield no bytes");
+
+    // Two messages in one fragment, then garbage and an incomplete message
+    std::vector<uint8_t> stream { 0x05, 0x5B, 0x03, 0x00, 0xD6, 0x0C, 0x00, 0x05, 0x5D, 0x05, 0x00, 0xD6, 0x0C, 0x00, 0x00, 0x3E, 0xFF, 0x05, 0x5B, 0x06 };
+    ASSERT_EQ(7, static_cast<int>(AudezeMaxwell::extractMessage(stream).size()), "Acknowledgement should be 7 bytes");
+    ASSERT_EQ(9, static_cast<int>(AudezeMaxwell::extractMessage(stream).size()), "Result should be 9 bytes");
+    ASSERT_TRUE(AudezeMaxwell::extractMessage(stream).empty(), "Incomplete message should not be returned");
+    ASSERT_EQ(3, static_cast<int>(stream.size()), "Garbage should be dropped, the partial message kept");
+
+    std::cout << "    [OK] Audeze Maxwell framing verified" << std::endl;
+}
+
+void testAudezeMaxwellBattery()
+{
+    std::cout << "  Testing Audeze Maxwell battery..." << std::endl;
+
+    TestableAudezeMaxwell device;
+    // Capture frames 117-122: an empty report with stale bytes, then acknowledgement and result together
+    device.hid.replies.emplace_back(maxwellReport({}));
+    device.hid.replies.emplace_back(maxwellReport({ 0x05, 0x5B, 0x03, 0x00, 0xD6, 0x0C, 0x00, 0x05, 0x5D, 0x05, 0x00, 0xD6, 0x0C, 0x00, 0x00, 0x3E }));
+    device.hid.replies.emplace_back(maxwellReport({ 0x05, 0x5B, 0x06, 0x00, 0x01, 0x09, 0x22, 0x00, 0x00, 0x00 }));
+
+    auto battery = device.getBattery(nullptr);
+    ASSERT_TRUE(battery.hasValue(), "Battery should be read");
+    ASSERT_EQ(62, battery->level_percent, "Battery should be 62%");
+    ASSERT_EQ(static_cast<int>(BATTERY_AVAILABLE), static_cast<int>(battery->status), "Battery should be available");
+    ASSERT_EQ(static_cast<int>(MICROPHONE_UP), static_cast<int>(battery->mic_status), "Muted microphone should be reported");
+
+    ASSERT_EQ(2, static_cast<int>(device.hid.writes.size()), "Battery and mic mute requests only");
+    ASSERT_TRUE((maxwellWritePrefix(device.hid.writes[0], 10) == std::vector<uint8_t> { 0x06, 0x07, 0x80, 0x05, 0x5A, 0x03, 0x00, 0xD6, 0x0C, 0x00 }), "Battery request should match the capture");
+
+    // Stale battery bytes behind a zero length must never be taken as a reading
+    TestableAudezeMaxwell offline;
+    auto unavailable = offline.getBattery(nullptr);
+    ASSERT_TRUE(unavailable.hasValue(), "A silent headset is not an error");
+    ASSERT_EQ(static_cast<int>(BATTERY_UNAVAILABLE), static_cast<int>(unavailable->status), "Battery should be unavailable");
+    ASSERT_EQ(-1, unavailable->level_percent, "No level without a reply");
+
+    // Unmuted microphone, acknowledgement and result in separate reports
+    TestableAudezeMaxwell unmuted;
+    unmuted.hid.replies.emplace_back(maxwellReport({ 0x05, 0x5B, 0x03, 0x00, 0xD6, 0x0C, 0x00 }));
+    unmuted.hid.replies.emplace_back(maxwellReport({ 0x05, 0x5D, 0x05, 0x00, 0xD6, 0x0C, 0x00, 0x00, 0x64 }));
+    unmuted.hid.replies.emplace_back(maxwellReport({ 0x05, 0x5B, 0x06, 0x00, 0x01, 0x09, 0x22, 0x00, 0x00, 0xFF }));
+    auto full = unmuted.getBattery(nullptr);
+    ASSERT_TRUE(full.hasValue(), "Battery should be read");
+    ASSERT_EQ(100, full->level_percent, "Battery should be 100%");
+    ASSERT_EQ(static_cast<int>(MICROPHONE_UNKNOWN), static_cast<int>(full->mic_status), "Unmuted microphone is not reported as up");
+
+    // Another program took the acknowledgement: the result alone is enough
+    TestableAudezeMaxwell shared;
+    shared.hid.replies.emplace_back(maxwellReport({ 0x05, 0x5D, 0x05, 0x00, 0xD6, 0x0C, 0x00, 0x00, 0x3D, 0x05, 0x5B, 0x06, 0x00, 0x01, 0x09, 0x24, 0x00, 0x00, 0x00 }));
+    shared.hid.replies.emplace_back(maxwellReport({ 0x05, 0x5B, 0x06, 0x00, 0x01, 0x09, 0x22, 0x00, 0x00, 0xFF }));
+    auto without_ack = shared.getBattery(nullptr);
+    ASSERT_TRUE(without_ack.hasValue(), "Battery should be read");
+    ASSERT_EQ(61, without_ack->level_percent, "Battery should be 61%");
+
+    // Another program took the whole reply: the request is repeated
+    TestableAudezeMaxwell retried;
+    retried.hid.silent_writes = 2;
+    retried.hid.replies.emplace_back(maxwellReport({ 0x05, 0x5B, 0x03, 0x00, 0xD6, 0x0C, 0x00, 0x05, 0x5D, 0x05, 0x00, 0xD6, 0x0C, 0x00, 0x00, 0x3E }));
+    retried.hid.replies.emplace_back(maxwellReport({ 0x05, 0x5B, 0x06, 0x00, 0x01, 0x09, 0x22, 0x00, 0x00, 0xFF }));
+    auto after_retry = retried.getBattery(nullptr);
+    ASSERT_TRUE(after_retry.hasValue(), "Battery should be read");
+    ASSERT_EQ(62, after_retry->level_percent, "Battery should be read on the third attempt");
+    ASSERT_EQ(4, static_cast<int>(retried.hid.writes.size()), "Three battery requests and the mic mute request");
+
+    // A failed acknowledgement means no reading
+    TestableAudezeMaxwell refused;
+    refused.hid.replies.emplace_back(maxwellReport({ 0x05, 0x5B, 0x03, 0x00, 0xD6, 0x0C, 0x01 }));
+    auto no_reading = refused.getBattery(nullptr);
+    ASSERT_TRUE(no_reading.hasValue(), "A refused battery request is not an error");
+    ASSERT_EQ(static_cast<int>(BATTERY_UNAVAILABLE), static_cast<int>(no_reading->status), "Battery should be unavailable");
+    ASSERT_EQ(1, static_cast<int>(refused.hid.writes.size()), "A refused request is not repeated");
+
+    std::cout << "    [OK] Audeze Maxwell battery verified" << std::endl;
+}
+
+void testAudezeMaxwellReplyMatching()
+{
+    std::cout << "  Testing Audeze Maxwell reply matching..." << std::endl;
+
+    // Replies to other commands and a notification are queued ahead of the chatmix reply,
+    // which itself is split over two reports
+    TestableAudezeMaxwell device;
+    device.hid.replies.emplace_back(maxwellReport({ 0x05, 0x5B, 0x06, 0x00, 0x01, 0x09, 0x24, 0x00, 0x00, 0x02, 0x05, 0x5C, 0x03, 0x00, 0x80, 0x2C, 0x03 }));
+    device.hid.replies.emplace_back(maxwellReport({ 0x05, 0x5B, 0x06, 0x00, 0x83, 0x2C, 0x00, 0x07, 0x00, 0x01 }));
+    device.hid.replies.emplace_back(maxwellReport({ 0x05, 0x5B, 0x06, 0x00, 0x83, 0x2C }));
+    device.hid.replies.emplace_back(maxwellReport({}));
+    device.hid.replies.emplace_back(maxwellReport({ 0x00, 0x0B, 0x00, 0x0A }));
+
+    auto chatmix = device.getChatmix(nullptr);
+    ASSERT_TRUE(chatmix.hasValue(), "Chatmix should be read");
+    ASSERT_EQ(64, chatmix->level, "Raw 10 of 20 is the center");
+    ASSERT_EQ(100, chatmix->game_volume_percent, "Game volume at center");
+    ASSERT_EQ(100, chatmix->chat_volume_percent, "Chat volume at center");
+    ASSERT_TRUE((maxwellWritePrefix(device.hid.writes[0], 11) == std::vector<uint8_t> { 0x06, 0x08, 0x80, 0x05, 0x5A, 0x04, 0x00, 0x83, 0x2C, 0x0B, 0x00 }), "Chatmix request should match the capture");
+
+    // No matching reply is a timeout, not a value read from another command's reply
+    TestableAudezeMaxwell silent;
+    silent.hid.replies.emplace_back(maxwellReport({ 0x05, 0x5B, 0x06, 0x00, 0x01, 0x09, 0x24, 0x00, 0x00, 0x02 }));
+    auto missing = silent.getChatmix(nullptr);
+    ASSERT_TRUE(missing.hasError(), "Chatmix without a reply should fail");
+    ASSERT_TRUE(missing.error().code == DeviceError::Code::Timeout, "Failure should be a timeout");
+
+    // Non-zero status
+    TestableAudezeMaxwell rejected;
+    rejected.hid.replies.emplace_back(maxwellReport({ 0x05, 0x5B, 0x06, 0x00, 0x83, 0x2C, 0x01, 0x0B, 0x00, 0x0A }));
+    auto error = rejected.getChatmix(nullptr);
+    ASSERT_TRUE(error.hasError(), "Rejected read should fail");
+    ASSERT_TRUE(error.error().code == DeviceError::Code::ProtocolError, "Failure should be a protocol error");
+
+    std::cout << "    [OK] Audeze Maxwell reply matching verified" << std::endl;
+}
+
+void testAudezeMaxwellSidetone()
+{
+    std::cout << "  Testing Audeze Maxwell sidetone..." << std::endl;
+
+    // Capture: level 9 while sidetone is switched off
+    TestableAudezeMaxwell device;
+    device.hid.replies.emplace_back(maxwellReport({ 0x05, 0x5B, 0x06, 0x00, 0x01, 0x09, 0x2C, 0x00, 0x00, 0x09 }));
+    device.hid.replies.emplace_back(maxwellReport({ 0x05, 0x5B, 0x06, 0x00, 0x83, 0x2C, 0x00, 0x07, 0x00, 0x00 }));
+    device.hid.replies.emplace_back(maxwellReport({ 0x05, 0x5B, 0x06, 0x00, 0x01, 0x09, 0x2D, 0x00, 0x00, 0x1F }));
+
+    auto off = device.getSidetone(nullptr);
+    ASSERT_TRUE(off.hasValue(), "Sidetone should be read");
+    ASSERT_TRUE(off->is_muted, "Disabled sidetone should be muted");
+    ASSERT_EQ(0, static_cast<int>(off->current_level), "Disabled sidetone reports level 0");
+    ASSERT_EQ(9, static_cast<int>(off->device_level), "Stored level should be kept");
+    ASSERT_EQ(31, static_cast<int>(off->device_max), "Maximum should come from the headset");
+
+    const std::vector<uint8_t> max_reply   = maxwellReport({ 0x05, 0x5B, 0x06, 0x00, 0x01, 0x09, 0x2D, 0x00, 0x00, 0x0F });
+    const std::vector<uint8_t> level_ack   = maxwellReport({ 0x05, 0x5B, 0x05, 0x00, 0x00, 0x09, 0x2C, 0x00, 0x00 });
+    const std::vector<uint8_t> toggle_ack  = maxwellReport({ 0x05, 0x5B, 0x05, 0x00, 0x82, 0x2C, 0x00, 0x07, 0x00 });
+    const std::vector<uint8_t> state_on    = maxwellReport({ 0x05, 0x5B, 0x06, 0x00, 0x83, 0x2C, 0x00, 0x07, 0x00, 0x01 });
+    const std::vector<uint8_t> state_off   = maxwellReport({ 0x05, 0x5B, 0x06, 0x00, 0x83, 0x2C, 0x00, 0x07, 0x00, 0x00 });
+    const std::vector<uint8_t> level_write = { 0x06, 0x09, 0x80, 0x05, 0x5A, 0x05, 0x00, 0x00, 0x09, 0x2C, 0x00, 0x0F };
+    const std::vector<uint8_t> toggle      = { 0x06, 0x09, 0x80, 0x05, 0x5A, 0x05, 0x00, 0x82, 0x2C, 0x07, 0x00 };
+
+    // Writing the level switches sidetone on, so the state is only checked, not written
+    TestableAudezeMaxwell setter;
+    setter.hid.replies.emplace_back(max_reply);
+    setter.hid.replies.emplace_back(level_ack);
+    setter.hid.replies.emplace_back(state_on);
+
+    auto set = setter.setSidetone(nullptr, 128);
+    ASSERT_TRUE(set.hasValue(), "Sidetone should be set");
+    ASSERT_EQ(15, static_cast<int>(set->device_level), "128 should map to the maximum the headset reported");
+    ASSERT_EQ(3, static_cast<int>(setter.hid.writes.size()), "Maximum query, level and state query");
+    ASSERT_TRUE(maxwellWritePrefix(setter.hid.writes[1], 12) == level_write, "Level write");
+    ASSERT_TRUE(maxwellWritePrefix(setter.hid.writes[2], 9) != maxwellWritePrefix(toggle, 9), "An enabled sidetone must not be toggled");
+
+    // Still off after the level write: toggled once and read back
+    TestableAudezeMaxwell still_off;
+    for (const auto& reply : { max_reply, level_ack, state_off, toggle_ack, state_on }) {
+        still_off.hid.replies.emplace_back(reply);
+    }
+    ASSERT_TRUE(still_off.setSidetone(nullptr, 128).hasValue(), "Sidetone should be switched on");
+    ASSERT_EQ(5, static_cast<int>(still_off.hid.writes.size()), "Maximum, level, state, toggle, state");
+    ASSERT_TRUE(maxwellWritePrefix(still_off.hid.writes[3], 11) == toggle, "Toggle");
+
+    // Level 0 switches an enabled sidetone off and keeps the stored level
+    TestableAudezeMaxwell disable;
+    for (const auto& reply : { max_reply, state_on, toggle_ack, state_off }) {
+        disable.hid.replies.emplace_back(reply);
+    }
+    auto disabled = disable.setSidetone(nullptr, 0);
+    ASSERT_TRUE(disabled.hasValue(), "Sidetone should be switched off");
+    ASSERT_TRUE(disabled->is_muted, "Level 0 is muted");
+    ASSERT_EQ(4, static_cast<int>(disable.hid.writes.size()), "Maximum, state, toggle, state");
+    ASSERT_TRUE(maxwellWritePrefix(disable.hid.writes[2], 11) == toggle, "Toggle");
+    for (const auto& write : disable.hid.writes) {
+        ASSERT_TRUE(maxwellWritePrefix(write, 10) != maxwellWritePrefix(level_write, 10), "The stored level must not be overwritten");
+    }
+
+    // Level 0 while it is already off must not toggle it back on
+    TestableAudezeMaxwell already_off;
+    already_off.hid.replies.emplace_back(max_reply);
+    already_off.hid.replies.emplace_back(state_off);
+    ASSERT_TRUE(already_off.setSidetone(nullptr, 0).hasValue(), "Sidetone should stay off");
+    ASSERT_EQ(2, static_cast<int>(already_off.hid.writes.size()), "Maximum and state query only");
+
+    // A lost toggle acknowledgement must not repeat the toggle: that would undo it
+    TestableAudezeMaxwell lost_ack;
+    lost_ack.hid.replies.emplace_back(max_reply);
+    lost_ack.hid.replies.emplace_back(state_on);
+    lost_ack.hid.replies.emplace_back(std::vector<uint8_t> {});
+    lost_ack.hid.replies.emplace_back(state_off);
+    ASSERT_TRUE(lost_ack.setSidetone(nullptr, 0).hasValue(), "The read back state decides");
+    ASSERT_EQ(4, static_cast<int>(lost_ack.hid.writes.size()), "The toggle is sent once");
+
+    // A headset that never changes state is an error
+    TestableAudezeMaxwell stuck;
+    for (const auto& reply : { max_reply, state_on, toggle_ack, state_on, toggle_ack, state_on }) {
+        stuck.hid.replies.emplace_back(reply);
+    }
+    ASSERT_TRUE(stuck.setSidetone(nullptr, 0).hasError(), "A state that does not change should fail");
+
+    // A setter without acknowledgement fails
+    TestableAudezeMaxwell unacknowledged;
+    auto failed = unacknowledged.setNoiseFilter(nullptr, 1);
+    ASSERT_TRUE(failed.hasError(), "Missing acknowledgement should fail");
+
+    std::cout << "    [OK] Audeze Maxwell sidetone verified" << std::endl;
+}
+
+void testAudezeMaxwellInactiveTime()
+{
+    std::cout << "  Testing Audeze Maxwell inactive time..." << std::endl;
+
+    const std::vector<uint8_t> ack = maxwellReport({ 0x05, 0x5B, 0x05, 0x00, 0x82, 0x2C, 0x00, 0x01, 0x00 });
+
+    // 4 minutes rounds up to 5 minutes = 300 s = 0x012C
+    TestableAudezeMaxwell device;
+    device.hid.replies.emplace_back(ack);
+    ASSERT_TRUE(device.setInactiveTime(nullptr, 4).hasValue(), "Inactive time should be set");
+    ASSERT_TRUE((maxwellWritePrefix(device.hid.writes[0], 19) == std::vector<uint8_t> { 0x06, 0x10, 0x80, 0x05, 0x5A, 0x0C, 0x00, 0x82, 0x2C, 0x01, 0x00, 0x01, 0x00, 0x2C, 0x01, 0x01, 0x00, 0x2C, 0x01 }), "Five minute request should match the documented bytes");
+
+    // 0 disables it
+    device.hid.replies.emplace_back(ack);
+    ASSERT_TRUE(device.setInactiveTime(nullptr, 0).hasValue(), "Inactive time should be disabled");
+    ASSERT_TRUE((maxwellWritePrefix(device.hid.writes[1], 19) == std::vector<uint8_t> { 0x06, 0x10, 0x80, 0x05, 0x5A, 0x0C, 0x00, 0x82, 0x2C, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }), "Disable request");
+
+    // Above 240 minutes the longest setting is used: 360 minutes = 21600 s = 0x5460
+    device.hid.replies.emplace_back(ack);
+    ASSERT_TRUE(device.setInactiveTime(nullptr, 250).hasValue(), "Inactive time should be set");
+    ASSERT_EQ(0x60, static_cast<int>(device.hid.writes[2][13]), "Seconds low byte");
+    ASSERT_EQ(0x54, static_cast<int>(device.hid.writes[2][14]), "Seconds high byte");
+
+    // A rejected write is an error
+    device.hid.replies.emplace_back(maxwellReport({ 0x05, 0x5B, 0x05, 0x00, 0x82, 0x2C, 0x01, 0x01, 0x00 }));
+    ASSERT_TRUE(device.setInactiveTime(nullptr, 30).hasError(), "Non-zero status should fail");
+
+    std::cout << "    [OK] Audeze Maxwell inactive time verified" << std::endl;
+}
+
+static std::vector<uint8_t> maxwellEqTemplate()
+{
+    std::vector<uint8_t> ui(AudezeMaxwell::EQ_SETTINGS_SIZE, 0);
+    ui[0] = 1;
+    ui[1] = 0xA5; // Uninterpreted header and band fields must survive an edit.
+    for (size_t i = 0; i < AudezeMaxwell::EQ_FREQUENCIES.size(); ++i) {
+        const size_t base = 5 + 18 * i;
+        ui[base]          = static_cast<uint8_t>(i);
+        ui[base + 1]      = 0x01;
+        ui[base + 14]     = 0x5A;
+        for (size_t byte = 0; byte < 4; ++byte) {
+            const auto value     = static_cast<uint32_t>(AudezeMaxwell::EQ_FREQUENCIES[i] * 100);
+            ui[base + 2 + byte]  = static_cast<uint8_t>(value >> (8 * byte));
+            ui[base + 10 + byte] = static_cast<uint8_t>(value >> (8 * byte));
+        }
+    }
+    return ui;
+}
+
+static void queueMaxwellMessage(TestableAudezeMaxwell& device, const std::vector<uint8_t>& body)
+{
+    auto reports = AudezeMaxwell::buildReports(AudezeMaxwell::buildMessage(AudezeMaxwell::TYPE_RESPONSE, body));
+    for (auto& report : reports) {
+        report[0] = AudezeMaxwell::REPORT_ID_IN;
+        device.hid.replies.emplace_back(std::vector<uint8_t>(report.begin(), report.end()));
+    }
+}
+
+static void queueMaxwellEqSlot(TestableAudezeMaxwell& device, uint8_t slot, const std::vector<uint8_t>& ui)
+{
+    std::vector<uint8_t> body { 0x0C, 0x0A, 0, slot, 0xEF, static_cast<uint8_t>(ui.size()), 0 };
+    body.insert(body.end(), ui.begin(), ui.end());
+    queueMaxwellMessage(device, body);
+}
+
+void testAudezeMaxwellEqCoefficients()
+{
+    const std::vector<AudezeMaxwell::EqBand> bands { { 125, -3, 100 }, { 1000, 6, 700 }, { 8000, -12, 5000 } };
+    // Independent golden outputs from installed AirohaPeqLibrary.dll.
+    const std::array<std::string_view, 4> goldens {
+        "0300906b0022829c00d2735d00a49a8500724c770095ff7f00ffc8800065797e008b1881003fd97d00d1ff7f00ff2fd100d71c60000cdddd001a6b2300ee94030062",
+        "0300906b0022d29b005e855e00b812850021fa7700d8ff7f00ffb78000d1997e001701810044067e002cff7f00ffa4c700dd6c61008b70d600ed3c26004b9c03008a",
+        "0300906b00225b9800604064000d89820091907b0035ff7f00ff638000343c7f002e8b80006deb7e00bdff7f00ffa09c00a20d6c006a5baf00f58e3f0076ec0300ae",
+        "0300906b002207980075d364002d4f820099ea7b00e2ff7f00ff5b8000124c7f000c8080000b027f0019ff7f00ff329900fb686d008f7eab00872843005ef8030072"
+    };
+    const std::array<int, 4> rates { 44100, 48000, 88200, 96000 };
+    for (size_t i = 0; i < rates.size(); ++i) {
+        auto bytes = AudezeMaxwell::eqCoefficientsForRate(bands, rates[i]);
+        ASSERT_TRUE(bytes.hasValue(), "Coefficient generation succeeds");
+        std::string hex;
+        for (auto byte : *bytes) {
+            hex += std::format("{:02x}", byte);
+        }
+        ASSERT_TRUE(hex == goldens[i], "Portable coefficients match independent DLL output");
+    }
+    auto ui     = maxwellEqTemplate();
+    auto parsed = AudezeMaxwell::readEqBands(ui);
+    ASSERT_TRUE(parsed.hasValue(), "Ten band template parses");
+    auto payload = AudezeMaxwell::eqCoefficients(*parsed);
+    ASSERT_TRUE(payload.hasValue(), "Four sample-rate payload builds");
+    ASSERT_EQ(844u, payload->size(), "Ten-band coefficient payload length");
+    ASSERT_EQ(4, static_cast<int>((*payload)[0]), "Four sample rates");
+    for (size_t i = 0; i < 4; ++i) {
+        ASSERT_EQ((std::array<int, 4> { 1, 2, 5, 6 })[i], static_cast<int>((*payload)[4 + 210 * i]), "Sample-rate ID");
+        ASSERT_EQ(103, static_cast<int>((*payload)[6 + 210 * i]), "Word count includes bands and gain");
+    }
+    ui.pop_back();
+    ASSERT_TRUE(AudezeMaxwell::readEqBands(ui).hasError(), "Reject truncated settings");
+    ui     = maxwellEqTemplate();
+    ui[17] = 0xFF;
+    ASSERT_TRUE(AudezeMaxwell::readEqBands(ui).hasError(), "Reject invalid bandwidth");
+    ASSERT_TRUE(AudezeMaxwell::eqCoefficientsForRate(bands, 32000).hasError(), "Reject unsupported sample rate");
+    auto invalid    = bands;
+    invalid[0].gain = std::numeric_limits<double>::quiet_NaN();
+    ASSERT_TRUE(AudezeMaxwell::eqCoefficients(invalid).hasError(), "Reject nonfinite coefficients");
+}
+
+void testAudezeMaxwellCustomEq()
+{
+    for (uint8_t slot = 0; slot < 4; ++slot) {
+        TestableAudezeMaxwell device;
+        auto original = maxwellEqTemplate();
+        auto expected = original;
+        EqualizerSettings settings(std::vector<float>(10, 0));
+        settings.bands[1] = -3;
+        const auto gain   = static_cast<uint32_t>(int32_t(-300));
+        for (size_t byte = 0; byte < 4; ++byte) {
+            expected[5 + 18 + 6 + byte] = static_cast<uint8_t>(gain >> (8 * byte));
+        }
+        queueMaxwellMessage(device, { 0x01, 0x09, 0x00, 0x00, 0x00, static_cast<uint8_t>(slot + 7) });
+        queueMaxwellEqSlot(device, slot, original);
+        queueMaxwellMessage(device, { 0x03, 0x0E, 0 });
+        queueMaxwellMessage(device, { 0x03, 0x0A, 1 });
+        // Wrong slot acknowledgement is ignored.
+        queueMaxwellMessage(device, { 0x0D, 0x0A, 0, static_cast<uint8_t>(slot + 1), 0xEF });
+        queueMaxwellMessage(device, { 0x0D, 0x0A, 0, slot, 0xEF });
+        queueMaxwellMessage(device, { 0x03, 0x0A, 1 });
+        queueMaxwellMessage(device, { 0x0D, 0x0A, 0, static_cast<uint8_t>(0x2C + slot), 0xE4 });
+        queueMaxwellEqSlot(device, slot, expected);
+        auto expected_bands = AudezeMaxwell::readEqBands(expected);
+        auto coefficients   = AudezeMaxwell::eqCoefficients(*expected_bands);
+        std::vector<uint8_t> coefficient_reply { 0x0C, 0x0A, 0, static_cast<uint8_t>(0x2C + slot), 0xE4, 0x4C, 3 };
+        coefficient_reply.insert(coefficient_reply.end(), coefficients->begin(), coefficients->end());
+        queueMaxwellMessage(device, coefficient_reply);
+        ASSERT_TRUE(device.setEqualizer(nullptr, settings).hasValue(), "Custom EQ is saved and verified");
+
+        std::vector<uint8_t> stream;
+        std::vector<AudezeMaxwell::Message> messages;
+        for (const auto& write : device.hid.writes) {
+            ASSERT_EQ(62u, write.size(), "EQ report size");
+            ASSERT_EQ(0x80, static_cast<int>(write[2]), "Headset route");
+            const auto fragment = AudezeMaxwell::reportFragment(write);
+            stream.insert(stream.end(), fragment.begin(), fragment.end());
+            for (auto message = AudezeMaxwell::extractMessage(stream); !message.empty(); message = AudezeMaxwell::extractMessage(stream)) {
+                messages.push_back(std::move(message));
+            }
+        }
+        ASSERT_TRUE(stream.empty(), "No incomplete output message");
+        ASSERT_EQ(9u, messages.size(), "Preset query, slot read, five update commands and two readbacks");
+        ASSERT_EQ(40u, device.hid.writes.size(), "Fragmented EQ report count");
+        ASSERT_EQ(851u, messages[2].size(), "Realtime coefficient message");
+        ASSERT_TRUE((messages[3] == std::vector<uint8_t> { 5, 0x5A, 4, 0, 3, 0x0A, 185, 0 }), "Prepare UI byte count, not key");
+        ASSERT_TRUE(std::equal(expected.begin(), expected.end(), messages[4].begin() + 8), "Only requested gains change in stored UI data");
+        ASSERT_TRUE((messages[5] == std::vector<uint8_t> { 5, 0x5A, 4, 0, 3, 0x0A, 0x4C, 3 }), "Prepare coefficient byte count");
+        ASSERT_EQ(0x2C + slot, static_cast<int>(messages[6][6]), "Correct coefficient slot");
+        ASSERT_TRUE(std::equal(messages[2].begin() + 7, messages[2].end(), messages[6].begin() + 8), "Applied and saved coefficients are identical");
+    }
+    AudezeMaxwell2 other_model;
+    ASSERT_TRUE(!(other_model.getCapabilities() & B(CAP_EQUALIZER)), "Original EQ must not be advertised for Maxwell 2");
+    ASSERT_TRUE(other_model.setEqualizer(nullptr, EqualizerSettings {}).hasError(), "Maxwell 2 does not inherit the writer");
+}
+
+void testAudezeMaxwellEqFailures()
+{
+    const EqualizerSettings flat(std::vector<float>(10, 0));
+    for (float value : { -13.0f, 13.0f, 0.5f, std::numeric_limits<float>::infinity(), std::numeric_limits<float>::quiet_NaN() }) {
+        TestableAudezeMaxwell device;
+        auto invalid     = flat;
+        invalid.bands[0] = value;
+        ASSERT_TRUE(device.setEqualizer(nullptr, invalid).hasError(), "Reject invalid gains");
+        ASSERT_TRUE(device.hid.writes.empty(), "Validate before any USB traffic");
+    }
+    TestableAudezeMaxwell wrong_count;
+    ASSERT_TRUE(wrong_count.setEqualizer(nullptr, EqualizerSettings {}).hasError(), "Reject wrong band count");
+    ASSERT_TRUE(wrong_count.hid.writes.empty(), "Wrong count sends nothing");
+    TestableAudezeMaxwell builtin;
+    queueMaxwellMessage(builtin, { 1, 9, 0, 0, 0, 1 });
+    ASSERT_TRUE(builtin.setEqualizer(nullptr, flat).hasError(), "Never overwrite an unspecified custom slot");
+    ASSERT_EQ(1u, builtin.hid.writes.size(), "Built-in preset only queried");
+    // Stop on failure at every update stage; never retransmit NV writes.
+    const std::array<std::vector<uint8_t>, 5> acknowledgements {
+        std::vector<uint8_t> { 3, 0x0E, 0 }, { 3, 0x0A, 0 }, { 0x0D, 0x0A, 0, 0, 0xEF },
+        { 3, 0x0A, 0 }, { 0x0D, 0x0A, 0, 0x2C, 0xE4 }
+    };
+    const std::array<size_t, 5> write_counts { 17, 18, 22, 23, 38 };
+    for (size_t stage = 0; stage < acknowledgements.size(); ++stage) {
+        for (bool timeout : { false, true }) {
+            TestableAudezeMaxwell device;
+            queueMaxwellMessage(device, { 1, 9, 0, 0, 0, 7 });
+            queueMaxwellEqSlot(device, 0, maxwellEqTemplate());
+            for (size_t i = 0; i < stage; ++i) {
+                queueMaxwellMessage(device, acknowledgements[i]);
+            }
+            if (!timeout) {
+                auto refused = acknowledgements[stage];
+                if (stage == 1 || stage == 3) {
+                    refused.pop_back(); // Reclaim's byte 6 is not a status.
+                } else {
+                    refused[2] = 1;
+                }
+                queueMaxwellMessage(device, refused);
+            }
+            auto result = device.setEqualizer(nullptr, flat);
+            ASSERT_TRUE(result.hasError(), "Missing or rejected ACK fails");
+            ASSERT_EQ(write_counts[stage], device.hid.writes.size(), "No retry or later write after a failure");
+        }
+    }
+    TestableAudezeMaxwell malformed;
+    queueMaxwellMessage(malformed, { 1, 9, 0, 0, 0, 7 });
+    queueMaxwellEqSlot(malformed, 0, std::vector<uint8_t>(10, 0));
+    ASSERT_TRUE(malformed.setEqualizer(nullptr, flat).hasError(), "Malformed slot is rejected before writes");
+    ASSERT_EQ(2u, malformed.hid.writes.size(), "Only queries before malformed slot failure");
+
+    TestableAudezeMaxwell readback;
+    queueMaxwellMessage(readback, { 1, 9, 0, 0, 0, 7 });
+    queueMaxwellEqSlot(readback, 0, maxwellEqTemplate());
+    for (const auto& ack : acknowledgements) {
+        queueMaxwellMessage(readback, ack);
+    }
+    auto wrong_ui = maxwellEqTemplate();
+    wrong_ui[0] ^= 1;
+    queueMaxwellEqSlot(readback, 0, wrong_ui);
+    ASSERT_TRUE(readback.setEqualizer(nullptr, flat).hasError(), "Readback mismatch must not report success");
+
+    TestableAudezeMaxwell coefficient_readback;
+    queueMaxwellMessage(coefficient_readback, { 1, 9, 0, 0, 0, 7 });
+    const auto original = maxwellEqTemplate();
+    queueMaxwellEqSlot(coefficient_readback, 0, original);
+    for (const auto& ack : acknowledgements) {
+        queueMaxwellMessage(coefficient_readback, ack);
+    }
+    queueMaxwellEqSlot(coefficient_readback, 0, original);
+    auto bands        = AudezeMaxwell::readEqBands(original);
+    auto coefficients = AudezeMaxwell::eqCoefficients(*bands);
+    std::vector<uint8_t> reply { 0x0C, 0x0A, 0, 0x2C, 0xE4, 0x4C, 3 };
+    reply.insert(reply.end(), coefficients->begin(), coefficients->end());
+    reply.back() ^= 1;
+    queueMaxwellMessage(coefficient_readback, reply);
+    ASSERT_TRUE(coefficient_readback.setEqualizer(nullptr, flat).hasError(), "Coefficient mismatch must not report success");
+    ASSERT_EQ(40u, coefficient_readback.hid.writes.size(), "Coefficient readback failure does not retry writes");
+}
+
 void runAllProtocolTests()
 {
     std::cout << "\n============================================" << std::endl;
@@ -1387,6 +1940,16 @@ void runAllProtocolTests()
     runTest("Logitech PRO X2 Equalizer Info Cache", testLogitechProX2EqualizerInfoRequiresDescriptor);
     runTest("Logitech PRO X2 EQ Quantization", testLogitechProX2OnboardEqCoefficientQuantization);
     runTest("Logitech PRO X2 Onboard EQ Payload", testLogitechProX2OnboardEqPayloadBuilding);
+
+    std::cout << "\n=== Audeze Maxwell Protocol ===" << std::endl;
+    runTest("Audeze Maxwell Framing", testAudezeMaxwellFraming);
+    runTest("Audeze Maxwell Battery", testAudezeMaxwellBattery);
+    runTest("Audeze Maxwell Reply Matching", testAudezeMaxwellReplyMatching);
+    runTest("Audeze Maxwell Sidetone", testAudezeMaxwellSidetone);
+    runTest("Audeze Maxwell Inactive Time", testAudezeMaxwellInactiveTime);
+    runTest("Audeze Maxwell EQ Coefficients", testAudezeMaxwellEqCoefficients);
+    runTest("Audeze Maxwell Custom EQ", testAudezeMaxwellCustomEq);
+    runTest("Audeze Maxwell EQ Failures", testAudezeMaxwellEqFailures);
 
     std::cout << "\n=== Plantronics Protocol ===" << std::endl;
     runTest("Plantronics BT600 Battery Parsing", testPlantronicsBT600BatteryParsing);
