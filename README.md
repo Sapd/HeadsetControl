@@ -187,8 +187,8 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 | HyperX Cloud 3 | All | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | ROCCAT Elo 7.1 Air | All |   |   |   | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | ROCCAT Elo 7.1 USB | All |   |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
-| Audeze Maxwell | All | x | x |   |   | x | x | x |   | x |   |   |   |   | x |   |   | x |   |
-| Audeze Maxwell 2 | All | x | x |   |   | x | x | x |   | x |   |   |   |   |   |   |   | x |   |
+| Audeze Maxwell | All | x | x |   |   | x | x | x |   | x | x |   |   |   | x |   |   | x | x |
+| Audeze Maxwell 2 | All | x | x |   |   | x | x | x |   | x |   |   |   |   |   |   |   | x | x |
 | Lenovo Wireless VoIP Headset | All | x | x |   |   | x |   | x | x | x |   |   | x |   | x |   |   |   |   |
 | Plantronics Voyager 8200 UC (BT600) | L/W | x | x |   | x |   |   | x |   |   |   |   |   |   | x |   |   |   |   |
 | Jabra Link 390 (paired headset) | L/M | x | x |   | x | x |   | x |   |   |   |   |   |   | x |   |   |   | x |
