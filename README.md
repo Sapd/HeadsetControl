@@ -200,8 +200,6 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 
 **Platform:** All = Linux, macOS, Windows | L/M = Linux and macOS only | L/W = Linux and Windows only
 
-Original Audeze Maxwell custom EQ edits the selected custom preset (`-p 6` through `-p 9`), with ten whole-dB gains from -12 to +12. Close Audeze before use.
-
 \* Only available on some product variants of that device. Sidetone status reading, for instance, is verified only for the SteelSeries Arctis Nova 7 Gen 2 (`1038:227e`).
 
 > **Note:** Some Corsair headsets may need additional configuration - see [Adding a Corsair device](docs/ADDING_A_CORSAIR_DEVICE.md). Some headsets (HS80, HS70 wired, RGB Elite, Virtuoso) expose sidetone via ALSA mixer instead.
