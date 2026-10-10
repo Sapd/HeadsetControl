@@ -1662,6 +1662,153 @@ void testG522SettingsWire()
     std::cout << "    [OK] Logitech G522 settings on the wire verified" << std::endl;
 }
 
+static std::vector<uint8_t> hexBytes(std::string_view hex)
+{
+    std::vector<uint8_t> bytes;
+    std::istringstream stream { std::string(hex) };
+    std::string token;
+    while (stream >> token) {
+        bytes.push_back(static_cast<uint8_t>(std::stoi(token, nullptr, 16)));
+    }
+    return bytes;
+}
+
+// Equalizer parameters captured from G HUB for each built-in preset (bytes after "0f 2d").
+static constexpr std::array<std::string_view, 5> G522_EQ_PRESET_CAPTURES {
+    "00 00 00 00 14 16 00 78 00 32 16 00 78 00 7d 16 00 78 00 fa 16 00 78 01 f4 16 00 78 03 e8 16 00 78 09 c4 16 00 78 13 88 16 00 78 27 10 16 00 78 4e 20 16 00 78",
+    "00 00 00 00 14 16 00 b4 00 32 16 00 aa 00 7d 16 00 9b 00 fa 20 00 8c 01 f4 16 00 78 03 e8 16 00 78 09 c4 16 00 78 13 88 16 00 78 27 10 16 00 78 4e 20 16 00 78",
+    "00 00 00 00 14 16 00 78 00 32 16 00 78 00 fa 16 00 82 01 90 16 00 82 03 20 16 00 87 05 dc 16 00 8c 09 c4 16 00 91 13 88 16 00 96 27 10 16 00 9b 4a 38 16 00 af",
+    "00 00 00 00 14 16 00 78 00 32 16 00 78 00 7d 16 00 78 01 90 16 00 64 03 20 16 00 64 04 e2 40 00 c3 09 c4 20 00 d2 13 88 16 00 9b 27 10 16 00 96 4a 38 16 00 96",
+    "00 00 00 00 14 16 00 c8 00 32 16 00 b4 00 7d 16 00 a0 00 fa 16 00 6e 01 f4 16 00 6e 03 e8 16 00 8c 09 c4 16 00 a0 13 88 16 00 96 27 10 16 00 82 4e 20 16 00 6e",
+};
+
+// Offset of band 6 (1 kHz in the Default preset) inside the parameters: 3 header bytes + 5 bands.
+static constexpr size_t G522_EQ_BAND6 = 3 + 5 * 5;
+
+void testG522EqualizerEncoding()
+{
+    std::cout << "  Testing Logitech G522 equalizer encoding..." << std::endl;
+
+    using Dev = LogitechG522Lightspeed;
+
+    for (size_t i = 0; i < Dev::EQ_PRESETS_COUNT; ++i) {
+        auto params = Dev::buildEqParams(*Dev::EQ_PRESETS[i]);
+        ASSERT_EQ(Dev::EQ_PARAMS_SIZE, params.size(), "Equalizer parameters are 53 bytes");
+        ASSERT_TRUE(params == hexBytes(G522_EQ_PRESET_CAPTURES[i]),
+            std::string("Preset must match the G HUB capture: ") + std::string(Dev::EQ_PRESET_NAMES[i]));
+    }
+
+    // Single changes at 1 kHz, captured from G HUB's custom equalizer.
+    auto oneBand = [](float gain_db, float q_factor, uint16_t frequency) {
+        auto bands  = Dev::EQ_PRESET_DEFAULT;
+        bands[5]    = { frequency, gain_db, q_factor };
+        auto params = Dev::buildEqParams(bands);
+        return std::vector<uint8_t>(params.begin() + G522_EQ_BAND6, params.begin() + G522_EQ_BAND6 + 5);
+    };
+    ASSERT_TRUE((oneBand(3.0f, Dev::EQ_DEFAULT_Q, 1000) == std::vector<uint8_t> { 0x03, 0xe8, 0x16, 0x00, 0xb4 }), "+3 dB");
+    ASSERT_TRUE((oneBand(-3.0f, Dev::EQ_DEFAULT_Q, 1000) == std::vector<uint8_t> { 0x03, 0xe8, 0x16, 0x00, 0x3c }), "-3 dB");
+    ASSERT_TRUE((oneBand(6.0f, Dev::EQ_DEFAULT_Q, 1000) == std::vector<uint8_t> { 0x03, 0xe8, 0x16, 0x00, 0xf0 }), "+6 dB");
+    ASSERT_TRUE((oneBand(-6.0f, Dev::EQ_DEFAULT_Q, 1000) == std::vector<uint8_t> { 0x03, 0xe8, 0x16, 0x00, 0x00 }), "-6 dB");
+    ASSERT_TRUE((oneBand(0.0f, 1.0f, 1000) == std::vector<uint8_t> { 0x03, 0xe8, 0x20, 0x00, 0x78 }), "Q 1.0");
+    ASSERT_TRUE((oneBand(0.0f, 1.0f, 1200) == std::vector<uint8_t> { 0x04, 0xb0, 0x20, 0x00, 0x78 }), "1200 Hz");
+    ASSERT_TRUE((oneBand(0.0f, 0.688f, 1000) == std::vector<uint8_t> { 0x03, 0xe8, 0x16, 0x00, 0x78 }), "G HUB's Q 0.688");
+
+    // The headset stores 0.05 dB steps.
+    ASSERT_EQ(0x78, static_cast<int>(oneBand(0.01f, Dev::EQ_DEFAULT_Q, 1000)[4]), "0.01 dB rounds to 0");
+    ASSERT_EQ(0x79, static_cast<int>(oneBand(0.03f, Dev::EQ_DEFAULT_Q, 1000)[4]), "0.03 dB rounds to 0.05");
+
+    std::cout << "    [OK] Logitech G522 equalizer encoding verified" << std::endl;
+}
+
+void testG522EqualizerCommands()
+{
+    std::cout << "  Testing Logitech G522 equalizer commands..." << std::endl;
+
+    using Dev         = LogitechG522Lightspeed;
+    const auto prefix = std::span<const uint8_t>(Dev::FRAME_PREFIX);
+    const std::vector<uint8_t> eq_header { 0x50, 0x23, 0x3d, 0x00, 0x03, 0x11, 0x00, 0x38, 0x00, 0x0f, 0x21 };
+
+    auto writtenParams = [](const std::vector<uint8_t>& frame) {
+        return std::vector<uint8_t>(frame.begin() + 11, frame.end());
+    };
+    auto writtenHeader = [](const std::vector<uint8_t>& frame) {
+        return std::vector<uint8_t>(frame.begin(), frame.begin() + 11);
+    };
+
+    {
+        TestableG522 dev;
+        queueG522Lookup(dev.hid, 0x0f); // playback EQ 0x020d
+        queueBridgeReply(dev.hid, prefix, 0x0f, {});
+        auto preset = dev.setEqualizerPreset(nullptr, 1);
+        ASSERT_TRUE(preset.hasValue(), "Bass Boost preset should succeed");
+        ASSERT_EQ(5, static_cast<int>(preset->total_presets), "Five presets");
+        ASSERT_TRUE(writtenHeader(dev.hid.writes.back()) == eq_header, "Equalizer write header (single 64-byte frame)");
+        ASSERT_TRUE(writtenParams(dev.hid.writes.back()) == hexBytes(G522_EQ_PRESET_CAPTURES[1]), "Bass Boost on the wire");
+
+        ASSERT_TRUE(dev.setEqualizerPreset(nullptr, 5).hasError(), "Preset 5 does not exist");
+        ASSERT_EQ(G522_LOOKUP_WRITES + 1, dev.hid.writes.size(), "Invalid preset sends nothing");
+    }
+    {
+        TestableG522 dev;
+        queueG522Lookup(dev.hid, 0x0f);
+        queueBridgeReply(dev.hid, prefix, 0x0f, {});
+        EqualizerSettings custom { { 0, 0, 0, 0, 0, 3.0f, 0, 0, 0, 0 } };
+        ASSERT_TRUE(dev.setEqualizer(nullptr, custom).hasValue(), "10 gains should succeed");
+        auto expected               = hexBytes(G522_EQ_PRESET_CAPTURES[0]);
+        expected[G522_EQ_BAND6 + 4] = 0xb4;
+        ASSERT_TRUE(writtenParams(dev.hid.writes.back()) == expected, "Custom gains use the Default frequencies and Q");
+
+        const size_t writes = dev.hid.writes.size();
+        ASSERT_TRUE(dev.setEqualizer(nullptr, EqualizerSettings { { 0, 0, 0 } }).hasError(), "Wrong band count is rejected");
+        ASSERT_TRUE(dev.setEqualizer(nullptr, EqualizerSettings { { 0, 0, 0, 0, 0, 6.5f, 0, 0, 0, 0 } }).hasError(),
+            "Gain above +6 dB is rejected");
+        ASSERT_TRUE(dev.setEqualizer(nullptr, EqualizerSettings { { 0, 0, 0, 0, 0, std::numeric_limits<float>::quiet_NaN(), 0, 0, 0, 0 } }).hasError(),
+            "NaN gain is rejected");
+        ASSERT_EQ(writes, dev.hid.writes.size(), "Rejected settings send nothing");
+    }
+    {
+        TestableG522 dev;
+        queueG522Lookup(dev.hid, 0x0f);
+        queueBridgeReply(dev.hid, prefix, 0x0f, {});
+        ASSERT_TRUE(dev.setParametricEqualizer(nullptr, ParametricEqualizerSettings {}).hasValue(), "Reset should succeed");
+        ASSERT_TRUE(writtenParams(dev.hid.writes.back()) == hexBytes(G522_EQ_PRESET_CAPTURES[0]), "Reset restores Default");
+
+        // Band 6 moved to 1200 Hz with Q 1.0, as in the eq-freq-1200 capture.
+        queueBridgeReply(dev.hid, prefix, 0x0f, {});
+        ParametricEqualizerSettings moved;
+        for (const auto& band : Dev::EQ_PRESET_DEFAULT) {
+            moved.bands.push_back({ static_cast<float>(band.frequency), band.gain_db, band.q_factor, EqualizerFilterType::Peaking });
+        }
+        moved.bands[5] = { 1200.0f, 0.0f, 1.0f, EqualizerFilterType::Peaking };
+        ASSERT_TRUE(dev.setParametricEqualizer(nullptr, moved).hasValue(), "10 parametric bands should succeed");
+        auto expected               = hexBytes(G522_EQ_PRESET_CAPTURES[0]);
+        expected[G522_EQ_BAND6 + 0] = 0x04;
+        expected[G522_EQ_BAND6 + 1] = 0xb0;
+        expected[G522_EQ_BAND6 + 2] = 0x20;
+        ASSERT_TRUE(writtenParams(dev.hid.writes.back()) == expected, "Parametric band matches the eq-freq-1200 capture");
+
+        queueBridgeReply(dev.hid, prefix, 0x0f, {});
+        ParametricEqualizerSettings limits { { { 20.0f, -6.0f, 0.031f, EqualizerFilterType::Peaking },
+            { 20000.0f, 6.0f, 7.969f, EqualizerFilterType::Peaking } } };
+        ASSERT_TRUE(dev.setParametricEqualizer(nullptr, limits).hasValue(), "G HUB's displayed limits are accepted");
+
+        const size_t writes = dev.hid.writes.size();
+        auto rejects        = [&](ParametricEqualizerBand band, const char* msg) {
+            ASSERT_TRUE(dev.setParametricEqualizer(nullptr, ParametricEqualizerSettings { { band } }).hasError(), msg);
+        };
+        rejects({ 1000.0f, 0.0f, 1.0f, EqualizerFilterType::LowShelf }, "Only peaking bands are supported");
+        rejects({ 15.0f, 0.0f, 1.0f, EqualizerFilterType::Peaking }, "Frequency below 20 Hz is rejected");
+        rejects({ 1000.0f, -6.5f, 1.0f, EqualizerFilterType::Peaking }, "Gain below -6 dB is rejected");
+        rejects({ 1000.0f, 0.0f, 8.1f, EqualizerFilterType::Peaking }, "Q above 7.969 is rejected");
+        rejects({ 1000.0f, 0.0f, 0.01f, EqualizerFilterType::Peaking }, "Q below 0.031 is rejected");
+        ASSERT_TRUE(dev.setParametricEqualizer(nullptr, ParametricEqualizerSettings { std::vector<ParametricEqualizerBand>(11) }).hasError(),
+            "More than 10 bands is rejected");
+        ASSERT_EQ(writes, dev.hid.writes.size(), "Rejected settings send nothing");
+    }
+
+    std::cout << "    [OK] Logitech G522 equalizer commands verified" << std::endl;
+}
+
 void testCenturionProX2DefaultOptionsUnchanged()
 {
     std::cout << "  Testing Logitech PRO X2 traffic with default Centurion options..." << std::endl;
@@ -1763,6 +1910,8 @@ void runAllProtocolTests()
     runTest("Logitech G522 Offline Detection", testCenturionG522Offline);
     runTest("Logitech G522 Sidetone And Auto-Sleep Parsing", testG522SidetoneAndAutoSleepParsing);
     runTest("Logitech G522 Settings Wire", testG522SettingsWire);
+    runTest("Logitech G522 Equalizer Encoding", testG522EqualizerEncoding);
+    runTest("Logitech G522 Equalizer Commands", testG522EqualizerCommands);
     runTest("Logitech PRO X2 Default Centurion Options", testCenturionProX2DefaultOptionsUnchanged);
     runTest("Logitech PRO X2 Equalizer Info Cache", testLogitechProX2EqualizerInfoRequiresDescriptor);
     runTest("Logitech PRO X2 EQ Quantization", testLogitechProX2OnboardEqCoefficientQuantization);
