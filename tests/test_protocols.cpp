@@ -1384,12 +1384,13 @@ static void queueCenturionDiscovery(ScriptedHIDInterface& hid, std::span<const u
 
 static constexpr size_t CENTURION_DISCOVERY_WRITES = 11;
 
-/// Queue G522 lookup replies: Root.getFeature finds the bridge (index 3), then battery (0x0104) at index 2.
-static void queueG522Lookup(ScriptedHIDInterface& hid)
+/// Queue G522 lookup replies: Root.getFeature finds the bridge (index 3), then the requested
+/// feature at feature_index (battery 0x0104 at index 2 by default).
+static void queueG522Lookup(ScriptedHIDInterface& hid, uint8_t feature_index = 0x02)
 {
     const auto prefix = std::span<const uint8_t>(LogitechG522Lightspeed::FRAME_PREFIX);
     hid.replies.push_back(centurionFrame(prefix, { 0x00, 0x01, 0x03, 0x00, 0x01 })); // Root.getFeature(bridge) -> 3
-    queueBridgeReply(hid, prefix, 0x00, { 0x02, 0x00, 0x03 }); // sub Root.getFeature(battery) -> 2
+    queueBridgeReply(hid, prefix, 0x00, { feature_index, 0x00, 0x03 }); // sub Root.getFeature(id) -> feature_index
 }
 
 static constexpr size_t G522_LOOKUP_WRITES = 2;
@@ -1552,6 +1553,115 @@ void testCenturionG522Offline()
     std::cout << "    [OK] Logitech G522 offline detection verified" << std::endl;
 }
 
+void testG522SidetoneAndAutoSleepParsing()
+{
+    std::cout << "  Testing Logitech G522 sidetone and auto-sleep parsing..." << std::endl;
+
+    // Captured sidetone reads after -s 0, -s 64 and -s 128.
+    auto off = LogitechG522Lightspeed::parseSidetoneResponse(std::array<uint8_t, 4> { 0x01, 0x01, 0x00, 0x00 });
+    ASSERT_TRUE(off.hasValue(), "Sidetone 0 should parse");
+    ASSERT_EQ(0, static_cast<int>(off->current_level), "Step 0 reads as 0");
+    ASSERT_TRUE(off->is_muted, "Step 0 is muted");
+
+    auto mid = LogitechG522Lightspeed::parseSidetoneResponse(std::array<uint8_t, 4> { 0x01, 0x01, 0x39, 0x04 });
+    ASSERT_TRUE(mid.hasValue(), "Sidetone 64 should parse");
+    ASSERT_EQ(4, static_cast<int>(mid->device_level), "-s 64 is stored as step 4");
+    ASSERT_EQ(56, static_cast<int>(mid->current_level), "Step 4 reads back as 56");
+    ASSERT_TRUE(!mid->is_muted, "Step 4 is not muted");
+
+    auto max = LogitechG522Lightspeed::parseSidetoneResponse(std::array<uint8_t, 4> { 0x01, 0x01, 0x48, 0x09 });
+    ASSERT_TRUE(max.hasValue(), "Sidetone 128 should parse");
+    ASSERT_EQ(128, static_cast<int>(max->current_level), "Step 9 reads as 128");
+    ASSERT_EQ(9, static_cast<int>(max->device_max), "Device range is 0-9");
+
+    ASSERT_TRUE(LogitechG522Lightspeed::parseSidetoneResponse(std::array<uint8_t, 4> { 0x01, 0x01, 0x00, 0x0a }).hasError(),
+        "Step above 9 is rejected");
+    ASSERT_TRUE(LogitechG522Lightspeed::parseSidetoneResponse(std::array<uint8_t, 3> { 0x01, 0x01, 0x00 }).hasError(),
+        "Short reply is rejected");
+
+    // Captured auto-sleep read: 30 min sleep, lights dim after 1 min, off after 16 min.
+    auto params = LogitechG522Lightspeed::buildAutoSleepParams(0x0f, std::array<uint8_t, 3> { 0x1e, 0x01, 0x10 });
+    ASSERT_TRUE(params.hasValue(), "Auto-sleep params should build");
+    ASSERT_TRUE((*params == std::array<uint8_t, 3> { 0x0f, 0x01, 0x10 }), "Only the sleep minutes change");
+    ASSERT_TRUE(LogitechG522Lightspeed::buildAutoSleepParams(0x0f, std::array<uint8_t, 2> { 0x1e, 0x01 }).hasError(),
+        "Short auto-sleep reply is rejected");
+
+    std::cout << "    [OK] Logitech G522 sidetone and auto-sleep parsing verified" << std::endl;
+}
+
+void testG522SettingsWire()
+{
+    std::cout << "  Testing Logitech G522 lights, voice prompts, sidetone and inactive time on the wire..." << std::endl;
+
+    const auto prefix = std::span<const uint8_t>(LogitechG522Lightspeed::FRAME_PREFIX);
+    // Request bytes match the G HUB captures, except for the software ID nibble (1 instead of c/d).
+
+    {
+        TestableG522 dev;
+        queueG522Lookup(dev.hid, 0x12); // lighting 0x0621
+        queueBridgeReply(dev.hid, prefix, 0x12, {});
+        auto on = dev.setLights(nullptr, true);
+        ASSERT_TRUE(on.hasValue() && on->enabled, "Lights on should succeed");
+        assertFrame(dev.hid.writes.back(),
+            { 0x50, 0x23, 0x12, 0x00, 0x03, 0x11, 0x00, 0x0d, 0x00, 0x12, 0x31, 0x00, 0x00, 0x04, 0x00, 0xb8, 0xfc, 0xff, 0x00, 0xab, 0x64 },
+            "Lights on restores G HUB's default two-zone look");
+
+        queueBridgeReply(dev.hid, prefix, 0x12, {});
+        auto off = dev.setLights(nullptr, false);
+        ASSERT_TRUE(off.hasValue() && !off->enabled, "Lights off should succeed");
+        assertFrame(dev.hid.writes.back(), { 0x50, 0x23, 0x12, 0x00, 0x03, 0x11, 0x00, 0x0d, 0x00, 0x12, 0x31 },
+            "Lights off writes a black fixed color");
+        ASSERT_EQ(G522_LOOKUP_WRITES + 2, dev.hid.writes.size(), "Second lights command reuses the lookup");
+    }
+    {
+        TestableG522 dev;
+        queueG522Lookup(dev.hid, 0x1a); // voice prompts 0x060b
+        queueBridgeReply(dev.hid, prefix, 0x1a, {});
+        auto voice = dev.setVoicePrompts(nullptr, true);
+        ASSERT_TRUE(voice.hasValue() && voice->enabled, "Voice prompts on should succeed");
+        assertFrame(dev.hid.writes.back(), { 0x50, 0x23, 0x0a, 0x00, 0x03, 0x11, 0x00, 0x05, 0x00, 0x1a, 0x51, 0x00, 0x01 },
+            "Voice prompts on");
+
+        queueBridgeReply(dev.hid, prefix, 0x1a, {});
+        ASSERT_TRUE(dev.setVoicePrompts(nullptr, false).hasValue(), "Voice prompts off should succeed");
+        assertFrame(dev.hid.writes.back(), { 0x50, 0x23, 0x0a, 0x00, 0x03, 0x11, 0x00, 0x05, 0x00, 0x1a, 0x51 },
+            "Voice prompts off (tones)");
+    }
+    {
+        TestableG522 dev;
+        queueG522Lookup(dev.hid, 0x0d); // sidetone 0x0604
+        queueBridgeReply(dev.hid, prefix, 0x0d, { 0x01, 0x01, 0x39, 0x04 });
+        auto sidetone = dev.getSidetone(nullptr);
+        ASSERT_TRUE(sidetone.hasValue(), "Sidetone read should succeed");
+        ASSERT_EQ(4, static_cast<int>(sidetone->device_level), "Sidetone step");
+        assertFrame(dev.hid.writes.back(), { 0x50, 0x23, 0x08, 0x00, 0x03, 0x11, 0x00, 0x03, 0x00, 0x0d, 0x01 },
+            "Sidetone read is function 0");
+    }
+    {
+        TestableG522 dev;
+        queueG522Lookup(dev.hid, 0x14); // auto-sleep 0x0108
+        queueBridgeReply(dev.hid, prefix, 0x14, { 0x1e, 0x01, 0x10 });
+        queueBridgeReply(dev.hid, prefix, 0x14, {});
+        auto inactive = dev.setInactiveTime(nullptr, 15);
+        ASSERT_TRUE(inactive.hasValue(), "Inactive time should succeed");
+        ASSERT_EQ(G522_LOOKUP_WRITES + 2, dev.hid.writes.size(), "Lookup, read, then write");
+        assertFrame(dev.hid.writes[G522_LOOKUP_WRITES], { 0x50, 0x23, 0x08, 0x00, 0x03, 0x11, 0x00, 0x03, 0x00, 0x14, 0x01 },
+            "Auto-sleep read is function 0");
+        assertFrame(dev.hid.writes.back(), { 0x50, 0x23, 0x0b, 0x00, 0x03, 0x11, 0x00, 0x06, 0x00, 0x14, 0x11, 0x0f, 0x01, 0x10 },
+            "Auto-sleep write keeps the lighting timers");
+    }
+    {
+        // A malformed read must not fall back to writing zeros.
+        TestableG522 dev;
+        queueG522Lookup(dev.hid, 0x14);
+        queueBridgeReply(dev.hid, prefix, 0x14, { 0x1e });
+        ASSERT_TRUE(dev.setInactiveTime(nullptr, 15).hasError(), "Short auto-sleep read fails");
+        ASSERT_EQ(G522_LOOKUP_WRITES + 1, dev.hid.writes.size(), "No write after a failed read");
+    }
+
+    std::cout << "    [OK] Logitech G522 settings on the wire verified" << std::endl;
+}
+
 void testCenturionProX2DefaultOptionsUnchanged()
 {
     std::cout << "  Testing Logitech PRO X2 traffic with default Centurion options..." << std::endl;
@@ -1651,6 +1761,8 @@ void runAllProtocolTests()
     runTest("Logitech Centurion Connection Status", testCenturionConnectionStatusHelpers);
     runTest("Logitech G522 Battery Wire", testCenturionG522BatteryWire);
     runTest("Logitech G522 Offline Detection", testCenturionG522Offline);
+    runTest("Logitech G522 Sidetone And Auto-Sleep Parsing", testG522SidetoneAndAutoSleepParsing);
+    runTest("Logitech G522 Settings Wire", testG522SettingsWire);
     runTest("Logitech PRO X2 Default Centurion Options", testCenturionProX2DefaultOptionsUnchanged);
     runTest("Logitech PRO X2 Equalizer Info Cache", testLogitechProX2EqualizerInfoRequiresDescriptor);
     runTest("Logitech PRO X2 EQ Quantization", testLogitechProX2OnboardEqCoefficientQuantization);

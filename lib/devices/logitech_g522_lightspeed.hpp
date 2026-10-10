@@ -29,6 +29,12 @@ public:
     static constexpr uint8_t SIDETONE_DEVICE_MAX = 9;
     static constexpr uint8_t SIDETONE_MIC_ID     = 0x01;
 
+    // Lighting effect parameters (feature 0x0621, function 3): zone 00 00, effect, effect data.
+    // "On" is G HUB's default look: two-zone effect 04, zone 1 Logitech blue 00b8fc,
+    // zone 2 magenta ff00ab, brightness 100. "Off" is the fixed effect 00 with color 000000.
+    static constexpr std::array<uint8_t, 10> LIGHTS_ON_PARAMS { 0x00, 0x00, 0x04, 0x00, 0xb8, 0xfc, 0xff, 0x00, 0xab, 0x64 };
+    static constexpr std::array<uint8_t, 10> LIGHTS_OFF_PARAMS {};
+
     constexpr uint16_t getVendorId() const override
     {
         return VENDOR_LOGITECH;
@@ -46,7 +52,8 @@ public:
 
     constexpr int getCapabilities() const override
     {
-        return B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_INACTIVE_TIME) | B(CAP_MICROPHONE_MUTE_LED_BRIGHTNESS);
+        return B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_LIGHTS) | B(CAP_INACTIVE_TIME) | B(CAP_VOICE_PROMPTS)
+            | B(CAP_MICROPHONE_MUTE_LED_BRIGHTNESS) | B(CAP_SIDETONE_STATUS);
     }
 
     constexpr capability_detail getCapabilityDetail(enum capabilities cap) const override
@@ -54,7 +61,10 @@ public:
         switch (cap) {
         case CAP_BATTERY_STATUS:
         case CAP_SIDETONE:
+        case CAP_SIDETONE_STATUS:
+        case CAP_LIGHTS:
         case CAP_INACTIVE_TIME:
+        case CAP_VOICE_PROMPTS:
         case CAP_MICROPHONE_MUTE_LED_BRIGHTNESS:
             return { .usagepage = 0xffa0, .usageid = 0x0001, .interface_id = 3 };
         default:
@@ -118,17 +128,108 @@ public:
         };
     }
 
+    Result<SidetoneResult> getSidetone(hid_device* device_handle) override
+    {
+        auto reply = sendCenturionFeatureRequest(
+            device_handle,
+            static_cast<uint16_t>(protocols::CenturionFeature::HeadsetAudioSidetone),
+            0x00);
+        if (!reply) {
+            return reply.error();
+        }
+        return parseSidetoneResponse(*reply);
+    }
+
+    /**
+     * @brief Parse the sidetone read reply: <mic id> <?> <gain?> <level 0-9>.
+     *
+     * The headset only stores 10 steps, so the read-back level is approximate:
+     * setting 64 stores step 4, which reads back as 56.
+     */
+    static Result<SidetoneResult> parseSidetoneResponse(std::span<const uint8_t> params)
+    {
+        if (params.size() < 4 || params[3] > SIDETONE_DEVICE_MAX) {
+            return DeviceError::protocolError("Unexpected G522 sidetone reply");
+        }
+
+        const uint8_t device_level = params[3];
+        return SidetoneResult {
+            .current_level = map<uint8_t>(device_level, 0, SIDETONE_DEVICE_MAX, 0, 128),
+            .min_level     = 0,
+            .max_level     = 128,
+            .device_min    = 0,
+            .device_max    = SIDETONE_DEVICE_MAX,
+            .is_muted      = device_level == 0,
+            .device_level  = device_level,
+        };
+    }
+
+    Result<LightsResult> setLights(hid_device* device_handle, bool on) override
+    {
+        // The headset has no separate on/off switch for its lighting: "off" writes a black
+        // fixed color, and "on" restores G HUB's default look rather than the previous one.
+        if (auto write_result = sendCenturionFeatureRequest(
+                device_handle,
+                static_cast<uint16_t>(protocols::CenturionFeature::HeadsetLighting),
+                0x30,
+                on ? LIGHTS_ON_PARAMS : LIGHTS_OFF_PARAMS);
+            !write_result) {
+            return write_result.error();
+        }
+
+        return LightsResult { .enabled = on };
+    }
+
+    Result<VoicePromptsResult> setVoicePrompts(hid_device* device_handle, bool enabled) override
+    {
+        // 1 = spoken prompts, 0 = tones (not silence). The difference is heard on the
+        // Bluetooth/LIGHTSPEED switch ("lightspeed" spoken vs a beep); mic mute always beeps.
+        if (auto write_result = sendCenturionFeatureRequest(
+                device_handle,
+                static_cast<uint16_t>(protocols::CenturionFeature::HeadsetVoicePrompts),
+                0x50,
+                std::array<uint8_t, 2> { 0x00, static_cast<uint8_t>(enabled) });
+            !write_result) {
+            return write_result.error();
+        }
+
+        return VoicePromptsResult { .enabled = enabled };
+    }
+
+    /**
+     * @brief Build the auto-sleep write parameters: <sleep minutes> <lights dim> <lights off>.
+     *
+     * The same command also carries the two lighting inactivity timers (minutes, 0 = never),
+     * and the headset rejects a write without them, so keep the values that were read back.
+     */
+    static Result<std::array<uint8_t, 3>> buildAutoSleepParams(uint8_t minutes, std::span<const uint8_t> current)
+    {
+        if (current.size() < 3) {
+            return DeviceError::protocolError("Unexpected G522 auto-sleep reply");
+        }
+        return std::array<uint8_t, 3> { minutes, current[1], current[2] };
+    }
+
     Result<InactiveTimeResult> setInactiveTime(hid_device* device_handle, uint8_t minutes) override
     {
-        // WARN: This has a side effect since there are multiple timers being set with the same command.
-        // The second parameter sets the time until "lighting goes into inactive mode" e.g. dimmer lights, etc. (can be set in G HUB).
-        // The third parameter sets the time until "lighting off because of inactivity".
-        // For both timers, a value of 0 is labeled "never" in G HUB.
+        auto current = sendCenturionFeatureRequest(
+            device_handle,
+            static_cast<uint16_t>(protocols::CenturionFeature::CenturionAutoSleep),
+            0x00);
+        if (!current) {
+            return current.error();
+        }
+
+        auto params = buildAutoSleepParams(minutes, *current);
+        if (!params) {
+            return params.error();
+        }
+
         if (auto write_result = sendCenturionFeatureRequest(
                 device_handle,
                 static_cast<uint16_t>(protocols::CenturionFeature::CenturionAutoSleep),
                 0x10,
-                std::array<uint8_t, 3> { minutes, 0x00, 0x00 });
+                *params);
             !write_result) {
             return write_result.error();
         }

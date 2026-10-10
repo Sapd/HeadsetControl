@@ -21,6 +21,8 @@ enum class CenturionFeature : uint16_t {
     CenturionAutoSleep    = 0x0108,
     HeadsetAdvancedParaEQ = 0x020d,
     HeadsetMicMuteLed     = 0x0601,
+    HeadsetVoicePrompts   = 0x060b,
+    HeadsetLighting       = 0x0621,
     HeadsetOnboardEQ      = 0x0636,
     HeadsetAudioSidetone  = 0x0604,
 };
