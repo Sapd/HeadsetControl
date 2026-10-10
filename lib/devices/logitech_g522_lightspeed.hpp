@@ -2,11 +2,12 @@
 
 #include "../utility.hpp"
 #include "device.hpp"
-#include "hid_device.hpp"
+#include "protocols/logitech_centurion_protocol.hpp"
 #include "result_types.hpp"
 #include <array>
 #include <chrono>
 #include <cstdint>
+#include <span>
 #include <string_view>
 #include <vector>
 
@@ -17,16 +18,16 @@ namespace headsetcontrol {
 /**
  * @brief Logitech G522 LIGHTSPEED (PID 0x0b18)
  *
- * This variant uses a vendor-specific 64-byte protocol on usage page 0xffa0
- * for battery data instead of HID++.
- *
- * This implementation is modified from the working LIGHTSPEED implementation for the G PRO X 2 (PID 0x0af7) as the used protocol appears to be the same.
+ * The G522 speaks the Logitech Centurion protocol on usage page 0xffa0, like the
+ * G PRO X 2 LIGHTSPEED, but its frames start with 0x50 0x23 instead of 0x51.
+ * Feature indexes are discovered at runtime through the dongle's bridge.
  */
-class LogitechG522Lightspeed : public HIDDevice {
+class LogitechG522Lightspeed : public protocols::LogitechCenturionProtocol {
 public:
     static constexpr std::array<uint16_t, 1> SUPPORTED_PRODUCT_IDS { 0x0b18 };
-    static constexpr size_t PACKET_SIZE = 64;
-    static constexpr std::array<uint8_t, 2> REPORT_PREFIX { 0x50, 0x23 };
+    static constexpr std::array<uint8_t, 2> FRAME_PREFIX { 0x50, 0x23 };
+    static constexpr uint8_t SIDETONE_DEVICE_MAX = 9;
+    static constexpr uint8_t SIDETONE_MIC_ID     = 0x01;
 
     constexpr uint16_t getVendorId() const override
     {
@@ -65,51 +66,23 @@ public:
     {
         auto start_time = std::chrono::steady_clock::now();
 
-        std::array<uint8_t, PACKET_SIZE> request = buildBatteryRequest();
-        if (auto write_result = writeHID(device_handle, request, PACKET_SIZE); !write_result) {
-            return write_result.error();
+        auto battery = sendCenturionFeatureRequest(
+            device_handle,
+            static_cast<uint16_t>(protocols::CenturionFeature::CenturionBatterySoc),
+            0x00);
+        if (!battery) {
+            return battery.error();
         }
 
-        std::vector<uint8_t> raw_packets;
-        raw_packets.reserve(PACKET_SIZE * 4);
-
-        for (int attempt = 0; attempt < 4; ++attempt) {
-            std::array<uint8_t, PACKET_SIZE> response { };
-            auto read_result = readHIDTimeout(device_handle, response, hsc_device_timeout);
-            if (!read_result) {
-                return read_result.error();
-            }
-
-            raw_packets.insert(raw_packets.end(), response.begin(), response.end());
-
-            if (isPowerOffPacket(response)) {
-                return DeviceError::deviceOffline("Headset is powered off or not connected");
-            }
-
-            if (isPowerEventPacket(response)) {
-                continue;
-            }
-
-            if (isAckPacket(response)) {
-                continue;
-            }
-
-            if (!isBatteryResponsePacket(response)) {
-                continue;
-            }
-
-            auto battery_result = parseBatteryResponse(response);
-            if (!battery_result) {
-                return battery_result.error();
-            }
-
-            battery_result->raw_data       = std::move(raw_packets);
-            auto end_time                  = std::chrono::steady_clock::now();
-            battery_result->query_duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-            return *battery_result;
+        auto battery_result = parseCenturionBatteryResponse(*battery);
+        if (!battery_result) {
+            return battery_result.error();
         }
 
-        return DeviceError::protocolError("Battery response packet not received");
+        battery_result->raw_data       = *battery;
+        auto end_time                  = std::chrono::steady_clock::now();
+        battery_result->query_duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+        return *battery_result;
     }
 
     Result<SidetoneResult> setSidetone(hid_device* device_handle, uint8_t level) override
@@ -125,10 +98,14 @@ public:
         //  73 -  83 -> 0x07
         //  84 -  94 -> 0x08
         //  95 - 100 -> 0x09
-        uint8_t mapped = map<uint8_t>(level, 0, 128, 0, 9);
+        uint8_t mapped = map<uint8_t>(level, 0, 128, 0, SIDETONE_DEVICE_MAX);
 
-        auto command = buildSidetoneCommand(mapped);
-        if (auto write_result = writeHID(device_handle, command, PACKET_SIZE); !write_result) {
+        if (auto write_result = sendCenturionFeatureRequest(
+                device_handle,
+                static_cast<uint16_t>(protocols::CenturionFeature::HeadsetAudioSidetone),
+                0x10,
+                std::array<uint8_t, 3> { SIDETONE_MIC_ID, 0xFF, mapped });
+            !write_result) {
             return write_result.error();
         }
 
@@ -137,14 +114,22 @@ public:
             .min_level     = 0,
             .max_level     = 128,
             .device_min    = 0,
-            .device_max    = 9
+            .device_max    = SIDETONE_DEVICE_MAX
         };
     }
 
     Result<InactiveTimeResult> setInactiveTime(hid_device* device_handle, uint8_t minutes) override
     {
-        auto command = buildInactiveTimeCommand(minutes);
-        if (auto write_result = writeHID(device_handle, command, PACKET_SIZE); !write_result) {
+        // WARN: This has a side effect since there are multiple timers being set with the same command.
+        // The second parameter sets the time until "lighting goes into inactive mode" e.g. dimmer lights, etc. (can be set in G HUB).
+        // The third parameter sets the time until "lighting off because of inactivity".
+        // For both timers, a value of 0 is labeled "never" in G HUB.
+        if (auto write_result = sendCenturionFeatureRequest(
+                device_handle,
+                static_cast<uint16_t>(protocols::CenturionFeature::CenturionAutoSleep),
+                0x10,
+                std::array<uint8_t, 3> { minutes, 0x00, 0x00 });
+            !write_result) {
             return write_result.error();
         }
 
@@ -158,8 +143,13 @@ public:
     Result<MicMuteLedBrightnessResult> setMicMuteLedBrightness(hid_device* device_handle, uint8_t brightness) override
     {
         uint8_t mute_led = static_cast<uint8_t>(static_cast<bool>(brightness)); // 0 or 1
-        auto command     = buildMicMuteLedCommand(mute_led);
-        if (auto write_result = writeHID(device_handle, command, PACKET_SIZE); !write_result) {
+
+        if (auto write_result = sendCenturionFeatureRequest(
+                device_handle,
+                static_cast<uint16_t>(protocols::CenturionFeature::HeadsetMicMuteLed),
+                0x20,
+                std::array<uint8_t, 1> { mute_led });
+            !write_result) {
             return write_result.error();
         }
 
@@ -170,113 +160,20 @@ public:
         };
     }
 
-    static constexpr bool isAckPacket(std::span<const uint8_t> packet)
+protected:
+    std::span<const uint8_t> centurionFramePrefix() const override
     {
-        return packet.size() >= 3 && packet[0] == REPORT_PREFIX[0] && packet[1] == REPORT_PREFIX[1] && packet[2] == 0x03;
+        return FRAME_PREFIX;
     }
 
-    static constexpr bool isPowerOffPacket(std::span<const uint8_t> packet)
+    protocols::CenturionOptions centurionOptions() const override
     {
-        return packet.size() >= 7 && packet[0] == REPORT_PREFIX[0] && packet[1] == REPORT_PREFIX[1] && packet[2] == 0x05 && packet[7] == 0x00;
-    }
-
-    static constexpr bool isPowerEventPacket(std::span<const uint8_t> packet)
-    {
-        return packet.size() >= 3 && packet[0] == REPORT_PREFIX[0] && packet[1] == REPORT_PREFIX[1] && packet[2] == 0x05;
-    }
-
-    static constexpr bool isBatteryResponsePacket(std::span<const uint8_t> packet)
-    {
-        return packet.size() >= 14 && packet[0] == REPORT_PREFIX[0] && packet[1] == REPORT_PREFIX[1] && packet[2] == 0x0b && packet[9] == 0x05;
-    }
-
-    static Result<BatteryResult> parseBatteryResponse(std::span<const uint8_t> packet)
-    {
-        if (!isBatteryResponsePacket(packet)) {
-            return DeviceError::protocolError("Unexpected battery response packet");
-        }
-
-        int level = static_cast<int>(packet[11]);
-        if (level > 100) {
-            return DeviceError::protocolError("Battery percentage out of range");
-        }
-
-        auto status = packet[13] == 0x02 ? BATTERY_CHARGING : BATTERY_AVAILABLE;
-
-        BatteryResult result {
-            .level_percent = level,
-            .status        = status,
+        return {
+            .exact_direct_length      = true,
+            .detect_connection_events = true,
+            .probe_offline_on_timeout = true,
+            .lookup_features_by_id    = true,
         };
-
-        return result;
-    }
-
-private:
-    static constexpr std::array<uint8_t, PACKET_SIZE> buildBatteryRequest()
-    {
-        std::array<uint8_t, PACKET_SIZE> request { };
-        request[0]  = REPORT_PREFIX[0];
-        request[1]  = REPORT_PREFIX[1];
-        request[2]  = 0x0b;
-        request[4]  = 0x03;
-        request[5]  = 0x1a;
-        request[7]  = 0x03;
-        request[9]  = 0x05;
-        request[10] = 0x0a;
-        return request;
-    }
-
-    static constexpr std::array<uint8_t, PACKET_SIZE> buildSidetoneCommand(uint8_t level)
-    {
-        std::array<uint8_t, PACKET_SIZE> command { };
-        command[0]  = REPORT_PREFIX[0];
-        command[1]  = REPORT_PREFIX[1];
-        command[2]  = 0x0b;
-        command[4]  = 0x03;
-        command[5]  = 0x1c;
-        command[7]  = 0x06;
-        command[9]  = 0x0d;
-        command[10] = 0x1c;
-        command[11] = 0x01;
-        command[12] = 0xff;
-        command[13] = level;
-        return command;
-    }
-
-    static constexpr std::array<uint8_t, PACKET_SIZE> buildInactiveTimeCommand(uint8_t minutes)
-    {
-        std::array<uint8_t, PACKET_SIZE> command { };
-        command[0]  = REPORT_PREFIX[0];
-        command[1]  = REPORT_PREFIX[1];
-        command[2]  = 0x0b;
-        command[4]  = 0x03;
-        command[5]  = 0x1c;
-        command[7]  = 0x06;
-        command[9]  = 0x14;
-        command[10] = 0x1c;
-        command[11] = minutes;
-
-        // WARN: This has a side effect since there are multiple timers being set with the same command.
-        // command[12] = 0x00; // This byte sets the time until "lighting goes into inactive mode" e.g. dimmer lights, etc. (can be set in G HUB).
-        // command[13] = 0x00; // This byte sets the time until "lighting off because of inactivity"
-        // For both timers, a value of 0 is labeled "never" in G HUB
-
-        return command;
-    }
-
-    static constexpr std::array<uint8_t, PACKET_SIZE> buildMicMuteLedCommand(uint8_t mute_led)
-    {
-        std::array<uint8_t, PACKET_SIZE> command { };
-        command[0]  = REPORT_PREFIX[0];
-        command[1]  = REPORT_PREFIX[1];
-        command[2]  = 0x09;
-        command[4]  = 0x03;
-        command[5]  = 0x1c;
-        command[7]  = 0x04;
-        command[9]  = 0x15;
-        command[10] = 0x2c;
-        command[11] = mute_led;
-        return command;
     }
 };
 
