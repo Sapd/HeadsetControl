@@ -156,7 +156,7 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Logitech ASTRO A50 Gen 4 | All | x | x |   |   |   | x |   |   | x | x | x |   | x |   |   |   | x | x |
 | Logitech ASTRO A50 Gen 5 | All | x | x |   | x |   | x |   |   |   |   | x |   |   |   |   |   | x |   |
-| Logitech G522 LIGHTSPEED | All | x | x |   |   | x |   |   |   |   |   |   | x |   |   |   |   |   |   |
+| Logitech G522 LIGHTSPEED | All | x | x |   | x | x |   | x |   | x | x | x | x |   |   |   |   |   | x |
 | Logitech G533 | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | Logitech G535 | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | Logitech G633/G635/G733/G933/G935 | All | x | x |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |

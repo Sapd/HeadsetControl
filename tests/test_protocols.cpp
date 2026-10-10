@@ -12,6 +12,7 @@
 #include "device.hpp"
 #include "devices/corsair_device.hpp"
 #include "devices/logitech_astro_a50_gen4.hpp"
+#include "devices/logitech_g522_lightspeed.hpp"
 #include "devices/logitech_gpro_x2_lightspeed.hpp"
 #include "devices/plantronics_bt600.hpp"
 #include "devices/protocols/hidpp_protocol.hpp"
@@ -1329,6 +1330,525 @@ void testAstroA50Gen4TimeoutRecovery()
 }
 
 // ============================================================================
+// Logitech Centurion: G522 framing and opt-in options
+// ============================================================================
+
+class TestableG522 : public LogitechG522Lightspeed {
+public:
+    mutable ScriptedHIDInterface hid;
+
+    [[nodiscard]] auto getHIDInterface() const -> HIDInterface& override { return hid; }
+};
+
+class TestableProX2 : public LogitechGProX2Lightspeed {
+public:
+    mutable ScriptedHIDInterface hid;
+
+    [[nodiscard]] auto getHIDInterface() const -> HIDInterface& override { return hid; }
+};
+
+static constexpr std::array<uint8_t, 1> PRO_X2_PREFIX { 0x51 };
+
+static std::vector<uint8_t> centurionFrame(std::span<const uint8_t> prefix, std::vector<uint8_t> payload)
+{
+    auto frame = protocols::LogitechCenturionProtocol::buildCenturionFrame(payload, 0x00, prefix);
+    return { frame.begin(), frame.end() };
+}
+
+/// Queue a bridge ACK followed by the sub-device's response carrying params.
+static void queueBridgeReply(ScriptedHIDInterface& hid, std::span<const uint8_t> prefix, uint8_t sub_index, std::vector<uint8_t> params)
+{
+    const auto size = static_cast<uint8_t>(params.size() + 3);
+    std::vector<uint8_t> payload { 0x03, 0x10, 0x00, size, 0x00, sub_index, 0x01 };
+    payload.insert(payload.end(), params.begin(), params.end());
+    hid.replies.push_back(centurionFrame(prefix, { 0x03, 0x11 }));
+    hid.replies.push_back(centurionFrame(prefix, payload));
+}
+
+/// Queue discovery replies: dongle bridge at index 3, sub-device battery (0x0104) at index 2.
+static void queueCenturionDiscovery(ScriptedHIDInterface& hid, std::span<const uint8_t> prefix)
+{
+    hid.replies.push_back(centurionFrame(prefix, { 0x00, 0x01, 0x01, 0x00, 0x02 })); // Root.getFeature(FeatureSet) -> 1
+    hid.replies.push_back(centurionFrame(prefix, { 0x01, 0x01, 0x04 })); // FeatureSet.getCount -> 4
+    hid.replies.push_back(centurionFrame(prefix, { 0x01, 0x11, 0x04, 0x00, 0x00 })); // index 0: Root
+    hid.replies.push_back(centurionFrame(prefix, { 0x01, 0x11, 0x03, 0x00, 0x01 })); // index 1: FeatureSet
+    hid.replies.push_back(centurionFrame(prefix, { 0x01, 0x11, 0x02, 0x01, 0x00 })); // index 2: 0x0100
+    hid.replies.push_back(centurionFrame(prefix, { 0x01, 0x11, 0x01, 0x00, 0x03 })); // index 3: bridge
+
+    queueBridgeReply(hid, prefix, 0x00, { 0x01, 0x00, 0x02 }); // sub Root.getFeature(FeatureSet) -> 1
+    queueBridgeReply(hid, prefix, 0x01, { 0x03 }); // sub FeatureSet.getCount -> 3
+    queueBridgeReply(hid, prefix, 0x01, { 0x03, 0x00, 0x00 }); // sub index 0: Root
+    queueBridgeReply(hid, prefix, 0x01, { 0x02, 0x00, 0x01 }); // sub index 1: FeatureSet
+    queueBridgeReply(hid, prefix, 0x01, { 0x01, 0x01, 0x04 }); // sub index 2: battery
+}
+
+static constexpr size_t CENTURION_DISCOVERY_WRITES = 11;
+
+/// Queue G522 lookup replies: Root.getFeature finds the bridge (index 3), then the requested
+/// feature at feature_index (battery 0x0104 at index 2 by default).
+static void queueG522Lookup(ScriptedHIDInterface& hid, uint8_t feature_index = 0x02)
+{
+    const auto prefix = std::span<const uint8_t>(LogitechG522Lightspeed::FRAME_PREFIX);
+    hid.replies.push_back(centurionFrame(prefix, { 0x00, 0x01, 0x03, 0x00, 0x01 })); // Root.getFeature(bridge) -> 3
+    queueBridgeReply(hid, prefix, 0x00, { feature_index, 0x00, 0x03 }); // sub Root.getFeature(id) -> feature_index
+}
+
+static constexpr size_t G522_LOOKUP_WRITES = 2;
+
+/// Check that a written frame starts with the expected bytes and is zero-padded after them.
+static void assertFrame(const std::vector<uint8_t>& actual, std::initializer_list<uint8_t> expected, const std::string& msg)
+{
+    ASSERT_EQ(64, static_cast<int>(actual.size()), msg + ": frame size");
+    size_t i = 0;
+    for (uint8_t byte : expected) {
+        ASSERT_EQ(static_cast<int>(byte), static_cast<int>(actual[i]), msg + ": byte " + std::to_string(i));
+        ++i;
+    }
+    for (; i < actual.size(); ++i) {
+        ASSERT_EQ(0, static_cast<int>(actual[i]), msg + ": padding byte " + std::to_string(i));
+    }
+}
+
+void testCenturionG522FramePrefix()
+{
+    std::cout << "  Testing Logitech Centurion G522 frame prefix..." << std::endl;
+
+    // Captured from G HUB: lights on (feature 0x12, function 3).
+    const std::vector<uint8_t> payload { 0x03, 0x1c, 0x00, 0x0d, 0x00, 0x12, 0x3c, 0x00, 0x00, 0x04, 0x00, 0xb8, 0xfc, 0xff, 0x00, 0xab, 0x64 };
+    auto frame = protocols::LogitechCenturionProtocol::buildCenturionFrame(payload, 0x00, LogitechG522Lightspeed::FRAME_PREFIX);
+    assertFrame({ frame.begin(), frame.end() },
+        { 0x50, 0x23, 0x12, 0x00, 0x03, 0x1c, 0x00, 0x0d, 0x00, 0x12, 0x3c, 0x00, 0x00, 0x04, 0x00, 0xb8, 0xfc, 0xff, 0x00, 0xab, 0x64 },
+        "G522 frame must match the G HUB capture");
+
+    auto extracted = protocols::LogitechCenturionProtocol::extractCenturionPayload(frame, LogitechG522Lightspeed::FRAME_PREFIX);
+    ASSERT_TRUE(extracted.hasValue(), "G522 frame should extract");
+    ASSERT_TRUE(*extracted == payload, "Extracted payload should round-trip");
+
+    auto wrong_prefix = protocols::LogitechCenturionProtocol::extractCenturionPayload(frame);
+    ASSERT_TRUE(wrong_prefix.hasError(), "A 0x50 0x23 frame must not extract with the default 0x51 prefix");
+
+    std::cout << "    [OK] Logitech Centurion G522 frame prefix verified" << std::endl;
+}
+
+void testCenturionConnectionStatusHelpers()
+{
+    std::cout << "  Testing Logitech Centurion connection status helpers..." << std::endl;
+
+    using Protocol = protocols::LogitechCenturionProtocol;
+
+    // Captured on Linux: headset powered off / on (50 23 05 00 | 03 00 00 xx).
+    std::array<uint8_t, 4> off_event { 0x03, 0x00, 0x00, 0x00 };
+    std::array<uint8_t, 4> on_event { 0x03, 0x00, 0x00, 0x01 };
+    ASSERT_TRUE(Protocol::isBridgeConnectionEvent(off_event, 0x03), "Power-off frame is a connection event");
+    ASSERT_TRUE(Protocol::isBridgeDisconnectedEvent(off_event, 0x03), "Power-off frame means disconnected");
+    ASSERT_TRUE(Protocol::isBridgeConnectionEvent(on_event, 0x03), "Power-on frame is a connection event");
+    ASSERT_TRUE(!Protocol::isBridgeDisconnectedEvent(on_event, 0x03), "Power-on frame means connected");
+    ASSERT_TRUE(!Protocol::isBridgeConnectionEvent(off_event, 0x04), "Event from another feature index is ignored");
+
+    std::array<uint8_t, 2> bridge_ack { 0x03, 0x11 };
+    ASSERT_TRUE(!Protocol::isBridgeConnectionEvent(bridge_ack, 0x03), "Bridge ACK is not a connection event");
+
+    // Captured bridge status replies (bridge function 0 parameters).
+    std::array<uint8_t, 5> status_off { 0x03, 0xe8, 0x00, 0x00, 0x01 };
+    std::array<uint8_t, 5> status_on { 0x03, 0xe8, 0x00, 0x01, 0x01 };
+    ASSERT_TRUE(Protocol::isBridgeStatusDisconnected(status_off), "Status 00 00 means disconnected");
+    ASSERT_TRUE(!Protocol::isBridgeStatusDisconnected(status_on), "Status 00 01 means connected");
+    ASSERT_TRUE(!Protocol::isBridgeStatusDisconnected(std::array<uint8_t, 3> { 0x03, 0xe8, 0x00 }), "Short status is not disconnected");
+
+    // G522 battery reply parameters: 47%, not charging.
+    auto battery = Protocol::parseCenturionBatteryResponse(std::array<uint8_t, 3> { 0x2f, 0x32, 0x00 });
+    ASSERT_TRUE(battery.hasValue(), "G522 battery reply should parse");
+    ASSERT_EQ(47, battery->level_percent, "G522 battery level");
+    ASSERT_EQ(BATTERY_AVAILABLE, battery->status, "G522 battery status");
+
+    std::cout << "    [OK] Logitech Centurion connection status helpers verified" << std::endl;
+}
+
+void testCenturionG522BatteryWire()
+{
+    std::cout << "  Testing Logitech G522 battery request on the wire..." << std::endl;
+
+    TestableG522 dev;
+    queueG522Lookup(dev.hid);
+    queueBridgeReply(dev.hid, LogitechG522Lightspeed::FRAME_PREFIX, 0x02, { 0x2f, 0x32, 0x00 });
+
+    auto battery = dev.getBattery(nullptr);
+    ASSERT_TRUE(battery.hasValue(), "G522 battery should succeed");
+    ASSERT_EQ(47, battery->level_percent, "G522 battery level");
+    ASSERT_EQ(BATTERY_AVAILABLE, battery->status, "G522 battery status");
+
+    ASSERT_EQ(G522_LOOKUP_WRITES + 1, dev.hid.writes.size(), "Discovery plus one battery request");
+    assertFrame(dev.hid.writes[0], { 0x50, 0x23, 0x05, 0x00, 0x00, 0x01, 0x00, 0x03 },
+        "Bridge lookup is a direct Root.getFeature(0x0003) with the 50 23 prefix and the exact length");
+    assertFrame(dev.hid.writes[1], { 0x50, 0x23, 0x0a, 0x00, 0x03, 0x11, 0x00, 0x05, 0x00, 0x00, 0x01, 0x01, 0x04 },
+        "Battery lookup is a bridged Root.getFeature(0x0104)");
+    assertFrame(dev.hid.writes[G522_LOOKUP_WRITES], { 0x50, 0x23, 0x08, 0x00, 0x03, 0x11, 0x00, 0x03, 0x00, 0x02, 0x01 },
+        "Battery request goes through the bridge to the looked-up index");
+    ASSERT_TRUE(dev.hid.replies.empty(), "All replies consumed");
+
+    // A second request reuses the cached indexes: no new lookups.
+    queueBridgeReply(dev.hid, LogitechG522Lightspeed::FRAME_PREFIX, 0x02, { 0x30, 0x32, 0x02 });
+    auto charging = dev.getBattery(nullptr);
+    ASSERT_TRUE(charging.hasValue(), "Second G522 battery request should succeed");
+    ASSERT_EQ(BATTERY_CHARGING, charging->status, "G522 charging state 2");
+    ASSERT_EQ(G522_LOOKUP_WRITES + 2, dev.hid.writes.size(), "Cached lookup: only the battery request is sent");
+
+    // A feature the headset lacks (Root.getFeature returns index 0) is not supported.
+    TestableG522 missing;
+    missing.hid.replies.push_back(centurionFrame(LogitechG522Lightspeed::FRAME_PREFIX, { 0x00, 0x01, 0x03, 0x00, 0x01 }));
+    queueBridgeReply(missing.hid, LogitechG522Lightspeed::FRAME_PREFIX, 0x00, { 0x00, 0x00, 0x00 });
+    auto unsupported = missing.getBattery(nullptr);
+    ASSERT_TRUE(unsupported.hasError(), "Missing feature should fail");
+    ASSERT_TRUE(unsupported.error().code == DeviceError::Code::NotSupported, "Missing feature is not supported");
+
+    std::cout << "    [OK] Logitech G522 battery request on the wire verified" << std::endl;
+}
+
+void testCenturionG522Offline()
+{
+    std::cout << "  Testing Logitech G522 offline detection..." << std::endl;
+
+    const auto prefix = std::span<const uint8_t>(LogitechG522Lightspeed::FRAME_PREFIX);
+
+    {
+        // Power-off event while waiting for the reply.
+        TestableG522 dev;
+        queueG522Lookup(dev.hid);
+        dev.hid.replies.push_back(centurionFrame(prefix, { 0x03, 0x11 }));
+        dev.hid.replies.push_back(centurionFrame(prefix, { 0x03, 0x00, 0x00, 0x00 }));
+
+        auto battery = dev.getBattery(nullptr);
+        ASSERT_TRUE(battery.hasError(), "Power-off event should fail the request");
+        ASSERT_TRUE(battery.error().code == DeviceError::Code::DeviceOffline, "Power-off event means offline");
+    }
+    {
+        // Headset already off: ACK, then nothing; the bridge status probe says disconnected.
+        TestableG522 dev;
+        queueG522Lookup(dev.hid);
+        dev.hid.replies.push_back(centurionFrame(prefix, { 0x03, 0x11 }));
+        dev.hid.replies.push_back(DeviceError::timeout("No reply from the headset"));
+        dev.hid.replies.push_back(centurionFrame(prefix, { 0x03, 0x11 })); // stale ACK: wrong function, skipped
+        dev.hid.replies.push_back(centurionFrame(prefix, { 0x03, 0x01, 0x03, 0xe8, 0x00, 0x00, 0x01 }));
+
+        auto battery = dev.getBattery(nullptr);
+        ASSERT_TRUE(battery.hasError(), "Unanswered request should fail");
+        ASSERT_TRUE(battery.error().code == DeviceError::Code::DeviceOffline, "Probe should report offline");
+        ASSERT_EQ(G522_LOOKUP_WRITES + 2, dev.hid.writes.size(), "Battery request plus one probe");
+        assertFrame(dev.hid.writes.back(), { 0x50, 0x23, 0x03, 0x00, 0x03, 0x01 }, "Probe is a direct bridge function 0 request");
+        ASSERT_TRUE(dev.hid.replies.empty(), "All replies consumed");
+    }
+    {
+        // Probe says the headset is connected: keep the original timeout.
+        TestableG522 dev;
+        queueG522Lookup(dev.hid);
+        dev.hid.replies.push_back(centurionFrame(prefix, { 0x03, 0x11 }));
+        dev.hid.replies.push_back(DeviceError::timeout("No reply from the headset"));
+        dev.hid.replies.push_back(centurionFrame(prefix, { 0x03, 0x01, 0x03, 0xe8, 0x00, 0x01, 0x01 }));
+
+        auto battery = dev.getBattery(nullptr);
+        ASSERT_TRUE(battery.hasError(), "Unanswered request should fail");
+        ASSERT_TRUE(battery.error().code == DeviceError::Code::Timeout, "Connected headset keeps the timeout");
+    }
+
+    std::cout << "    [OK] Logitech G522 offline detection verified" << std::endl;
+}
+
+void testG522SidetoneAndAutoSleepParsing()
+{
+    std::cout << "  Testing Logitech G522 sidetone and auto-sleep parsing..." << std::endl;
+
+    // Captured sidetone reads after -s 0, -s 64 and -s 128.
+    auto off = LogitechG522Lightspeed::parseSidetoneResponse(std::array<uint8_t, 4> { 0x01, 0x01, 0x00, 0x00 });
+    ASSERT_TRUE(off.hasValue(), "Sidetone 0 should parse");
+    ASSERT_EQ(0, static_cast<int>(off->current_level), "Step 0 reads as 0");
+    ASSERT_TRUE(off->is_muted, "Step 0 is muted");
+
+    auto mid = LogitechG522Lightspeed::parseSidetoneResponse(std::array<uint8_t, 4> { 0x01, 0x01, 0x39, 0x04 });
+    ASSERT_TRUE(mid.hasValue(), "Sidetone 64 should parse");
+    ASSERT_EQ(4, static_cast<int>(mid->device_level), "-s 64 is stored as step 4");
+    ASSERT_EQ(56, static_cast<int>(mid->current_level), "Step 4 reads back as 56");
+    ASSERT_TRUE(!mid->is_muted, "Step 4 is not muted");
+
+    auto max = LogitechG522Lightspeed::parseSidetoneResponse(std::array<uint8_t, 4> { 0x01, 0x01, 0x48, 0x09 });
+    ASSERT_TRUE(max.hasValue(), "Sidetone 128 should parse");
+    ASSERT_EQ(128, static_cast<int>(max->current_level), "Step 9 reads as 128");
+    ASSERT_EQ(9, static_cast<int>(max->device_max), "Device range is 0-9");
+
+    ASSERT_TRUE(LogitechG522Lightspeed::parseSidetoneResponse(std::array<uint8_t, 4> { 0x01, 0x01, 0x00, 0x0a }).hasError(),
+        "Step above 9 is rejected");
+    ASSERT_TRUE(LogitechG522Lightspeed::parseSidetoneResponse(std::array<uint8_t, 3> { 0x01, 0x01, 0x00 }).hasError(),
+        "Short reply is rejected");
+
+    // Captured auto-sleep read: 30 min sleep, lights dim after 1 min, off after 16 min.
+    auto params = LogitechG522Lightspeed::buildAutoSleepParams(0x0f, std::array<uint8_t, 3> { 0x1e, 0x01, 0x10 });
+    ASSERT_TRUE(params.hasValue(), "Auto-sleep params should build");
+    ASSERT_TRUE((*params == std::array<uint8_t, 3> { 0x0f, 0x01, 0x10 }), "Only the sleep minutes change");
+    ASSERT_TRUE(LogitechG522Lightspeed::buildAutoSleepParams(0x0f, std::array<uint8_t, 2> { 0x1e, 0x01 }).hasError(),
+        "Short auto-sleep reply is rejected");
+
+    std::cout << "    [OK] Logitech G522 sidetone and auto-sleep parsing verified" << std::endl;
+}
+
+void testG522SettingsWire()
+{
+    std::cout << "  Testing Logitech G522 lights, voice prompts, sidetone and inactive time on the wire..." << std::endl;
+
+    const auto prefix = std::span<const uint8_t>(LogitechG522Lightspeed::FRAME_PREFIX);
+    // Request bytes match the G HUB captures, except for the software ID nibble (1 instead of c/d).
+
+    {
+        TestableG522 dev;
+        queueG522Lookup(dev.hid, 0x12); // lighting 0x0621
+        queueBridgeReply(dev.hid, prefix, 0x12, {});
+        auto on = dev.setLights(nullptr, true);
+        ASSERT_TRUE(on.hasValue() && on->enabled, "Lights on should succeed");
+        assertFrame(dev.hid.writes.back(),
+            { 0x50, 0x23, 0x12, 0x00, 0x03, 0x11, 0x00, 0x0d, 0x00, 0x12, 0x31, 0x00, 0x00, 0x04, 0x00, 0xb8, 0xfc, 0xff, 0x00, 0xab, 0x64 },
+            "Lights on restores G HUB's default two-zone look");
+
+        queueBridgeReply(dev.hid, prefix, 0x12, {});
+        auto off = dev.setLights(nullptr, false);
+        ASSERT_TRUE(off.hasValue() && !off->enabled, "Lights off should succeed");
+        assertFrame(dev.hid.writes.back(), { 0x50, 0x23, 0x12, 0x00, 0x03, 0x11, 0x00, 0x0d, 0x00, 0x12, 0x31 },
+            "Lights off writes a black fixed color");
+        ASSERT_EQ(G522_LOOKUP_WRITES + 2, dev.hid.writes.size(), "Second lights command reuses the lookup");
+    }
+    {
+        TestableG522 dev;
+        queueG522Lookup(dev.hid, 0x1a); // voice prompts 0x060b
+        queueBridgeReply(dev.hid, prefix, 0x1a, {});
+        auto voice = dev.setVoicePrompts(nullptr, true);
+        ASSERT_TRUE(voice.hasValue() && voice->enabled, "Voice prompts on should succeed");
+        assertFrame(dev.hid.writes.back(), { 0x50, 0x23, 0x0a, 0x00, 0x03, 0x11, 0x00, 0x05, 0x00, 0x1a, 0x51, 0x00, 0x01 },
+            "Voice prompts on");
+
+        queueBridgeReply(dev.hid, prefix, 0x1a, {});
+        ASSERT_TRUE(dev.setVoicePrompts(nullptr, false).hasValue(), "Voice prompts off should succeed");
+        assertFrame(dev.hid.writes.back(), { 0x50, 0x23, 0x0a, 0x00, 0x03, 0x11, 0x00, 0x05, 0x00, 0x1a, 0x51 },
+            "Voice prompts off (tones)");
+    }
+    {
+        TestableG522 dev;
+        queueG522Lookup(dev.hid, 0x0d); // sidetone 0x0604
+        queueBridgeReply(dev.hid, prefix, 0x0d, { 0x01, 0x01, 0x39, 0x04 });
+        auto sidetone = dev.getSidetone(nullptr);
+        ASSERT_TRUE(sidetone.hasValue(), "Sidetone read should succeed");
+        ASSERT_EQ(4, static_cast<int>(sidetone->device_level), "Sidetone step");
+        assertFrame(dev.hid.writes.back(), { 0x50, 0x23, 0x08, 0x00, 0x03, 0x11, 0x00, 0x03, 0x00, 0x0d, 0x01 },
+            "Sidetone read is function 0");
+    }
+    {
+        TestableG522 dev;
+        queueG522Lookup(dev.hid, 0x14); // auto-sleep 0x0108
+        queueBridgeReply(dev.hid, prefix, 0x14, { 0x1e, 0x01, 0x10 });
+        queueBridgeReply(dev.hid, prefix, 0x14, {});
+        auto inactive = dev.setInactiveTime(nullptr, 15);
+        ASSERT_TRUE(inactive.hasValue(), "Inactive time should succeed");
+        ASSERT_EQ(G522_LOOKUP_WRITES + 2, dev.hid.writes.size(), "Lookup, read, then write");
+        assertFrame(dev.hid.writes[G522_LOOKUP_WRITES], { 0x50, 0x23, 0x08, 0x00, 0x03, 0x11, 0x00, 0x03, 0x00, 0x14, 0x01 },
+            "Auto-sleep read is function 0");
+        assertFrame(dev.hid.writes.back(), { 0x50, 0x23, 0x0b, 0x00, 0x03, 0x11, 0x00, 0x06, 0x00, 0x14, 0x11, 0x0f, 0x01, 0x10 },
+            "Auto-sleep write keeps the lighting timers");
+    }
+    {
+        // A malformed read must not fall back to writing zeros.
+        TestableG522 dev;
+        queueG522Lookup(dev.hid, 0x14);
+        queueBridgeReply(dev.hid, prefix, 0x14, { 0x1e });
+        ASSERT_TRUE(dev.setInactiveTime(nullptr, 15).hasError(), "Short auto-sleep read fails");
+        ASSERT_EQ(G522_LOOKUP_WRITES + 1, dev.hid.writes.size(), "No write after a failed read");
+    }
+
+    std::cout << "    [OK] Logitech G522 settings on the wire verified" << std::endl;
+}
+
+static std::vector<uint8_t> hexBytes(std::string_view hex)
+{
+    std::vector<uint8_t> bytes;
+    std::istringstream stream { std::string(hex) };
+    std::string token;
+    while (stream >> token) {
+        bytes.push_back(static_cast<uint8_t>(std::stoi(token, nullptr, 16)));
+    }
+    return bytes;
+}
+
+// Equalizer parameters captured from G HUB for each built-in preset (bytes after "0f 2d").
+static constexpr std::array<std::string_view, 5> G522_EQ_PRESET_CAPTURES {
+    "00 00 00 00 14 16 00 78 00 32 16 00 78 00 7d 16 00 78 00 fa 16 00 78 01 f4 16 00 78 03 e8 16 00 78 09 c4 16 00 78 13 88 16 00 78 27 10 16 00 78 4e 20 16 00 78",
+    "00 00 00 00 14 16 00 b4 00 32 16 00 aa 00 7d 16 00 9b 00 fa 20 00 8c 01 f4 16 00 78 03 e8 16 00 78 09 c4 16 00 78 13 88 16 00 78 27 10 16 00 78 4e 20 16 00 78",
+    "00 00 00 00 14 16 00 78 00 32 16 00 78 00 fa 16 00 82 01 90 16 00 82 03 20 16 00 87 05 dc 16 00 8c 09 c4 16 00 91 13 88 16 00 96 27 10 16 00 9b 4a 38 16 00 af",
+    "00 00 00 00 14 16 00 78 00 32 16 00 78 00 7d 16 00 78 01 90 16 00 64 03 20 16 00 64 04 e2 40 00 c3 09 c4 20 00 d2 13 88 16 00 9b 27 10 16 00 96 4a 38 16 00 96",
+    "00 00 00 00 14 16 00 c8 00 32 16 00 b4 00 7d 16 00 a0 00 fa 16 00 6e 01 f4 16 00 6e 03 e8 16 00 8c 09 c4 16 00 a0 13 88 16 00 96 27 10 16 00 82 4e 20 16 00 6e",
+};
+
+// Offset of band 6 (1 kHz in the Default preset) inside the parameters: 3 header bytes + 5 bands.
+static constexpr size_t G522_EQ_BAND6 = 3 + 5 * 5;
+
+void testG522EqualizerEncoding()
+{
+    std::cout << "  Testing Logitech G522 equalizer encoding..." << std::endl;
+
+    using Dev = LogitechG522Lightspeed;
+
+    for (size_t i = 0; i < Dev::EQ_PRESETS_COUNT; ++i) {
+        auto params = Dev::buildEqParams(*Dev::EQ_PRESETS[i]);
+        ASSERT_EQ(Dev::EQ_PARAMS_SIZE, params.size(), "Equalizer parameters are 53 bytes");
+        ASSERT_TRUE(params == hexBytes(G522_EQ_PRESET_CAPTURES[i]),
+            std::string("Preset must match the G HUB capture: ") + std::string(Dev::EQ_PRESET_NAMES[i]));
+    }
+
+    // Single changes at 1 kHz, captured from G HUB's custom equalizer.
+    auto oneBand = [](float gain_db, float q_factor, uint16_t frequency) {
+        auto bands  = Dev::EQ_PRESET_DEFAULT;
+        bands[5]    = { frequency, gain_db, q_factor };
+        auto params = Dev::buildEqParams(bands);
+        return std::vector<uint8_t>(params.begin() + G522_EQ_BAND6, params.begin() + G522_EQ_BAND6 + 5);
+    };
+    ASSERT_TRUE((oneBand(3.0f, Dev::EQ_DEFAULT_Q, 1000) == std::vector<uint8_t> { 0x03, 0xe8, 0x16, 0x00, 0xb4 }), "+3 dB");
+    ASSERT_TRUE((oneBand(-3.0f, Dev::EQ_DEFAULT_Q, 1000) == std::vector<uint8_t> { 0x03, 0xe8, 0x16, 0x00, 0x3c }), "-3 dB");
+    ASSERT_TRUE((oneBand(6.0f, Dev::EQ_DEFAULT_Q, 1000) == std::vector<uint8_t> { 0x03, 0xe8, 0x16, 0x00, 0xf0 }), "+6 dB");
+    ASSERT_TRUE((oneBand(-6.0f, Dev::EQ_DEFAULT_Q, 1000) == std::vector<uint8_t> { 0x03, 0xe8, 0x16, 0x00, 0x00 }), "-6 dB");
+    ASSERT_TRUE((oneBand(0.0f, 1.0f, 1000) == std::vector<uint8_t> { 0x03, 0xe8, 0x20, 0x00, 0x78 }), "Q 1.0");
+    ASSERT_TRUE((oneBand(0.0f, 1.0f, 1200) == std::vector<uint8_t> { 0x04, 0xb0, 0x20, 0x00, 0x78 }), "1200 Hz");
+    ASSERT_TRUE((oneBand(0.0f, 0.688f, 1000) == std::vector<uint8_t> { 0x03, 0xe8, 0x16, 0x00, 0x78 }), "G HUB's Q 0.688");
+
+    // The headset stores 0.05 dB steps.
+    ASSERT_EQ(0x78, static_cast<int>(oneBand(0.01f, Dev::EQ_DEFAULT_Q, 1000)[4]), "0.01 dB rounds to 0");
+    ASSERT_EQ(0x79, static_cast<int>(oneBand(0.03f, Dev::EQ_DEFAULT_Q, 1000)[4]), "0.03 dB rounds to 0.05");
+
+    std::cout << "    [OK] Logitech G522 equalizer encoding verified" << std::endl;
+}
+
+void testG522EqualizerCommands()
+{
+    std::cout << "  Testing Logitech G522 equalizer commands..." << std::endl;
+
+    using Dev         = LogitechG522Lightspeed;
+    const auto prefix = std::span<const uint8_t>(Dev::FRAME_PREFIX);
+    const std::vector<uint8_t> eq_header { 0x50, 0x23, 0x3d, 0x00, 0x03, 0x11, 0x00, 0x38, 0x00, 0x0f, 0x21 };
+
+    auto writtenParams = [](const std::vector<uint8_t>& frame) {
+        return std::vector<uint8_t>(frame.begin() + 11, frame.end());
+    };
+    auto writtenHeader = [](const std::vector<uint8_t>& frame) {
+        return std::vector<uint8_t>(frame.begin(), frame.begin() + 11);
+    };
+
+    {
+        TestableG522 dev;
+        queueG522Lookup(dev.hid, 0x0f); // playback EQ 0x020d
+        queueBridgeReply(dev.hid, prefix, 0x0f, {});
+        auto preset = dev.setEqualizerPreset(nullptr, 1);
+        ASSERT_TRUE(preset.hasValue(), "Bass Boost preset should succeed");
+        ASSERT_EQ(5, static_cast<int>(preset->total_presets), "Five presets");
+        ASSERT_TRUE(writtenHeader(dev.hid.writes.back()) == eq_header, "Equalizer write header (single 64-byte frame)");
+        ASSERT_TRUE(writtenParams(dev.hid.writes.back()) == hexBytes(G522_EQ_PRESET_CAPTURES[1]), "Bass Boost on the wire");
+
+        ASSERT_TRUE(dev.setEqualizerPreset(nullptr, 5).hasError(), "Preset 5 does not exist");
+        ASSERT_EQ(G522_LOOKUP_WRITES + 1, dev.hid.writes.size(), "Invalid preset sends nothing");
+    }
+    {
+        TestableG522 dev;
+        queueG522Lookup(dev.hid, 0x0f);
+        queueBridgeReply(dev.hid, prefix, 0x0f, {});
+        EqualizerSettings custom { { 0, 0, 0, 0, 0, 3.0f, 0, 0, 0, 0 } };
+        ASSERT_TRUE(dev.setEqualizer(nullptr, custom).hasValue(), "10 gains should succeed");
+        auto expected               = hexBytes(G522_EQ_PRESET_CAPTURES[0]);
+        expected[G522_EQ_BAND6 + 4] = 0xb4;
+        ASSERT_TRUE(writtenParams(dev.hid.writes.back()) == expected, "Custom gains use the Default frequencies and Q");
+
+        const size_t writes = dev.hid.writes.size();
+        ASSERT_TRUE(dev.setEqualizer(nullptr, EqualizerSettings { { 0, 0, 0 } }).hasError(), "Wrong band count is rejected");
+        ASSERT_TRUE(dev.setEqualizer(nullptr, EqualizerSettings { { 0, 0, 0, 0, 0, 6.5f, 0, 0, 0, 0 } }).hasError(),
+            "Gain above +6 dB is rejected");
+        ASSERT_TRUE(dev.setEqualizer(nullptr, EqualizerSettings { { 0, 0, 0, 0, 0, std::numeric_limits<float>::quiet_NaN(), 0, 0, 0, 0 } }).hasError(),
+            "NaN gain is rejected");
+        ASSERT_EQ(writes, dev.hid.writes.size(), "Rejected settings send nothing");
+    }
+    {
+        TestableG522 dev;
+        queueG522Lookup(dev.hid, 0x0f);
+        queueBridgeReply(dev.hid, prefix, 0x0f, {});
+        ASSERT_TRUE(dev.setParametricEqualizer(nullptr, ParametricEqualizerSettings {}).hasValue(), "Reset should succeed");
+        ASSERT_TRUE(writtenParams(dev.hid.writes.back()) == hexBytes(G522_EQ_PRESET_CAPTURES[0]), "Reset restores Default");
+
+        // Band 6 moved to 1200 Hz with Q 1.0, as in the eq-freq-1200 capture.
+        queueBridgeReply(dev.hid, prefix, 0x0f, {});
+        ParametricEqualizerSettings moved;
+        for (const auto& band : Dev::EQ_PRESET_DEFAULT) {
+            moved.bands.push_back({ static_cast<float>(band.frequency), band.gain_db, band.q_factor, EqualizerFilterType::Peaking });
+        }
+        moved.bands[5] = { 1200.0f, 0.0f, 1.0f, EqualizerFilterType::Peaking };
+        ASSERT_TRUE(dev.setParametricEqualizer(nullptr, moved).hasValue(), "10 parametric bands should succeed");
+        auto expected               = hexBytes(G522_EQ_PRESET_CAPTURES[0]);
+        expected[G522_EQ_BAND6 + 0] = 0x04;
+        expected[G522_EQ_BAND6 + 1] = 0xb0;
+        expected[G522_EQ_BAND6 + 2] = 0x20;
+        ASSERT_TRUE(writtenParams(dev.hid.writes.back()) == expected, "Parametric band matches the eq-freq-1200 capture");
+
+        queueBridgeReply(dev.hid, prefix, 0x0f, {});
+        ParametricEqualizerSettings limits { { { 20.0f, -6.0f, 0.031f, EqualizerFilterType::Peaking },
+            { 20000.0f, 6.0f, 7.969f, EqualizerFilterType::Peaking } } };
+        ASSERT_TRUE(dev.setParametricEqualizer(nullptr, limits).hasValue(), "G HUB's displayed limits are accepted");
+
+        const size_t writes = dev.hid.writes.size();
+        auto rejects        = [&](ParametricEqualizerBand band, const char* msg) {
+            ASSERT_TRUE(dev.setParametricEqualizer(nullptr, ParametricEqualizerSettings { { band } }).hasError(), msg);
+        };
+        rejects({ 1000.0f, 0.0f, 1.0f, EqualizerFilterType::LowShelf }, "Only peaking bands are supported");
+        rejects({ 15.0f, 0.0f, 1.0f, EqualizerFilterType::Peaking }, "Frequency below 20 Hz is rejected");
+        rejects({ 1000.0f, -6.5f, 1.0f, EqualizerFilterType::Peaking }, "Gain below -6 dB is rejected");
+        rejects({ 1000.0f, 0.0f, 8.1f, EqualizerFilterType::Peaking }, "Q above 7.969 is rejected");
+        rejects({ 1000.0f, 0.0f, 0.01f, EqualizerFilterType::Peaking }, "Q below 0.031 is rejected");
+        ASSERT_TRUE(dev.setParametricEqualizer(nullptr, ParametricEqualizerSettings { std::vector<ParametricEqualizerBand>(11) }).hasError(),
+            "More than 10 bands is rejected");
+        ASSERT_EQ(writes, dev.hid.writes.size(), "Rejected settings send nothing");
+    }
+
+    std::cout << "    [OK] Logitech G522 equalizer commands verified" << std::endl;
+}
+
+void testCenturionProX2DefaultOptionsUnchanged()
+{
+    std::cout << "  Testing Logitech PRO X2 traffic with default Centurion options..." << std::endl;
+
+    {
+        TestableProX2 dev;
+        queueCenturionDiscovery(dev.hid, PRO_X2_PREFIX);
+        queueBridgeReply(dev.hid, PRO_X2_PREFIX, 0x02, { 0x2f, 0x32, 0x00 });
+
+        auto battery = dev.getBattery(nullptr);
+        ASSERT_TRUE(battery.hasValue(), "PRO X2 battery should succeed");
+        ASSERT_EQ(47, battery->level_percent, "PRO X2 battery level");
+
+        // The direct request keeps the historic length byte of the full 64-byte payload buffer (0x41).
+        std::vector<uint8_t> expected_direct(64, 0x00);
+        expected_direct[0] = 0x51;
+        expected_direct[1] = 0x41;
+        expected_direct[4] = 0x01;
+        expected_direct[6] = 0x01;
+        ASSERT_TRUE(dev.hid.writes[0] == expected_direct, "PRO X2 direct request must be byte-identical to before");
+        assertFrame(dev.hid.writes[CENTURION_DISCOVERY_WRITES], { 0x51, 0x08, 0x00, 0x03, 0x11, 0x00, 0x03, 0x00, 0x02, 0x01 },
+            "PRO X2 bridge request is unchanged");
+    }
+    {
+        // A power-off event is skipped, and a timeout is returned without a probe.
+        TestableProX2 dev;
+        queueCenturionDiscovery(dev.hid, PRO_X2_PREFIX);
+        dev.hid.replies.push_back(centurionFrame(PRO_X2_PREFIX, { 0x03, 0x11 }));
+        dev.hid.replies.push_back(centurionFrame(PRO_X2_PREFIX, { 0x03, 0x00, 0x00, 0x00 }));
+
+        auto battery = dev.getBattery(nullptr);
+        ASSERT_TRUE(battery.hasError(), "Unanswered request should fail");
+        ASSERT_TRUE(battery.error().code == DeviceError::Code::Timeout, "PRO X2 keeps reporting a timeout");
+        ASSERT_EQ(CENTURION_DISCOVERY_WRITES + 1, dev.hid.writes.size(), "PRO X2 sends no probe");
+    }
+
+    std::cout << "    [OK] Logitech PRO X2 traffic with default Centurion options verified" << std::endl;
+}
+
+// ============================================================================
 // Test Runner
 // ============================================================================
 
@@ -1384,6 +1904,15 @@ void runAllProtocolTests()
     runTest("Logitech Centurion Frame Building", testCenturionFrameBuilding);
     runTest("Logitech Centurion Bridge Parsing", testCenturionBridgeResponseParsing);
     runTest("Logitech Centurion Bridge Size Limit", testCenturionBridgeMessageSizeLimit);
+    runTest("Logitech Centurion G522 Frame Prefix", testCenturionG522FramePrefix);
+    runTest("Logitech Centurion Connection Status", testCenturionConnectionStatusHelpers);
+    runTest("Logitech G522 Battery Wire", testCenturionG522BatteryWire);
+    runTest("Logitech G522 Offline Detection", testCenturionG522Offline);
+    runTest("Logitech G522 Sidetone And Auto-Sleep Parsing", testG522SidetoneAndAutoSleepParsing);
+    runTest("Logitech G522 Settings Wire", testG522SettingsWire);
+    runTest("Logitech G522 Equalizer Encoding", testG522EqualizerEncoding);
+    runTest("Logitech G522 Equalizer Commands", testG522EqualizerCommands);
+    runTest("Logitech PRO X2 Default Centurion Options", testCenturionProX2DefaultOptionsUnchanged);
     runTest("Logitech PRO X2 Equalizer Info Cache", testLogitechProX2EqualizerInfoRequiresDescriptor);
     runTest("Logitech PRO X2 EQ Quantization", testLogitechProX2OnboardEqCoefficientQuantization);
     runTest("Logitech PRO X2 Onboard EQ Payload", testLogitechProX2OnboardEqPayloadBuilding);
