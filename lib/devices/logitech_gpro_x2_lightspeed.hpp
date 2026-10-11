@@ -311,6 +311,17 @@ public:
         };
     }
 
+protected:
+    protocols::CenturionOptions centurionOptions() const override
+    {
+        return {
+            .exact_direct_length      = true,
+            .detect_connection_events = true,
+            .probe_offline_on_timeout = true,
+            .lookup_features_by_id    = true,
+        };
+    }
+
 private:
     enum class EqualizerBackend {
         AdvancedParametric,
