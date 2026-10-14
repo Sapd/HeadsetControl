@@ -22,12 +22,12 @@ namespace headsetcontrol {
 class LogitechGProX2Lightspeed : public protocols::LogitechCenturionProtocol {
 public:
     static constexpr std::array<uint16_t, 1> SUPPORTED_PRODUCT_IDS { 0x0af7 };
-    static constexpr size_t PACKET_SIZE                                        = 64;
-    static constexpr uint8_t REPORT_PREFIX                                     = 0x51;
-    static constexpr uint8_t SIDETONE_DEVICE_MAX                               = 100;
-    static constexpr uint8_t SIDETONE_MIC_ID                                   = 0x01;
-    static constexpr uint8_t PLAYBACK_DIRECTION                                = 0x00;
-    static constexpr uint8_t EQUALIZER_PRESETS_COUNT                           = 5;
+    static constexpr size_t PACKET_SIZE              = 64;
+    static constexpr uint8_t REPORT_PREFIX           = 0x51;
+    static constexpr uint8_t SIDETONE_DEVICE_MAX     = 100;
+    static constexpr uint8_t SIDETONE_MIC_ID         = 0x01;
+    static constexpr uint8_t PLAYBACK_DIRECTION      = 0x00;
+    static constexpr uint8_t EQUALIZER_PRESETS_COUNT = 5;
 
     constexpr uint16_t getVendorId() const override
     {
@@ -122,7 +122,7 @@ public:
     Result<BatteryResult> getBattery(hid_device* device_handle) override
     {
         auto centurion_start_time = std::chrono::steady_clock::now();
-        auto centurion_battery = sendCenturionFeatureRequest(
+        auto centurion_battery    = sendCenturionFeatureRequest(
             device_handle,
             static_cast<uint16_t>(protocols::CenturionFeature::CenturionBatterySoc),
             0x00);
@@ -209,8 +209,7 @@ public:
 
             bands.push_back(AdvancedEqBand {
                 .frequency = descriptor->bands[i].frequency,
-                .gain_db   = encodeGain(gain)
-            });
+                .gain_db   = encodeGain(gain) });
         }
 
         if (auto write_result = writePlaybackAdvancedEq(device_handle, *descriptor, bands); !write_result) {
@@ -284,8 +283,7 @@ public:
             bands.push_back(AdvancedEqBand {
                 .frequency = static_cast<uint16_t>(band.frequency),
                 .gain_db   = encodeGain(band.gain),
-                .q_factor  = static_cast<uint8_t>(std::clamp<long>(std::lround(band.q_factor), 1, 255))
-            });
+                .q_factor  = static_cast<uint8_t>(std::clamp<long>(std::lround(band.q_factor), 1, 255)) });
         }
 
         if (auto write_result = writePlaybackAdvancedEq(device_handle, *descriptor, bands); !write_result) {
@@ -310,29 +308,6 @@ public:
             .minutes     = minutes,
             .min_minutes = 0,
             .max_minutes = 255
-        };
-    }
-
-    static Result<BatteryResult> parseCenturionBatteryResponse(std::span<const uint8_t> packet)
-    {
-        if (packet.empty()) {
-            return DeviceError::protocolError("Empty Centurion battery response");
-        }
-
-        auto level = static_cast<int>(packet[0]);
-        if (level < 0 || level > 100) {
-            return DeviceError::protocolError("Centurion battery percentage out of range");
-        }
-
-        auto charging_state = packet.size() >= 3 ? packet[2] : 0;
-        // Centurion battery replies use states 1 and 2 for charging; the legacy packet parser only treats 0x02 as charging.
-        auto status         = (charging_state == 1 || charging_state == 2)
-            ? BATTERY_CHARGING
-            : BATTERY_AVAILABLE;
-
-        return BatteryResult {
-            .level_percent = level,
-            .status        = status,
         };
     }
 
@@ -452,9 +427,9 @@ private:
 
     struct AdvancedEqDescriptor {
         EqualizerBackend backend = EqualizerBackend::AdvancedParametric;
-        uint8_t active_slot = 0;
-        float gain_min      = -12.0f;
-        float gain_max      = 12.0f;
+        uint8_t active_slot      = 0;
+        float gain_min           = -12.0f;
+        float gain_max           = 12.0f;
         std::vector<AdvancedEqBand> bands;
     };
 
@@ -469,8 +444,7 @@ public:
             converted.push_back(AdvancedEqBand {
                 .frequency = frequency,
                 .gain_db   = gain_db,
-                .q_factor  = q_factor
-            });
+                .q_factor  = q_factor });
         }
         return buildOnboardEqPayload(slot, converted);
     }
@@ -481,12 +455,11 @@ public:
     }
 
 private:
-
     void cacheEqualizerInfo(const AdvancedEqDescriptor& descriptor) const
     {
-        cached_band_count_      = static_cast<int>(descriptor.bands.size());
-        cached_gain_min_        = static_cast<int>(descriptor.gain_min);
-        cached_gain_max_        = static_cast<int>(descriptor.gain_max);
+        cached_band_count_         = static_cast<int>(descriptor.bands.size());
+        cached_gain_min_           = static_cast<int>(descriptor.gain_min);
+        cached_gain_max_           = static_cast<int>(descriptor.gain_max);
         has_cached_equalizer_info_ = true;
     }
 
@@ -508,11 +481,11 @@ private:
     static std::array<double, 5> buildPeakingEqBiquad(double frequency, double gain_db, double q_factor, double sample_rate)
     {
         constexpr double pi = 3.14159265358979323846;
-        double amplitude = std::pow(10.0, gain_db / 40.0);
-        double w0        = 2.0 * pi * frequency / sample_rate;
-        double cos_w0    = std::cos(w0);
-        double alpha     = std::sin(w0) / (2.0 * q_factor);
-        double a0        = 1.0 + alpha / amplitude;
+        double amplitude    = std::pow(10.0, gain_db / 40.0);
+        double w0           = 2.0 * pi * frequency / sample_rate;
+        double cos_w0       = std::cos(w0);
+        double alpha        = std::sin(w0) / (2.0 * q_factor);
+        double a0           = 1.0 + alpha / amplitude;
 
         return {
             (1.0 + alpha * amplitude) / a0,
@@ -685,8 +658,7 @@ private:
 
             descriptor.bands.push_back(AdvancedEqBand {
                 .frequency = frequency,
-                .gain_db   = decodeSignedByte((*params_reply)[offset + 2])
-            });
+                .gain_db   = decodeSignedByte((*params_reply)[offset + 2]) });
         }
 
         if (descriptor.bands.empty()) {
@@ -737,8 +709,7 @@ private:
             descriptor.bands.push_back(AdvancedEqBand {
                 .frequency = static_cast<uint16_t>((static_cast<uint16_t>((*params_reply)[offset]) << 8) | (*params_reply)[offset + 1]),
                 .gain_db   = decodeSignedByte((*params_reply)[offset + 2]),
-                .q_factor  = (*params_reply)[offset + 3]
-            });
+                .q_factor  = (*params_reply)[offset + 3] });
             offset += 4;
         }
 
