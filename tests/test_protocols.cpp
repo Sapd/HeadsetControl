@@ -1386,6 +1386,12 @@ public:
     [[nodiscard]] auto getHIDInterface() const -> HIDInterface& override { return hid; }
 };
 
+// Keep coverage of the shared protocol's opt-out behavior.
+class TestableLegacyProX2 : public TestableProX2 {
+protected:
+    protocols::CenturionOptions centurionOptions() const override { return {}; }
+};
+
 static constexpr std::array<uint8_t, 1> PRO_X2_PREFIX { 0x51 };
 
 static std::vector<uint8_t> centurionFrame(std::span<const uint8_t> prefix, std::vector<uint8_t> payload)
@@ -1853,7 +1859,7 @@ void testCenturionProX2DefaultOptionsUnchanged()
     std::cout << "  Testing Logitech PRO X2 traffic with default Centurion options..." << std::endl;
 
     {
-        TestableProX2 dev;
+        TestableLegacyProX2 dev;
         queueCenturionDiscovery(dev.hid, PRO_X2_PREFIX);
         queueBridgeReply(dev.hid, PRO_X2_PREFIX, 0x02, { 0x2f, 0x32, 0x00 });
 
@@ -1873,7 +1879,7 @@ void testCenturionProX2DefaultOptionsUnchanged()
     }
     {
         // A power-off event is skipped, and a timeout is returned without a probe.
-        TestableProX2 dev;
+        TestableLegacyProX2 dev;
         queueCenturionDiscovery(dev.hid, PRO_X2_PREFIX);
         dev.hid.replies.push_back(centurionFrame(PRO_X2_PREFIX, { 0x03, 0x11 }));
         dev.hid.replies.push_back(centurionFrame(PRO_X2_PREFIX, { 0x03, 0x00, 0x00, 0x00 }));
@@ -1885,6 +1891,109 @@ void testCenturionProX2DefaultOptionsUnchanged()
     }
 
     std::cout << "    [OK] Logitech PRO X2 traffic with default Centurion options verified" << std::endl;
+}
+
+void testCenturionProX2BatteryWire()
+{
+    std::cout << "  Testing Logitech PRO X2 battery lookup on the wire..." << std::endl;
+
+    TestableProX2 dev;
+    dev.hid.replies.push_back(centurionFrame(PRO_X2_PREFIX, { 0x00, 0x01, 0x03, 0x00, 0x01 }));
+    queueBridgeReply(dev.hid, PRO_X2_PREFIX, 0x00, { 0x02, 0x00, 0x03 });
+    queueBridgeReply(dev.hid, PRO_X2_PREFIX, 0x02, { 0x2f, 0x32, 0x00 });
+
+    auto battery = dev.getBattery(nullptr);
+    ASSERT_TRUE(battery.hasValue(), "PRO X2 battery should succeed with direct feature lookup");
+    ASSERT_EQ(47, battery->level_percent, "PRO X2 battery level");
+    ASSERT_EQ(BATTERY_AVAILABLE, battery->status, "PRO X2 battery status");
+    ASSERT_EQ(3u, dev.hid.writes.size(), "Two lookups and one battery request");
+    assertFrame(dev.hid.writes[0], { 0x51, 0x05, 0x00, 0x00, 0x01, 0x00, 0x03 },
+        "PRO X2 bridge lookup uses the exact direct length");
+    assertFrame(dev.hid.writes[1], { 0x51, 0x0a, 0x00, 0x03, 0x11, 0x00, 0x05, 0x00, 0x00, 0x01, 0x01, 0x04 },
+        "PRO X2 battery feature lookup goes through the bridge");
+    assertFrame(dev.hid.writes[2], { 0x51, 0x08, 0x00, 0x03, 0x11, 0x00, 0x03, 0x00, 0x02, 0x01 },
+        "PRO X2 battery request uses the resolved feature index");
+
+    queueBridgeReply(dev.hid, PRO_X2_PREFIX, 0x02, { 0x30, 0x32, 0x02 });
+    auto charging = dev.getBattery(nullptr);
+    ASSERT_TRUE(charging.hasValue(), "Cached PRO X2 battery request should succeed");
+    ASSERT_EQ(BATTERY_CHARGING, charging->status, "PRO X2 charging state");
+    ASSERT_EQ(4u, dev.hid.writes.size(), "Cached indexes avoid further lookups");
+    ASSERT_TRUE(dev.hid.replies.empty(), "All replies consumed");
+
+    std::cout << "    [OK] Logitech PRO X2 battery lookup on the wire verified" << std::endl;
+}
+
+void testCenturionProX2Offline()
+{
+    std::cout << "  Testing Logitech PRO X2 offline detection..." << std::endl;
+
+    {
+        // An already powered-off headset can disappear during feature lookup.
+        TestableProX2 dev;
+        dev.hid.replies.push_back(centurionFrame(PRO_X2_PREFIX, { 0x00, 0x01, 0x03, 0x00, 0x01 }));
+        dev.hid.replies.push_back(centurionFrame(PRO_X2_PREFIX, { 0x03, 0x11 }));
+        dev.hid.replies.push_back(centurionFrame(PRO_X2_PREFIX, { 0x03, 0x00, 0x00, 0x00 }));
+
+        auto battery = dev.getBattery(nullptr);
+        ASSERT_TRUE(battery.hasError(), "Disconnect during lookup should fail");
+        ASSERT_TRUE(battery.error().code == DeviceError::Code::DeviceOffline, "Disconnect event means offline");
+        ASSERT_EQ(2u, dev.hid.writes.size(), "Offline lookup sends no legacy battery request");
+        ASSERT_TRUE(dev.hid.replies.empty(), "Disconnect event consumed");
+    }
+    for (bool connected : { false, true }) {
+        TestableProX2 dev;
+        dev.hid.replies.push_back(centurionFrame(PRO_X2_PREFIX, { 0x00, 0x01, 0x03, 0x00, 0x01 }));
+        queueBridgeReply(dev.hid, PRO_X2_PREFIX, 0x00, { 0x02, 0x00, 0x03 });
+        dev.hid.replies.push_back(centurionFrame(PRO_X2_PREFIX, { 0x03, 0x11 }));
+        dev.hid.replies.push_back(DeviceError::timeout("No reply from the headset"));
+        dev.hid.replies.push_back(centurionFrame(PRO_X2_PREFIX, { 0x03, 0x11 })); // stale ACK must be skipped
+        dev.hid.replies.push_back(centurionFrame(PRO_X2_PREFIX, { 0x03, 0x01, 0x03, 0xe8, 0x00, static_cast<uint8_t>(connected), 0x01 }));
+
+        auto battery = dev.getBattery(nullptr);
+        ASSERT_TRUE(battery.hasError(), "Unanswered battery query should fail");
+        ASSERT_TRUE(battery.error().code == (connected ? DeviceError::Code::Timeout : DeviceError::Code::DeviceOffline),
+            "Only a disconnected headset should turn a timeout into offline");
+        ASSERT_EQ(4u, dev.hid.writes.size(), "Two lookups, battery query and one probe; no legacy fallback");
+        assertFrame(dev.hid.writes.back(), { 0x51, 0x03, 0x00, 0x03, 0x01 },
+            "PRO X2 status probe uses the exact direct length");
+        ASSERT_TRUE(dev.hid.replies.empty(), "All probe replies consumed");
+
+        // A later successful request uses the cached index and recovers normally.
+        queueBridgeReply(dev.hid, PRO_X2_PREFIX, 0x02, { 0x30, 0x32, 0x00 });
+        auto recovered = dev.getBattery(nullptr);
+        ASSERT_TRUE(recovered.hasValue(), "Battery query should recover after an offline or timeout result");
+        ASSERT_EQ(48, recovered->level_percent, "Recovered battery level");
+        ASSERT_EQ(5u, dev.hid.writes.size(), "Recovery reuses the cached feature index");
+        ASSERT_TRUE(dev.hid.replies.empty(), "Recovery replies consumed");
+    }
+
+    std::cout << "    [OK] Logitech PRO X2 offline detection verified" << std::endl;
+}
+
+void testCenturionProX2BridgeRejection()
+{
+    std::cout << "  Testing Logitech PRO X2 bridge rejection..." << std::endl;
+
+    for (bool connected : { false, true }) {
+        TestableProX2 dev;
+        dev.hid.replies.push_back(centurionFrame(PRO_X2_PREFIX, { 0x00, 0x01, 0x03, 0x00, 0x01 }));
+        dev.hid.replies.push_back(centurionFrame(PRO_X2_PREFIX, { 0xff, 0x03, 0x21, 0x0b })); // unrelated function
+        // Captured PRO X 2 rejection and bridge status while disconnected.
+        dev.hid.replies.push_back(centurionFrame(PRO_X2_PREFIX, { 0xff, 0x03, 0x11, 0x0b }));
+        dev.hid.replies.push_back(centurionFrame(PRO_X2_PREFIX, { 0x03, 0x01, 0x03, 0x7a, 0x00, static_cast<uint8_t>(connected), 0x01 }));
+
+        auto battery = dev.getBattery(nullptr);
+        ASSERT_TRUE(battery.hasError(), "Rejected feature lookup should fail");
+        ASSERT_TRUE(battery.error().code == (connected ? DeviceError::Code::ProtocolError : DeviceError::Code::DeviceOffline),
+            "A bridge rejection means offline only when the status confirms disconnection");
+        ASSERT_EQ(3u, dev.hid.writes.size(), "Bridge lookup, rejected feature lookup and one status probe");
+        ASSERT_EQ(2u, dev.hid.writes_at_read[2], "Unrelated rejection must not trigger a status probe");
+        assertFrame(dev.hid.writes.back(), { 0x51, 0x03, 0x00, 0x03, 0x01 }, "Direct bridge status probe");
+        ASSERT_TRUE(dev.hid.replies.empty(), "All replies consumed without waiting for a timeout");
+    }
+
+    std::cout << "    [OK] Logitech PRO X2 bridge rejection verified" << std::endl;
 }
 
 // ============================================================================
@@ -1952,6 +2061,9 @@ void runAllProtocolTests()
     runTest("Logitech G522 Equalizer Encoding", testG522EqualizerEncoding);
     runTest("Logitech G522 Equalizer Commands", testG522EqualizerCommands);
     runTest("Logitech PRO X2 Default Centurion Options", testCenturionProX2DefaultOptionsUnchanged);
+    runTest("Logitech PRO X2 Battery Wire", testCenturionProX2BatteryWire);
+    runTest("Logitech PRO X2 Offline Detection", testCenturionProX2Offline);
+    runTest("Logitech PRO X2 Bridge Rejection", testCenturionProX2BridgeRejection);
     runTest("Logitech PRO X2 Equalizer Info Cache", testLogitechProX2EqualizerInfoRequiresDescriptor);
     runTest("Logitech PRO X2 EQ Quantization", testLogitechProX2OnboardEqCoefficientQuantization);
     runTest("Logitech PRO X2 Onboard EQ Payload", testLogitechProX2OnboardEqPayloadBuilding);

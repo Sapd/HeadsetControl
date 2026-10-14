@@ -45,8 +45,8 @@ struct CenturionOptions {
     bool exact_direct_length = false;
     // Report a bridge "headset disconnected" event as DeviceError::deviceOffline.
     bool detect_connection_events = false;
-    // After a bridge ACK followed by a read timeout, query the bridge's
-    // connection status once and report deviceOffline if the headset is gone.
+    // After a bridge rejection or an ACK followed by a read timeout, query the
+    // bridge's connection status once and report deviceOffline if the headset is gone.
     bool probe_offline_on_timeout = false;
     // Look up each feature index with Root.getFeature when first needed,
     // instead of enumerating every feature of the dongle and the headset.
@@ -573,7 +573,7 @@ private:
             if (!read_result) {
                 if (ack_received && options.probe_offline_on_timeout
                     && read_result.error().code == DeviceError::Code::Timeout) {
-                    return probeOfflineAfterTimeout(device_handle, read_result.error());
+                    return probeOfflineAfterFailure(device_handle, read_result.error());
                 }
                 return read_result.error();
             }
@@ -584,6 +584,15 @@ private:
             }
 
             const auto& reply = *payload_result;
+            // The PRO X 2 can reject a bridge request before acknowledging it
+            // when no headset is connected. Verify the connection status rather
+            // than assuming that every rejection means the headset is offline.
+            if (options.probe_offline_on_timeout && reply.size() >= 4
+                && reply[0] == 0xFF && reply[1] == *centurion_bridge_index_
+                && reply[2] == static_cast<uint8_t>(BRIDGE_SEND_FRAGMENT_FN | SOFTWARE_ID)) {
+                return probeOfflineAfterFailure(device_handle,
+                    DeviceError::protocolError("Centurion bridge rejected the request"));
+            }
             if (reply.size() < 2 || reply[0] != *centurion_bridge_index_) {
                 continue;
             }
@@ -622,21 +631,21 @@ private:
 
         auto timeout = DeviceError::timeout("Timed out waiting for Centurion bridge response");
         if (options.probe_offline_on_timeout) {
-            return probeOfflineAfterTimeout(device_handle, timeout);
+            return probeOfflineAfterFailure(device_handle, timeout);
         }
         return timeout;
     }
 
     /**
-     * @brief Tell "headset off" apart from a slow reply after a bridge timeout.
+     * @brief Distinguish a disconnected headset from other bridge failures.
      *
-     * With the headset off, the dongle still acknowledges bridge requests, but
-     * nothing answers them. Ask the dongle's bridge directly whether a headset
-     * is connected; keep the original timeout if the answer is unclear.
+     * A disconnected dongle may reject a bridge request or acknowledge it with
+     * no subsequent reply. Ask the bridge directly whether a headset is
+     * connected; keep the original error if the answer is unclear.
      */
-    [[nodiscard]] Result<std::vector<uint8_t>> probeOfflineAfterTimeout(
+    [[nodiscard]] Result<std::vector<uint8_t>> probeOfflineAfterFailure(
         hid_device* device_handle,
-        const DeviceError& timeout) const
+        const DeviceError& failure) const
     {
         auto status = sendCenturionRequest(device_handle, *centurion_bridge_index_, 0x00, {}, true);
         if (status && isBridgeStatusDisconnected(*status)) {
@@ -645,7 +654,7 @@ private:
         if (!status && status.error().code == DeviceError::Code::DeviceOffline) {
             return status.error();
         }
-        return timeout;
+        return failure;
     }
 
     static auto buildDirectPayloadVector(uint8_t feature_index, uint8_t function, std::span<const uint8_t> params)
