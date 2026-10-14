@@ -18,6 +18,7 @@
 #include "devices/protocols/logitech_calibrations.hpp"
 #include "devices/protocols/logitech_centurion_protocol.hpp"
 #include "devices/protocols/steelseries_protocol.hpp"
+#include "devices/steelseries_arctis_nova_3p_wireless.hpp"
 #include "result_types.hpp"
 #include "utility.hpp"
 
@@ -786,6 +787,44 @@ public:
     }
 };
 
+class TestableNova3PWireless : public SteelSeriesArctisNova3PWireless {
+public:
+    mutable ScriptedHIDInterface hid;
+
+    HIDInterface& getHIDInterface() const override { return hid; }
+};
+
+void testSteelSeriesNova3PMicVolumeMapping()
+{
+    const struct {
+        uint8_t normalized;
+        uint8_t device_level;
+    } levels[] = {
+        { 0, 0 },
+        { 64, 7 },
+        { 127, 14 },
+        { 128, 15 },
+    };
+
+    for (uint16_t product_id : SteelSeriesArctisNova3PWireless::SUPPORTED_PRODUCT_IDS) {
+        TestableNova3PWireless dev;
+        dev.setMatchedProductId(product_id);
+        for (const auto& level : levels) {
+            dev.hid.writes.clear();
+            auto result = dev.setMicVolume(nullptr, level.normalized);
+            ASSERT_TRUE(result.hasValue(), "Microphone volume write should succeed");
+            ASSERT_EQ(level.normalized, result->volume, "Result should retain the normalized volume");
+            ASSERT_EQ(2u, dev.hid.writes.size(), "Microphone volume write should be followed by save");
+            ASSERT_EQ(64u, dev.hid.writes[0].size(), "Microphone command should use a full report");
+            ASSERT_EQ(0x00, dev.hid.writes[0][0], "Microphone command should use report ID zero");
+            ASSERT_EQ(0x37, dev.hid.writes[0][1], "Microphone command should use opcode 0x37");
+            ASSERT_EQ(static_cast<int>(level.device_level), static_cast<int>(dev.hid.writes[0][2]), "Microphone volume should map to hardware levels 0-15");
+            ASSERT_EQ(0x00, dev.hid.writes[1][0], "Save command should use report ID zero");
+            ASSERT_EQ(0x09, dev.hid.writes[1][1], "Save command should use opcode 0x09");
+        }
+    }
+}
+
 class TestableAstroA50Gen4 : public LogitechAstroA50Gen4 {
 public:
     mutable ScriptedHIDInterface hid;
@@ -1397,6 +1436,7 @@ void runAllProtocolTests()
     runTest("SteelSeries Battery Mapping", testSteelSeriesBatteryMapping);
     runTest("SteelSeries Chatmix Mapping", testSteelSeriesChatmixMapping);
     runTest("SteelSeries Sidetone Mapping", testSteelSeriesSidetoneMapping);
+    runTest("SteelSeries Nova 3P/3X Microphone Volume Mapping", testSteelSeriesNova3PMicVolumeMapping);
 
     std::cout << "\n=== Corsair Protocol ===" << std::endl;
     runTest("Corsair Sidetone Mapping", testCorsairSidetoneMapping);
