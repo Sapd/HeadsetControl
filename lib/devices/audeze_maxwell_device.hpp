@@ -57,10 +57,12 @@ namespace headsetcontrol {
  *                                                  5D: D6 0C 00 00 <percent>
  *
  * A parameter value can be several bytes long (auto power off). Writing the sidetone
- * parameter toggles sidetone whatever value is sent.
+ * parameter toggles sidetone whatever value is sent; writing the sidetone level key
+ * switches sidetone on.
  *
  * Replies carry no sequence number, so they are matched on the command identity and
- * anything else that is queued is skipped.
+ * anything else that is queued is skipped. Whatever is still queued when a request is
+ * sent is discarded first, so a late reply cannot answer a later request.
  */
 class AudezeMaxwellDevice : public HIDDevice {
 public:
@@ -227,6 +229,8 @@ protected:
     // Non-static so tests can shorten them
     std::chrono::milliseconds response_timeout_ { 400 };
     std::chrono::milliseconds poll_interval_ { 20 };
+    /// Most reports discarded before a request, in case the dongle never runs empty
+    int max_discarded_reports_ = 32;
 
     static constexpr int MAX_ATTEMPTS = 3;
 
@@ -289,6 +293,28 @@ protected:
         }
     }
 
+    /**
+     * @brief Discard the input still queued in the dongle
+     *
+     * A reply that arrives after its request timed out, or the second reply to a repeated
+     * request, would otherwise be taken for the reply to the next request with the same
+     * identity. Reads until the dongle has nothing new (a report with length 0).
+     */
+    Result<void> discardPendingInput(hid_device* device_handle) const
+    {
+        for (int discarded = 0; discarded < max_discarded_reports_; ++discarded) {
+            Report report { REPORT_ID_IN };
+            auto read_result = getInputReport(device_handle, report);
+            if (!read_result) {
+                return read_result.error();
+            }
+            if (reportFragment(std::span<const uint8_t>(report).first(std::min(*read_result, report.size()))).empty()) {
+                break;
+            }
+        }
+        return {};
+    }
+
     /// Write the reports of one request, pausing for @p interval between them
     Result<void> sendReports(hid_device* device_handle, std::span<const Report> reports, std::chrono::milliseconds interval) const
     {
@@ -319,6 +345,9 @@ protected:
 
         Result<Message> reply = DeviceError::timeout("No matching reply from the Maxwell");
         for (int attempt = 0; attempt < options.attempts; ++attempt) {
+            if (auto result = discardPendingInput(device_handle); !result) {
+                return result.error();
+            }
             if (auto result = sendReports(device_handle, reports, options.fragment_interval); !result) {
                 return result.error();
             }
@@ -359,13 +388,10 @@ protected:
     Result<void> writeKey(hid_device* device_handle, uint8_t key, uint8_t value) const
     {
         // Reply: 05 5B 05 00 00 09 <key> 00 00
-        static constexpr size_t FAMILY_OFFSET = 5;
-        static constexpr size_t KEY_OFFSET    = 6;
+        static constexpr size_t KEY_OFFSET = 6;
 
-        // Audeze.exe only checks the family byte and the key of this acknowledgement
         auto reply = request(device_handle, commandBody(CMD_WRITE_KEY, { key, 0x00, value }), [key](const Message& message) {
-            return message.size() > KEY_OFFSET && message[TYPE_OFFSET] == TYPE_RESPONSE
-                && message[FAMILY_OFFSET] == CMD_WRITE_KEY[1] && message[KEY_OFFSET] == key;
+            return isMessage(message, TYPE_RESPONSE, CMD_WRITE_KEY) && hasId(message, KEY_OFFSET, key);
         });
         if (!reply) {
             return reply.error();
@@ -431,37 +457,24 @@ protected:
     }
 
     /**
-     * @brief Switch sidetone on or off
+     * @brief Switch sidetone off, keeping the stored level
      *
-     * The headset toggles sidetone on every write to this parameter, whatever value is
-     * sent (verified on an original Maxwell). So the state is read first, the write is
-     * only sent if it differs, and the result is read back.
+     * Writing this parameter toggles sidetone whatever value is sent (verified on an
+     * original Maxwell), so it is only written if sidetone is on, and only once: a
+     * repeated or retried write would switch it back on.
      */
-    Result<void> setSidetoneEnabled(hid_device* device_handle, bool enabled) const
+    Result<void> switchSidetoneOff(hid_device* device_handle) const
     {
-        static constexpr int MAX_TOGGLES = 2;
-
-        for (int toggles = 0;; ++toggles) {
-            auto current = readParameter(device_handle, PARAM_SIDETONE_ENABLED);
-            if (!current) {
-                return current.error();
-            }
-            const bool is_enabled = *current != 0x00;
-            if (is_enabled == enabled) {
-                return {};
-            }
-            if (toggles == MAX_TOGGLES) {
-                return DeviceError::protocolError("Maxwell did not change the sidetone state");
-            }
-
-            // Sent once, as repeating it would toggle back. A lost acknowledgement does
-            // not matter: the state read above decides.
-            const std::array<uint8_t, 1> value { static_cast<uint8_t>(enabled ? 0x01 : 0x00) };
-            auto result = writeParameter(device_handle, PARAM_SIDETONE_ENABLED, value, { .attempts = 1 });
-            if (!result && result.error().code != DeviceError::Code::Timeout) {
-                return result.error();
-            }
+        auto enabled = readParameter(device_handle, PARAM_SIDETONE_ENABLED);
+        if (!enabled) {
+            return enabled.error();
         }
+        if (*enabled == 0x00) {
+            return {};
+        }
+
+        const std::array<uint8_t, 1> value { 0x00 };
+        return writeParameter(device_handle, PARAM_SIDETONE_ENABLED, value, { .attempts = 1 });
     }
 
 public:
@@ -504,18 +517,14 @@ public:
     Result<SidetoneResult> setSidetone(hid_device* device_handle, uint8_t level) override
     {
         const uint8_t device_max = readSidetoneMax(device_handle);
-        const uint8_t mapped     = map<uint8_t>(level, 0, SIDETONE_API_MAX, 0, device_max);
-        const bool enabled       = mapped > 0;
+        const bool enabled       = level > 0;
+        // Any level above 0 is audible, even where the scaling would round it down to 0
+        const uint8_t mapped = enabled ? std::max<uint8_t>(1, map<uint8_t>(level, 0, SIDETONE_API_MAX, 0, device_max)) : 0;
 
-        // The level and the on/off state are stored separately. Writing a level also
-        // switches sidetone on, so level 0 only switches it off and keeps the stored level.
-        if (enabled) {
-            if (auto result = writeKey(device_handle, KEY_SIDETONE_LEVEL, mapped); !result) {
-                return result.error();
-            }
-        }
-
-        if (auto result = setSidetoneEnabled(device_handle, enabled); !result) {
+        // Writing a level also switches sidetone on, so that is all a level above 0 needs.
+        // Level 0 switches sidetone off and keeps the stored level.
+        auto result = enabled ? writeKey(device_handle, KEY_SIDETONE_LEVEL, mapped) : switchSidetoneOff(device_handle);
+        if (!result) {
             return result.error();
         }
 
