@@ -57,12 +57,12 @@ namespace headsetcontrol {
  *                                                  5D: D6 0C 00 00 <percent>
  *
  * A parameter value can be several bytes long (auto power off). Writing the sidetone
- * parameter toggles sidetone whatever value is sent; writing the sidetone level key
- * switches sidetone on.
+ * parameter toggles sidetone whatever value is sent. Writing the sidetone level key
+ * switches an original Maxwell on, but leaves a Maxwell 2 silent.
  *
  * Replies carry no sequence number, so they are matched on the command identity and
- * anything else that is queued is skipped. Whatever is still queued when a request is
- * sent is discarded first, so a late reply cannot answer a later request.
+ * anything else that is queued is skipped. Requests are paced like Audeze's app does it:
+ * one at a time, 50 ms before each read, and a write is never sent twice.
  */
 class AudezeMaxwellDevice : public HIDDevice {
 public:
@@ -226,17 +226,16 @@ public:
     }
 
 protected:
-    // Non-static so tests can shorten them
-    std::chrono::milliseconds response_timeout_ { 400 };
-    std::chrono::milliseconds poll_interval_ { 20 };
-    /// Most reports discarded before a request, in case the dongle never runs empty
-    int max_discarded_reports_ = 32;
+    // As in Audeze's app, which sleeps 50 ms before each read and gives up after 25 reads.
+    // Non-static so tests can shorten them.
+    std::chrono::milliseconds response_timeout_ { 1250 };
+    std::chrono::milliseconds poll_interval_ { 50 };
 
     static constexpr int MAX_ATTEMPTS = 3;
 
     /// How a request is sent and how long its reply is awaited
     struct RequestOptions {
-        /// How often the request is sent while it times out; 1 if it is not safe to repeat
+        /// How often the request is sent while it times out; 1 for anything but a read
         int attempts = MAX_ATTEMPTS;
         /// How long to wait for the reply; response_timeout_ if not set
         std::optional<std::chrono::milliseconds> timeout {};
@@ -293,28 +292,6 @@ protected:
         }
     }
 
-    /**
-     * @brief Discard the input still queued in the dongle
-     *
-     * A reply that arrives after its request timed out, or the second reply to a repeated
-     * request, would otherwise be taken for the reply to the next request with the same
-     * identity. Reads until the dongle has nothing new (a report with length 0).
-     */
-    Result<void> discardPendingInput(hid_device* device_handle) const
-    {
-        for (int discarded = 0; discarded < max_discarded_reports_; ++discarded) {
-            Report report { REPORT_ID_IN };
-            auto read_result = getInputReport(device_handle, report);
-            if (!read_result) {
-                return read_result.error();
-            }
-            if (reportFragment(std::span<const uint8_t>(report).first(std::min(*read_result, report.size()))).empty()) {
-                break;
-            }
-        }
-        return {};
-    }
-
     /// Write the reports of one request, pausing for @p interval between them
     Result<void> sendReports(hid_device* device_handle, std::span<const Report> reports, std::chrono::milliseconds interval) const
     {
@@ -334,8 +311,8 @@ protected:
      *
      * Reading an input report consumes it, so another program polling the same dongle
      * (the Audeze app does so about once a second) can take a reply meant for us, while
-     * we see its replies instead. The request is therefore repeated on a timeout, unless
-     * @p options says otherwise.
+     * we see its replies instead. A read is therefore repeated on a timeout. A write is
+     * sent once, as Audeze's app does: the headset may still apply it after replying late.
      */
     template <typename Predicate>
     Result<Message> request(hid_device* device_handle, const Message& body, Predicate accept, const RequestOptions& options) const
@@ -345,9 +322,6 @@ protected:
 
         Result<Message> reply = DeviceError::timeout("No matching reply from the Maxwell");
         for (int attempt = 0; attempt < options.attempts; ++attempt) {
-            if (auto result = discardPendingInput(device_handle); !result) {
-                return result.error();
-            }
             if (auto result = sendReports(device_handle, reports, options.fragment_interval); !result) {
                 return result.error();
             }
@@ -390,9 +364,11 @@ protected:
         // Reply: 05 5B 05 00 00 09 <key> 00 00
         static constexpr size_t KEY_OFFSET = 6;
 
-        auto reply = request(device_handle, commandBody(CMD_WRITE_KEY, { key, 0x00, value }), [key](const Message& message) {
-            return isMessage(message, TYPE_RESPONSE, CMD_WRITE_KEY) && hasId(message, KEY_OFFSET, key);
-        });
+        auto reply = request(
+            device_handle, commandBody(CMD_WRITE_KEY, { key, 0x00, value }), [key](const Message& message) {
+                return isMessage(message, TYPE_RESPONSE, CMD_WRITE_KEY) && hasId(message, KEY_OFFSET, key);
+            },
+            { .attempts = 1 });
         if (!reply) {
             return reply.error();
         }
@@ -418,7 +394,7 @@ protected:
         return (*reply)[VALUE_OFFSET];
     }
 
-    Result<void> writeParameter(hid_device* device_handle, uint8_t parameter, std::span<const uint8_t> value, const RequestOptions& options) const
+    Result<void> writeParameter(hid_device* device_handle, uint8_t parameter, std::span<const uint8_t> value) const
     {
         // Reply: 05 5B 05 00 82 2C <status> <param> 00
         static constexpr size_t STATUS_OFFSET    = 6;
@@ -431,7 +407,7 @@ protected:
             device_handle, body, [parameter](const Message& message) {
                 return isMessage(message, TYPE_RESPONSE, CMD_WRITE_PARAMETER) && hasId(message, PARAMETER_OFFSET, parameter);
             },
-            options);
+            { .attempts = 1 });
         if (!reply) {
             return reply.error();
         }
@@ -439,11 +415,6 @@ protected:
             return DeviceError::protocolError(std::format("Maxwell rejected writing parameter 0x{:02x}", parameter));
         }
         return {};
-    }
-
-    Result<void> writeParameter(hid_device* device_handle, uint8_t parameter, std::span<const uint8_t> value) const
-    {
-        return writeParameter(device_handle, parameter, value, RequestOptions {});
     }
 
     /// Highest sidetone level the headset accepts
@@ -457,24 +428,24 @@ protected:
     }
 
     /**
-     * @brief Switch sidetone off, keeping the stored level
+     * @brief Switch sidetone on or off, keeping the stored level
      *
      * Writing this parameter toggles sidetone whatever value is sent (verified on an
-     * original Maxwell), so it is only written if sidetone is on, and only once: a
-     * repeated or retried write would switch it back on.
+     * original Maxwell), so it is only written if the state differs, and only once: a
+     * repeated or retried write would switch it back.
      */
-    Result<void> switchSidetoneOff(hid_device* device_handle) const
+    Result<void> switchSidetone(hid_device* device_handle, bool on) const
     {
         auto enabled = readParameter(device_handle, PARAM_SIDETONE_ENABLED);
         if (!enabled) {
             return enabled.error();
         }
-        if (*enabled == 0x00) {
+        if ((*enabled != 0x00) == on) {
             return {};
         }
 
-        const std::array<uint8_t, 1> value { 0x00 };
-        return writeParameter(device_handle, PARAM_SIDETONE_ENABLED, value, { .attempts = 1 });
+        const std::array<uint8_t, 1> value { on ? uint8_t(0x01) : uint8_t(0x00) };
+        return writeParameter(device_handle, PARAM_SIDETONE_ENABLED, value);
     }
 
 public:
@@ -521,11 +492,17 @@ public:
         // Any level above 0 is audible, even where the scaling would round it down to 0
         const uint8_t mapped = enabled ? std::max<uint8_t>(1, map<uint8_t>(level, 0, SIDETONE_API_MAX, 0, device_max)) : 0;
 
-        // Writing a level also switches sidetone on, so that is all a level above 0 needs.
-        // Level 0 switches sidetone off and keeps the stored level.
-        auto result = enabled ? writeKey(device_handle, KEY_SIDETONE_LEVEL, mapped) : switchSidetoneOff(device_handle);
-        if (!result) {
+        // As in Audeze's app, which only offers the level while sidetone is on: switch it on
+        // first, then write the level. Writing the level first would switch an original
+        // Maxwell on, and the toggle would then switch it off again. Level 0 switches
+        // sidetone off and keeps the stored level.
+        if (auto result = switchSidetone(device_handle, enabled); !result) {
             return result.error();
+        }
+        if (enabled) {
+            if (auto result = writeKey(device_handle, KEY_SIDETONE_LEVEL, mapped); !result) {
+                return result.error();
+            }
         }
 
         return SidetoneResult {

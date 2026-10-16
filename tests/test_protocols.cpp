@@ -1391,12 +1391,7 @@ public:
         poll_interval_        = std::chrono::milliseconds(0);
         eq_timeout_           = std::chrono::milliseconds(20);
         eq_fragment_interval_ = std::chrono::milliseconds(0);
-        // Scripts queue the replies of all requests up front, and the dongle would never
-        // hold them before the request was sent. testAudezeMaxwellStaleReplies enables it.
-        max_discarded_reports_ = 0;
     }
-
-    void enableDiscarding() { max_discarded_reports_ = 32; }
 
     [[nodiscard]] auto getHIDInterface() const -> HIDInterface& override { return hid; }
 };
@@ -1581,28 +1576,53 @@ void testAudezeMaxwellSidetone()
     const std::vector<uint8_t> level_write = { 0x06, 0x09, 0x80, 0x05, 0x5A, 0x05, 0x00, 0x00, 0x09, 0x2C, 0x00, 0x0F };
     const std::vector<uint8_t> toggle      = { 0x06, 0x09, 0x80, 0x05, 0x5A, 0x05, 0x00, 0x82, 0x2C, 0x07, 0x00 };
 
-    // A level above 0 is a single level write, which also switches sidetone on: the
-    // on/off state is neither read nor toggled
+    // While sidetone is on, a level above 0 is only a level write: the state is not toggled
     TestableAudezeMaxwell setter;
-    setter.hid.replies.emplace_back(max_reply);
-    setter.hid.replies.emplace_back(level_ack);
+    for (const auto& reply : { max_reply, state_on, level_ack }) {
+        setter.hid.replies.emplace_back(reply);
+    }
 
     auto set = setter.setSidetone(nullptr, 128);
     ASSERT_TRUE(set.hasValue(), "Sidetone should be set");
     ASSERT_TRUE(!set->is_muted, "A level above 0 is not muted");
     ASSERT_EQ(15, static_cast<int>(set->device_level), "128 should map to the maximum the headset reported");
-    ASSERT_EQ(2, static_cast<int>(setter.hid.writes.size()), "Maximum query and level write only");
-    ASSERT_TRUE(maxwellWritePrefix(setter.hid.writes[1], 12) == level_write, "Level write");
+    ASSERT_EQ(3, static_cast<int>(setter.hid.writes.size()), "Maximum, state and level write");
+    ASSERT_TRUE(maxwellWritePrefix(setter.hid.writes[2], 12) == level_write, "Level write");
+
+    // While it is off, it is switched on with one toggle before the level is written. A
+    // Maxwell 2 stays silent after a level write alone, and on an original Maxwell a level
+    // write would switch it on, so a toggle after it would switch it off again.
+    TestableAudezeMaxwell switch_on;
+    for (const auto& reply : { max_reply, state_off, toggle_ack, level_ack }) {
+        switch_on.hid.replies.emplace_back(reply);
+    }
+    auto enabled = switch_on.setSidetone(nullptr, 128);
+    ASSERT_TRUE(enabled.hasValue(), "Sidetone should be switched on");
+    ASSERT_TRUE(!enabled->is_muted, "A level above 0 is not muted");
+    ASSERT_EQ(4, static_cast<int>(switch_on.hid.writes.size()), "Maximum, state, toggle and level write");
+    ASSERT_TRUE(maxwellWritePrefix(switch_on.hid.writes[2], 11) == toggle, "Toggle before the level");
+    ASSERT_EQ(0x01, static_cast<int>(switch_on.hid.writes[2][11]), "Switched on as Audeze's app does");
+    ASSERT_TRUE(maxwellWritePrefix(switch_on.hid.writes[3], 12) == level_write, "Level written last");
+
+    // A lost acknowledgement of that toggle is an error: the toggle is not repeated and
+    // the level is not written
+    TestableAudezeMaxwell lost_on_ack;
+    lost_on_ack.hid.replies.emplace_back(max_reply);
+    lost_on_ack.hid.replies.emplace_back(state_off);
+    lost_on_ack.hid.replies.emplace_back(std::vector<uint8_t> {});
+    ASSERT_TRUE(lost_on_ack.setSidetone(nullptr, 128).hasError(), "A missing acknowledgement should fail");
+    ASSERT_EQ(3, static_cast<int>(lost_on_ack.hid.writes.size()), "The toggle is sent once, without a level write");
 
     // The lowest API level must not round down to 0, which would mean "off"
     TestableAudezeMaxwell lowest;
-    lowest.hid.replies.emplace_back(max_reply);
-    lowest.hid.replies.emplace_back(level_ack);
+    for (const auto& reply : { max_reply, state_on, level_ack }) {
+        lowest.hid.replies.emplace_back(reply);
+    }
     auto quiet = lowest.setSidetone(nullptr, 1);
     ASSERT_TRUE(quiet.hasValue(), "Sidetone should be set");
     ASSERT_TRUE(!quiet->is_muted, "Level 1 is not muted");
     ASSERT_EQ(1, static_cast<int>(quiet->device_level), "Level 1 should map to the lowest device level");
-    ASSERT_EQ(0x01, static_cast<int>(lowest.hid.writes[1][11]), "Level 1 written");
+    ASSERT_EQ(0x01, static_cast<int>(lowest.hid.writes[2][11]), "Level 1 written");
 
     // Level 0 switches an enabled sidetone off with one toggle and keeps the stored level
     TestableAudezeMaxwell disable;
@@ -1614,6 +1634,7 @@ void testAudezeMaxwellSidetone()
     ASSERT_TRUE(disabled->is_muted, "Level 0 is muted");
     ASSERT_EQ(3, static_cast<int>(disable.hid.writes.size()), "Maximum, state and toggle");
     ASSERT_TRUE(maxwellWritePrefix(disable.hid.writes[2], 11) == toggle, "Toggle");
+    ASSERT_EQ(0x00, static_cast<int>(disable.hid.writes[2][11]), "Switched off as Audeze's app does");
     for (const auto& write : disable.hid.writes) {
         ASSERT_TRUE(maxwellWritePrefix(write, 10) != maxwellWritePrefix(level_write, 10), "The stored level must not be overwritten");
     }
@@ -1634,10 +1655,12 @@ void testAudezeMaxwellSidetone()
     ASSERT_TRUE(lost_ack.setSidetone(nullptr, 0).hasError(), "A missing acknowledgement should fail");
     ASSERT_EQ(3, static_cast<int>(lost_ack.hid.writes.size()), "The toggle is sent once");
 
-    // A setter without acknowledgement fails
+    // A setter without acknowledgement fails, and the write is not repeated: the headset
+    // may still apply it
     TestableAudezeMaxwell unacknowledged;
     auto failed = unacknowledged.setNoiseFilter(nullptr, 1);
     ASSERT_TRUE(failed.hasError(), "Missing acknowledgement should fail");
+    ASSERT_EQ(1, static_cast<int>(unacknowledged.hid.writes.size()), "A write is sent once");
 
     // A read reply for the same key is not the acknowledgement of a write
     TestableAudezeMaxwell read_reply;
@@ -1647,29 +1670,6 @@ void testAudezeMaxwellSidetone()
     ASSERT_TRUE(not_acked.error().code == DeviceError::Code::Timeout, "Failure should be a timeout");
 
     std::cout << "    [OK] Audeze Maxwell sidetone verified" << std::endl;
-}
-
-void testAudezeMaxwellStaleReplies()
-{
-    std::cout << "  Testing Audeze Maxwell stale replies..." << std::endl;
-
-    const std::vector<uint8_t> max_reply = maxwellReport({ 0x05, 0x5B, 0x06, 0x00, 0x01, 0x09, 0x2D, 0x00, 0x00, 0x0F });
-    const std::vector<uint8_t> state_on  = maxwellReport({ 0x05, 0x5B, 0x06, 0x00, 0x83, 0x2C, 0x00, 0x07, 0x00, 0x01 });
-    const std::vector<uint8_t> state_off = maxwellReport({ 0x05, 0x5B, 0x06, 0x00, 0x83, 0x2C, 0x00, 0x07, 0x00, 0x00 });
-    const std::vector<uint8_t> idle      = maxwellReport({});
-
-    // A late "on" reply to an earlier state read is still queued when sidetone, now off,
-    // is switched off. Taken as the answer, it would toggle sidetone back on.
-    TestableAudezeMaxwell device;
-    device.enableDiscarding();
-    for (const auto& reply : { max_reply, state_on, idle, state_off }) {
-        device.hid.replies.emplace_back(reply);
-    }
-    ASSERT_TRUE(device.setSidetone(nullptr, 0).hasValue(), "Sidetone should stay off");
-    ASSERT_EQ(2, static_cast<int>(device.hid.writes.size()), "Maximum and state query only, no toggle");
-    ASSERT_TRUE(device.hid.replies.empty(), "The stale reply should be discarded");
-
-    std::cout << "    [OK] Audeze Maxwell stale replies verified" << std::endl;
 }
 
 void testAudezeMaxwellInactiveTime()
@@ -1975,7 +1975,6 @@ void runAllProtocolTests()
     runTest("Audeze Maxwell Battery", testAudezeMaxwellBattery);
     runTest("Audeze Maxwell Reply Matching", testAudezeMaxwellReplyMatching);
     runTest("Audeze Maxwell Sidetone", testAudezeMaxwellSidetone);
-    runTest("Audeze Maxwell Stale Replies", testAudezeMaxwellStaleReplies);
     runTest("Audeze Maxwell Inactive Time", testAudezeMaxwellInactiveTime);
     runTest("Audeze Maxwell EQ Coefficients", testAudezeMaxwellEqCoefficients);
     runTest("Audeze Maxwell Custom EQ", testAudezeMaxwellCustomEq);
