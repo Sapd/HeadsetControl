@@ -26,7 +26,10 @@ using namespace headsetcontrol::serializers;
 // 1.5: an invocation that performs an action no longer reports info it was not
 // explicitly asked for, and structured output gained an additive "sidetone"
 // field for devices that support reading it back.
-constexpr std::string_view API_VERSION = "1.5";
+// 1.6: structured output gained the additive "mic_attached" and "mic_muted"
+// fields, and the capability list grew by the ANC family plus the two
+// microphone status capabilities.
+constexpr std::string_view API_VERSION = "1.6";
 constexpr std::string_view APP_NAME    = "HeadsetControl";
 
 // ============================================================================
