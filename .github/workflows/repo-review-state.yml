@@ -26,6 +26,10 @@ on:
     types: [created]
   pull_request_review:
     types: [submitted]
+  # Replies inside an existing diff thread are neither issue_comment nor a new
+  # review, so without this they would wait for the nightly run.
+  pull_request_review_comment:
+    types: [created]
   pull_request_target:
     types: [opened, reopened, synchronize, ready_for_review, converted_to_draft, closed]
 
@@ -94,9 +98,11 @@ jobs:
               const lastCommit = commits[commits.length - 1];
               note(lastCommit?.commit?.committer?.date, AWAITING_MAINTAINER);
 
+              // Author first: a maintainer's own PR would otherwise read as
+              // "we answered", when it is still their change to push.
               const classify = (login, association) => {
-                if (isMaintainerSide(association)) return AWAITING_AUTHOR;
                 if (login === author) return AWAITING_MAINTAINER;
+                if (isMaintainerSide(association)) return AWAITING_AUTHOR;
                 return null; // third party: does not move the labels
               };
 
@@ -128,7 +134,7 @@ jobs:
               return events[events.length - 1].turn;
             };
 
-            const reconcile = async (number) => {
+            const reconcile = async (number, forcedTurn) => {
               // Always re-fetch: webhook payloads carry a stale mergeable_state.
               const { data: pr } = await github.rest.pulls.get({
                 ...context.repo, pull_number: number,
@@ -140,7 +146,10 @@ jobs:
                 return setLabels(number, current, []);
               }
 
-              const wanted = [await whoseTurn(pr)];
+              // A push is reported by the event itself rather than derived from the
+              // new head commit, whose embedded date can predate the last reply
+              // after a rebase or a cherry-pick.
+              const wanted = [forcedTurn || await whoseTurn(pr)];
               // mergeable is null while GitHub recomputes it - keep what we had.
               const conflicting = pr.mergeable === false
                 || (pr.mergeable === null && current.includes(NEEDS_REBASE));
@@ -151,7 +160,9 @@ jobs:
 
             const single = context.payload.issue?.number || context.payload.pull_request?.number;
             if (single && context.eventName !== 'schedule' && context.eventName !== 'workflow_dispatch') {
-              await reconcile(single);
+              const pushed = context.eventName === 'pull_request_target'
+                && ['synchronize', 'opened', 'reopened', 'ready_for_review'].includes(context.payload.action);
+              await reconcile(single, pushed ? AWAITING_MAINTAINER : undefined);
               return;
             }
 
