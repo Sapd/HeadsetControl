@@ -42,12 +42,17 @@ jobs:
         if: runner.os == 'Windows'
         uses: msys2/setup-msys2@66cd2cce69caa17b53920067426061ca1de3a884 # v2.32.0
         with:
-          msystem: MINGW64
+          # UCRT64, not MINGW64: MSYS2 is retiring the msvcrt-based
+          # environments package by package. On 2026-10-16 hidapi lost mingw64
+          # (MINGW-packages 5d003630a), so mingw-w64-x86_64-hidapi no longer
+          # exists and MINGW64 cannot be set up at all. gcc/cmake/ninja still
+          # have mingw64 builds today, but they are on the same path.
+          msystem: UCRT64
           update: true
           # git is needed for the version detection in CMakeLists.txt; it is not
           # part of base-devel and the MSYS2 shell does not inherit Git for
           # Windows from the runner PATH.
-          install: base-devel git mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja mingw-w64-x86_64-hidapi
+          install: base-devel git mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-ninja mingw-w64-ucrt-x86_64-hidapi
 
       # Linux/macOS: Setup CMake and Ninja
       - name: Setup CMake and Ninja
