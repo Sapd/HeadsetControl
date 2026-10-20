@@ -56,7 +56,12 @@ extern int hsc_device_timeout;
     X(CAP_BT_WHEN_POWERED_ON, "bluetooth when powered on", '\0')                 \
     X(CAP_BT_CALL_VOLUME, "bluetooth call volume", '\0')                         \
     X(CAP_NOISE_FILTER, "microphone noise filter", '\0')                         \
-    X(CAP_SIDETONE_STATUS, "sidetone status", '\0')
+    X(CAP_SIDETONE_STATUS, "sidetone status", '\0')                              \
+    X(CAP_ANC, "anc", '\0')                                                      \
+    X(CAP_ANC_STARTUP_MODE, "anc startup mode", '\0')                            \
+    X(CAP_ANC_BUTTON_MODES, "anc button modes", '\0')                            \
+    X(CAP_MICROPHONE_ATTACHMENT_STATUS, "microphone attachment status", '\0')    \
+    X(CAP_MICROPHONE_MUTE_STATUS, "microphone mute status", '\0')
 
 /** @brief A list of all features settable/queryable for headsets
  *
@@ -261,6 +266,16 @@ struct ParametricEqualizerSettings {
     [[nodiscard]] bool empty() const { return bands.empty(); }
 };
 
+/** @brief Which ANC modes the headset's physical ANC button cycles through
+ */
+struct AncButtonModes {
+    bool off     = false;
+    bool anc     = false;
+    bool ambient = false;
+
+    [[nodiscard]] bool any() const { return off || anc || ambient; }
+};
+
 // Legacy type aliases for backward compatibility during transition
 using equalizer_settings            = EqualizerSettings;
 using parametric_equalizer_settings = ParametricEqualizerSettings;
@@ -273,8 +288,9 @@ using parametric_equalizer_band     = ParametricEqualizerBand;
  * - int: Simple integer parameters (sidetone level, lights on/off, etc.)
  * - EqualizerSettings: For CAP_EQUALIZER
  * - ParametricEqualizerSettings: For CAP_PARAMETRIC_EQUALIZER
+ * - AncButtonModes: For CAP_ANC_BUTTON_MODES
  */
-using FeatureParam = std::variant<std::monostate, int, EqualizerSettings, ParametricEqualizerSettings>;
+using FeatureParam = std::variant<std::monostate, int, EqualizerSettings, ParametricEqualizerSettings, AncButtonModes>;
 
 /** @brief Represents a pending feature request
  */

@@ -432,6 +432,33 @@ if (headset.supports(CAP_BT_CALL_VOLUME)) {
 }
 ```
 
+### Noise Cancelling & Microphone Status
+
+```cpp
+// ANC mode (0 = off, 1 = noise cancelling, 2 = ambient sound)
+if (headset.supports(CAP_ANC)) {
+    headset.setAnc(1);
+}
+
+// ANC mode at power-on (0-2 as above, 3 = mode at power off)
+if (headset.supports(CAP_ANC_STARTUP_MODE)) {
+    headset.setAncStartupMode(3);
+}
+
+// Modes the headset's ANC button cycles through (at least one)
+if (headset.supports(CAP_ANC_BUTTON_MODES)) {
+    headset.setAncButtonModes({ .off = true, .anc = true, .ambient = false });
+}
+
+if (auto r = headset.getMicAttachmentStatus()) {
+    std::cout << "Boom mic: " << (r->attached ? "attached" : "detached") << "\n";
+}
+
+if (auto r = headset.getMicMuteStatus()) {
+    std::cout << "Mic: " << (r->muted ? "muted" : "unmuted") << "\n";
+}
+```
+
 ## Error Handling
 
 All feature methods return `Result<T>` for proper error handling:
@@ -740,6 +767,19 @@ hsc_set_mic_volume(headset, 100);
 
 // Voice prompts
 hsc_set_voice_prompts(headset, false);
+
+// ANC (0 = off, 1 = noise cancelling, 2 = ambient sound)
+hsc_set_anc(headset, 1);
+hsc_set_anc_startup_mode(headset, 3); // 3 = mode at power off
+hsc_anc_button_modes_t modes = { .off = true, .anc = true, .ambient = false };
+hsc_set_anc_button_modes(headset, &modes);
+
+// Microphone status
+hsc_mic_attachment_status_t attachment;
+hsc_get_mic_attachment_status(headset, &attachment);
+
+hsc_mic_mute_status_t mute;
+hsc_get_mic_mute_status(headset, &mute);
 ```
 
 ### Error Handling
@@ -788,6 +828,13 @@ HSC_CAP_MICROPHONE_VOLUME
 HSC_CAP_VOLUME_LIMITER
 HSC_CAP_BT_WHEN_POWERED_ON
 HSC_CAP_BT_CALL_VOLUME
+HSC_CAP_NOISE_FILTER
+HSC_CAP_SIDETONE_STATUS
+HSC_CAP_ANC
+HSC_CAP_ANC_STARTUP_MODE
+HSC_CAP_ANC_BUTTON_MODES
+HSC_CAP_MICROPHONE_ATTACHMENT_STATUS
+HSC_CAP_MICROPHONE_MUTE_STATUS
 ```
 
 ## Compiling C Programs
@@ -864,6 +911,13 @@ class Capability(IntEnum):
     VOLUME_LIMITER = 13
     BT_WHEN_POWERED_ON = 14
     BT_CALL_VOLUME = 15
+    NOISE_FILTER = 16
+    SIDETONE_STATUS = 17
+    ANC = 18
+    ANC_STARTUP_MODE = 19
+    ANC_BUTTON_MODES = 20
+    MICROPHONE_ATTACHMENT_STATUS = 21
+    MICROPHONE_MUTE_STATUS = 22
 
 
 # Battery status

@@ -101,7 +101,12 @@ typedef enum {
     HSC_CAP_BT_CALL_VOLUME                 = 15,
     HSC_CAP_NOISE_FILTER                   = 16,
     HSC_CAP_SIDETONE_STATUS                = 17,
-    HSC_NUM_CAPABILITIES                   = 18,
+    HSC_CAP_ANC                            = 18,
+    HSC_CAP_ANC_STARTUP_MODE               = 19,
+    HSC_CAP_ANC_BUTTON_MODES               = 20,
+    HSC_CAP_MICROPHONE_ATTACHMENT_STATUS   = 21,
+    HSC_CAP_MICROPHONE_MUTE_STATUS         = 22,
+    HSC_NUM_CAPABILITIES                   = 23,
 } hsc_capability_t;
 
 /* ============================================================================
@@ -155,6 +160,20 @@ typedef struct {
     uint8_t min_minutes;
     uint8_t max_minutes;
 } hsc_inactive_time_t;
+
+typedef struct {
+    bool muted;
+} hsc_mic_mute_status_t;
+
+typedef struct {
+    bool attached;
+} hsc_mic_attachment_status_t;
+
+typedef struct {
+    bool off; /* Include off mode */
+    bool anc; /* Include noise cancelling mode */
+    bool ambient; /* Include ambient sound mode */
+} hsc_anc_button_modes_t;
 
 /* ============================================================================
  * Discovery Functions
@@ -291,6 +310,24 @@ HSC_API hsc_result_t hsc_get_chatmix(hsc_headset_t headset, hsc_chatmix_t* chatm
  * @return HSC_RESULT_OK on success, negative error code on failure
  */
 HSC_API hsc_result_t hsc_get_sidetone(hsc_headset_t headset, hsc_sidetone_status_t* sidetone);
+
+/**
+ * @brief Get microphone mute status
+ *
+ * @param headset Headset handle
+ * @param[out] status Microphone mute status to fill
+ * @return HSC_RESULT_OK on success, negative error code on failure
+ */
+HSC_API hsc_result_t hsc_get_mic_mute_status(hsc_headset_t headset, hsc_mic_mute_status_t* status);
+
+/**
+ * @brief Get whether the detachable boom mic is attached
+ *
+ * @param headset Headset handle
+ * @param[out] status Microphone attachment status to fill
+ * @return HSC_RESULT_OK on success, negative error code on failure
+ */
+HSC_API hsc_result_t hsc_get_mic_attachment_status(hsc_headset_t headset, hsc_mic_attachment_status_t* status);
 
 /* ============================================================================
  * Audio Controls
@@ -472,6 +509,35 @@ HSC_API hsc_result_t hsc_set_bluetooth_when_powered_on(hsc_headset_t headset, bo
  * @return HSC_RESULT_OK on success, negative error code on failure
  */
 HSC_API hsc_result_t hsc_set_bluetooth_call_volume(hsc_headset_t headset, uint8_t volume);
+
+/**
+ * @brief Set active noise cancellation mode
+ *
+ * @param headset Headset handle
+ * @param mode 0 = off, 1 = noise cancelling, 2 = ambient sound
+ * @return HSC_RESULT_OK on success, negative error code on failure
+ */
+HSC_API hsc_result_t hsc_set_anc(hsc_headset_t headset, uint8_t mode);
+
+/**
+ * @brief Set ANC mode used at power-on
+ *
+ * @param headset Headset handle
+ * @param mode 0 = off, 1 = noise cancelling, 2 = ambient sound, 3 = mode at power off
+ * @return HSC_RESULT_OK on success, negative error code on failure
+ */
+HSC_API hsc_result_t hsc_set_anc_startup_mode(hsc_headset_t headset, uint8_t mode);
+
+/**
+ * @brief Set ANC modes the headset's ANC button cycles through
+ *
+ * At least one mode must be enabled.
+ *
+ * @param headset Headset handle
+ * @param modes Modes the ANC button cycles through
+ * @return HSC_RESULT_OK on success, negative error code on failure
+ */
+HSC_API hsc_result_t hsc_set_anc_button_modes(hsc_headset_t headset, const hsc_anc_button_modes_t* modes);
 
 /* ============================================================================
  * Test Device Mode

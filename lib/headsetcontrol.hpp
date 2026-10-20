@@ -212,6 +212,16 @@ public:
     [[nodiscard]] Result<MicMuteLedBrightnessResult> setMicMuteLedBrightness(uint8_t brightness);
 
     /**
+     * @brief Get microphone mute status
+     */
+    [[nodiscard]] Result<MicMuteStatusResult> getMicMuteStatus();
+
+    /**
+     * @brief Get whether the detachable boom mic is attached
+     */
+    [[nodiscard]] Result<MicAttachmentStatusResult> getMicAttachmentStatus();
+
+    /**
      * @brief Set rotate-to-mute feature
      * @param enabled Enable/disable
      */
@@ -260,6 +270,24 @@ public:
      * @param volume Volume level
      */
     [[nodiscard]] Result<BluetoothCallVolumeResult> setBluetoothCallVolume(uint8_t volume);
+
+    /**
+     * @brief Set active noise cancellation mode
+     * @param mode 0 = off, 1 = noise cancelling, 2 = ambient sound
+     */
+    [[nodiscard]] Result<AncResult> setAnc(uint8_t mode);
+
+    /**
+     * @brief Set ANC mode used at power-on
+     * @param mode 0 = off, 1 = noise cancelling, 2 = ambient sound, 3 = mode at power off
+     */
+    [[nodiscard]] Result<AncStartupModeResult> setAncStartupMode(uint8_t mode);
+
+    /**
+     * @brief Set ANC modes the headset's ANC button cycles through
+     * @param modes Modes to include; at least one must be set
+     */
+    [[nodiscard]] Result<AncButtonModesResult> setAncButtonModes(const AncButtonModes& modes);
 
 private:
     friend class HeadsetImpl;

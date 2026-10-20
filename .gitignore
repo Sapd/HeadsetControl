@@ -17,3 +17,4 @@ cmake-build-debug/
 .DS_Store
 
 Testing/
+shell.nix

@@ -195,6 +195,11 @@ namespace detail {
         return std::get<ParametricEqualizerSettings>(p);
     }
 
+    inline const AncButtonModes& getAncButtonModes(const FeatureParam& p)
+    {
+        return std::get<AncButtonModes>(p);
+    }
+
 } // namespace detail
 
 // ============================================================================
@@ -347,6 +352,46 @@ inline void FeatureHandlerRegistry::registerAllHandlers()
         if (r.hasError())
             return r.error();
         return FeatureOutput::fromSidetone(r.value());
+    });
+
+    // CAP_ANC
+    registerHandler(CAP_ANC, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
+        auto r = dev->setAnc(h, getUint8(p));
+        if (r.hasError())
+            return r.error();
+        return FeatureOutput::success(r->mode);
+    });
+
+    // CAP_ANC_STARTUP_MODE
+    registerHandler(CAP_ANC_STARTUP_MODE, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
+        auto r = dev->setAncStartupMode(h, getUint8(p));
+        if (r.hasError())
+            return r.error();
+        return FeatureOutput::success(r->mode);
+    });
+
+    // CAP_ANC_BUTTON_MODES
+    registerHandler(CAP_ANC_BUTTON_MODES, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
+        auto r = dev->setAncButtonModes(h, getAncButtonModes(p));
+        if (r.hasError())
+            return r.error();
+        return FeatureOutput::success(0);
+    });
+
+    // CAP_MICROPHONE_ATTACHMENT_STATUS
+    registerHandler(CAP_MICROPHONE_ATTACHMENT_STATUS, [](HIDDevice* dev, hid_device* h, const FeatureParam&) -> Result<FeatureOutput> {
+        auto r = dev->getMicAttachmentStatus(h);
+        if (r.hasError())
+            return r.error();
+        return FeatureOutput::success(r->attached ? 1 : 0, r->attached ? "attached" : "detached");
+    });
+
+    // CAP_MICROPHONE_MUTE_STATUS
+    registerHandler(CAP_MICROPHONE_MUTE_STATUS, [](HIDDevice* dev, hid_device* h, const FeatureParam&) -> Result<FeatureOutput> {
+        auto r = dev->getMicMuteStatus(h);
+        if (r.hasError())
+            return r.error();
+        return FeatureOutput::success(r->muted ? 1 : 0, r->muted ? "muted" : "unmuted");
     });
 }
 
