@@ -289,6 +289,28 @@ void testSonyINZONEInterfaceSelection()
     std::cout << "    OK Sony INZONE interface selection" << std::endl;
 }
 
+void testLookupJabraLink380()
+{
+    std::cout << "  Testing lookup of Jabra Link 380 (0x24c7)..." << std::endl;
+
+    auto& registry = DeviceRegistry::instance();
+    registry.initialize();
+
+    auto* device = registry.getDevice(0x0b0e, 0x24c7);
+    ASSERT_NOT_NULL(device, "Jabra Link 380 should be found");
+    ASSERT_EQ("Jabra Link 380 (paired headset)", std::string(device->getDeviceName()), "Device name should match");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_SIDETONE)) != 0, "Link 380 should expose sidetone capability");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_BATTERY_STATUS)) != 0, "Link 380 should expose battery capability");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_LIGHTS)) != 0, "Link 380 should expose lights capability");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_INACTIVE_TIME)) != 0, "Link 380 should expose inactive time capability");
+
+    auto* link390 = registry.getDevice(0x0b0e, 0x2e57);
+    ASSERT_NOT_NULL(link390, "Jabra Link 390 should be found");
+    ASSERT_EQ(device->getCapabilities(), link390->getCapabilities(), "Link 380 and Link 390 share the GNP feature set");
+
+    std::cout << "    PASS" << std::endl;
+}
+
 void testLookupPlantronicsBT600()
 {
     std::cout << "  Testing lookup of Plantronics BT600 (0x02ee)..." << std::endl;
@@ -588,6 +610,7 @@ void runAllDeviceRegistryTests()
     runTest("Sony INZONE Interface Selection", testSonyINZONEInterfaceSelection);
     runTest("Lookup Plantronics BT600", testLookupPlantronicsBT600);
     runTest("Lookup Jabra Link 390", testLookupJabraLink390);
+    runTest("Lookup Jabra Link 380", testLookupJabraLink380);
     runTest("Lookup Non-Existent", testLookupNonExistentDevice);
     runTest("Lookup Wrong Product ID", testLookupWithWrongProductId);
     runTest("Lookup Wrong Vendor ID", testLookupWithWrongVendorId);

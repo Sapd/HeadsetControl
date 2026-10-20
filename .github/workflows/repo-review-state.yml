@@ -1,0 +1,175 @@
+name: Label PR Review State
+
+# Keeps two labels on every open PR so the open list says who owes the next move:
+#   awaiting-maintainer - the author replied or pushed, it is our turn
+#   awaiting-author     - we replied, it is theirs
+# plus needs-rebase whenever GitHub reports the branch as conflicting.
+#
+# Only comments from the maintainer or from the PR author move the labels.
+# Everyone else - people reporting test results on someone else's PR - is
+# ignored, so a drive-by comment does not pull a PR back into the queue.
+#
+# The events keep it current, the daily run recomputes everything from scratch
+# so a missed event, a hand-edited label or a PR older than this workflow all
+# heal by themselves.
+
+on:
+  schedule:
+    - cron: '20 2 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Only log what would change'
+        type: boolean
+        default: false
+  issue_comment:
+    types: [created]
+  pull_request_review:
+    types: [submitted]
+  # Replies inside an existing diff thread are neither issue_comment nor a new
+  # review, so without this they would wait for the nightly run.
+  pull_request_review_comment:
+    types: [created]
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review, converted_to_draft, closed]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: review-state-${{ github.event.issue.number || github.event.pull_request.number || 'all' }}
+  cancel-in-progress: false
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    # issue_comment also fires for issues; only PRs have labels to keep here.
+    if: github.event_name != 'issue_comment' || github.event.issue.pull_request
+    steps:
+      - uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9.0.0
+        with:
+          script: |
+            const AWAITING_MAINTAINER = 'awaiting-maintainer';
+            const AWAITING_AUTHOR     = 'awaiting-author';
+            const NEEDS_REBASE        = 'needs-rebase';
+            const MANAGED = [AWAITING_MAINTAINER, AWAITING_AUTHOR, NEEDS_REBASE];
+
+            const dryRun = ['true', true].includes(context.payload.inputs?.dry_run);
+
+            // Anyone who can act on the repo counts as "us".
+            const isMaintainerSide = (association) =>
+              ['OWNER', 'MEMBER', 'COLLABORATOR'].includes(association || '');
+
+            const setLabels = async (number, current, wanted) => {
+              const add = wanted.filter((l) => !current.includes(l));
+              const remove = MANAGED.filter((l) => current.includes(l) && !wanted.includes(l));
+              if (!add.length && !remove.length) return false;
+
+              core.info(`#${number}: +[${add}] -[${remove}]`);
+              if (dryRun) return true;
+
+              if (add.length) {
+                await github.rest.issues.addLabels({
+                  ...context.repo, issue_number: number, labels: add,
+                });
+              }
+              for (const name of remove) {
+                await github.rest.issues.removeLabel({
+                  ...context.repo, issue_number: number, name,
+                }).catch((e) => { if (e.status !== 404) throw e; });
+              }
+              return true;
+            };
+
+            // Latest activity that belongs to one of the two sides. A push always
+            // means it is our turn: there is new code to look at, whoever pushed it.
+            const whoseTurn = async (pr) => {
+              const author = pr.user.login;
+              const events = [];
+              const note = (at, turn) => { if (at) events.push({ at: new Date(at), turn }); };
+
+              note(pr.created_at, AWAITING_MAINTAINER);
+
+              const commits = await github.paginate(github.rest.pulls.listCommits, {
+                ...context.repo, pull_number: pr.number, per_page: 100,
+              });
+              const lastCommit = commits[commits.length - 1];
+              note(lastCommit?.commit?.committer?.date, AWAITING_MAINTAINER);
+
+              // Author first: a maintainer's own PR would otherwise read as
+              // "we answered", when it is still their change to push.
+              const classify = (login, association) => {
+                if (login === author) return AWAITING_MAINTAINER;
+                if (isMaintainerSide(association)) return AWAITING_AUTHOR;
+                return null; // third party: does not move the labels
+              };
+
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                ...context.repo, issue_number: pr.number, per_page: 100,
+              });
+              for (const c of comments) {
+                const turn = classify(c.user?.login, c.author_association);
+                if (turn) note(c.created_at, turn);
+              }
+
+              const reviews = await github.paginate(github.rest.pulls.listReviews, {
+                ...context.repo, pull_number: pr.number, per_page: 100,
+              });
+              for (const r of reviews) {
+                const turn = classify(r.user?.login, r.author_association);
+                if (turn) note(r.submitted_at, turn);
+              }
+
+              const reviewComments = await github.paginate(github.rest.pulls.listReviewComments, {
+                ...context.repo, pull_number: pr.number, per_page: 100,
+              });
+              for (const rc of reviewComments) {
+                const turn = classify(rc.user?.login, rc.author_association);
+                if (turn) note(rc.created_at, turn);
+              }
+
+              events.sort((a, b) => a.at - b.at);
+              return events[events.length - 1].turn;
+            };
+
+            const reconcile = async (number, forcedTurn) => {
+              // Always re-fetch: webhook payloads carry a stale mergeable_state.
+              const { data: pr } = await github.rest.pulls.get({
+                ...context.repo, pull_number: number,
+              });
+              const current = pr.labels.map((l) => l.name);
+
+              // Closed or draft: nothing is owed, drop what we manage.
+              if (pr.state !== 'open' || pr.draft) {
+                return setLabels(number, current, []);
+              }
+
+              // A push is reported by the event itself rather than derived from the
+              // new head commit, whose embedded date can predate the last reply
+              // after a rebase or a cherry-pick.
+              const wanted = [forcedTurn || await whoseTurn(pr)];
+              // mergeable is null while GitHub recomputes it - keep what we had.
+              const conflicting = pr.mergeable === false
+                || (pr.mergeable === null && current.includes(NEEDS_REBASE));
+              if (conflicting) wanted.push(NEEDS_REBASE);
+
+              return setLabels(number, current, wanted);
+            };
+
+            const single = context.payload.issue?.number || context.payload.pull_request?.number;
+            if (single && context.eventName !== 'schedule' && context.eventName !== 'workflow_dispatch') {
+              const pushed = context.eventName === 'pull_request_target'
+                && ['synchronize', 'opened', 'reopened', 'ready_for_review'].includes(context.payload.action);
+              await reconcile(single, pushed ? AWAITING_MAINTAINER : undefined);
+              return;
+            }
+
+            const open = await github.paginate(github.rest.pulls.list, {
+              ...context.repo, state: 'open', per_page: 100,
+            });
+            core.info(`Reconciling ${open.length} open PRs${dryRun ? ' (dry run)' : ''}`);
+            for (const pr of open) {
+              await reconcile(pr.number);
+            }

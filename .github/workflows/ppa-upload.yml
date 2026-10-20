@@ -8,7 +8,8 @@ name: Upload to PPA
 #   GPG_PASSPHRASE  - its passphrase
 #
 # Only Ubuntu series with GCC 13+ are targeted (the project needs C++20);
-# noble (24.04 LTS) qualifies, jammy (GCC 11) does not.
+# noble (24.04 LTS) and resolute (26.04 LTS) qualify, jammy (GCC 11) does not.
+# fail-fast is off, so one series failing still uploads the others.
 on:
   push:
     tags:
@@ -29,7 +30,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        series: [noble]
+        series: [noble, resolute]
     env:
       TAG: ${{ github.event.inputs.tag || github.ref_name }}
       DEBEMAIL: git@sapd.eu

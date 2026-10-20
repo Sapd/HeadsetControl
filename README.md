@@ -154,8 +154,9 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 
 | Device | Platform | sidetone | battery | notification sound | lights | inactive time | chatmix | voice prompts | rotate to mute | equalizer preset | equalizer | parametric equalizer | microphone mute led brightness | microphone volume | volume limiter | bluetooth when powered on | bluetooth call volume | microphone noise filter | sidetone status | anc | anc startup mode | anc button modes | microphone attachment status | microphone mute status |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Logitech ASTRO A50 Gen 4 | All | x | x |   |   |   | x |   |   | x | x | x |   | x |   |   |   | x | x |   |   |   |   |   |
 | Logitech ASTRO A50 Gen 5 | All | x | x |   | x |   | x |   |   |   |   | x |   |   |   |   |   | x |   |   |   |   |   |   |
-| Logitech G522 LIGHTSPEED | All | x | x |   |   | x |   |   |   |   |   |   | x |   |   |   |   |   |   |   |   |   |   |   |
+| Logitech G522 LIGHTSPEED | All | x | x |   | x | x |   | x |   | x | x | x | x |   |   |   |   |   | x |   |   |   |   |   |
 | Logitech G533 | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | Logitech G535 | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | Logitech G633/G635/G733/G933/G935 | All | x | x |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
@@ -186,10 +187,11 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 | HyperX Cloud 3 | All | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | ROCCAT Elo 7.1 Air | All |   |   |   | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | ROCCAT Elo 7.1 USB | All |   |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
-| Audeze Maxwell | All | x | x |   |   | x | x | x |   | x |   |   |   |   | x |   |   | x |   |   |   |   |   |   |
-| Audeze Maxwell 2 | All | x | x |   |   | x | x | x |   | x |   |   |   |   |   |   |   | x |   |   |   |   |   |   |
+| Audeze Maxwell | All | x | x |   |   | x | x | x |   | x | x |   |   |   | x |   |   | x | x |   |   |   |   |   |
+| Audeze Maxwell 2 | All | x | x |   |   | x | x | x |   | x |   |   |   |   |   |   |   | x | x |   |   |   |   |   |
 | Lenovo Wireless VoIP Headset | All | x | x |   |   | x |   | x | x | x |   |   | x |   | x |   |   |   |   |   |   |   |   |   |
 | Plantronics Voyager 8200 UC (BT600) | L/W | x | x |   | x |   |   | x |   |   |   |   |   |   | x |   |   |   |   |   |   |   |   |   |
+| Jabra Link 380 (paired headset) | L/M | x | x |   | x | x |   | x |   |   |   |   |   |   | x |   |   |   | x |   |   |   |   |   |
 | Jabra Link 390 (paired headset) | L/M | x | x |   | x | x |   | x |   |   |   |   |   |   | x |   |   |   | x |   |   |   |   |   |
 | Jabra Evolve2 65 Flex (USB) | L/M | x | x |   | x | x |   | x |   |   |   |   |   |   | x |   |   |   | x |   |   |   |   |   |
 | Sony INZONE Buds | All |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |

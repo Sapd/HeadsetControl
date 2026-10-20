@@ -84,6 +84,15 @@ public:
     }
 
     /**
+     * @brief Release per-connection protocol state when a HID handle is closed.
+     *
+     * Optional. Devices that keep per-handle state recover on their own if this is
+     * skipped; calling it before hid_close() avoids a bounded delay on the next
+     * request if the handle address is reused.
+     */
+    virtual void onConnectionClosed(hid_device* /*device_handle*/) const { }
+
+    /**
      * @brief Get equalizer presets count
      */
     virtual uint8_t getEqualizerPresetsCount() const

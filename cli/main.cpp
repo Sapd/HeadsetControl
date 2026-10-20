@@ -451,6 +451,7 @@ public:
 
     HIDConnection(HIDConnection&& other) noexcept
         : handle_(other.handle_)
+        , device_(other.device_)
         , path_(std::move(other.path_))
     {
         other.handle_ = nullptr;
@@ -460,6 +461,7 @@ public:
     {
         if (this != &other) {
             close();
+            device_       = other.device_;
             handle_       = other.handle_;
             path_         = std::move(other.path_);
             other.handle_ = nullptr;
@@ -470,14 +472,15 @@ public:
     [[nodiscard]] bool isOpen() const { return handle_ != nullptr; }
     [[nodiscard]] hid_device* get() const { return handle_; }
 
-    bool open(const std::string& new_path)
+    bool open(const std::string& new_path, const HIDDevice* device)
     {
-        if (path_ == new_path && handle_)
+        if (path_ == new_path && handle_ && device_ == device)
             return true;
         close();
         handle_ = hid_open_path(new_path.c_str());
         if (handle_) {
-            path_ = new_path;
+            device_ = device;
+            path_   = new_path;
             return true;
         }
         return false;
@@ -486,6 +489,9 @@ public:
     void close()
     {
         if (handle_) {
+            if (device_) {
+                device_->onConnectionClosed(handle_);
+            }
             hid_close(handle_);
             handle_ = nullptr;
         }
@@ -493,7 +499,8 @@ public:
     }
 
 private:
-    hid_device* handle_ = nullptr;
+    hid_device* handle_      = nullptr;
+    const HIDDevice* device_ = nullptr;
     std::string path_;
 };
 
@@ -615,7 +622,7 @@ hid_device* connectForCapability(HIDConnection& conn, const HIDDevice* device, u
     if (!hid_path)
         return nullptr;
 
-    return conn.open(*hid_path) ? conn.get() : nullptr;
+    return conn.open(*hid_path, device) ? conn.get() : nullptr;
 }
 
 // Convert FeatureOutput to FeatureResult for output formatting
