@@ -38,17 +38,22 @@ namespace headsetcontrol {
  * - Battery status   (CMD 0x06) — reply byte6 = %, byte8 = dock/charging flag
  * - Chatmix          (CMD 0x0a) — value 0..12 (0 = chat/voice, 12 = game)
  * - Sidetone         (CMD 0x09) — payload 01 ff <level>
+ * - Master volume    (CMD 0x08) — SET handle 0x1b, payload ff <0..21>
  * - Lights/dock LED  (CMD 0x0f) — payload <brightness 0..100>
  * - Parametric EQ    (CMD 0x0d) — 10 bands [freqBE16][Q LE16][gainB]; Q=scale/32,
  *                                 gain byte=120+dB*20 (±6 dB).
  * - Noise filter     (CMD 0x14) — mic noise gate; HSC 0/1/2 -> A50 Off/Night/Tournament.
  *
- * All six capabilities were verified on real hardware (A50 base 046d:0b1c): lights toggle
+ * All six original capabilities were verified on real hardware (A50 base 046d:0b1c): lights toggle
  * the dock LED, battery reads %/charging, chatmix reads 0..12 (linear), sidetone is audible,
  * the parametric EQ visibly shifts the sound (a ±6 dB bass boost/cut was clearly audible while
  * music played), and the noise gate is audible on the mic. The byte5 handle is an echo token
  * (the device echoes it back) — any value works, which is why the battery GET (handle 0x0c)
  * reads correctly even though G HUB only ever pushed it.
+ *
+ * The master volume SET frame is confirmed by the a50-volumemaster USB capture
+ * (02 0c 05 00 08 1b ff <scaled 0..21>). Volume acts on the headset hardware itself —
+ * the same value the physical volume wheel changes — not on the OS mixer.
  */
 class LogitechAstroA50 : public HIDDevice {
 public:
@@ -61,6 +66,7 @@ public:
     static constexpr int POLL_ATTEMPTS = 8;
 
     // Command ids (byte[4])
+    static constexpr uint8_t CMD_VOLUME     = 0x08;
     static constexpr uint8_t CMD_BATTERY    = 0x06;
     static constexpr uint8_t CMD_SIDETONE   = 0x09;
     static constexpr uint8_t CMD_CHATMIX    = 0x0a;
@@ -69,12 +75,16 @@ public:
     static constexpr uint8_t CMD_NOISE_GATE = 0x14;
 
     // Transaction handles (byte[5]) — observed per command in captures
+    static constexpr uint8_t HANDLE_VOLUME_SET = 0x1b;
     static constexpr uint8_t HANDLE_CHATMIX    = 0x0c;
     static constexpr uint8_t HANDLE_SIDETONE   = 0x1c;
     static constexpr uint8_t HANDLE_BRIGHTNESS = 0x1c;
     static constexpr uint8_t HANDLE_EQ         = 0x2c; // observed in eq-audio.pcapng
     static constexpr uint8_t HANDLE_NOISE_GATE = 0x2d; // observed in a50-noisegate.pcapng
     static constexpr uint8_t HANDLE_BATTERY    = 0x0c; // handle is an echo token (verified)
+
+    // Master volume (CMD 0x08) — the headset hardware volume wheel has 22 steps (0..21).
+    static constexpr size_t VOLUME_LEVELS = 22;
 
     // Noise gate (CMD 0x14) — device has 4 levels; HeadsetControl noise filter is 0/1/2.
     // Map off/low/high -> A50 Off(0x00) / Night(0x01) / Tournament(0x04).
@@ -107,7 +117,8 @@ public:
     constexpr int getCapabilities() const override
     {
         return B(CAP_BATTERY_STATUS) | B(CAP_CHATMIX_STATUS) | B(CAP_SIDETONE) | B(CAP_LIGHTS)
-            | B(CAP_PARAMETRIC_EQUALIZER) | B(CAP_NOISE_FILTER);
+            | B(CAP_PARAMETRIC_EQUALIZER) | B(CAP_NOISE_FILTER)
+            | B(CAP_HEADSET_VOLUME);
     }
 
     constexpr capability_detail getCapabilityDetail([[maybe_unused]] enum capabilities cap) const override
@@ -209,6 +220,27 @@ public:
         }
 
         return NoiseFilterResult { .level = level };
+    }
+
+    Result<HeadsetVolumeResult> setHeadsetVolume(hid_device* device_handle, uint8_t volume) override
+    {
+        // SET (captured in a50-volumemaster): 02 0c 05 00 08 1b ff <scaled 0..21>
+        const uint8_t device_level = mapSidetoneToDiscrete<VOLUME_LEVELS>(volume);
+
+        const std::array<uint8_t, 2> payload { 0xff, device_level };
+        auto r = sendRequest(device_handle, CMD_VOLUME, HANDLE_VOLUME_SET, payload, /*read_reply=*/false);
+        if (!r) {
+            return r.error();
+        }
+
+        return HeadsetVolumeResult {
+            .volume        = volume,
+            .min_volume    = 0,
+            .max_volume    = 128,
+            .device_min    = 0,
+            .device_max    = VOLUME_LEVELS - 1,
+            .device_volume = device_level,
+        };
     }
 
     std::optional<ParametricEqualizerInfo> getParametricEqualizerInfo() const override

@@ -13,6 +13,7 @@
 #include "devices/audeze_maxwell.hpp"
 #include "devices/audeze_maxwell2.hpp"
 #include "devices/corsair_device.hpp"
+#include "devices/logitech_astro_a50.hpp"
 #include "devices/logitech_astro_a50_gen4.hpp"
 #include "devices/logitech_g522_lightspeed.hpp"
 #include "devices/logitech_gpro_x2_lightspeed.hpp"
@@ -1372,6 +1373,58 @@ void testAstroA50Gen4TimeoutRecovery()
 }
 
 // ============================================================================
+// Logitech ASTRO A50 Gen 5: master volume (CMD 0x08)
+// ============================================================================
+
+class TestableAstroA50Gen5 : public LogitechAstroA50 {
+public:
+    mutable ScriptedHIDInterface hid;
+
+    [[nodiscard]] auto getHIDInterface() const -> HIDInterface& override { return hid; }
+};
+
+void testAstroA50Gen5VolumeSet()
+{
+    using Dev = LogitechAstroA50;
+
+    // mapSidetoneToDiscrete<22>: buckets of 5, the top step takes 105..128.
+    const struct {
+        uint8_t normalized;
+        uint8_t device_level;
+    } levels[] = {
+        { 0, 0 },
+        { 4, 0 },
+        { 5, 1 },
+        { 64, 12 },
+        { 104, 20 },
+        { 105, 21 },
+        { 128, 21 },
+    };
+
+    TestableAstroA50Gen5 dev;
+    for (const auto& level : levels) {
+        dev.hid.writes.clear();
+        auto result = dev.setHeadsetVolume(nullptr, level.normalized);
+        ASSERT_TRUE(result.hasValue(), "Headset volume set should succeed");
+        ASSERT_EQ(level.normalized, result->volume, "Result should report the requested level");
+        ASSERT_EQ(21, result->device_max, "Device max should report the 0-21 range");
+        ASSERT_EQ(level.device_level, result->device_volume, "Device level should be the scaled 0-21 value");
+        ASSERT_EQ(1u, dev.hid.writes.size(), "Volume SET is fire-and-forget (no reply read)");
+        ASSERT_EQ(64u, dev.hid.writes[0].size(), "Volume command should use a full report");
+        ASSERT_EQ(Dev::REPORT_ID, dev.hid.writes[0][0], "Volume command should use report ID 0x02");
+        ASSERT_EQ(Dev::MARKER, dev.hid.writes[0][1], "Volume command should use marker 0x0c");
+        ASSERT_EQ(0x05, dev.hid.writes[0][2], "Volume SET length byte should be 0x05");
+        ASSERT_EQ(0x00, dev.hid.writes[0][3], "Volume command reserved byte should be zero");
+        ASSERT_EQ(Dev::CMD_VOLUME, dev.hid.writes[0][4], "Volume command should use CMD 0x08");
+        ASSERT_EQ(Dev::HANDLE_VOLUME_SET, dev.hid.writes[0][5], "Volume SET should use handle 0x1b");
+        ASSERT_EQ(0xff, dev.hid.writes[0][6], "Volume SET payload should start with the 0xff marker");
+        ASSERT_EQ(level.device_level, dev.hid.writes[0][7], "Volume SET payload should carry the scaled 0-21 value");
+    }
+
+    std::cout << "    [OK] ASTRO A50 Gen 5 volume SET frames verified" << std::endl;
+}
+
+// ============================================================================
 // Logitech Centurion: G522 framing and opt-in options
 // ============================================================================
 
@@ -2622,6 +2675,9 @@ void runAllProtocolTests()
     runTest("ASTRO A50 Gen 4 Nonfinite Equalizer", testAstroA50Gen4NonfiniteEqualizer);
     runTest("ASTRO A50 Gen 4 Reply Length", testAstroA50Gen4ReplyLength);
     runTest("ASTRO A50 Gen 4 Timeout Recovery", testAstroA50Gen4TimeoutRecovery);
+
+    std::cout << "\n=== Logitech ASTRO A50 Gen 5 ===" << std::endl;
+    runTest("ASTRO A50 Gen 5 Volume Set", testAstroA50Gen5VolumeSet);
 
     std::cout << "\n=== HID++ Protocol (Logitech) ===" << std::endl;
     runTest("HID++ Constants", testHIDPPConstants);
