@@ -73,6 +73,9 @@ headsetcontrol -s 64 -b -o json
 
 # Read the current sidetone setting (when supported)
 headsetcontrol -s -o json
+
+# Set the headset hardware volume (0-128, when supported)
+headsetcontrol --volume 64
 ```
 
 Action results include status:
@@ -332,6 +335,16 @@ if (headset.supports(CAP_SIDETONE)) {
 // Volume limiter
 if (headset.supports(CAP_VOLUME_LIMITER)) {
     headset.setVolumeLimiter(true);  // Enable
+}
+
+// Headset (output) volume, 0-128: the headset hardware volume (the value the
+// on-device wheel changes), not the OS mixer.
+if (headset.supports(CAP_HEADSET_VOLUME)) {
+    auto result = headset.setHeadsetVolume(64);
+    if (result) {
+        std::cout << "Volume set (device level " << (int)result->device_volume
+                  << "/" << (int)result->device_max << ")\n";
+    }
 }
 ```
 
@@ -780,6 +793,10 @@ hsc_get_mic_attachment_status(headset, &attachment);
 
 hsc_mic_mute_status_t mute;
 hsc_get_mic_mute_status(headset, &mute);
+
+// Headset hardware volume (0-128); result param is optional (NULL ok)
+hsc_volume_t volume_result;
+hsc_set_volume(headset, 64, &volume_result);
 ```
 
 ### Error Handling
@@ -835,6 +852,7 @@ HSC_CAP_ANC_STARTUP_MODE
 HSC_CAP_ANC_BUTTON_MODES
 HSC_CAP_MICROPHONE_ATTACHMENT_STATUS
 HSC_CAP_MICROPHONE_MUTE_STATUS
+HSC_CAP_HEADSET_VOLUME
 ```
 
 ## Compiling C Programs
@@ -918,6 +936,7 @@ class Capability(IntEnum):
     ANC_BUTTON_MODES = 20
     MICROPHONE_ATTACHMENT_STATUS = 21
     MICROPHONE_MUTE_STATUS = 22
+    HEADSET_VOLUME = 23
 
 
 # Battery status

@@ -152,6 +152,16 @@ public:
      */
     [[nodiscard]] Result<VolumeLimiterResult> setVolumeLimiter(bool enabled);
 
+    /**
+     * @brief Set the headset (output) volume
+     *
+     * Controls the volume of the headset hardware itself (the value the
+     * on-device volume wheel changes), not the OS mixer volume.
+     *
+     * @param volume Volume level (0-128)
+     */
+    [[nodiscard]] Result<HeadsetVolumeResult> setHeadsetVolume(uint8_t volume);
+
     // ========================================================================
     // Equalizer
     // ========================================================================

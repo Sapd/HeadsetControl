@@ -273,6 +273,11 @@ Result<VolumeLimiterResult> Headset::setVolumeLimiter(bool enabled)
     HEADSET_FEATURE_IMPL(CAP_VOLUME_LIMITER, setVolumeLimiter, enabled);
 }
 
+Result<HeadsetVolumeResult> Headset::setHeadsetVolume(uint8_t volume)
+{
+    HEADSET_FEATURE_IMPL(CAP_HEADSET_VOLUME, setHeadsetVolume, volume);
+}
+
 Result<EqualizerPresetResult> Headset::setEqualizerPreset(uint8_t preset)
 {
     HEADSET_FEATURE_IMPL(CAP_EQUALIZER_PRESET, setEqualizerPreset, preset);

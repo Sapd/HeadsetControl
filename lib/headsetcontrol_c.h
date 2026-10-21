@@ -106,7 +106,8 @@ typedef enum {
     HSC_CAP_ANC_BUTTON_MODES               = 20,
     HSC_CAP_MICROPHONE_ATTACHMENT_STATUS   = 21,
     HSC_CAP_MICROPHONE_MUTE_STATUS         = 22,
-    HSC_NUM_CAPABILITIES                   = 23,
+    HSC_CAP_HEADSET_VOLUME                 = 23,
+    HSC_NUM_CAPABILITIES                   = 24,
 } hsc_capability_t;
 
 /* ============================================================================
@@ -174,6 +175,15 @@ typedef struct {
     bool anc; /* Include noise cancelling mode */
     bool ambient; /* Include ambient sound mode */
 } hsc_anc_button_modes_t;
+
+typedef struct {
+    uint8_t volume; /**< Normalized volume level (0-128) */
+    uint8_t min_volume; /**< Minimum supported level */
+    uint8_t max_volume; /**< Maximum supported level */
+    uint8_t device_volume; /**< Device's native level (e.g., 0-21 for the ASTRO A50) */
+    uint8_t device_min; /**< Device's native minimum */
+    uint8_t device_max; /**< Device's native maximum */
+} hsc_volume_t;
 
 /* ============================================================================
  * Discovery Functions
@@ -351,6 +361,19 @@ HSC_API hsc_result_t hsc_set_sidetone(hsc_headset_t headset, uint8_t level, hsc_
  * @return HSC_RESULT_OK on success, negative error code on failure
  */
 HSC_API hsc_result_t hsc_set_volume_limiter(hsc_headset_t headset, bool enabled);
+
+/**
+ * @brief Set the headset (output) volume
+ *
+ * Controls the volume of the headset hardware itself (the value the
+ * on-device volume wheel changes), not the OS mixer volume.
+ *
+ * @param headset Headset handle
+ * @param volume Volume level (0-128)
+ * @param[out] result Optional result info (can be NULL)
+ * @return HSC_RESULT_OK on success, negative error code on failure
+ */
+HSC_API hsc_result_t hsc_set_volume(hsc_headset_t headset, uint8_t volume, hsc_volume_t* result);
 
 /* ============================================================================
  * Equalizer

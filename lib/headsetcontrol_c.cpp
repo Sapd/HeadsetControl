@@ -367,6 +367,30 @@ hsc_result_t hsc_set_volume_limiter(hsc_headset_t headset, bool enabled)
     return result ? HSC_RESULT_OK : toErrorCode(result.error());
 }
 
+hsc_result_t hsc_set_volume(hsc_headset_t headset, uint8_t volume, hsc_volume_t* result_out)
+{
+    if (!headset) {
+        return HSC_RESULT_INVALID_PARAM;
+    }
+
+    auto result = static_cast<HeadsetWrapper*>(headset)->headset.setHeadsetVolume(volume);
+
+    if (!result) {
+        return toErrorCode(result.error());
+    }
+
+    if (result_out) {
+        result_out->volume        = result->volume;
+        result_out->min_volume    = result->min_volume;
+        result_out->max_volume    = result->max_volume;
+        result_out->device_volume = result->device_volume;
+        result_out->device_min    = result->device_min;
+        result_out->device_max    = result->device_max;
+    }
+
+    return HSC_RESULT_OK;
+}
+
 // ============================================================================
 // Equalizer
 // ============================================================================

@@ -279,6 +279,8 @@ void testCNullHandling()
     ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_sidetone(nullptr, 64, nullptr), "set_sidetone(null) should fail");
     ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_lights(nullptr, true), "set_lights(null) should fail");
 
+    ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_volume(nullptr, 64, nullptr), "set_volume(null) should fail");
+
     std::cout << "    OK C API null handling" << std::endl;
 }
 
@@ -335,6 +337,15 @@ void testCppTestDeviceMode()
             ASSERT_TRUE(sidetone_status.hasValue(), "Sidetone status should return success");
             ASSERT_EQ(85, sidetone_status->current_level, "Sidetone status should be 85");
             ASSERT_EQ(2, sidetone_status->device_level, "Native sidetone level should be 2");
+
+            // Test headset volume
+            ASSERT_TRUE(headset.supports(CAP_HEADSET_VOLUME), "Test device should support headset volume");
+
+            auto volume = headset.setHeadsetVolume(64);
+            ASSERT_TRUE(volume.hasValue(), "Headset volume set should return success");
+            ASSERT_EQ(64, volume->volume, "Headset volume should be 64");
+            ASSERT_EQ(21, volume->device_max, "Native volume max should be 21");
+            ASSERT_EQ(12, volume->device_volume, "Native volume level should be 12");
 
             // Test chatmix
             auto chatmix = headset.getChatmix();
@@ -474,6 +485,16 @@ void testCTestDeviceMode()
             hsc_anc_button_modes_t no_modes = { .off = false, .anc = false, .ambient = false };
             ASSERT_TRUE(HSC_RESULT_OK != hsc_set_anc_button_modes(headsets[i], &no_modes), "ANC button modes with no mode should fail");
             ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_anc_button_modes(headsets[i], nullptr), "ANC button modes with null modes should fail");
+
+            // Test headset volume
+            ASSERT_TRUE(hsc_supports(headsets[i], HSC_CAP_HEADSET_VOLUME), "Should support headset volume");
+
+            hsc_volume_t volume;
+            ASSERT_EQ(HSC_RESULT_OK, hsc_set_volume(headsets[i], 64, &volume), "Headset volume set should succeed");
+            ASSERT_EQ(64, volume.volume, "Headset volume should be 64");
+            ASSERT_EQ(12, volume.device_volume, "Native volume level should be 12");
+            ASSERT_EQ(21, volume.device_max, "Native volume max should be 21");
+            ASSERT_EQ(HSC_RESULT_OK, hsc_set_volume(headsets[i], 64, NULL), "Headset volume set with NULL result should succeed");
 
             ASSERT_EQ(4, hsc_get_equalizer_presets_count(headsets[i]), "Preset count should be 4");
             ASSERT_EQ(std::string("Flat"), std::string(hsc_get_equalizer_preset_name(headsets[i], 0)), "Flat preset name should match");

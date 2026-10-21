@@ -357,6 +357,18 @@ struct MicMuteStatusResult {
 };
 
 /**
+ * @brief Headset (output) volume result
+ */
+struct HeadsetVolumeResult {
+    uint8_t volume; // Normalized volume level (0-128)
+    uint8_t min_volume; // Minimum supported level
+    uint8_t max_volume; // Maximum supported level
+    uint8_t device_min; // Device's native min
+    uint8_t device_max; // Device's native max (e.g., 21 steps for the ASTRO A50)
+    uint8_t device_volume = 0; // Current level in the device's native range
+};
+
+/**
  * @brief Capability information with details
  */
 struct CapabilityInfo {

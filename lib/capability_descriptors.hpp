@@ -296,6 +296,17 @@ inline constexpr std::array<CapabilityDescriptor, NUM_CAPABILITIES> CAPABILITY_D
         .min_value   = std::nullopt,
         .max_value   = std::nullopt,
         .value_hint  = "" },
+
+    // CAP_HEADSET_VOLUME
+    {
+        .cap         = CAP_HEADSET_VOLUME,
+        .type        = CAPABILITYTYPE_ACTION,
+        .name        = "volume",
+        .short_flag  = "",
+        .description = "Set headset hardware volume level",
+        .min_value   = 0,
+        .max_value   = 128,
+        .value_hint  = "<0-128>" },
 } };
 
 /**
