@@ -183,7 +183,7 @@ typedef struct {
     uint8_t device_volume; /**< Device's native level (e.g., 0-21 for the ASTRO A50) */
     uint8_t device_min; /**< Device's native minimum */
     uint8_t device_max; /**< Device's native maximum */
-} hsc_volume_t;
+} hsc_headset_volume_t;
 
 /* ============================================================================
  * Discovery Functions
@@ -373,7 +373,7 @@ HSC_API hsc_result_t hsc_set_volume_limiter(hsc_headset_t headset, bool enabled)
  * @param[out] result Optional result info (can be NULL)
  * @return HSC_RESULT_OK on success, negative error code on failure
  */
-HSC_API hsc_result_t hsc_set_volume(hsc_headset_t headset, uint8_t volume, hsc_volume_t* result);
+HSC_API hsc_result_t hsc_set_headset_volume(hsc_headset_t headset, uint8_t volume, hsc_headset_volume_t* result);
 
 /* ============================================================================
  * Equalizer

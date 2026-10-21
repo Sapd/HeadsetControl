@@ -367,7 +367,7 @@ hsc_result_t hsc_set_volume_limiter(hsc_headset_t headset, bool enabled)
     return result ? HSC_RESULT_OK : toErrorCode(result.error());
 }
 
-hsc_result_t hsc_set_volume(hsc_headset_t headset, uint8_t volume, hsc_volume_t* result_out)
+hsc_result_t hsc_set_headset_volume(hsc_headset_t headset, uint8_t volume, hsc_headset_volume_t* result_out)
 {
     if (!headset) {
         return HSC_RESULT_INVALID_PARAM;

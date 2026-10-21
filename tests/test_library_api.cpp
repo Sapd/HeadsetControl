@@ -279,7 +279,7 @@ void testCNullHandling()
     ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_sidetone(nullptr, 64, nullptr), "set_sidetone(null) should fail");
     ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_lights(nullptr, true), "set_lights(null) should fail");
 
-    ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_volume(nullptr, 64, nullptr), "set_volume(null) should fail");
+    ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_headset_volume(nullptr, 64, nullptr), "set_headset_volume(null) should fail");
 
     std::cout << "    OK C API null handling" << std::endl;
 }
@@ -489,12 +489,12 @@ void testCTestDeviceMode()
             // Test headset volume
             ASSERT_TRUE(hsc_supports(headsets[i], HSC_CAP_HEADSET_VOLUME), "Should support headset volume");
 
-            hsc_volume_t volume;
-            ASSERT_EQ(HSC_RESULT_OK, hsc_set_volume(headsets[i], 64, &volume), "Headset volume set should succeed");
+            hsc_headset_volume_t volume;
+            ASSERT_EQ(HSC_RESULT_OK, hsc_set_headset_volume(headsets[i], 64, &volume), "Headset volume set should succeed");
             ASSERT_EQ(64, volume.volume, "Headset volume should be 64");
             ASSERT_EQ(12, volume.device_volume, "Native volume level should be 12");
             ASSERT_EQ(21, volume.device_max, "Native volume max should be 21");
-            ASSERT_EQ(HSC_RESULT_OK, hsc_set_volume(headsets[i], 64, NULL), "Headset volume set with NULL result should succeed");
+            ASSERT_EQ(HSC_RESULT_OK, hsc_set_headset_volume(headsets[i], 64, NULL), "Headset volume set with NULL result should succeed");
 
             ASSERT_EQ(4, hsc_get_equalizer_presets_count(headsets[i]), "Preset count should be 4");
             ASSERT_EQ(std::string("Flat"), std::string(hsc_get_equalizer_preset_name(headsets[i], 0)), "Flat preset name should match");

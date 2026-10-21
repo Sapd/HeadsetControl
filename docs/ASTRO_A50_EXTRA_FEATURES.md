@@ -2,12 +2,7 @@
 
 The device file `lib/devices/logitech_astro_a50.hpp` implements the A50 features that map to
 **existing** HeadsetControl capabilities: battery, chatmix, sidetone, lights, parametric
-equalizer and microphone noise filter.
-
-**Update:** master (headset) volume is now supported through the new
-`CAP_HEADSET_VOLUME` capability (`--volume LEVEL`),
-using command `0x08` (`02 0c 05 00 08 1b ff <0..21>`). It sets the headset hardware volume — the same
-value the physical volume wheel changes — not the OS mixer volume.
+equalizer, microphone noise filter and headset volume.
 
 The A50 base station exposes several other fully reverse-engineered, working controls over the
 same vendor HID protocol that **do not map to any existing HeadsetControl capability**. They are

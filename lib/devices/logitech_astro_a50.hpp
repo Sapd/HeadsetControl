@@ -44,16 +44,13 @@ namespace headsetcontrol {
  *                                 gain byte=120+dB*20 (±6 dB).
  * - Noise filter     (CMD 0x14) — mic noise gate; HSC 0/1/2 -> A50 Off/Night/Tournament.
  *
- * All six original capabilities were verified on real hardware (A50 base 046d:0b1c): lights toggle
+ * All seven capabilities were verified on real hardware (A50 base 046d:0b1c): lights toggle
  * the dock LED, battery reads %/charging, chatmix reads 0..12 (linear), sidetone is audible,
  * the parametric EQ visibly shifts the sound (a ±6 dB bass boost/cut was clearly audible while
- * music played), and the noise gate is audible on the mic. The byte5 handle is an echo token
+ * music played), the noise gate is audible on the mic, and master volume follows --volume
+ * 0/64/128 on the headset itself (not the OS mixer). The byte5 handle is an echo token
  * (the device echoes it back) — any value works, which is why the battery GET (handle 0x0c)
  * reads correctly even though G HUB only ever pushed it.
- *
- * The master volume SET frame is confirmed by the a50-volumemaster USB capture
- * (02 0c 05 00 08 1b ff <scaled 0..21>). Volume acts on the headset hardware itself —
- * the same value the physical volume wheel changes — not on the OS mixer.
  */
 class LogitechAstroA50 : public HIDDevice {
 public:

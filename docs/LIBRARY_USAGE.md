@@ -28,7 +28,7 @@ headsetcontrol -o env
 {
   "name": "HeadsetControl",
   "version": "3.0.0",
-  "api_version": "1.6",
+  "api_version": "1.7",
   "device_count": 1,
   "devices": [
     {
@@ -795,8 +795,8 @@ hsc_mic_mute_status_t mute;
 hsc_get_mic_mute_status(headset, &mute);
 
 // Headset hardware volume (0-128); result param is optional (NULL ok)
-hsc_volume_t volume_result;
-hsc_set_volume(headset, 64, &volume_result);
+hsc_headset_volume_t volume_result;
+hsc_set_headset_volume(headset, 64, &volume_result);
 ```
 
 ### Error Handling
