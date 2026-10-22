@@ -261,24 +261,34 @@ cd build && make
 
 ## Validation
 
-There are two bounds to set, and they have to agree.
+There are three bounds, checked in this order, and each may be narrower than the one
+before it.
 
-The CLI enforces the range passed to the parser in `cli/main.cpp`:
+The parser range in `cli/main.cpp` goes first:
 
 ```bash
 $ ./headsetcontrol --sidetone 200
 Error: sidetone: value 200 out of range [0, 128]
 ```
 
-The descriptor's `min_value` and `max_value` feed the help text, and for the normalised
-0-128 levels they are also the bound `Headset::setSidetone()`, `setMicVolume()` and
-`setHeadsetVolume()` apply, since library callers never go through the parser:
+The descriptor's `min_value` and `max_value` are checked next, by `validateFeatureParam()`
+in `lib/feature_handlers.hpp`. They are a real bound on the CLI path, not just help text,
+and several capabilities use a parser range that is deliberately looser:
+
+```bash
+$ ./headsetcontrol --notificate 2
+notificate must be <= 1 (got 2)
+```
+
+For the normalised 0-128 levels they are also the bound `Headset::setSidetone()`,
+`setMicVolume()` and `setHeadsetVolume()` apply, since library callers never go through
+the parser:
 
 ```cpp
 headset.setHeadsetVolume(200);  // invalid parameter: volume must be 0-128 (got 200)
 ```
 
-Anything narrower than that, or specific to one device, belongs in the device
+Anything narrower still, or specific to one device, belongs in the device
 implementation, which returns `DeviceError::invalidParameter()` itself - a device whose
 hardware only has four steps validates that, not the descriptor.
 
