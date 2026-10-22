@@ -119,6 +119,19 @@ struct SidetoneData {
     }
 };
 
+struct HeadsetVolumeData {
+    int level        = 0;
+    int device_level = 0;
+
+    void serialize(Serializer& s) const
+    {
+        s.beginObject("headset_volume");
+        s.write("level", level);
+        s.write("device_level", device_level);
+        s.endObject();
+    }
+};
+
 struct ErrorData {
     std::string source;
     std::string message;
@@ -192,10 +205,13 @@ struct DeviceData {
     std::vector<std::string> caps;
     std::vector<std::string> caps_str;
     std::vector<enum capabilities> caps_enum;
+    std::vector<std::string> readable_caps;
+    std::vector<std::string> readable_caps_str;
 
     std::optional<BatteryData> battery;
     std::optional<int> chatmix;
     std::optional<SidetoneData> sidetone;
+    std::optional<HeadsetVolumeData> headset_volume;
     std::optional<bool> mic_attached;
     std::optional<bool> mic_muted;
     std::optional<EqualizerData> equalizer;
@@ -218,6 +234,8 @@ struct DeviceData {
 
         s.writeArray("capabilities", caps);
         s.writeArray("capabilities_str", caps_str);
+        s.writeArray("readable_capabilities", readable_caps);
+        s.writeArray("readable_capabilities_str", readable_caps_str);
 
         if (battery.has_value()) {
             battery->serialize(s);
@@ -255,6 +273,10 @@ struct DeviceData {
 
         if (sidetone.has_value()) {
             sidetone->serialize(s);
+        }
+
+        if (headset_volume.has_value()) {
+            headset_volume->serialize(s);
         }
 
         if (mic_attached.has_value()) {

@@ -283,6 +283,9 @@ void testCNullHandling()
     ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_noise_filter(nullptr, 1), "set_noise_filter(null) should fail");
 
     ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_headset_volume(nullptr, 64, nullptr), "set_headset_volume(null) should fail");
+    hsc_headset_volume_t headset_volume;
+    ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_get_headset_volume(nullptr, &headset_volume), "get_headset_volume(null) should fail");
+    ASSERT_EQ(0, hsc_get_readable_capabilities(nullptr), "get_readable_capabilities(null) should be 0");
 
     std::cout << "    OK C API null handling" << std::endl;
 }
@@ -349,6 +352,28 @@ void testCppTestDeviceMode()
             ASSERT_EQ(64, volume->volume, "Headset volume should be 64");
             ASSERT_EQ(21, volume->device_max, "Native volume max should be 21");
             ASSERT_EQ(12, volume->device_volume, "Native volume level should be 12");
+
+            ASSERT_TRUE(headset.canRead(CAP_HEADSET_VOLUME), "Test device should read back headset volume");
+            ASSERT_FALSE(headset.canRead(CAP_LIGHTS), "Test device can't read back lights");
+            ASSERT_EQ(B(CAP_SIDETONE) | B(CAP_HEADSET_VOLUME), headset.readableCapabilitiesMask(),
+                "Readable mask should be sidetone and headset volume");
+
+            auto volume_read = headset.getHeadsetVolume();
+            ASSERT_TRUE(volume_read.hasValue(), "Headset volume read should return success");
+            ASSERT_EQ(77, volume_read->volume, "Headset volume read should be 77");
+            ASSERT_EQ(15, volume_read->device_volume, "Native volume read should be 15");
+
+            // Profile 6: volume stays settable but can't be read back
+            headsetcontrol::setTestProfile(6);
+            ASSERT_TRUE(headset.supports(CAP_HEADSET_VOLUME), "Profile 6 should still support headset volume");
+            ASSERT_FALSE(headset.canRead(CAP_HEADSET_VOLUME), "Profile 6 can't read back headset volume");
+            ASSERT_TRUE(headset.setHeadsetVolume(64).hasValue(), "Profile 6 should still set headset volume");
+
+            auto volume_write_only = headset.getHeadsetVolume();
+            ASSERT_TRUE(volume_write_only.hasError(), "Profile 6 headset volume read should fail");
+            ASSERT_TRUE(volume_write_only.error().code == DeviceError::Code::NotSupported,
+                "Profile 6 headset volume read should be not supported");
+            headsetcontrol::setTestProfile(0);
 
             // The normalised 0-128 setters are reachable without the CLI's parsing,
             // so they have to reject out-of-range levels instead of letting the
@@ -534,6 +559,13 @@ void testCTestDeviceMode()
             ASSERT_EQ(HSC_RESULT_OK, hsc_set_headset_volume(headsets[i], 64, NULL), "Headset volume set with NULL result should succeed");
             ASSERT_EQ(HSC_RESULT_OK, hsc_set_headset_volume(headsets[i], 128, NULL), "Headset volume 128 should be accepted");
             ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_headset_volume(headsets[i], 129, NULL), "Headset volume 129 should be rejected");
+
+            ASSERT_TRUE((hsc_get_readable_capabilities(headsets[i]) & (1 << HSC_CAP_HEADSET_VOLUME)) != 0,
+                "Headset volume should be readable");
+            ASSERT_EQ(HSC_RESULT_OK, hsc_get_headset_volume(headsets[i], &volume), "Headset volume read should succeed");
+            ASSERT_EQ(77, volume.volume, "Headset volume read should be 77");
+            ASSERT_EQ(15, volume.device_volume, "Native volume read should be 15");
+            ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_get_headset_volume(headsets[i], NULL), "Headset volume read with NULL should fail");
             ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_sidetone(headsets[i], 255, NULL), "Sidetone 255 should be rejected");
             ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_mic_volume(headsets[i], 200), "Microphone volume 200 should be rejected");
 

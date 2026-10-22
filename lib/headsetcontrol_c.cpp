@@ -98,6 +98,16 @@ void copySidetoneStatus(const headsetcontrol::SidetoneResult& source,
     destination.level_name    = level_name_cache.empty() ? nullptr : level_name_cache.c_str();
 }
 
+void copyHeadsetVolume(const headsetcontrol::HeadsetVolumeResult& source, hsc_headset_volume_t& target)
+{
+    target.volume        = source.volume;
+    target.min_volume    = source.min_volume;
+    target.max_volume    = source.max_volume;
+    target.device_volume = source.device_volume;
+    target.device_min    = source.device_min;
+    target.device_max    = source.device_max;
+}
+
 } // namespace
 
 // ============================================================================
@@ -254,6 +264,14 @@ int hsc_get_capabilities(hsc_headset_t headset)
     return static_cast<HeadsetWrapper*>(headset)->headset.capabilitiesMask();
 }
 
+int hsc_get_readable_capabilities(hsc_headset_t headset)
+{
+    if (!headset) {
+        return 0;
+    }
+    return static_cast<HeadsetWrapper*>(headset)->headset.readableCapabilitiesMask();
+}
+
 // ============================================================================
 // Battery & Status
 // ============================================================================
@@ -400,14 +418,25 @@ hsc_result_t hsc_set_headset_volume(hsc_headset_t headset, uint8_t volume, hsc_h
     }
 
     if (result_out) {
-        result_out->volume        = result->volume;
-        result_out->min_volume    = result->min_volume;
-        result_out->max_volume    = result->max_volume;
-        result_out->device_volume = result->device_volume;
-        result_out->device_min    = result->device_min;
-        result_out->device_max    = result->device_max;
+        copyHeadsetVolume(*result, *result_out);
     }
 
+    return HSC_RESULT_OK;
+}
+
+hsc_result_t hsc_get_headset_volume(hsc_headset_t headset, hsc_headset_volume_t* volume)
+{
+    if (!headset || !volume) {
+        return HSC_RESULT_INVALID_PARAM;
+    }
+
+    auto result = static_cast<HeadsetWrapper*>(headset)->headset.getHeadsetVolume();
+
+    if (!result) {
+        return toErrorCode(result.error());
+    }
+
+    copyHeadsetVolume(*result, *volume);
     return HSC_RESULT_OK;
 }
 

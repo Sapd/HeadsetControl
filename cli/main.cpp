@@ -204,7 +204,7 @@ struct Options {
     std::optional<uint8_t> anc_mode;
     std::optional<uint8_t> anc_startup_mode;
     std::optional<AncButtonModes> anc_button_modes;
-    std::optional<uint8_t> volume;
+    std::optional<uint8_t> headset_volume;
 
     // Info requests
     bool request_battery                      = false;
@@ -212,6 +212,7 @@ struct Options {
     bool request_sidetone                     = false;
     bool request_microphone_attachment_status = false;
     bool request_microphone_mute_status       = false;
+    bool request_headset_volume               = false;
 
     // Complex settings
     std::optional<EqualizerSettings> equalizer;
@@ -337,7 +338,21 @@ std::optional<cli::ParseError> configureParser(cli::ArgumentParser& parser, Opti
         .long_value("microphone-volume", opts.mic_volume, uint8_t(0), uint8_t(128), "Set microphone volume", "VOLUME")
 
         // === Volume ===
-        .long_value("volume", opts.volume, uint8_t(0), uint8_t(128), "Set headset hardware volume", "LEVEL")
+        .long_custom("volume", cli::ArgRequirement::Optional, [&opts](std::optional<std::string_view> arg) -> std::optional<cli::ParseError> {
+                if (!arg || arg->empty()) {
+                    opts.headset_volume.reset();
+                    opts.request_headset_volume = true;
+                    return std::nullopt;
+                }
+
+                uint8_t level {};
+                if (auto error = cli::parseInteger(*arg, level, uint8_t(0), uint8_t(128), "volume")) {
+                    return error;
+                }
+
+                opts.headset_volume = level;
+                opts.request_headset_volume = false;
+                return std::nullopt; }, "Get current headset hardware volume, or set it to LEVEL", "LEVEL")
         .long_toggle("volume-limiter", opts.volume_limiter_enabled, "Toggle volume limiter")
 
         // === Bluetooth ===
@@ -407,27 +422,32 @@ std::optional<cli::ParseError> configureParser(cli::ArgumentParser& parser, Opti
                     // getCapabilities() may depend on the matched product ID, so ask
                     // each variant: capabilities all of them report get an "x", ones
                     // only some report get an "x*" (explained by a footnote below the
-                    // table in the README).
-                    int caps_any = 0;
-                    int caps_all = 0;
-                    bool first    = true;
+                    // table in the README). Capabilities that can also be read back
+                    // get an "r" instead of the "x".
+                    int caps_any     = 0;
+                    int caps_all     = 0;
+                    int readable_any = 0;
+                    bool first       = true;
                     for (uint16_t pid : device->getProductIds()) {
                         device->setMatchedProductId(pid);
-                        const int caps = device->getCapabilities();
+                        const int caps = device->getAdvertisedCapabilities();
                         caps_any |= caps;
                         caps_all = first ? caps : (caps_all & caps);
-                        first    = false;
+                        readable_any |= device->getCapabilities() & device->getReadableCapabilities();
+                        first = false;
                     }
                     device->setMatchedProductId(0);
                     if (first) { // device without product IDs
-                        caps_any = caps_all = device->getCapabilities();
+                        caps_any = caps_all = device->getAdvertisedCapabilities();
+                        readable_any        = device->getCapabilities() & device->getReadableCapabilities();
                     }
 
                     for (int j = 0; j < NUM_CAPABILITIES; j++) {
+                        const char* mark = (readable_any & B(j)) ? "r" : "x";
                         if (caps_all & B(j)) {
-                            std::cout << " x |";
+                            std::cout << " " << mark << " |";
                         } else if (caps_any & B(j)) {
-                            std::cout << " x* |";
+                            std::cout << " " << mark << "* |";
                         } else {
                             std::cout << "   |";
                         }
@@ -529,9 +549,9 @@ struct DiscoveredDevice {
         return device && opts.matchesDevice(device->getVendorId(), product_id);
     }
 
-    [[nodiscard]] bool hasCapability(capabilities cap) const
+    [[nodiscard]] bool hasCapability(capabilities cap, capabilitytype type = CAPABILITYTYPE_ACTION) const
     {
-        return device && (device->getCapabilities() & B(cap)) != 0;
+        return device && device->supports(cap, type);
     }
 };
 
@@ -662,11 +682,17 @@ FeatureResult convertToFeatureResult(const headsetcontrol::FeatureOutput& output
         result.sidetone_level_name   = output.sidetone->level_name;
     }
 
+    // Handle headset volume special case
+    if (output.headset_volume) {
+        result.value                       = output.headset_volume->volume;
+        result.headset_volume_device_level = output.headset_volume->device_volume;
+    }
+
     return result;
 }
 
 // Handle a feature request via the handler registry
-FeatureResult handleFeature(DiscoveredDevice& dev, capabilities cap, const FeatureParam& param)
+FeatureResult handleFeature(DiscoveredDevice& dev, capabilities cap, capabilitytype type, const FeatureParam& param)
 {
     // Validate parameter
     if (auto error = headsetcontrol::validateFeatureParam(cap, param)) {
@@ -674,8 +700,11 @@ FeatureResult handleFeature(DiscoveredDevice& dev, capabilities cap, const Featu
     }
 
     // Check device support
-    if (!dev.hasCapability(cap)) {
+    if (!dev.hasCapability(cap, type)) {
         const auto& desc = headsetcontrol::getCapabilityDescriptor(cap);
+        if (type == CAPABILITYTYPE_INFO && desc.isActionFeature() && dev.hasCapability(cap)) {
+            return make_error(-1, std::format("This headset can't read back {}", desc.name));
+        }
         return make_error(-1, std::format("This headset doesn't support {}", desc.name));
     }
 
@@ -693,7 +722,7 @@ FeatureResult handleFeature(DiscoveredDevice& dev, capabilities cap, const Featu
 
     // Execute via handler registry (no more giant switch!)
     auto result = headsetcontrol::FeatureHandlerRegistry::instance().execute(
-        cap, dev.device, handle, param);
+        cap, type, dev.device, handle, param);
 
     if (result.hasError()) {
         return make_error(-1, result.error().message);
@@ -762,7 +791,7 @@ namespace help {
             : program_name_(program)
             , device_(dev)
             , show_all_(all)
-            , caps_(dev ? dev->getCapabilities() : 0)
+            , caps_(dev ? dev->getAdvertisedCapabilities() : 0)
         {
         }
 
@@ -939,7 +968,7 @@ namespace help {
             sections.push_back({ "AUDIO", {} });
             sections.back()
                 .add('s', "sidetone", getValueHint(CAP_SIDETONE), "Get current level or set mic feedback (0-128)", CAP_SIDETONE)
-                .add("volume", getValueHint(CAP_HEADSET_VOLUME), "Headset hardware volume level (0-128)", CAP_HEADSET_VOLUME)
+                .add("volume", getValueHint(CAP_HEADSET_VOLUME), "Get current level or set headset hardware volume (0-128)", CAP_HEADSET_VOLUME)
                 .add("volume-limiter", getValueHint(CAP_VOLUME_LIMITER), "Enable/disable volume limiter", CAP_VOLUME_LIMITER)
                 .add("anc", getValueHint(CAP_ANC), "ANC mode (0=off, 1=noise cancelling, 2=ambient sound)", CAP_ANC)
                 .add("anc-button-modes", getValueHint(CAP_ANC_BUTTON_MODES), "ANC modes the headset's ANC button cycles through", CAP_ANC_BUTTON_MODES);
@@ -1068,7 +1097,7 @@ struct FeatureParamStorage {
     int noise_filter_val     = 0;
     int anc_mode_val         = 0;
     int anc_startup_mode_val = 0;
-    int volume_val           = 0;
+    int headset_volume_val   = 0;
 
     // Store copies of complex settings to avoid const_cast
     EqualizerSettings equalizer_settings;
@@ -1109,8 +1138,8 @@ struct FeatureParamStorage {
             anc_startup_mode_val = *opts.anc_startup_mode;
         if (opts.anc_button_modes.has_value())
             anc_button_modes = *opts.anc_button_modes;
-        if (opts.volume.has_value())
-            volume_val = *opts.volume;
+        if (opts.headset_volume.has_value())
+            headset_volume_val = *opts.headset_volume;
         battery_req = opts.request_battery ? 1 : 0;
         chatmix_req = opts.request_chatmix ? 1 : 0;
 
@@ -1155,7 +1184,8 @@ void initializeFeatureRequests(std::vector<DiscoveredDevice>& devices, const Opt
         { CAP_ANC_BUTTON_MODES, CAPABILITYTYPE_ACTION, opts.anc_button_modes.has_value() ? FeatureParam { g_feature_params.anc_button_modes } : FeatureParam { std::monostate {} }, opts.anc_button_modes.has_value(), {} },
         { CAP_MICROPHONE_ATTACHMENT_STATUS, CAPABILITYTYPE_INFO, std::monostate {}, opts.request_microphone_attachment_status, {} },
         { CAP_MICROPHONE_MUTE_STATUS, CAPABILITYTYPE_INFO, std::monostate {}, opts.request_microphone_mute_status, {} },
-        { CAP_HEADSET_VOLUME, CAPABILITYTYPE_ACTION, g_feature_params.volume_val, opts.volume.has_value(), {} }
+        { CAP_HEADSET_VOLUME, CAPABILITYTYPE_ACTION, g_feature_params.headset_volume_val, opts.headset_volume.has_value(), {} },
+        { CAP_HEADSET_VOLUME, CAPABILITYTYPE_INFO, std::monostate {}, opts.request_headset_volume, {} }
     };
 
     for (auto& dev : devices) {
@@ -1229,7 +1259,7 @@ void enableExtendedInfoRequests(std::vector<DiscoveredDevice>& devices, bool ext
             continue;
 
         for (auto& req : dev.feature_requests) {
-            if (req.type == CAPABILITYTYPE_INFO && !req.should_process && dev.hasCapability(req.cap)) {
+            if (req.type == CAPABILITYTYPE_INFO && !req.should_process && dev.hasCapability(req.cap, req.type)) {
                 req.should_process = true;
             }
         }
@@ -1267,7 +1297,7 @@ void processFeatureRequests(std::vector<DiscoveredDevice>& devices, const Option
 
         for (auto& req : dev.feature_requests) {
             if (req.should_process && req.result.status == FEATURE_NOT_PROCESSED) {
-                req.result = handleFeature(dev, req.cap, req.param);
+                req.result = handleFeature(dev, req.cap, req.type, req.param);
             }
         }
     }

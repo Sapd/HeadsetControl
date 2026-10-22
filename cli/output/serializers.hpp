@@ -54,10 +54,23 @@ public:
         }
     }
 
+    // Empty array. beginArray/endArray would leave a bare "key:" in YAML, which
+    // parses as null rather than an empty list.
+    virtual void writeEmptyArray(std::string_view name)
+    {
+        beginArray(name);
+        endArray();
+    }
+
     // Convenience: write array from vector
     template <typename T>
     void writeArray(std::string_view name, const std::vector<T>& items)
     {
+        if (items.empty()) {
+            writeEmptyArray(name);
+            return;
+        }
+
         beginArray(name);
         for (const auto& item : items) {
             writeArrayItem(item);
@@ -124,6 +137,14 @@ public:
         out_ << "\n";
         writeIndent();
         out_ << "]";
+        needs_comma_ = true;
+    }
+
+    void writeEmptyArray(std::string_view name) override
+    {
+        writeComma();
+        writeIndent();
+        out_ << std::format("\"{}\": []", name);
         needs_comma_ = true;
     }
 
@@ -302,6 +323,12 @@ public:
             in_array_ = false;
         }
         first_in_array_object_ = false;
+    }
+
+    void writeEmptyArray(std::string_view name) override
+    {
+        writeKey(name);
+        out_ << ": []\n";
     }
 
     void write(std::string_view key, std::string_view value) override

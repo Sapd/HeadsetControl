@@ -70,7 +70,7 @@ public:
     OutputData data;
     data.name           = "HeadsetControl";
     data.version        = "1.0.0-test";
-    data.api_version    = "1.7";
+    data.api_version    = "1.8";
     data.hidapi_version = "0.15.0";
 
     DeviceData dev;
@@ -236,6 +236,32 @@ void testYamlArrayFormat()
     ASSERT_CONTAINS(result, "- sidetone", "Should have second item with dash");
 
     std::cout << "    ✓ YAML array format is correct" << std::endl;
+}
+
+void testEmptyArrays()
+{
+    std::cout << "  Testing empty arrays..." << std::endl;
+
+    const std::vector<std::string> empty;
+
+    std::ostringstream json_out;
+    JsonSerializer json(json_out);
+    json.beginDocument();
+    json.writeArray("readable_capabilities", empty);
+    json.write("device_count", 1);
+    json.endDocument();
+    ASSERT_CONTAINS(json_out.str(), "\"readable_capabilities\": [],", "JSON should write an empty array as []");
+
+    // A bare "key:" would parse as null in YAML
+    std::ostringstream yaml_out;
+    YamlSerializer yaml(yaml_out);
+    yaml.beginDocument();
+    yaml.writeArray("readable_capabilities", empty);
+    yaml.write("device_count", 1);
+    yaml.endDocument();
+    ASSERT_CONTAINS(yaml_out.str(), "readable_capabilities: []\ndevice_count: 1", "YAML should write an empty array as []");
+
+    std::cout << "    ✓ Empty arrays are correct" << std::endl;
 }
 
 void testYamlArrayOfObjectsIndentation()
@@ -488,6 +514,7 @@ void runAllOutputFormatTests()
     runTest("YAML Array Format", testYamlArrayFormat);
     runTest("YAML Array of Objects Indentation", testYamlArrayOfObjectsIndentation);
     runTest("YAML Nested Arrays", testYamlNestedArrays);
+    runTest("Empty Arrays", testEmptyArrays);
 
     std::cout << "\n=== ENV Format Tests ===" << std::endl;
     runTest("ENV Basic Format", testEnvBasicFormat);

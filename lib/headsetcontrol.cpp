@@ -213,18 +213,29 @@ std::string_view Headset::productName() const
 
 bool Headset::supports(enum capabilities cap) const
 {
-    return (impl_->device()->getCapabilities() & B(cap)) != 0;
+    return (impl_->device()->getAdvertisedCapabilities() & B(cap)) != 0;
 }
 
 int Headset::capabilitiesMask() const
 {
-    return impl_->device()->getCapabilities();
+    return impl_->device()->getAdvertisedCapabilities();
+}
+
+bool Headset::canRead(enum capabilities cap) const
+{
+    return impl_->device()->canRead(cap);
+}
+
+int Headset::readableCapabilitiesMask() const
+{
+    const auto* device = impl_->device();
+    return device->getCapabilities() & device->getReadableCapabilities();
 }
 
 std::vector<std::string_view> Headset::capabilityNames() const
 {
     std::vector<std::string_view> names;
-    int caps = impl_->device()->getCapabilities();
+    int caps = impl_->device()->getAdvertisedCapabilities();
 
     for (int i = 0; i < NUM_CAPABILITIES; i++) {
         if (caps & B(i)) {
@@ -311,6 +322,14 @@ Result<HeadsetVolumeResult> Headset::setHeadsetVolume(uint8_t volume)
         return *error;
     }
     HEADSET_FEATURE_IMPL(CAP_HEADSET_VOLUME, setHeadsetVolume, volume);
+}
+
+Result<HeadsetVolumeResult> Headset::getHeadsetVolume()
+{
+    if (supports(CAP_HEADSET_VOLUME) && !canRead(CAP_HEADSET_VOLUME)) {
+        return DeviceError::notSupported("Device cannot read headset volume");
+    }
+    HEADSET_FEATURE_IMPL(CAP_HEADSET_VOLUME, getHeadsetVolume);
 }
 
 Result<EqualizerPresetResult> Headset::setEqualizerPreset(uint8_t preset)

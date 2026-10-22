@@ -296,6 +296,17 @@ HSC_API bool hsc_supports(hsc_headset_t headset, hsc_capability_t cap);
  */
 HSC_API int hsc_get_capabilities(hsc_headset_t headset);
 
+/**
+ * @brief Get the bitmask of capabilities that can also be read back
+ *
+ * Uses the same bits as hsc_get_capabilities(). For example, if
+ * HSC_CAP_HEADSET_VOLUME is set, hsc_get_headset_volume() is available.
+ *
+ * @param headset Headset handle
+ * @return Bitmask of readable capabilities
+ */
+HSC_API int hsc_get_readable_capabilities(hsc_headset_t headset);
+
 /* ============================================================================
  * Battery & Status
  * ============================================================================ */
@@ -380,6 +391,18 @@ HSC_API hsc_result_t hsc_set_volume_limiter(hsc_headset_t headset, bool enabled)
  * @return HSC_RESULT_OK on success, negative error code on failure
  */
 HSC_API hsc_result_t hsc_set_headset_volume(hsc_headset_t headset, uint8_t volume, hsc_headset_volume_t* result);
+
+/**
+ * @brief Read the headset (output) volume
+ *
+ * Only available when HSC_CAP_HEADSET_VOLUME is set in
+ * hsc_get_readable_capabilities().
+ *
+ * @param headset Headset handle
+ * @param[out] volume Volume info
+ * @return HSC_RESULT_OK on success, negative error code on failure
+ */
+HSC_API hsc_result_t hsc_get_headset_volume(hsc_headset_t headset, hsc_headset_volume_t* volume);
 
 /* ============================================================================
  * Equalizer

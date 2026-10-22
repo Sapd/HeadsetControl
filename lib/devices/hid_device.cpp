@@ -37,7 +37,7 @@ struct device* HIDDevice::toCDevice()
     dev->supported_platforms = getSupportedPlatforms();
 
     // Set capabilities
-    dev->capabilities = getCapabilities();
+    dev->capabilities = getAdvertisedCapabilities();
 
     // Set capability details
     for (int i = 0; i < NUM_CAPABILITIES; i++) {

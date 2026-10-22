@@ -26,7 +26,8 @@ namespace headsetcontrol {
  * - Profile 3: Different battery level
  * - Profile 4: Unavailable battery
  * - Profile 5: Timeout conditions
- * - Profile 6-9: Reserved
+ * - Profile 6: Headset volume can be set but not read back
+ * - Profile 7-9: Reserved
  * - Profile 10: Limited capabilities (sidetone, lights, battery only)
  */
 class HeadsetControlTest : public HIDDevice {
@@ -70,9 +71,25 @@ public:
             | B(CAP_EQUALIZER) | B(CAP_PARAMETRIC_EQUALIZER)
             | B(CAP_MICROPHONE_MUTE_LED_BRIGHTNESS) | B(CAP_MICROPHONE_VOLUME)
             | B(CAP_VOLUME_LIMITER) | B(CAP_BT_WHEN_POWERED_ON) | B(CAP_BT_CALL_VOLUME)
-            | B(CAP_NOISE_FILTER) | B(CAP_SIDETONE_STATUS) | B(CAP_ANC) | B(CAP_ANC_STARTUP_MODE)
+            | B(CAP_NOISE_FILTER) | B(CAP_ANC) | B(CAP_ANC_STARTUP_MODE)
             | B(CAP_ANC_BUTTON_MODES) | B(CAP_MICROPHONE_ATTACHMENT_STATUS) | B(CAP_MICROPHONE_MUTE_STATUS)
             | B(CAP_HEADSET_VOLUME);
+    }
+
+    int getReadableCapabilities() const override
+    {
+        // Profile 10 can't read anything back
+        if (test_profile == 10) {
+            return 0;
+        }
+
+        // Profile 6 keeps CAP_HEADSET_VOLUME settable but not readable
+        if (test_profile == 6) {
+            return B(CAP_SIDETONE);
+        }
+
+        // CAP_SIDETONE here also reports CAP_SIDETONE_STATUS
+        return B(CAP_SIDETONE) | B(CAP_HEADSET_VOLUME);
     }
 
     std::optional<EqualizerInfo> getEqualizerInfo() const override
@@ -313,6 +330,23 @@ public:
             .device_min    = 0,
             .device_max    = 21,
             .device_volume = mapSidetoneToDiscrete<22>(volume)
+        };
+    }
+
+    Result<HeadsetVolumeResult> getHeadsetVolume([[maybe_unused]] hid_device* device_handle) override
+    {
+        if (test_profile == 1) {
+            return DeviceError::hidError("Test error condition");
+        }
+
+        constexpr uint8_t device_volume = 15;
+        return HeadsetVolumeResult {
+            .volume        = mapDiscreteToSidetone<22>(device_volume),
+            .min_volume    = 0,
+            .max_volume    = 128,
+            .device_min    = 0,
+            .device_max    = 21,
+            .device_volume = device_volume
         };
     }
 

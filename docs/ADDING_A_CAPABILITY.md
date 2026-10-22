@@ -102,7 +102,9 @@ public:
 
 ### 5. Register Handler (`lib/feature_handlers.hpp`)
 
-Find `registerAllHandlers()` and add:
+Find `registerAllHandlers()` and add. Each capability has two slots: `CAPABILITYTYPE_ACTION`
+for setting it and `CAPABILITYTYPE_INFO` for reading it. Use the one matching the
+descriptor's `.type` (info-only capabilities such as battery use `CAPABILITYTYPE_INFO`):
 
 ```cpp
 void FeatureHandlerRegistry::registerAllHandlers()
@@ -110,7 +112,7 @@ void FeatureHandlerRegistry::registerAllHandlers()
     // ... existing handlers ...
 
     // CAP_YOUR_FEATURE
-    registerHandler(CAP_YOUR_FEATURE,
+    registerHandler(CAP_YOUR_FEATURE, CAPABILITYTYPE_ACTION,
         [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
             auto r = dev->setYourFeature(h, detail::getUint8(p));
             if (r.hasError())
@@ -126,6 +128,38 @@ void FeatureHandlerRegistry::registerAllHandlers()
 - `getBool(p)` - Get bool from param (int != 0)
 - `getEqualizer(p)` - Get EqualizerSettings
 - `getParametricEq(p)` - Get ParametricEqualizerSettings
+
+### Reading a setting back
+
+Don't add a `*_STATUS` capability for reading back something that already has a setter.
+Readability is a property of the capability:
+
+1. Add a `getYourFeature(hid_device*)` virtual next to the setter in `hid_device.hpp`,
+   returning `notSupported` by default.
+2. Register a second handler for the same capability under `CAPABILITYTYPE_INFO`:
+
+```cpp
+registerHandler(CAP_YOUR_FEATURE, CAPABILITYTYPE_INFO,
+    [](HIDDevice* dev, hid_device* h, const FeatureParam&) -> Result<FeatureOutput> {
+        auto r = dev->getYourFeature(h);
+        if (r.hasError())
+            return r.error();
+        return FeatureOutput::success(r->value);
+    });
+```
+
+3. Add a `CAPABILITYTYPE_INFO` row for it to the CLI request table in `cli/main.cpp`, next
+   to the `CAPABILITYTYPE_ACTION` one. `--volume` (`CAP_HEADSET_VOLUME`) sets with a value
+   and reads without one.
+4. Show the result: add a field to `DeviceData` (`cli/output/output_data.hpp`), fill it in
+   `processFeatureRequest()` (`cli/output/output.cpp`) and write it in each output format.
+   Without that branch the read result is dropped. The new field is an addition to the
+   structured output, so bump `API_VERSION` (step 8).
+5. Devices that implement the getter list the capability in `getReadableCapabilities()`
+   as well as `getCapabilities()`.
+
+`CAP_SIDETONE_STATUS` predates this and is kept for compatibility: a device with
+`CAP_SIDETONE` in `getReadableCapabilities()` reports it automatically.
 
 ### 6. Add CLI Argument (`cli/main.cpp`)
 
@@ -259,7 +293,7 @@ virtual Result<VolumeLimiterResult> setVolumeLimiter(hid_device*, bool enabled)
 
 **feature_handlers.hpp:**
 ```cpp
-registerHandler(CAP_VOLUME_LIMITER,
+registerHandler(CAP_VOLUME_LIMITER, CAPABILITYTYPE_ACTION,
     [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
         auto r = dev->setVolumeLimiter(h, detail::getBool(p));
         if (r.hasError())
