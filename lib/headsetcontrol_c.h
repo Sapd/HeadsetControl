@@ -267,10 +267,15 @@ HSC_API const char* hsc_get_vendor_name(hsc_headset_t headset);
 HSC_API uint16_t hsc_get_product_id(hsc_headset_t headset);
 
 /**
- * @brief Get USB product name
+ * @brief Get product name
+ *
+ * Starts as the USB product string. The first call that opens the device lets
+ * it refine the name, e.g. a dongle reporting the headset paired to it, so call
+ * this again after a query such as hsc_get_battery() to get the refined name.
  *
  * @param headset Headset handle
- * @return Product name (do not free), or NULL if unavailable
+ * @return Product name (do not free), or NULL if unavailable. Valid until the
+ *         headset is freed; a pointer returned earlier keeps the USB string.
  */
 HSC_API const char* hsc_get_product_name(hsc_headset_t headset);
 

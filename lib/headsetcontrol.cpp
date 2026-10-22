@@ -4,6 +4,7 @@
 #include "device_registry.hpp"
 #include "devices/hid_device.hpp"
 #include "hid_utility.hpp"
+#include "product_name.hpp"
 #include "string_utils.hpp"
 #include "version.h"
 
@@ -102,7 +103,7 @@ public:
     HIDDevice* device() const { return device_; }
     uint16_t productId() const { return product_id_; }
     std::string_view vendorName() const { return vendor_name_; }
-    std::string_view productName() const { return product_name_; }
+    std::string_view productName() const { return product_name_.get(); }
     bool isTestDevice() const { return is_test_device_; }
 
     /**
@@ -144,6 +145,7 @@ public:
         hid_device* handle = hid_open_path(path->c_str());
         if (handle) {
             connections_[key] = handle;
+            product_name_.refine(*device_, handle);
         }
 
         return handle;
@@ -167,7 +169,7 @@ private:
     uint16_t product_id_;
     bool is_test_device_;
     std::string vendor_name_;
-    std::string product_name_;
+    ProductName product_name_;
     std::unordered_map<uint64_t, hid_device*> connections_;
 };
 
