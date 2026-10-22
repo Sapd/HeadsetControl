@@ -508,6 +508,18 @@ void testCliHeadsetVolumeOutputs()
     std::string limited = exec(HEADSETCONTROL_EXE " --test-device 10 -d 0xf00b:0xa00c --volume 2>&1");
     ASSERT_CONTAINS(limited, "doesn't support volume", "a device without the capability should say so");
 
+    std::string write_only = exec(HEADSETCONTROL_EXE " --test-device 6 -d 0xf00b:0xa00c --volume 2>&1");
+    ASSERT_CONTAINS(write_only, "can't read back volume", "a write-only capability should say it can't be read");
+
+    std::string write_only_set = exec(HEADSETCONTROL_EXE " --test-device 6 -d 0xf00b:0xa00c --volume 20 2>&1");
+    ASSERT_CONTAINS(write_only_set, "Successfully set headset volume!", "a write-only capability should still set");
+
+    std::string write_only_query = exec(HEADSETCONTROL_EXE " --test-device 6 -d 0xf00b:0xa00c -o json 2>&1");
+    ASSERT_NOT_CONTAINS(write_only_query, "\"headset_volume\":", "a pure query should skip unreadable capabilities");
+
+    std::string write_only_env = exec(HEADSETCONTROL_EXE " --test-device 6 -d 0xf00b:0xa00c -o env 2>&1");
+    ASSERT_CONTAINS(write_only_env, "DEVICE_0_READABLE_CAPABILITIES_AMOUNT=1", "only sidetone should be listed as readable");
+
     std::cout << "    OK headset volume outputs" << std::endl;
 }
 

@@ -432,6 +432,7 @@ void setDeviceTimeout(int timeout_ms);
  * - 2: Simulate charging state
  * - 3: Basic battery info only (no extended info)
  * - 5: Simulate timeout errors
+ * - 6: Headset volume can be set but not read back
  * - 10: Minimal capabilities
  *
  * @param profile Profile number

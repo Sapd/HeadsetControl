@@ -360,6 +360,18 @@ void testCppTestDeviceMode()
             ASSERT_EQ(77, volume_read->volume, "Headset volume read should be 77");
             ASSERT_EQ(15, volume_read->device_volume, "Native volume read should be 15");
 
+            // Profile 6: volume stays settable but can't be read back
+            headsetcontrol::setTestProfile(6);
+            ASSERT_TRUE(headset.supports(CAP_HEADSET_VOLUME), "Profile 6 should still support headset volume");
+            ASSERT_FALSE(headset.canRead(CAP_HEADSET_VOLUME), "Profile 6 can't read back headset volume");
+            ASSERT_TRUE(headset.setHeadsetVolume(64).hasValue(), "Profile 6 should still set headset volume");
+
+            auto volume_write_only = headset.getHeadsetVolume();
+            ASSERT_TRUE(volume_write_only.hasError(), "Profile 6 headset volume read should fail");
+            ASSERT_TRUE(volume_write_only.error().code == DeviceError::Code::NotSupported,
+                "Profile 6 headset volume read should be not supported");
+            headsetcontrol::setTestProfile(0);
+
             // The normalised 0-128 setters are reachable without the CLI's parsing,
             // so they have to reject out-of-range levels instead of letting the
             // device scale them into maximum volume.

@@ -26,7 +26,8 @@ namespace headsetcontrol {
  * - Profile 3: Different battery level
  * - Profile 4: Unavailable battery
  * - Profile 5: Timeout conditions
- * - Profile 6-9: Reserved
+ * - Profile 6: Headset volume can be set but not read back
+ * - Profile 7-9: Reserved
  * - Profile 10: Limited capabilities (sidetone, lights, battery only)
  */
 class HeadsetControlTest : public HIDDevice {
@@ -80,6 +81,11 @@ public:
         // Profile 10 can't read anything back
         if (test_profile == 10) {
             return 0;
+        }
+
+        // Profile 6 keeps CAP_HEADSET_VOLUME settable but not readable
+        if (test_profile == 6) {
+            return B(CAP_SIDETONE);
         }
 
         // CAP_SIDETONE here also reports CAP_SIDETONE_STATUS
