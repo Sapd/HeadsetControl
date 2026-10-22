@@ -144,12 +144,33 @@ public:
         hid_device* handle = hid_open_path(path->c_str());
         if (handle) {
             connections_[key] = handle;
+            refineProductName(handle);
         }
 
         return handle;
     }
 
 private:
+    /**
+     * @brief Let the device refine the product name once it is open.
+     *
+     * A device may know more than its USB strings, e.g. which headset is currently
+     * paired to a generic dongle. Asked once, on the first connection, as the CLI
+     * does. The default getMetadata() returns the HID strings, so devices without
+     * such knowledge are unaffected.
+     */
+    void refineProductName(hid_device* handle)
+    {
+        if (metadata_queried_) {
+            return;
+        }
+        metadata_queried_ = true;
+
+        if (auto meta = device_->getMetadata(handle); meta && !meta->product.empty()) {
+            product_name_ = meta->product;
+        }
+    }
+
     void closeAllConnections()
     {
         for (auto& [key, handle] : connections_) {
@@ -168,6 +189,7 @@ private:
     bool is_test_device_;
     std::string vendor_name_;
     std::string product_name_;
+    bool metadata_queried_ = false;
     std::unordered_map<uint64_t, hid_device*> connections_;
 };
 

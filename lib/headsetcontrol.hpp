@@ -93,7 +93,12 @@ public:
     [[nodiscard]] std::string_view vendorName() const;
 
     /**
-     * @brief Get USB product name from HID enumeration
+     * @brief Get the product name
+     *
+     * Starts as the USB product string from HID enumeration. The first call that
+     * opens the device lets it refine the name, e.g. a dongle reporting the
+     * headset paired to it, so a view taken before that call may be invalidated.
+     *
      * @return Empty string if unavailable
      */
     [[nodiscard]] std::string_view productName() const;

@@ -221,7 +221,14 @@ const char* hsc_get_product_name(hsc_headset_t headset)
         return nullptr;
     }
 
-    const auto& product_name = static_cast<HeadsetWrapper*>(headset)->product_name_str;
+    auto* wrapper = static_cast<HeadsetWrapper*>(headset);
+
+    // The device may have refined the name since the wrapper was created
+    if (wrapper->headset.productName() != wrapper->product_name_str) {
+        wrapper->product_name_str = wrapper->headset.productName();
+    }
+
+    const auto& product_name = wrapper->product_name_str;
     return product_name.empty() ? nullptr : product_name.c_str();
 }
 
