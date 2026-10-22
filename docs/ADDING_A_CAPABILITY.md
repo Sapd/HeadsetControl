@@ -13,6 +13,7 @@ A capability is a feature like sidetone, battery status, or LED control. Adding 
 5. Register a handler
 6. Add CLI argument parsing
 7. Implement in device classes
+8. Bump `API_VERSION`
 
 ## Files You'll Modify
 
@@ -25,6 +26,9 @@ A capability is a feature like sidetone, battery status, or LED control. Adding 
 | `lib/feature_handlers.hpp` | Handler registration |
 | `cli/main.cpp` | CLI argument parsing |
 | `lib/devices/*.hpp` | Device implementations |
+| `cli/output/output.cpp` | `API_VERSION` |
+| `tests/test_output_formats.cpp` | `API_VERSION` in the fixture |
+| `docs/LIBRARY_USAGE.md` | `api_version` in the sample output |
 
 ## Step-by-Step Guide
 
@@ -176,6 +180,20 @@ public:
 };
 ```
 
+### 8. Bump `API_VERSION` (`cli/output/output.cpp`)
+
+The capability list is part of the structured output, so adding a capability is an
+addition to the output format. Raise the second number and say what changed:
+
+```cpp
+// 1.7: the capability list grew by CAP_HEADSET_VOLUME.
+constexpr std::string_view API_VERSION = "1.7";
+```
+
+The same version appears in `tests/test_output_formats.cpp` and in the sample output in
+`docs/LIBRARY_USAGE.md`; all three have to move together. Raise the first number instead
+if you change or remove an existing field.
+
 ## Example: Adding Volume Limiter
 
 Here's a real example from the codebase:
@@ -243,12 +261,26 @@ cd build && make
 
 ## Validation
 
-The descriptor's `min_value` and `max_value` are automatically enforced. If a user passes an invalid value:
+There are two bounds to set, and they have to agree.
+
+The CLI enforces the range passed to the parser in `cli/main.cpp`:
 
 ```bash
 $ ./headsetcontrol --sidetone 200
-Error: sidetone must be <= 128
+Error: sidetone: value 200 out of range [0, 128]
 ```
+
+The descriptor's `min_value` and `max_value` feed the help text, and for the normalised
+0-128 levels they are also the bound `Headset::setSidetone()`, `setMicVolume()` and
+`setHeadsetVolume()` apply, since library callers never go through the parser:
+
+```cpp
+headset.setHeadsetVolume(200);  // invalid parameter: volume must be 0-128 (got 200)
+```
+
+Anything narrower than that, or specific to one device, belongs in the device
+implementation, which returns `DeviceError::invalidParameter()` itself - a device whose
+hardware only has four steps validates that, not the descriptor.
 
 ## Tips
 
