@@ -246,6 +246,14 @@ int hsc_get_capabilities(hsc_headset_t headset)
 // Battery & Status
 // ============================================================================
 
+// hsc_get_battery() passes the C++ status through unchanged, so the C values
+// have to stay in step with it.
+static_assert(HSC_BATTERY_UNAVAILABLE == static_cast<int>(BATTERY_UNAVAILABLE));
+static_assert(HSC_BATTERY_CHARGING == static_cast<int>(BATTERY_CHARGING));
+static_assert(HSC_BATTERY_AVAILABLE == static_cast<int>(BATTERY_AVAILABLE));
+static_assert(HSC_BATTERY_ERROR == static_cast<int>(BATTERY_HIDERROR));
+static_assert(HSC_BATTERY_TIMEOUT == static_cast<int>(BATTERY_TIMEOUT));
+
 hsc_result_t hsc_get_battery(hsc_headset_t headset, hsc_battery_t* battery)
 {
     if (!headset || !battery) {
