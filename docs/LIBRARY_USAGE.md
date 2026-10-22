@@ -402,6 +402,11 @@ if (headset.supports(CAP_MICROPHONE_MUTE_LED_BRIGHTNESS)) {
     headset.setMicMuteLedBrightness(2);
 }
 
+// Noise filter (0 = off, 1 = low, 2 = high)
+if (headset.supports(CAP_NOISE_FILTER)) {
+    headset.setNoiseFilter(1);
+}
+
 // Rotate-to-mute
 if (headset.supports(CAP_ROTATE_TO_MUTE)) {
     headset.setRotateToMute(true);
@@ -777,6 +782,9 @@ hsc_set_equalizer(headset, bands, 6);
 
 // Mic volume
 hsc_set_mic_volume(headset, 100);
+
+// Mic noise filter (0 = off, 1 = low, 2 = high)
+hsc_set_noise_filter(headset, 1);
 
 // Voice prompts
 hsc_set_voice_prompts(headset, false);

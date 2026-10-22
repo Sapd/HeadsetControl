@@ -358,6 +358,11 @@ Result<MicMuteLedBrightnessResult> Headset::setMicMuteLedBrightness(uint8_t brig
     HEADSET_FEATURE_IMPL(CAP_MICROPHONE_MUTE_LED_BRIGHTNESS, setMicMuteLedBrightness, brightness);
 }
 
+Result<NoiseFilterResult> Headset::setNoiseFilter(uint8_t level)
+{
+    HEADSET_FEATURE_IMPL(CAP_NOISE_FILTER, setNoiseFilter, level);
+}
+
 Result<MicMuteStatusResult> Headset::getMicMuteStatus()
 {
     HEADSET_FEATURE_IMPL(CAP_MICROPHONE_MUTE_STATUS, getMicMuteStatus);

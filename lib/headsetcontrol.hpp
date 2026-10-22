@@ -222,6 +222,12 @@ public:
     [[nodiscard]] Result<MicMuteLedBrightnessResult> setMicMuteLedBrightness(uint8_t brightness);
 
     /**
+     * @brief Set microphone noise filter level
+     * @param level 0 = off, 1 = low, 2 = high
+     */
+    [[nodiscard]] Result<NoiseFilterResult> setNoiseFilter(uint8_t level);
+
+    /**
      * @brief Get microphone mute status
      */
     [[nodiscard]] Result<MicMuteStatusResult> getMicMuteStatus();

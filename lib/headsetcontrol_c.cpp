@@ -507,6 +507,16 @@ hsc_result_t hsc_set_mic_mute_led_brightness(hsc_headset_t headset, uint8_t brig
     return result ? HSC_RESULT_OK : toErrorCode(result.error());
 }
 
+hsc_result_t hsc_set_noise_filter(hsc_headset_t headset, uint8_t level)
+{
+    if (!headset) {
+        return HSC_RESULT_INVALID_PARAM;
+    }
+
+    auto result = static_cast<HeadsetWrapper*>(headset)->headset.setNoiseFilter(level);
+    return result ? HSC_RESULT_OK : toErrorCode(result.error());
+}
+
 hsc_result_t hsc_set_rotate_to_mute(hsc_headset_t headset, bool enabled)
 {
     if (!headset) {
