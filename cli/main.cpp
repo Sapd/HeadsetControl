@@ -204,6 +204,7 @@ struct Options {
     std::optional<uint8_t> anc_mode;
     std::optional<uint8_t> anc_startup_mode;
     std::optional<AncButtonModes> anc_button_modes;
+    std::optional<uint8_t> volume;
 
     // Info requests
     bool request_battery                      = false;
@@ -336,6 +337,7 @@ std::optional<cli::ParseError> configureParser(cli::ArgumentParser& parser, Opti
         .long_value("microphone-volume", opts.mic_volume, uint8_t(0), uint8_t(128), "Set microphone volume", "VOLUME")
 
         // === Volume ===
+        .long_value("volume", opts.volume, uint8_t(0), uint8_t(128), "Set headset hardware volume", "LEVEL")
         .long_toggle("volume-limiter", opts.volume_limiter_enabled, "Toggle volume limiter")
 
         // === Bluetooth ===
@@ -937,6 +939,7 @@ namespace help {
             sections.push_back({ "AUDIO", {} });
             sections.back()
                 .add('s', "sidetone", getValueHint(CAP_SIDETONE), "Get current level or set mic feedback (0-128)", CAP_SIDETONE)
+                .add("volume", getValueHint(CAP_HEADSET_VOLUME), "Headset hardware volume level (0-128)", CAP_HEADSET_VOLUME)
                 .add("volume-limiter", getValueHint(CAP_VOLUME_LIMITER), "Enable/disable volume limiter", CAP_VOLUME_LIMITER)
                 .add("anc", getValueHint(CAP_ANC), "ANC mode (0=off, 1=noise cancelling, 2=ambient sound)", CAP_ANC)
                 .add("anc-button-modes", getValueHint(CAP_ANC_BUTTON_MODES), "ANC modes the headset's ANC button cycles through", CAP_ANC_BUTTON_MODES);
@@ -1065,6 +1068,7 @@ struct FeatureParamStorage {
     int noise_filter_val     = 0;
     int anc_mode_val         = 0;
     int anc_startup_mode_val = 0;
+    int volume_val           = 0;
 
     // Store copies of complex settings to avoid const_cast
     EqualizerSettings equalizer_settings;
@@ -1105,6 +1109,8 @@ struct FeatureParamStorage {
             anc_startup_mode_val = *opts.anc_startup_mode;
         if (opts.anc_button_modes.has_value())
             anc_button_modes = *opts.anc_button_modes;
+        if (opts.volume.has_value())
+            volume_val = *opts.volume;
         battery_req = opts.request_battery ? 1 : 0;
         chatmix_req = opts.request_chatmix ? 1 : 0;
 
@@ -1148,7 +1154,8 @@ void initializeFeatureRequests(std::vector<DiscoveredDevice>& devices, const Opt
         { CAP_ANC_STARTUP_MODE, CAPABILITYTYPE_ACTION, g_feature_params.anc_startup_mode_val, opts.anc_startup_mode.has_value(), {} },
         { CAP_ANC_BUTTON_MODES, CAPABILITYTYPE_ACTION, opts.anc_button_modes.has_value() ? FeatureParam { g_feature_params.anc_button_modes } : FeatureParam { std::monostate {} }, opts.anc_button_modes.has_value(), {} },
         { CAP_MICROPHONE_ATTACHMENT_STATUS, CAPABILITYTYPE_INFO, std::monostate {}, opts.request_microphone_attachment_status, {} },
-        { CAP_MICROPHONE_MUTE_STATUS, CAPABILITYTYPE_INFO, std::monostate {}, opts.request_microphone_mute_status, {} }
+        { CAP_MICROPHONE_MUTE_STATUS, CAPABILITYTYPE_INFO, std::monostate {}, opts.request_microphone_mute_status, {} },
+        { CAP_HEADSET_VOLUME, CAPABILITYTYPE_ACTION, g_feature_params.volume_val, opts.volume.has_value(), {} }
     };
 
     for (auto& dev : devices) {

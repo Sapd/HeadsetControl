@@ -389,6 +389,7 @@ return makeCapabilityDetail(0xffc0, 0x1, 3);
 | `CAP_ANC_BUTTON_MODES` | Action | ANC modes the headset's ANC button cycles through |
 | `CAP_MICROPHONE_ATTACHMENT_STATUS` | Info | Detachable boom mic attachment status |
 | `CAP_MICROPHONE_MUTE_STATUS` | Info | Microphone mute status |
+| `CAP_HEADSET_VOLUME` | Action | Headset hardware (output) volume |
 
 ## Example: Complete Device Implementation
 

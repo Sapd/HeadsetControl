@@ -29,7 +29,8 @@ using namespace headsetcontrol::serializers;
 // 1.6: structured output gained the additive "mic_attached" and "mic_muted"
 // fields, and the capability list grew by the ANC family plus the two
 // microphone status capabilities.
-constexpr std::string_view API_VERSION = "1.6";
+// 1.7: the capability list grew by CAP_HEADSET_VOLUME.
+constexpr std::string_view API_VERSION = "1.7";
 constexpr std::string_view APP_NAME    = "HeadsetControl";
 
 // ============================================================================

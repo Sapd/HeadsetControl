@@ -393,6 +393,14 @@ inline void FeatureHandlerRegistry::registerAllHandlers()
             return r.error();
         return FeatureOutput::success(r->muted ? 1 : 0, r->muted ? "muted" : "unmuted");
     });
+
+    // CAP_HEADSET_VOLUME
+    registerHandler(CAP_HEADSET_VOLUME, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
+        auto r = dev->setHeadsetVolume(h, getUint8(p));
+        if (r.hasError())
+            return r.error();
+        return FeatureOutput::success(r->volume);
+    });
 }
 
 } // namespace headsetcontrol

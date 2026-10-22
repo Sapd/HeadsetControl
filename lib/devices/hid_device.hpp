@@ -368,6 +368,17 @@ public:
         return DeviceError::notSupported("Device does not support microphone mute status");
     }
 
+    /**
+     * @brief Set the headset (output) volume
+     *
+     * Controls the volume of the headset hardware itself (e.g. the same value
+     * the on-device volume wheel changes), not the OS mixer volume.
+     */
+    virtual Result<HeadsetVolumeResult> setHeadsetVolume(hid_device* /*device_handle*/, uint8_t /*volume*/)
+    {
+        return DeviceError::notSupported("Device does not support headset volume control");
+    }
+
     // ========================================================================
     // C interface conversion
     // ========================================================================
