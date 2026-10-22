@@ -109,6 +109,20 @@ public:
     [[nodiscard]] int capabilitiesMask() const;
 
     /**
+     * @brief Check if a supported capability can also be read back
+     *
+     * E.g. canRead(CAP_HEADSET_VOLUME) means getHeadsetVolume() is available.
+     */
+    [[nodiscard]] bool canRead(enum capabilities cap) const;
+
+    /**
+     * @brief Get bitmask of capabilities that can also be read back
+     *
+     * Uses the same bits as capabilitiesMask().
+     */
+    [[nodiscard]] int readableCapabilitiesMask() const;
+
+    /**
      * @brief Get list of supported capability names
      */
     [[nodiscard]] std::vector<std::string_view> capabilityNames() const;
@@ -161,6 +175,13 @@ public:
      * @param volume Volume level (0-128)
      */
     [[nodiscard]] Result<HeadsetVolumeResult> setHeadsetVolume(uint8_t volume);
+
+    /**
+     * @brief Read the headset (output) volume
+     *
+     * Only available when canRead(CAP_HEADSET_VOLUME) is true.
+     */
+    [[nodiscard]] Result<HeadsetVolumeResult> getHeadsetVolume();
 
     // ========================================================================
     // Equalizer

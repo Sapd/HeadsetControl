@@ -30,7 +30,9 @@ using namespace headsetcontrol::serializers;
 // fields, and the capability list grew by the ANC family plus the two
 // microphone status capabilities.
 // 1.7: the capability list grew by CAP_HEADSET_VOLUME.
-constexpr std::string_view API_VERSION = "1.7";
+// 1.8: structured output gained the additive "readable_capabilities" list and a
+// "headset_volume" field for devices that support reading it back.
+constexpr std::string_view API_VERSION = "1.8";
 constexpr std::string_view APP_NAME    = "HeadsetControl";
 
 // ============================================================================
@@ -92,6 +94,19 @@ void processSidetoneResult(const FeatureResult& result, DeviceData& dev)
     }
 }
 
+void processHeadsetVolumeResult(const FeatureResult& result, DeviceData& dev)
+{
+    if (result.status == FEATURE_SUCCESS || result.status == FEATURE_INFO) {
+        dev.headset_volume = HeadsetVolumeData {
+            .level        = result.value,
+            .device_level = result.headset_volume_device_level.value_or(0)
+        };
+    } else if (result.status == FEATURE_ERROR) {
+        dev.errors.emplace_back(capability_to_string(CAP_HEADSET_VOLUME), result.message);
+        dev.status = STATUS_PARTIAL;
+    }
+}
+
 void processMicAttachmentStatusResult(const FeatureResult& result, DeviceData& dev)
 {
     if (result.status == FEATURE_SUCCESS || result.status == FEATURE_INFO) {
@@ -146,6 +161,8 @@ void processFeatureRequest(const FeatureRequest& req, DeviceData& dev, std::stri
         processMicAttachmentStatusResult(req.result, dev);
     } else if (req.cap == CAP_MICROPHONE_MUTE_STATUS) {
         processMicMuteStatusResult(req.result, dev);
+    } else if (req.cap == CAP_HEADSET_VOLUME && req.type == CAPABILITYTYPE_INFO) {
+        processHeadsetVolumeResult(req.result, dev);
     } else if (req.type == CAPABILITYTYPE_ACTION) {
         processActionResult(req, dev, device_name);
     }
@@ -190,12 +207,16 @@ void processFeatureRequest(const FeatureRequest& req, DeviceData& dev, std::stri
             dev.product_name = deviceList[i].product_name;
 
         // Capabilities
-        int device_caps = hid_device->getCapabilities();
+        int device_caps = hid_device->getAdvertisedCapabilities();
         for (int j = 0; j < NUM_CAPABILITIES; ++j) {
             if (device_caps & B(j)) {
                 dev.caps.emplace_back(capability_to_enum_string(static_cast<capabilities>(j)));
                 dev.caps_str.emplace_back(capability_to_string(static_cast<capabilities>(j)));
                 dev.caps_enum.emplace_back(static_cast<enum capabilities>(j));
+            }
+            if (hid_device->canRead(static_cast<capabilities>(j))) {
+                dev.readable_caps.emplace_back(capability_to_enum_string(static_cast<capabilities>(j)));
+                dev.readable_caps_str.emplace_back(capability_to_string(static_cast<capabilities>(j)));
             }
         }
 
@@ -304,6 +325,8 @@ void outputYaml(const OutputData& data)
 
             s.writeArray("capabilities", dev.caps);
             s.writeArray("capabilities_str", dev.caps_str);
+            s.writeArray("readable_capabilities", dev.readable_caps);
+            s.writeArray("readable_capabilities_str", dev.readable_caps_str);
 
             if (dev.battery.has_value()) {
                 dev.battery->serialize(s);
@@ -341,6 +364,10 @@ void outputYaml(const OutputData& data)
 
             if (dev.sidetone.has_value()) {
                 dev.sidetone->serialize(s);
+            }
+
+            if (dev.headset_volume.has_value()) {
+                dev.headset_volume->serialize(s);
             }
 
             if (dev.mic_attached.has_value()) {
@@ -416,6 +443,11 @@ void outputEnv(const OutputData& data)
             s.write(std::format("{}_CAPABILITY_{}", prefix, j), dev.caps[j]);
         }
 
+        s.write(prefix + "_READABLE_CAPABILITIES_AMOUNT", static_cast<int>(dev.readable_caps.size()));
+        for (size_t j = 0; j < dev.readable_caps.size(); ++j) {
+            s.write(std::format("{}_READABLE_CAPABILITY_{}", prefix, j), dev.readable_caps[j]);
+        }
+
         if (dev.battery.has_value()) {
             s.write(prefix + "_BATTERY_STATUS", batteryStatusToString(dev.battery->status));
             s.write(prefix + "_BATTERY_LEVEL", dev.battery->level);
@@ -468,6 +500,11 @@ void outputEnv(const OutputData& data)
             if (!dev.sidetone->name.empty()) {
                 s.write(prefix + "_SIDETONE_NAME", dev.sidetone->name);
             }
+        }
+
+        if (dev.headset_volume.has_value()) {
+            s.write(prefix + "_HEADSET_VOLUME_LEVEL", dev.headset_volume->level);
+            s.write(prefix + "_HEADSET_VOLUME_DEVICE_LEVEL", dev.headset_volume->device_level);
         }
 
         if (dev.mic_attached.has_value()) {
@@ -552,6 +589,11 @@ void outputStandard(const OutputData& data, bool print_capabilities)
                 s.println("Sidetone: {} ({}; device level {})", dev.sidetone->name,
                     dev.sidetone->level, dev.sidetone->device_level);
             }
+            outputted = true;
+        }
+
+        if (dev.headset_volume.has_value()) {
+            s.println("Headset volume: {} (device level {})", dev.headset_volume->level, dev.headset_volume->device_level);
             outputted = true;
         }
 
@@ -641,6 +683,8 @@ void outputShort(const OutputData& data, bool print_capabilities)
             s.printValue(*dev.chatmix);
         } else if (dev.sidetone.has_value()) {
             s.printValue(dev.sidetone->level);
+        } else if (dev.headset_volume.has_value()) {
+            s.printValue(dev.headset_volume->level);
         }
     }
 

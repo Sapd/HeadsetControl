@@ -22,6 +22,7 @@ struct FeatureOutput {
     std::optional<BatteryResult> battery; // Extended battery info
     std::optional<ChatmixResult> chatmix; // Extended chatmix info
     std::optional<SidetoneResult> sidetone; // Extended sidetone info
+    std::optional<HeadsetVolumeResult> headset_volume; // Extended headset volume info
 
     static FeatureOutput success(int val, std::string msg = "")
     {
@@ -54,6 +55,15 @@ struct FeatureOutput {
             .sidetone = s
         };
     }
+
+    static FeatureOutput fromHeadsetVolume(const HeadsetVolumeResult& v)
+    {
+        return {
+            .value          = v.volume,
+            .message        = "",
+            .headset_volume = v
+        };
+    }
 };
 
 /**
@@ -64,7 +74,9 @@ using FeatureHandler = std::function<Result<FeatureOutput>(
     hid_device* handle,
     const FeatureParam& param)>;
 
-// Dispatch table mapping capabilities to handlers
+// Dispatch table mapping (capability, direction) to handlers. Setting and reading
+// back are two directions of one capability, so each capability has an ACTION and
+// an INFO slot. Info-only capabilities (battery, chatmix, ...) use the INFO slot.
 class FeatureHandlerRegistry {
 public:
     static FeatureHandlerRegistry& instance()
@@ -74,24 +86,25 @@ public:
     }
 
     /**
-     * @brief Register a handler for a capability
+     * @brief Register a handler for one direction of a capability
      */
-    void registerHandler(capabilities cap, FeatureHandler handler)
+    void registerHandler(capabilities cap, capabilitytype type, FeatureHandler handler)
     {
-        handlers_[static_cast<size_t>(cap)] = std::move(handler);
+        handlers_[static_cast<size_t>(cap)][static_cast<size_t>(type)] = std::move(handler);
     }
 
     /**
-     * @brief Check if a handler is registered for a capability
+     * @brief Check if a handler is registered for one direction of a capability
      */
-    [[nodiscard]] bool hasHandler(capabilities cap) const
+    [[nodiscard]] bool hasHandler(capabilities cap, capabilitytype type) const
     {
-        return handlers_[static_cast<size_t>(cap)] != nullptr;
+        return handlers_[static_cast<size_t>(cap)][static_cast<size_t>(type)] != nullptr;
     }
 
     /**
      * @brief Execute a feature
      * @param cap Capability to execute
+     * @param type Direction: CAPABILITYTYPE_ACTION sets, CAPABILITYTYPE_INFO reads
      * @param device Device implementation
      * @param handle HID device handle (may be nullptr for test devices)
      * @param param Feature parameter
@@ -99,14 +112,16 @@ public:
      */
     [[nodiscard]] Result<FeatureOutput> execute(
         capabilities cap,
+        capabilitytype type,
         HIDDevice* device,
         hid_device* handle,
         const FeatureParam& param) const
     {
-        const auto& handler = handlers_[static_cast<size_t>(cap)];
+        const auto& handler = handlers_[static_cast<size_t>(cap)][static_cast<size_t>(type)];
         if (!handler) {
             return DeviceError::notSupported(
-                std::format("No handler registered for {}", capability_to_string(cap)));
+                std::format("No {} handler registered for {}",
+                    type == CAPABILITYTYPE_INFO ? "read" : "set", capability_to_string(cap)));
         }
         return handler(device, handle, param);
     }
@@ -119,7 +134,7 @@ private:
 
     void registerAllHandlers();
 
-    std::array<FeatureHandler, NUM_CAPABILITIES> handlers_ {};
+    std::array<std::array<FeatureHandler, 2>, NUM_CAPABILITIES> handlers_ {};
 };
 
 /**
@@ -211,15 +226,22 @@ inline void FeatureHandlerRegistry::registerAllHandlers()
     using namespace detail;
 
     // CAP_SIDETONE
-    registerHandler(CAP_SIDETONE, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
+    registerHandler(CAP_SIDETONE, CAPABILITYTYPE_ACTION, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
         auto r = dev->setSidetone(h, getUint8(p));
         if (r.hasError())
             return r.error();
         return FeatureOutput::fromSidetone(r.value());
     });
 
+    registerHandler(CAP_SIDETONE, CAPABILITYTYPE_INFO, [](HIDDevice* dev, hid_device* h, const FeatureParam&) -> Result<FeatureOutput> {
+        auto r = dev->getSidetone(h);
+        if (r.hasError())
+            return r.error();
+        return FeatureOutput::fromSidetone(r.value());
+    });
+
     // CAP_BATTERY_STATUS
-    registerHandler(CAP_BATTERY_STATUS, [](HIDDevice* dev, hid_device* h, const FeatureParam&) -> Result<FeatureOutput> {
+    registerHandler(CAP_BATTERY_STATUS, CAPABILITYTYPE_INFO, [](HIDDevice* dev, hid_device* h, const FeatureParam&) -> Result<FeatureOutput> {
         auto r = dev->getBattery(h);
         if (r.hasError())
             return r.error();
@@ -227,7 +249,7 @@ inline void FeatureHandlerRegistry::registerAllHandlers()
     });
 
     // CAP_NOTIFICATION_SOUND
-    registerHandler(CAP_NOTIFICATION_SOUND, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
+    registerHandler(CAP_NOTIFICATION_SOUND, CAPABILITYTYPE_ACTION, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
         auto r = dev->notificationSound(h, getUint8(p));
         if (r.hasError())
             return r.error();
@@ -235,7 +257,7 @@ inline void FeatureHandlerRegistry::registerAllHandlers()
     });
 
     // CAP_LIGHTS
-    registerHandler(CAP_LIGHTS, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
+    registerHandler(CAP_LIGHTS, CAPABILITYTYPE_ACTION, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
         auto r = dev->setLights(h, getBool(p));
         if (r.hasError())
             return r.error();
@@ -243,7 +265,7 @@ inline void FeatureHandlerRegistry::registerAllHandlers()
     });
 
     // CAP_INACTIVE_TIME
-    registerHandler(CAP_INACTIVE_TIME, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
+    registerHandler(CAP_INACTIVE_TIME, CAPABILITYTYPE_ACTION, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
         auto r = dev->setInactiveTime(h, getUint8(p));
         if (r.hasError())
             return r.error();
@@ -251,7 +273,7 @@ inline void FeatureHandlerRegistry::registerAllHandlers()
     });
 
     // CAP_CHATMIX_STATUS
-    registerHandler(CAP_CHATMIX_STATUS, [](HIDDevice* dev, hid_device* h, const FeatureParam&) -> Result<FeatureOutput> {
+    registerHandler(CAP_CHATMIX_STATUS, CAPABILITYTYPE_INFO, [](HIDDevice* dev, hid_device* h, const FeatureParam&) -> Result<FeatureOutput> {
         auto r = dev->getChatmix(h);
         if (r.hasError())
             return r.error();
@@ -259,7 +281,7 @@ inline void FeatureHandlerRegistry::registerAllHandlers()
     });
 
     // CAP_VOICE_PROMPTS
-    registerHandler(CAP_VOICE_PROMPTS, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
+    registerHandler(CAP_VOICE_PROMPTS, CAPABILITYTYPE_ACTION, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
         auto r = dev->setVoicePrompts(h, getBool(p));
         if (r.hasError())
             return r.error();
@@ -267,7 +289,7 @@ inline void FeatureHandlerRegistry::registerAllHandlers()
     });
 
     // CAP_ROTATE_TO_MUTE
-    registerHandler(CAP_ROTATE_TO_MUTE, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
+    registerHandler(CAP_ROTATE_TO_MUTE, CAPABILITYTYPE_ACTION, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
         auto r = dev->setRotateToMute(h, getBool(p));
         if (r.hasError())
             return r.error();
@@ -275,7 +297,7 @@ inline void FeatureHandlerRegistry::registerAllHandlers()
     });
 
     // CAP_EQUALIZER_PRESET
-    registerHandler(CAP_EQUALIZER_PRESET, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
+    registerHandler(CAP_EQUALIZER_PRESET, CAPABILITYTYPE_ACTION, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
         auto r = dev->setEqualizerPreset(h, getUint8(p));
         if (r.hasError())
             return r.error();
@@ -283,7 +305,7 @@ inline void FeatureHandlerRegistry::registerAllHandlers()
     });
 
     // CAP_EQUALIZER
-    registerHandler(CAP_EQUALIZER, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
+    registerHandler(CAP_EQUALIZER, CAPABILITYTYPE_ACTION, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
         auto r = dev->setEqualizer(h, getEqualizer(p));
         if (r.hasError())
             return r.error();
@@ -291,7 +313,7 @@ inline void FeatureHandlerRegistry::registerAllHandlers()
     });
 
     // CAP_PARAMETRIC_EQUALIZER
-    registerHandler(CAP_PARAMETRIC_EQUALIZER, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
+    registerHandler(CAP_PARAMETRIC_EQUALIZER, CAPABILITYTYPE_ACTION, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
         auto r = dev->setParametricEqualizer(h, getParametricEq(p));
         if (r.hasError())
             return r.error();
@@ -299,7 +321,7 @@ inline void FeatureHandlerRegistry::registerAllHandlers()
     });
 
     // CAP_MICROPHONE_MUTE_LED_BRIGHTNESS
-    registerHandler(CAP_MICROPHONE_MUTE_LED_BRIGHTNESS, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
+    registerHandler(CAP_MICROPHONE_MUTE_LED_BRIGHTNESS, CAPABILITYTYPE_ACTION, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
         auto r = dev->setMicMuteLedBrightness(h, getUint8(p));
         if (r.hasError())
             return r.error();
@@ -307,7 +329,7 @@ inline void FeatureHandlerRegistry::registerAllHandlers()
     });
 
     // CAP_MICROPHONE_VOLUME
-    registerHandler(CAP_MICROPHONE_VOLUME, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
+    registerHandler(CAP_MICROPHONE_VOLUME, CAPABILITYTYPE_ACTION, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
         auto r = dev->setMicVolume(h, getUint8(p));
         if (r.hasError())
             return r.error();
@@ -315,7 +337,7 @@ inline void FeatureHandlerRegistry::registerAllHandlers()
     });
 
     // CAP_VOLUME_LIMITER
-    registerHandler(CAP_VOLUME_LIMITER, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
+    registerHandler(CAP_VOLUME_LIMITER, CAPABILITYTYPE_ACTION, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
         auto r = dev->setVolumeLimiter(h, getBool(p));
         if (r.hasError())
             return r.error();
@@ -323,7 +345,7 @@ inline void FeatureHandlerRegistry::registerAllHandlers()
     });
 
     // CAP_BT_WHEN_POWERED_ON
-    registerHandler(CAP_BT_WHEN_POWERED_ON, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
+    registerHandler(CAP_BT_WHEN_POWERED_ON, CAPABILITYTYPE_ACTION, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
         auto r = dev->setBluetoothWhenPoweredOn(h, getBool(p));
         if (r.hasError())
             return r.error();
@@ -331,7 +353,7 @@ inline void FeatureHandlerRegistry::registerAllHandlers()
     });
 
     // CAP_BT_CALL_VOLUME
-    registerHandler(CAP_BT_CALL_VOLUME, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
+    registerHandler(CAP_BT_CALL_VOLUME, CAPABILITYTYPE_ACTION, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
         auto r = dev->setBluetoothCallVolume(h, getUint8(p));
         if (r.hasError())
             return r.error();
@@ -339,7 +361,7 @@ inline void FeatureHandlerRegistry::registerAllHandlers()
     });
 
     // CAP_NOISE_FILTER
-    registerHandler(CAP_NOISE_FILTER, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
+    registerHandler(CAP_NOISE_FILTER, CAPABILITYTYPE_ACTION, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
         auto r = dev->setNoiseFilter(h, detail::getUint8(p));
         if (r.hasError())
             return r.error();
@@ -347,7 +369,7 @@ inline void FeatureHandlerRegistry::registerAllHandlers()
     });
 
     // CAP_SIDETONE_STATUS
-    registerHandler(CAP_SIDETONE_STATUS, [](HIDDevice* dev, hid_device* h, const FeatureParam&) -> Result<FeatureOutput> {
+    registerHandler(CAP_SIDETONE_STATUS, CAPABILITYTYPE_INFO, [](HIDDevice* dev, hid_device* h, const FeatureParam&) -> Result<FeatureOutput> {
         auto r = dev->getSidetone(h);
         if (r.hasError())
             return r.error();
@@ -355,7 +377,7 @@ inline void FeatureHandlerRegistry::registerAllHandlers()
     });
 
     // CAP_ANC
-    registerHandler(CAP_ANC, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
+    registerHandler(CAP_ANC, CAPABILITYTYPE_ACTION, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
         auto r = dev->setAnc(h, getUint8(p));
         if (r.hasError())
             return r.error();
@@ -363,7 +385,7 @@ inline void FeatureHandlerRegistry::registerAllHandlers()
     });
 
     // CAP_ANC_STARTUP_MODE
-    registerHandler(CAP_ANC_STARTUP_MODE, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
+    registerHandler(CAP_ANC_STARTUP_MODE, CAPABILITYTYPE_ACTION, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
         auto r = dev->setAncStartupMode(h, getUint8(p));
         if (r.hasError())
             return r.error();
@@ -371,7 +393,7 @@ inline void FeatureHandlerRegistry::registerAllHandlers()
     });
 
     // CAP_ANC_BUTTON_MODES
-    registerHandler(CAP_ANC_BUTTON_MODES, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
+    registerHandler(CAP_ANC_BUTTON_MODES, CAPABILITYTYPE_ACTION, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
         auto r = dev->setAncButtonModes(h, getAncButtonModes(p));
         if (r.hasError())
             return r.error();
@@ -379,7 +401,7 @@ inline void FeatureHandlerRegistry::registerAllHandlers()
     });
 
     // CAP_MICROPHONE_ATTACHMENT_STATUS
-    registerHandler(CAP_MICROPHONE_ATTACHMENT_STATUS, [](HIDDevice* dev, hid_device* h, const FeatureParam&) -> Result<FeatureOutput> {
+    registerHandler(CAP_MICROPHONE_ATTACHMENT_STATUS, CAPABILITYTYPE_INFO, [](HIDDevice* dev, hid_device* h, const FeatureParam&) -> Result<FeatureOutput> {
         auto r = dev->getMicAttachmentStatus(h);
         if (r.hasError())
             return r.error();
@@ -387,7 +409,7 @@ inline void FeatureHandlerRegistry::registerAllHandlers()
     });
 
     // CAP_MICROPHONE_MUTE_STATUS
-    registerHandler(CAP_MICROPHONE_MUTE_STATUS, [](HIDDevice* dev, hid_device* h, const FeatureParam&) -> Result<FeatureOutput> {
+    registerHandler(CAP_MICROPHONE_MUTE_STATUS, CAPABILITYTYPE_INFO, [](HIDDevice* dev, hid_device* h, const FeatureParam&) -> Result<FeatureOutput> {
         auto r = dev->getMicMuteStatus(h);
         if (r.hasError())
             return r.error();
@@ -395,11 +417,18 @@ inline void FeatureHandlerRegistry::registerAllHandlers()
     });
 
     // CAP_HEADSET_VOLUME
-    registerHandler(CAP_HEADSET_VOLUME, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
+    registerHandler(CAP_HEADSET_VOLUME, CAPABILITYTYPE_ACTION, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
         auto r = dev->setHeadsetVolume(h, getUint8(p));
         if (r.hasError())
             return r.error();
-        return FeatureOutput::success(r->volume);
+        return FeatureOutput::fromHeadsetVolume(r.value());
+    });
+
+    registerHandler(CAP_HEADSET_VOLUME, CAPABILITYTYPE_INFO, [](HIDDevice* dev, hid_device* h, const FeatureParam&) -> Result<FeatureOutput> {
+        auto r = dev->getHeadsetVolume(h);
+        if (r.hasError())
+            return r.error();
+        return FeatureOutput::fromHeadsetVolume(r.value());
     });
 }
 

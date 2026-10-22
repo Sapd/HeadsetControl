@@ -204,6 +204,7 @@ struct FeatureResult {
     std::optional<int> battery_time_to_empty_min;
     std::optional<int> sidetone_device_level;
     std::optional<std::string> sidetone_level_name;
+    std::optional<int> headset_volume_device_level;
 };
 
 // FeatureRequest is defined after EqualizerSettings and ParametricEqualizerSettings

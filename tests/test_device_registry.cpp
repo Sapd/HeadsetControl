@@ -11,6 +11,7 @@
 
 #include "device_registry.hpp"
 #include "devices/headsetcontrol_test.hpp"
+#include "feature_handlers.hpp"
 
 #include <cstdint>
 #include <format>
@@ -409,6 +410,65 @@ void testRegisteredDeviceCapabilities()
     std::cout << "    OK registered device capabilities" << std::endl;
 }
 
+void testReadableCapabilities()
+{
+    std::cout << "  Testing readable capabilities..." << std::endl;
+
+    auto& registry = DeviceRegistry::instance();
+    registry.initialize();
+    const auto& handlers = FeatureHandlerRegistry::instance();
+
+    // Every capability has a handler for its own direction, and every capability
+    // a device can read back has a read handler
+    for (int i = 0; i < NUM_CAPABILITIES; i++) {
+        auto cap = static_cast<capabilities>(i);
+        ASSERT_TRUE(handlers.hasHandler(cap, getCapabilityDescriptor(cap).type),
+            std::format("{} should have a handler", capability_to_string(cap)));
+    }
+    for (const auto& device : registry.getAllDevices()) {
+        ASSERT_EQ(0, device->getReadableCapabilities() & ~device->getCapabilities(),
+            std::format("{} can only read back capabilities it lists", device->getDeviceName()));
+        for (int i = 0; i < NUM_CAPABILITIES; i++) {
+            auto cap = static_cast<capabilities>(i);
+            if (device->canRead(cap)) {
+                ASSERT_TRUE(handlers.hasHandler(cap, CAPABILITYTYPE_INFO),
+                    std::format("{} is readable but has no read handler", capability_to_string(cap)));
+            }
+        }
+    }
+
+    auto* test_device = registry.getDevice(0xF00B, 0xA00C);
+    ASSERT_TRUE(test_device != nullptr, "Test device should be registered");
+    ASSERT_TRUE(test_device->canRead(CAP_HEADSET_VOLUME), "Test device should read back headset volume");
+    ASSERT_TRUE(test_device->canRead(CAP_SIDETONE), "Test device should read back sidetone");
+    ASSERT_FALSE(test_device->canRead(CAP_LIGHTS), "Test device can't read back lights");
+    ASSERT_TRUE(test_device->supports(CAP_HEADSET_VOLUME, CAPABILITYTYPE_INFO), "Headset volume read is supported");
+    ASSERT_TRUE(test_device->supports(CAP_BATTERY_STATUS, CAPABILITYTYPE_INFO), "Info capabilities are read by nature");
+
+    // CAP_SIDETONE_STATUS is derived from the readable mask, not listed
+    ASSERT_FALSE((test_device->getCapabilities() & B(CAP_SIDETONE_STATUS)) != 0,
+        "Test device should not list CAP_SIDETONE_STATUS itself");
+    ASSERT_TRUE((test_device->getAdvertisedCapabilities() & B(CAP_SIDETONE_STATUS)) != 0,
+        "Readable sidetone should advertise CAP_SIDETONE_STATUS");
+
+    auto volume = handlers.execute(CAP_HEADSET_VOLUME, CAPABILITYTYPE_INFO, test_device, nullptr, std::monostate {});
+    ASSERT_TRUE(volume.hasValue(), "Headset volume read should succeed");
+    ASSERT_EQ(77, volume->value, "Headset volume read should be normalised");
+    ASSERT_EQ(15, static_cast<int>(volume->headset_volume->device_volume), "Headset volume read should keep the device level");
+
+    auto set = handlers.execute(CAP_HEADSET_VOLUME, CAPABILITYTYPE_ACTION, test_device, nullptr, 64);
+    ASSERT_TRUE(set.hasValue(), "Headset volume set should succeed");
+    ASSERT_EQ(64, set->value, "Headset volume set should report the level");
+
+    // A device that can set the volume but not read it back
+    auto* a50 = registry.getDevice(0x046d, 0x0b1c);
+    ASSERT_TRUE(a50 != nullptr, "ASTRO A50 Gen 5 should be registered");
+    ASSERT_TRUE(a50->supports(CAP_HEADSET_VOLUME, CAPABILITYTYPE_ACTION), "A50 Gen 5 sets headset volume");
+    ASSERT_FALSE(a50->supports(CAP_HEADSET_VOLUME, CAPABILITYTYPE_INFO), "A50 Gen 5 can't read headset volume yet");
+
+    std::cout << "    OK readable capabilities" << std::endl;
+}
+
 void testDeviceProductIds()
 {
     std::cout << "  Testing device product IDs..." << std::endl;
@@ -619,6 +679,7 @@ void runAllDeviceRegistryTests()
     runTest("Enumerate All Devices", testEnumerateAllDevices);
     runTest("Vendor Distribution", testDeviceVendorDistribution);
     runTest("Device Capabilities", testRegisteredDeviceCapabilities);
+    runTest("Readable Capabilities", testReadableCapabilities);
     runTest("Product IDs", testDeviceProductIds);
     runTest("Unique Product IDs", testUniqueProductIds);
 

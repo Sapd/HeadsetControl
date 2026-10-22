@@ -146,6 +146,14 @@ public:
         return B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS);
     }
 
+    // Optional: capabilities from getCapabilities() that can also be read back.
+    // Implement the matching getter (CAP_SIDETONE -> getSidetone()). A device
+    // with CAP_SIDETONE here reports CAP_SIDETONE_STATUS automatically.
+    int getReadableCapabilities() const override
+    {
+        return B(CAP_SIDETONE);
+    }
+
     // Override capability details if your device needs specific HID interface/usage
     constexpr capability_detail getCapabilityDetail(enum capabilities cap) const override
     {
@@ -383,13 +391,13 @@ return makeCapabilityDetail(0xffc0, 0x1, 3);
 | `CAP_BT_WHEN_POWERED_ON` | Action | Bluetooth auto-connect |
 | `CAP_BT_CALL_VOLUME` | Action | Bluetooth call volume |
 | `CAP_NOISE_FILTER` | Action | Microphone noise filter |
-| `CAP_SIDETONE_STATUS` | Info | Current sidetone level |
+| `CAP_SIDETONE_STATUS` | Info | Current sidetone level (derived from `CAP_SIDETONE` in `getReadableCapabilities()`; don't list it in new devices) |
 | `CAP_ANC` | Action | Active noise cancellation mode |
 | `CAP_ANC_STARTUP_MODE` | Action | ANC mode used at power-on |
 | `CAP_ANC_BUTTON_MODES` | Action | ANC modes the headset's ANC button cycles through |
 | `CAP_MICROPHONE_ATTACHMENT_STATUS` | Info | Detachable boom mic attachment status |
 | `CAP_MICROPHONE_MUTE_STATUS` | Info | Microphone mute status |
-| `CAP_HEADSET_VOLUME` | Action | Headset hardware (output) volume |
+| `CAP_HEADSET_VOLUME` | Action | Headset hardware (output) volume; readable via `getHeadsetVolume()` |
 
 ## Example: Complete Device Implementation
 

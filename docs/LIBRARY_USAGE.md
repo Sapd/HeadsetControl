@@ -28,7 +28,7 @@ headsetcontrol -o env
 {
   "name": "HeadsetControl",
   "version": "3.0.0",
-  "api_version": "1.7",
+  "api_version": "1.8",
   "device_count": 1,
   "devices": [
     {
@@ -38,6 +38,8 @@ headsetcontrol -o env
       "id_product": "0x1b27",
       "capabilities": ["CAP_SIDETONE", "CAP_BATTERY_STATUS", "CAP_LIGHTS"],
       "capabilities_str": ["sidetone", "battery", "lights"],
+      "readable_capabilities": ["CAP_SIDETONE"],
+      "readable_capabilities_str": ["sidetone"],
       "battery": {
         "status": "BATTERY_AVAILABLE",
         "level": 85
@@ -276,6 +278,10 @@ std::string_view productName = headset.productName(); // "G PRO X 2 LIGHTSPEED"
 bool hasBattery = headset.supports(CAP_BATTERY_STATUS);
 int capsMask = headset.capabilitiesMask();        // Bitmask
 std::vector<std::string_view> capNames = headset.capabilityNames();
+
+// Settings that can also be read back (same bits as capabilitiesMask())
+bool canReadVolume = headset.canRead(CAP_HEADSET_VOLUME);
+int readableMask = headset.readableCapabilitiesMask();
 ```
 
 `vendorName()` and `productName()` come from HID enumeration metadata. If the OS or device does not provide these strings, they return an empty string.
@@ -344,6 +350,14 @@ if (headset.supports(CAP_HEADSET_VOLUME)) {
     if (result) {
         std::cout << "Volume set (device level " << (int)result->device_volume
                   << "/" << (int)result->device_max << ")\n";
+    }
+}
+
+// Read it back, on devices that support that
+if (headset.canRead(CAP_HEADSET_VOLUME)) {
+    auto result = headset.getHeadsetVolume();
+    if (result) {
+        std::cout << "Volume: " << (int)result->volume << "\n";
     }
 }
 ```
@@ -719,6 +733,9 @@ if (hsc_supports(headset, HSC_CAP_BATTERY_STATUS)) {
 
 // Get all capabilities as bitmask
 int caps = hsc_get_capabilities(headset);
+
+// Capabilities that can also be read back (same bits)
+int readable = hsc_get_readable_capabilities(headset);
 ```
 
 ### Battery
@@ -797,6 +814,11 @@ hsc_get_mic_mute_status(headset, &mute);
 // Headset hardware volume (0-128); result param is optional (NULL ok)
 hsc_headset_volume_t volume_result;
 hsc_set_headset_volume(headset, 64, &volume_result);
+
+// Read it back when HSC_CAP_HEADSET_VOLUME is in hsc_get_readable_capabilities()
+if (readable & (1 << HSC_CAP_HEADSET_VOLUME)) {
+    hsc_get_headset_volume(headset, &volume_result);
+}
 ```
 
 ### Error Handling

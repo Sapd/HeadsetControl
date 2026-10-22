@@ -303,10 +303,10 @@ inline constexpr std::array<CapabilityDescriptor, NUM_CAPABILITIES> CAPABILITY_D
         .type        = CAPABILITYTYPE_ACTION,
         .name        = "volume",
         .short_flag  = "",
-        .description = "Set headset hardware volume level",
+        .description = "Get current headset hardware volume, or set it to LEVEL",
         .min_value   = 0,
         .max_value   = 128,
-        .value_hint  = "<0-128>" },
+        .value_hint  = "[LEVEL]" },
 } };
 
 /**

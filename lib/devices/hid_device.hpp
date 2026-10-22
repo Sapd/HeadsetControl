@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../capability_descriptors.hpp"
 #include "../device.hpp"
 #include "../result_types.hpp"
 #include "../string_utils.hpp"
@@ -73,6 +74,59 @@ public:
      * @brief Get capabilities bitmask
      */
     virtual int getCapabilities() const = 0;
+
+    /**
+     * @brief Get the bitmask of capabilities that can also be read back
+     *
+     * Same enum as getCapabilities(): a set bit means the device implements the
+     * getter for a capability it already lists there (e.g. CAP_HEADSET_VOLUME
+     * -> getHeadsetVolume()). Readability is a property of a capability, so new
+     * code sets a bit here instead of adding a *_STATUS capability.
+     */
+    virtual constexpr int getReadableCapabilities() const
+    {
+        return 0;
+    }
+
+    /**
+     * @brief Capabilities as reported to users and API consumers
+     *
+     * getCapabilities() plus CAP_SIDETONE_STATUS for devices that can read
+     * sidetone back. CAP_SIDETONE_STATUS shipped before the readable mask and
+     * can't be removed, so it is derived here and new devices only set the mask.
+     */
+    [[nodiscard]] int getAdvertisedCapabilities() const
+    {
+        int caps = getCapabilities();
+        if (canRead(CAP_SIDETONE)) {
+            caps |= B(CAP_SIDETONE_STATUS);
+        }
+        return caps;
+    }
+
+    /**
+     * @brief Check whether a capability can be read back
+     *
+     * Only true for capabilities the device also lists in getCapabilities().
+     */
+    [[nodiscard]] bool canRead(enum capabilities cap) const
+    {
+        return (getCapabilities() & getReadableCapabilities() & B(cap)) != 0;
+    }
+
+    /**
+     * @brief Check whether a capability is supported in the given direction
+     *
+     * Info capabilities (battery, chatmix, ...) are read by nature. For a
+     * settable capability, CAPABILITYTYPE_INFO asks whether it can be read back.
+     */
+    [[nodiscard]] bool supports(enum capabilities cap, capabilitytype type) const
+    {
+        if (type == CAPABILITYTYPE_INFO && getCapabilityDescriptor(cap).isActionFeature()) {
+            return canRead(cap);
+        }
+        return (getAdvertisedCapabilities() & B(cap)) != 0;
+    }
 
     /**
      * @brief Get capability details for a specific capability
@@ -215,7 +269,7 @@ public:
     {
         CapabilityInfo info {
             .capability  = cap,
-            .supported   = (getCapabilities() & B(cap)) != 0,
+            .supported   = (getAdvertisedCapabilities() & B(cap)) != 0,
             .description = capability_to_string(cap),
             .hid_details = getCapabilityDetail(cap)
         };
@@ -377,6 +431,17 @@ public:
     virtual Result<HeadsetVolumeResult> setHeadsetVolume(hid_device* /*device_handle*/, uint8_t /*volume*/)
     {
         return DeviceError::notSupported("Device does not support headset volume control");
+    }
+
+    /**
+     * @brief Read the headset (output) volume
+     *
+     * Only called for devices that list CAP_HEADSET_VOLUME in
+     * getReadableCapabilities().
+     */
+    virtual Result<HeadsetVolumeResult> getHeadsetVolume(hid_device* /*device_handle*/)
+    {
+        return DeviceError::notSupported("Device cannot read headset volume");
     }
 
     // ========================================================================
