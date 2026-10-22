@@ -84,7 +84,8 @@ public:
     {
         return B(CAP_SIDETONE) | B(CAP_INACTIVE_TIME) | B(CAP_VOLUME_LIMITER)
             | B(CAP_EQUALIZER_PRESET) | B(CAP_BATTERY_STATUS) | B(CAP_CHATMIX_STATUS)
-            | B(CAP_VOICE_PROMPTS) | B(CAP_NOISE_FILTER) | B(CAP_SIDETONE_STATUS) | B(CAP_EQUALIZER);
+            | B(CAP_VOICE_PROMPTS) | B(CAP_NOISE_FILTER) | B(CAP_SIDETONE_STATUS) | B(CAP_EQUALIZER)
+            | B(CAP_MICROPHONE_MUTE_STATUS);
     }
 
     constexpr capability_detail getCapabilityDetail([[maybe_unused]] enum capabilities cap) const override

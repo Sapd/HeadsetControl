@@ -478,11 +478,20 @@ public:
         battery.level_percent = std::min<int>((*result)[PERCENT_OFFSET], 100);
         battery.status        = BATTERY_AVAILABLE;
 
-        if (auto mic = readKey(device_handle, KEY_MIC_MUTE); mic && *mic == MIC_MUTED) {
+        if (auto mic = getMicMuteStatus(device_handle); mic && mic->muted) {
             battery.mic_status = MICROPHONE_UP;
         }
 
         return battery;
+    }
+
+    Result<MicMuteStatusResult> getMicMuteStatus(hid_device* device_handle) override
+    {
+        auto mic = readKey(device_handle, KEY_MIC_MUTE);
+        if (!mic) {
+            return mic.error();
+        }
+        return MicMuteStatusResult { .muted = *mic == MIC_MUTED };
     }
 
     Result<SidetoneResult> setSidetone(hid_device* device_handle, uint8_t level) override
