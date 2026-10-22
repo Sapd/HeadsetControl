@@ -297,10 +297,12 @@ Error: sidetone: value 200 out of range [0, 128]
 
 The descriptor's `min_value` and `max_value` feed the help text, and for the normalised
 0-128 levels they are also the bound `Headset::setSidetone()`, `setMicVolume()` and
-`setHeadsetVolume()` apply, since library callers never go through the parser:
+`setHeadsetVolume()` apply, since library callers never go through the parser. The same
+goes for a range every device shares, such as `setNoiseFilter()`'s three levels:
 
 ```cpp
 headset.setHeadsetVolume(200);  // invalid parameter: volume must be 0-128 (got 200)
+headset.setNoiseFilter(3);      // invalid parameter: noise-filter must be 0-2 (got 3)
 ```
 
 Anything narrower than that, or specific to one device, belongs in the device

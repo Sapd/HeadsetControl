@@ -368,6 +368,12 @@ void testCppTestDeviceMode()
             ASSERT_TRUE(noise_filter.hasValue(), "Noise filter should return success");
             ASSERT_EQ(2, noise_filter->level, "Noise filter level should be 2");
 
+            // The test device accepts any level, so the 0-2 bound has to come from the library
+            auto noise_filter_high = headset.setNoiseFilter(3);
+            ASSERT_TRUE(noise_filter_high.hasError(), "Noise filter 3 should be rejected");
+            ASSERT_TRUE(noise_filter_high.error().code == DeviceError::Code::InvalidParameter,
+                "Noise filter 3 should be an invalid parameter");
+
             // Test chatmix
             auto chatmix = headset.getChatmix();
             ASSERT_TRUE(chatmix.hasValue(), "Chatmix should return success");
@@ -524,6 +530,7 @@ void testCTestDeviceMode()
             // Test noise filter
             ASSERT_TRUE(hsc_supports(headsets[i], HSC_CAP_NOISE_FILTER), "Should support noise filter");
             ASSERT_EQ(HSC_RESULT_OK, hsc_set_noise_filter(headsets[i], 1), "Noise filter should succeed");
+            ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_noise_filter(headsets[i], 3), "Noise filter 3 should be rejected");
 
             ASSERT_EQ(4, hsc_get_equalizer_presets_count(headsets[i]), "Preset count should be 4");
             ASSERT_EQ(std::string("Flat"), std::string(hsc_get_equalizer_preset_name(headsets[i], 0)), "Flat preset name should match");
