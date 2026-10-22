@@ -110,6 +110,8 @@ void eprintln(std::format_string<Args...> fmt, Args&&... args)
         return " L/W ";
     if (platforms == PLATFORM_LINUX)
         return " L ";
+    if (platforms == PLATFORM_WINDOWS)
+        return " W ";
     return " ? ";
 }
 

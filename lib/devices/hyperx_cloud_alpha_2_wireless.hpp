@@ -40,7 +40,9 @@ namespace headsetcontrol {
  * out of unrelated traffic.
  *
  * Hardware verification was on Windows only (battery on battery power, charging, and with the
- * headset powered off; sidetone, chat-mix and equalizer preset); all platforms stay declared.
+ * headset powered off; sidetone, chat-mix and equalizer preset), so only Windows is declared. On
+ * macOS the interface number is ignored (see get_hid_path), which would pick the wrong interface of
+ * the control MCU; Linux is untested.
  *
  * Vendor: HP, Inc (0x03f0)
  */
@@ -89,6 +91,11 @@ public:
     std::vector<uint16_t> getProductIds() const override
     {
         return { SUPPORTED_PRODUCT_IDS.begin(), SUPPORTED_PRODUCT_IDS.end() };
+    }
+
+    constexpr uint8_t getSupportedPlatforms() const override
+    {
+        return PLATFORM_WINDOWS;
     }
 
     std::string_view getDeviceName() const override
