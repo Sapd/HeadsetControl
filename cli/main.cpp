@@ -204,7 +204,7 @@ struct Options {
     std::optional<uint8_t> anc_mode;
     std::optional<uint8_t> anc_startup_mode;
     std::optional<AncButtonModes> anc_button_modes;
-    std::optional<uint8_t> volume;
+    std::optional<uint8_t> headset_volume;
 
     // Info requests
     bool request_battery                      = false;
@@ -212,7 +212,7 @@ struct Options {
     bool request_sidetone                     = false;
     bool request_microphone_attachment_status = false;
     bool request_microphone_mute_status       = false;
-    bool request_volume                       = false;
+    bool request_headset_volume               = false;
 
     // Complex settings
     std::optional<EqualizerSettings> equalizer;
@@ -340,8 +340,8 @@ std::optional<cli::ParseError> configureParser(cli::ArgumentParser& parser, Opti
         // === Volume ===
         .long_custom("volume", cli::ArgRequirement::Optional, [&opts](std::optional<std::string_view> arg) -> std::optional<cli::ParseError> {
                 if (!arg || arg->empty()) {
-                    opts.volume.reset();
-                    opts.request_volume = true;
+                    opts.headset_volume.reset();
+                    opts.request_headset_volume = true;
                     return std::nullopt;
                 }
 
@@ -350,8 +350,8 @@ std::optional<cli::ParseError> configureParser(cli::ArgumentParser& parser, Opti
                     return error;
                 }
 
-                opts.volume = level;
-                opts.request_volume = false;
+                opts.headset_volume = level;
+                opts.request_headset_volume = false;
                 return std::nullopt; }, "Get headset hardware volume, or set it to LEVEL", "LEVEL")
         .long_toggle("volume-limiter", opts.volume_limiter_enabled, "Toggle volume limiter")
 
@@ -1105,7 +1105,7 @@ struct FeatureParamStorage {
     int noise_filter_val     = 0;
     int anc_mode_val         = 0;
     int anc_startup_mode_val = 0;
-    int volume_val           = 0;
+    int headset_volume_val   = 0;
 
     // Store copies of complex settings to avoid const_cast
     EqualizerSettings equalizer_settings;
@@ -1146,8 +1146,8 @@ struct FeatureParamStorage {
             anc_startup_mode_val = *opts.anc_startup_mode;
         if (opts.anc_button_modes.has_value())
             anc_button_modes = *opts.anc_button_modes;
-        if (opts.volume.has_value())
-            volume_val = *opts.volume;
+        if (opts.headset_volume.has_value())
+            headset_volume_val = *opts.headset_volume;
         battery_req = opts.request_battery ? 1 : 0;
         chatmix_req = opts.request_chatmix ? 1 : 0;
 
@@ -1192,8 +1192,8 @@ void initializeFeatureRequests(std::vector<DiscoveredDevice>& devices, const Opt
         { CAP_ANC_BUTTON_MODES, CAPABILITYTYPE_ACTION, opts.anc_button_modes.has_value() ? FeatureParam { g_feature_params.anc_button_modes } : FeatureParam { std::monostate {} }, opts.anc_button_modes.has_value(), {} },
         { CAP_MICROPHONE_ATTACHMENT_STATUS, CAPABILITYTYPE_INFO, std::monostate {}, opts.request_microphone_attachment_status, {} },
         { CAP_MICROPHONE_MUTE_STATUS, CAPABILITYTYPE_INFO, std::monostate {}, opts.request_microphone_mute_status, {} },
-        { CAP_HEADSET_VOLUME, CAPABILITYTYPE_ACTION, g_feature_params.volume_val, opts.volume.has_value(), {} },
-        { CAP_HEADSET_VOLUME, CAPABILITYTYPE_INFO, std::monostate {}, opts.request_volume, {} }
+        { CAP_HEADSET_VOLUME, CAPABILITYTYPE_ACTION, g_feature_params.headset_volume_val, opts.headset_volume.has_value(), {} },
+        { CAP_HEADSET_VOLUME, CAPABILITYTYPE_INFO, std::monostate {}, opts.request_headset_volume, {} }
     };
 
     for (auto& dev : devices) {
