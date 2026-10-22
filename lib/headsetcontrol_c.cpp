@@ -17,6 +17,7 @@ struct HeadsetWrapper {
     std::string name_str; // Persistent storage for C string
     std::string vendor_name_str;
     std::string product_name_str;
+    std::string refined_product_name_str; // Assigned once, so earlier pointers stay valid
     std::optional<EqualizerPresets> equalizer_presets_cache;
     std::string sidetone_level_name_cache;
 
@@ -223,12 +224,16 @@ const char* hsc_get_product_name(hsc_headset_t headset)
 
     auto* wrapper = static_cast<HeadsetWrapper*>(headset);
 
-    // The device may have refined the name since the wrapper was created
-    if (wrapper->headset.productName() != wrapper->product_name_str) {
-        wrapper->product_name_str = wrapper->headset.productName();
+    // The device may have refined the name since the wrapper was created. It is
+    // refined at most once, so the copy never has to be reassigned.
+    if (wrapper->refined_product_name_str.empty()
+        && wrapper->headset.productName() != wrapper->product_name_str) {
+        wrapper->refined_product_name_str = wrapper->headset.productName();
     }
 
-    const auto& product_name = wrapper->product_name_str;
+    const auto& product_name = wrapper->refined_product_name_str.empty()
+        ? wrapper->product_name_str
+        : wrapper->refined_product_name_str;
     return product_name.empty() ? nullptr : product_name.c_str();
 }
 

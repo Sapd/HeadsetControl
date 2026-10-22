@@ -280,7 +280,7 @@ std::vector<std::string_view> capNames = headset.capabilityNames();
 
 `vendorName()` and `productName()` come from HID enumeration metadata. If the OS or device does not provide these strings, they return an empty string.
 
-Some devices know more than their USB strings: a Jabra Link dongle, for example, reports the headset paired to it. The first call that opens the device (such as `getBattery()`) lets it refine `productName()`, so read the name after that call to show the refined one. The same applies to `hsc_get_product_name()` in the C API.
+Some devices know more than their USB strings: a Jabra Link dongle, for example, reports the headset paired to it. The first call that opens the device (such as `getBattery()`) lets it refine `productName()`, so read the name after that call to show the refined one. A name read earlier keeps the USB string and stays valid. The same applies to `hsc_get_product_name()` in the C API.
 
 ### Battery & Status
 

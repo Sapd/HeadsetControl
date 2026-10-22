@@ -6,6 +6,7 @@
  * 1. C++ API functions that don't require hardware (version, supportedDevices, discover)
  * 2. C API functions that don't require hardware
  * 3. Both APIs are consistent with each other
+ * 4. Product name refinement, against a mock device
  *
  * Note: discover() will return empty results without actual hardware,
  * but we test that it executes without crashing.
@@ -13,6 +14,7 @@
 
 #include "headsetcontrol.hpp"
 #include "headsetcontrol_c.h"
+#include "product_name.hpp"
 
 #include <algorithm>
 #include <array>
@@ -715,6 +717,117 @@ void testEqualizerPresetConsistency()
 }
 
 // ============================================================================
+// Product Name Refinement Tests
+// ============================================================================
+
+// The test device opens no HID handle, so a device that reports its own name
+// stands in for e.g. a Jabra Link dongle naming the headset paired to it
+class MetadataDevice : public HIDDevice {
+public:
+    uint16_t getVendorId() const override { return 0x1234; }
+    std::vector<uint16_t> getProductIds() const override { return { 0x5678 }; }
+    std::string_view getDeviceName() const override { return "Metadata Device"; }
+    int getCapabilities() const override { return 0; }
+
+    Result<DeviceMetadata> getMetadata([[maybe_unused]] hid_device* device_handle) override
+    {
+        calls++;
+        if (fail) {
+            return DeviceError::timeout("No answer");
+        }
+        return DeviceMetadata {
+            .name       = getDeviceName(),
+            .vendor_id  = getVendorId(),
+            .product_id = 0x5678,
+            .product    = product,
+        };
+    }
+
+    std::string product;
+    bool fail = false;
+    int calls = 0;
+};
+
+void testProductNameRefined()
+{
+    std::cout << "  Testing product name refinement..." << std::endl;
+
+    MetadataDevice device;
+    device.product = "Paired Headset";
+
+    ProductName name("USB Dongle With A Name Too Long For SSO");
+    std::string_view before = name.get();
+    ASSERT_EQ(std::string("USB Dongle With A Name Too Long For SSO"), std::string(before),
+        "Name should start as the enumeration name");
+
+    name.refine(device, nullptr);
+    ASSERT_EQ(std::string("Paired Headset"), std::string(name.get()), "Name should be the refined one");
+    ASSERT_EQ(std::string("USB Dongle With A Name Too Long For SSO"), std::string(before),
+        "A view taken before refinement should keep the enumeration name");
+
+    std::cout << "    OK product name refinement" << std::endl;
+}
+
+void testProductNameRefinedOnce()
+{
+    std::cout << "  Testing product name is refined once..." << std::endl;
+
+    MetadataDevice device;
+    device.product = "First Headset";
+
+    ProductName name("USB Dongle");
+    name.refine(device, nullptr);
+    std::string_view after = name.get();
+
+    device.product = "Second Headset";
+    name.refine(device, nullptr);
+
+    ASSERT_EQ(1, device.calls, "Metadata should be queried once");
+    ASSERT_EQ(std::string("First Headset"), std::string(name.get()), "A later refine should not change the name");
+    ASSERT_EQ(std::string("First Headset"), std::string(after), "A view taken after refinement should stay valid");
+
+    std::cout << "    OK product name is refined once" << std::endl;
+}
+
+void testProductNameEmptyRefinement()
+{
+    std::cout << "  Testing empty refined product name..." << std::endl;
+
+    MetadataDevice device;
+
+    ProductName name("USB Dongle");
+    name.refine(device, nullptr);
+    ASSERT_EQ(std::string("USB Dongle"), std::string(name.get()), "An empty name should keep the enumeration name");
+
+    device.product = "Paired Headset";
+    name.refine(device, nullptr);
+    ASSERT_EQ(1, device.calls, "An empty answer should still count as the one query");
+    ASSERT_EQ(std::string("USB Dongle"), std::string(name.get()), "The enumeration name should stay");
+
+    std::cout << "    OK empty refined product name" << std::endl;
+}
+
+void testProductNameRefinementError()
+{
+    std::cout << "  Testing product name refinement error..." << std::endl;
+
+    MetadataDevice device;
+    device.product = "Paired Headset";
+    device.fail    = true;
+
+    ProductName name("USB Dongle");
+    name.refine(device, nullptr);
+    ASSERT_EQ(std::string("USB Dongle"), std::string(name.get()), "An error should keep the enumeration name");
+
+    device.fail = false;
+    name.refine(device, nullptr);
+    ASSERT_EQ(1, device.calls, "A failed query should not be retried");
+    ASSERT_EQ(std::string("USB Dongle"), std::string(name.get()), "The enumeration name should stay");
+
+    std::cout << "    OK product name refinement error" << std::endl;
+}
+
+// ============================================================================
 // Test Runner
 // ============================================================================
 
@@ -764,6 +877,12 @@ void runAllLibraryApiTests()
     std::cout << "\n=== Test Device Mode Tests ===" << std::endl;
     runTest("C++ test device mode", testCppTestDeviceMode);
     runTest("C test device mode", testCTestDeviceMode);
+
+    std::cout << "\n=== Product Name Refinement Tests ===" << std::endl;
+    runTest("Product name refined", testProductNameRefined);
+    runTest("Product name refined once", testProductNameRefinedOnce);
+    runTest("Product name empty refinement", testProductNameEmptyRefinement);
+    runTest("Product name refinement error", testProductNameRefinementError);
 
     std::cout << "\n-------------------------------------------------------------------" << std::endl;
     std::cout << "Library API Tests: " << passed << " passed, " << failed << " failed" << std::endl;

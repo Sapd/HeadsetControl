@@ -97,7 +97,8 @@ public:
      *
      * Starts as the USB product string from HID enumeration. The first call that
      * opens the device lets it refine the name, e.g. a dongle reporting the
-     * headset paired to it, so a view taken before that call may be invalidated.
+     * headset paired to it, so read it after that call to get the refined name.
+     * A view taken earlier keeps the USB string and stays valid.
      *
      * @return Empty string if unavailable
      */

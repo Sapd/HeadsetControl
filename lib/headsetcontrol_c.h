@@ -274,7 +274,7 @@ HSC_API uint16_t hsc_get_product_id(hsc_headset_t headset);
  *
  * @param headset Headset handle
  * @return Product name (do not free), or NULL if unavailable. Valid until the
- *         headset is freed or a later call returns a refined name.
+ *         headset is freed; a pointer returned earlier keeps the USB string.
  */
 HSC_API const char* hsc_get_product_name(hsc_headset_t headset);
 
