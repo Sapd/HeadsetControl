@@ -114,16 +114,17 @@ typedef enum {
  * Battery Status
  * ============================================================================ */
 
+/* Matches the C++ battery_status enum, which hsc_get_battery() reports */
 typedef enum {
-    HSC_BATTERY_UNAVAILABLE = -1,
-    HSC_BATTERY_CHARGING    = -2,
-    HSC_BATTERY_AVAILABLE   = 0,
-    HSC_BATTERY_ERROR       = -100,
-    HSC_BATTERY_TIMEOUT     = -101,
+    HSC_BATTERY_UNAVAILABLE = 0,
+    HSC_BATTERY_CHARGING    = 1,
+    HSC_BATTERY_AVAILABLE   = 2,
+    HSC_BATTERY_ERROR       = 3,
+    HSC_BATTERY_TIMEOUT     = 4,
 } hsc_battery_status_t;
 
 typedef struct {
-    int level_percent; /**< Battery level 0-100, or negative for status */
+    int level_percent; /**< Battery level 0-100, or -1 if unknown */
     hsc_battery_status_t status; /**< Battery status */
     int voltage_mv; /**< Voltage in mV, or -1 if not available */
     int time_to_full_min; /**< Minutes to full, or -1 if not available */

@@ -947,9 +947,11 @@ class Capability(IntEnum):
 
 # Battery status
 class BatteryStatus(IntEnum):
-    UNAVAILABLE = -1
-    CHARGING = -2
-    AVAILABLE = 0
+    UNAVAILABLE = 0
+    CHARGING = 1
+    AVAILABLE = 2
+    ERROR = 3
+    TIMEOUT = 4
 
 
 # Structures

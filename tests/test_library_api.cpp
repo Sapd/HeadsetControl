@@ -471,6 +471,14 @@ void testCTestDeviceMode()
             hsc_battery_t battery;
             ASSERT_EQ(HSC_RESULT_OK, hsc_get_battery(headsets[i], &battery), "Battery should succeed");
             ASSERT_EQ(42, battery.level_percent, "Battery level should be 42%");
+            ASSERT_EQ(HSC_BATTERY_AVAILABLE, battery.status, "Battery status should be available");
+
+            // Profile 2 reports a charging battery
+            hsc_set_test_profile(2);
+            hsc_battery_t charging;
+            ASSERT_EQ(HSC_RESULT_OK, hsc_get_battery(headsets[i], &charging), "Charging battery should succeed");
+            ASSERT_EQ(HSC_BATTERY_CHARGING, charging.status, "Battery status should be charging");
+            hsc_set_test_profile(0);
 
             // Test sidetone
             hsc_sidetone_t sidetone;
