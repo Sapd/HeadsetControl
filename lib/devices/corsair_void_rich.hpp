@@ -42,7 +42,8 @@ public:
 
     constexpr int getCapabilities() const override
     {
-        return B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_NOTIFICATION_SOUND) | B(CAP_LIGHTS);
+        return B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_NOTIFICATION_SOUND) | B(CAP_LIGHTS)
+            | B(CAP_MICROPHONE_MUTE_STATUS);
     }
 
     constexpr capability_detail getCapabilityDetail(enum capabilities cap) const override
@@ -51,6 +52,7 @@ public:
         case CAP_SIDETONE:
             return { .usagepage = 0xff00, .usageid = 0x1, .interface_id = 0 };
         case CAP_BATTERY_STATUS:
+        case CAP_MICROPHONE_MUTE_STATUS:
             return { .usagepage = 0xffc5, .usageid = 0x1, .interface_id = 3 };
         case CAP_NOTIFICATION_SOUND:
             return { .usagepage = 0xffc5, .usageid = 0x1, .interface_id = 3 };
@@ -155,6 +157,16 @@ public:
         }
 
         return result;
+    }
+
+    Result<MicMuteStatusResult> getMicMuteStatus(hid_device* device_handle) override
+    {
+        // Flipping the boom up mutes the mic, and the battery report carries that flag
+        auto battery = getBattery(device_handle);
+        if (!battery) {
+            return battery.error();
+        }
+        return MicMuteStatusResult { .muted = battery->mic_status == MICROPHONE_UP };
     }
 
     Result<SidetoneResult> setSidetone(hid_device* device_handle, uint8_t level) override
