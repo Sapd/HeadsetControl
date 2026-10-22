@@ -347,6 +347,20 @@ void testCppTestDeviceMode()
             ASSERT_EQ(21, volume->device_max, "Native volume max should be 21");
             ASSERT_EQ(12, volume->device_volume, "Native volume level should be 12");
 
+            // The normalised 0-128 setters are reachable without the CLI's parsing,
+            // so they have to reject out-of-range levels instead of letting the
+            // device scale them into maximum volume.
+            auto volume_max = headset.setHeadsetVolume(128);
+            ASSERT_TRUE(volume_max.hasValue(), "Headset volume 128 should be accepted");
+
+            auto volume_high = headset.setHeadsetVolume(129);
+            ASSERT_TRUE(volume_high.hasError(), "Headset volume 129 should be rejected");
+            ASSERT_TRUE(volume_high.error().code == DeviceError::Code::InvalidParameter,
+                "Headset volume 129 should be an invalid parameter");
+
+            ASSERT_TRUE(headset.setSidetone(255).hasError(), "Sidetone 255 should be rejected");
+            ASSERT_TRUE(headset.setMicVolume(200).hasError(), "Microphone volume 200 should be rejected");
+
             // Test chatmix
             auto chatmix = headset.getChatmix();
             ASSERT_TRUE(chatmix.hasValue(), "Chatmix should return success");
@@ -495,6 +509,10 @@ void testCTestDeviceMode()
             ASSERT_EQ(12, volume.device_volume, "Native volume level should be 12");
             ASSERT_EQ(21, volume.device_max, "Native volume max should be 21");
             ASSERT_EQ(HSC_RESULT_OK, hsc_set_headset_volume(headsets[i], 64, NULL), "Headset volume set with NULL result should succeed");
+            ASSERT_EQ(HSC_RESULT_OK, hsc_set_headset_volume(headsets[i], 128, NULL), "Headset volume 128 should be accepted");
+            ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_headset_volume(headsets[i], 129, NULL), "Headset volume 129 should be rejected");
+            ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_sidetone(headsets[i], 255, NULL), "Sidetone 255 should be rejected");
+            ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_mic_volume(headsets[i], 200), "Microphone volume 200 should be rejected");
 
             ASSERT_EQ(4, hsc_get_equalizer_presets_count(headsets[i]), "Preset count should be 4");
             ASSERT_EQ(std::string("Flat"), std::string(hsc_get_equalizer_preset_name(headsets[i], 0)), "Flat preset name should match");

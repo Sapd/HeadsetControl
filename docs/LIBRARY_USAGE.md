@@ -825,6 +825,12 @@ default:
 }
 ```
 
+Sidetone, microphone volume and headset volume take a normalised 0-128 level. The library
+checks that range itself and returns `HSC_RESULT_INVALID_PARAM` (C) or an
+`InvalidParameter` error (C++) for anything above it, rather than passing it on to be
+scaled into the device's maximum. Narrower limits are the device's own, so a device with
+four hardware steps can still reject a level the library accepted.
+
 ### Capabilities
 
 ```c

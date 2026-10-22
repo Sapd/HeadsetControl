@@ -1,5 +1,6 @@
 #include "headsetcontrol.hpp"
 
+#include "capability_descriptors.hpp"
 #include "device_registry.hpp"
 #include "devices/hid_device.hpp"
 #include "hid_utility.hpp"
@@ -9,7 +10,10 @@
 #include <hidapi.h>
 
 #include <algorithm>
+#include <format>
 #include <mutex>
+#include <optional>
+#include <source_location>
 #include <unordered_map>
 
 namespace headsetcontrol {
@@ -248,6 +252,27 @@ std::vector<std::string_view> Headset::capabilityNames() const
         return impl_->device()->method(handle __VA_OPT__(, ) __VA_ARGS__); \
     } while (0)
 
+namespace {
+
+    // The CLI parser bounds every option before it reaches a device, but the library
+    // setters are called directly, so the normalised 0-128 levels have to be bounded
+    // here as well. A device scales them onto its own range, so an out-of-range level
+    // would otherwise land on the device maximum instead of returning an error.
+    std::optional<DeviceError> checkLevelRange(capabilities cap, int value,
+        std::source_location loc = std::source_location::current())
+    {
+        const auto& desc = getCapabilityDescriptor(cap);
+        if (!desc.hasValueRange() || (value >= *desc.min_value && value <= *desc.max_value)) {
+            return std::nullopt;
+        }
+
+        return DeviceError::invalidParameter(
+            std::format("{} must be {}-{} (got {})", desc.name, *desc.min_value, *desc.max_value, value),
+            loc);
+    }
+
+}
+
 Result<BatteryResult> Headset::getBattery()
 {
     HEADSET_FEATURE_IMPL(CAP_BATTERY_STATUS, getBattery);
@@ -265,6 +290,9 @@ Result<SidetoneResult> Headset::getSidetone()
 
 Result<SidetoneResult> Headset::setSidetone(uint8_t level)
 {
+    if (auto error = checkLevelRange(CAP_SIDETONE, level)) {
+        return *error;
+    }
     HEADSET_FEATURE_IMPL(CAP_SIDETONE, setSidetone, level);
 }
 
@@ -275,6 +303,9 @@ Result<VolumeLimiterResult> Headset::setVolumeLimiter(bool enabled)
 
 Result<HeadsetVolumeResult> Headset::setHeadsetVolume(uint8_t volume)
 {
+    if (auto error = checkLevelRange(CAP_HEADSET_VOLUME, volume)) {
+        return *error;
+    }
     HEADSET_FEATURE_IMPL(CAP_HEADSET_VOLUME, setHeadsetVolume, volume);
 }
 
@@ -316,6 +347,9 @@ std::optional<EqualizerPresets> Headset::getEqualizerPresets() const
 
 Result<MicVolumeResult> Headset::setMicVolume(uint8_t volume)
 {
+    if (auto error = checkLevelRange(CAP_MICROPHONE_VOLUME, volume)) {
+        return *error;
+    }
     HEADSET_FEATURE_IMPL(CAP_MICROPHONE_VOLUME, setMicVolume, volume);
 }
 
