@@ -38,8 +38,8 @@ headsetcontrol -o env
       "id_product": "0x1b27",
       "capabilities": ["CAP_SIDETONE", "CAP_BATTERY_STATUS", "CAP_LIGHTS"],
       "capabilities_str": ["sidetone", "battery", "lights"],
-      "readable_capabilities": ["CAP_SIDETONE"],
-      "readable_capabilities_str": ["sidetone"],
+      "readable_capabilities": [],
+      "readable_capabilities_str": [],
       "battery": {
         "status": "BATTERY_AVAILABLE",
         "level": 85
@@ -815,8 +815,8 @@ hsc_get_mic_mute_status(headset, &mute);
 hsc_headset_volume_t volume_result;
 hsc_set_headset_volume(headset, 64, &volume_result);
 
-// Read it back when HSC_CAP_HEADSET_VOLUME is in hsc_get_readable_capabilities()
-if (readable & (1 << HSC_CAP_HEADSET_VOLUME)) {
+// Read it back, on devices that support that
+if (hsc_get_readable_capabilities(headset) & (1 << HSC_CAP_HEADSET_VOLUME)) {
     hsc_get_headset_volume(headset, &volume_result);
 }
 ```

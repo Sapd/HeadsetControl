@@ -226,13 +226,8 @@ bool Headset::canRead(enum capabilities cap) const
 
 int Headset::readableCapabilitiesMask() const
 {
-    int mask = 0;
-    for (int i = 0; i < NUM_CAPABILITIES; i++) {
-        if (canRead(static_cast<capabilities>(i))) {
-            mask |= B(i);
-        }
-    }
-    return mask;
+    const auto* device = impl_->device();
+    return device->getCapabilities() & device->getReadableCapabilities();
 }
 
 std::vector<std::string_view> Headset::capabilityNames() const

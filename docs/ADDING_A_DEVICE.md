@@ -168,6 +168,12 @@ public:
         // Your implementation here
     }
 
+    // Needed because CAP_SIDETONE is in getReadableCapabilities()
+    Result<SidetoneResult> getSidetone(hid_device* device_handle) override
+    {
+        // Your implementation here
+    }
+
     Result<BatteryResult> getBattery(hid_device* device_handle) override
     {
         // Your implementation here

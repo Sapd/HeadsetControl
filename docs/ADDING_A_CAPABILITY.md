@@ -147,7 +147,11 @@ registerHandler(CAP_YOUR_FEATURE, CAPABILITYTYPE_INFO,
 3. Add a `CAPABILITYTYPE_INFO` row for it to the CLI request table in `cli/main.cpp`, next
    to the `CAPABILITYTYPE_ACTION` one. `--volume` (`CAP_HEADSET_VOLUME`) sets with a value
    and reads without one.
-4. Devices that implement the getter list the capability in `getReadableCapabilities()`
+4. Show the result: add a field to `DeviceData` (`cli/output/output_data.hpp`), fill it in
+   `processFeatureRequest()` (`cli/output/output.cpp`) and write it in each output format.
+   Without that branch the read result is dropped. The new field is an addition to the
+   structured output, so bump `API_VERSION` (step 8).
+5. Devices that implement the getter list the capability in `getReadableCapabilities()`
    as well as `getCapabilities()`.
 
 `CAP_SIDETONE_STATUS` predates this and is kept for compatibility: a device with
@@ -216,9 +220,8 @@ The capability list is part of the structured output, so adding a capability is 
 addition to the output format. Raise the second number and say what changed:
 
 ```cpp
-// 1.8: structured output gained the additive "readable_capabilities" list and a
-// "headset_volume" field for devices that support reading it back.
-constexpr std::string_view API_VERSION = "1.8";
+// 1.7: the capability list grew by CAP_HEADSET_VOLUME.
+constexpr std::string_view API_VERSION = "1.7";
 ```
 
 The same version appears in `tests/test_output_formats.cpp` and in the sample output in

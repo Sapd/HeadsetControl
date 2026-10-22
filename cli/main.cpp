@@ -352,7 +352,7 @@ std::optional<cli::ParseError> configureParser(cli::ArgumentParser& parser, Opti
 
                 opts.headset_volume = level;
                 opts.request_headset_volume = false;
-                return std::nullopt; }, "Get headset hardware volume, or set it to LEVEL", "LEVEL")
+                return std::nullopt; }, "Get current headset hardware volume, or set it to LEVEL", "LEVEL")
         .long_toggle("volume-limiter", opts.volume_limiter_enabled, "Toggle volume limiter")
 
         // === Bluetooth ===
@@ -428,26 +428,18 @@ std::optional<cli::ParseError> configureParser(cli::ArgumentParser& parser, Opti
                     int caps_all     = 0;
                     int readable_any = 0;
                     bool first       = true;
-                    auto readable    = [device] {
-                        int mask = 0;
-                        for (int j = 0; j < NUM_CAPABILITIES; j++) {
-                            if (device->canRead(static_cast<capabilities>(j)))
-                                mask |= B(j);
-                        }
-                        return mask;
-                    };
                     for (uint16_t pid : device->getProductIds()) {
                         device->setMatchedProductId(pid);
                         const int caps = device->getAdvertisedCapabilities();
                         caps_any |= caps;
                         caps_all = first ? caps : (caps_all & caps);
-                        readable_any |= readable();
+                        readable_any |= device->getCapabilities() & device->getReadableCapabilities();
                         first = false;
                     }
                     device->setMatchedProductId(0);
                     if (first) { // device without product IDs
                         caps_any = caps_all = device->getAdvertisedCapabilities();
-                        readable_any        = readable();
+                        readable_any        = device->getCapabilities() & device->getReadableCapabilities();
                     }
 
                     for (int j = 0; j < NUM_CAPABILITIES; j++) {

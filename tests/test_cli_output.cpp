@@ -468,6 +468,49 @@ void testCliSidetoneStatusOutputs()
     std::cout << "    ✓ Sidetone status output is correct" << std::endl;
 }
 
+void testCliHeadsetVolumeOutputs()
+{
+    std::cout << "  Testing headset volume in all output formats..." << std::endl;
+
+    // -d keeps the set requests below away from any real headset that is connected
+    const std::string base = HEADSETCONTROL_EXE " --test-device -d 0xf00b:0xa00c --volume -o ";
+
+    std::string json = exec((base + "json 2>&1").c_str());
+    ASSERT_CONTAINS(json, "\"headset_volume\": {", "JSON should have headset_volume object");
+    ASSERT_CONTAINS(json, "\"level\": 77", "JSON should have normalized level");
+    ASSERT_CONTAINS(json, "\"device_level\": 15", "JSON should have native level");
+    ASSERT_CONTAINS(json, "\"readable_capabilities\": [", "JSON should list readable capabilities");
+    ASSERT_CONTAINS(json, "\"CAP_HEADSET_VOLUME\"", "JSON should list headset volume as readable");
+
+    std::string yaml = exec((base + "yaml 2>&1").c_str());
+    ASSERT_CONTAINS(yaml, "headset_volume:", "YAML should have headset_volume object");
+    ASSERT_CONTAINS(yaml, "device_level: 15", "YAML should have native level");
+    ASSERT_CONTAINS(yaml, "readable_capabilities:", "YAML should list readable capabilities");
+
+    std::string env = exec((base + "env 2>&1").c_str());
+    ASSERT_CONTAINS(env, "DEVICE_0_HEADSET_VOLUME_LEVEL=77", "ENV should have normalized level");
+    ASSERT_CONTAINS(env, "DEVICE_0_HEADSET_VOLUME_DEVICE_LEVEL=15", "ENV should have native level");
+    ASSERT_CONTAINS(env, "DEVICE_0_READABLE_CAPABILITIES_AMOUNT=2", "ENV should count readable capabilities");
+
+    std::string standard = exec(HEADSETCONTROL_EXE " --test-device -d 0xf00b:0xa00c --volume 2>&1");
+    ASSERT_CONTAINS(standard, "Headset volume: 77 (device level 15)",
+        "volume option without a value should query");
+
+    std::string set = exec(HEADSETCONTROL_EXE " --test-device -d 0xf00b:0xa00c --volume 20 2>&1");
+    ASSERT_CONTAINS(set, "Successfully set headset volume!", "volume option with a value should set");
+
+    std::string set_json = exec(HEADSETCONTROL_EXE " --test-device -d 0xf00b:0xa00c --volume 20 -o json 2>&1");
+    ASSERT_NOT_CONTAINS(set_json, "\"headset_volume\":", "a set should not also read the volume back");
+
+    std::string query = exec(HEADSETCONTROL_EXE " --test-device -d 0xf00b:0xa00c -o json 2>&1");
+    ASSERT_CONTAINS(query, "\"headset_volume\": {", "a pure query should read readable capabilities");
+
+    std::string limited = exec(HEADSETCONTROL_EXE " --test-device 10 -d 0xf00b:0xa00c --volume 2>&1");
+    ASSERT_CONTAINS(limited, "doesn't support volume", "a device without the capability should say so");
+
+    std::cout << "    OK headset volume outputs" << std::endl;
+}
+
 // ============================================================================
 // Short Output Tests
 // ============================================================================
@@ -604,6 +647,7 @@ void runAllCliOutputTests()
     runTest("Standard No Args", testCliStandardNoArgs);
     runTest("Sidetone Status Outputs", testCliSidetoneStatusOutputs);
     runTest("Mic Status Outputs", testCliMicStatusOutputs);
+    runTest("Headset Volume Outputs", testCliHeadsetVolumeOutputs);
 
     std::cout << "\n=== Short Output Tests ===" << std::endl;
     runTest("Short Output", testCliShortOutput);
