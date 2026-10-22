@@ -463,6 +463,15 @@ HSC_API hsc_result_t hsc_set_mic_volume(hsc_headset_t headset, uint8_t volume);
 HSC_API hsc_result_t hsc_set_mic_mute_led_brightness(hsc_headset_t headset, uint8_t brightness);
 
 /**
+ * @brief Set microphone noise filter level
+ *
+ * @param headset Headset handle
+ * @param level 0 = off, 1 = low, 2 = high
+ * @return HSC_RESULT_OK on success, negative error code on failure
+ */
+HSC_API hsc_result_t hsc_set_noise_filter(hsc_headset_t headset, uint8_t level);
+
+/**
  * @brief Set rotate-to-mute feature
  *
  * @param headset Headset handle

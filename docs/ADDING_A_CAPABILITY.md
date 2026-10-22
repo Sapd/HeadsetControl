@@ -14,6 +14,7 @@ A capability is a feature like sidetone, battery status, or LED control. Adding 
 6. Add CLI argument parsing
 7. Implement in device classes
 8. Bump `API_VERSION`
+9. Expose it in the C++ and C library APIs
 
 ## Files You'll Modify
 
@@ -28,7 +29,10 @@ A capability is a feature like sidetone, battery status, or LED control. Adding 
 | `lib/devices/*.hpp` | Device implementations |
 | `cli/output/output.cpp` | `API_VERSION` |
 | `tests/test_output_formats.cpp` | `API_VERSION` in the fixture |
-| `docs/LIBRARY_USAGE.md` | `api_version` in the sample output |
+| `docs/LIBRARY_USAGE.md` | `api_version` in the sample output, library examples |
+| `lib/headsetcontrol.hpp` / `lib/headsetcontrol.cpp` | C++ `Headset` method |
+| `lib/headsetcontrol_c.h` / `lib/headsetcontrol_c.cpp` | `HSC_CAP_*` value and `hsc_*` function |
+| `tests/test_library_api.cpp` | Library API coverage via the test device |
 
 ## Step-by-Step Guide
 
@@ -194,6 +198,27 @@ The same version appears in `tests/test_output_formats.cpp` and in the sample ou
 `docs/LIBRARY_USAGE.md`; all three have to move together. Raise the first number instead
 if you change or remove an existing field.
 
+### 9. Expose It in the Library APIs
+
+Applications that link `libheadsetcontrol` never see the CLI or the handler table, so a
+capability without a library entry point is CLI-only. Add a `Headset` method that
+dispatches through `HEADSET_FEATURE_IMPL`:
+
+```cpp
+// lib/headsetcontrol.hpp
+[[nodiscard]] Result<YourFeatureResult> setYourFeature(uint8_t value);
+
+// lib/headsetcontrol.cpp
+Result<YourFeatureResult> Headset::setYourFeature(uint8_t value)
+{
+    HEADSET_FEATURE_IMPL(CAP_YOUR_FEATURE, setYourFeature, value);
+}
+```
+
+Then add the matching `HSC_CAP_YOUR_FEATURE` value and an `hsc_set_your_feature()` wrapper
+to the C API, cover both in `tests/test_library_api.cpp` through the test device, and add
+an example for each to `docs/LIBRARY_USAGE.md`.
+
 ## Example: Adding Volume Limiter
 
 Here's a real example from the codebase:
@@ -280,12 +305,14 @@ $ ./headsetcontrol --notificate 2
 notificate must be <= 1 (got 2)
 ```
 
-For the normalised 0-128 levels they are also the bound `Headset::setSidetone()`,
-`setMicVolume()` and `setHeadsetVolume()` apply, since library callers never go through
-the parser:
+For the normalised 0-128 levels, and for any other range every device shares such as
+`setNoiseFilter()`'s three levels, they are also the bound `Headset::setSidetone()`,
+`setMicVolume()`, `setHeadsetVolume()` and `setNoiseFilter()` apply, since library callers
+never go through the parser:
 
 ```cpp
 headset.setHeadsetVolume(200);  // invalid parameter: volume must be 0-128 (got 200)
+headset.setNoiseFilter(3);      // invalid parameter: noise-filter must be 0-2 (got 3)
 ```
 
 Anything narrower still, or specific to one device, belongs in the device

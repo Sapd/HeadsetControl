@@ -257,7 +257,9 @@ namespace {
     // The CLI parser bounds every option before it reaches a device, but the library
     // setters are called directly, so the normalised 0-128 levels have to be bounded
     // here as well. A device scales them onto its own range, so an out-of-range level
-    // would otherwise land on the device maximum instead of returning an error.
+    // would otherwise land on the device maximum instead of returning an error. The
+    // same applies to a range that is part of the public contract for every device,
+    // such as the noise filter's three levels.
     std::optional<DeviceError> checkLevelRange(capabilities cap, int value,
         std::source_location loc = std::source_location::current())
     {
@@ -356,6 +358,14 @@ Result<MicVolumeResult> Headset::setMicVolume(uint8_t volume)
 Result<MicMuteLedBrightnessResult> Headset::setMicMuteLedBrightness(uint8_t brightness)
 {
     HEADSET_FEATURE_IMPL(CAP_MICROPHONE_MUTE_LED_BRIGHTNESS, setMicMuteLedBrightness, brightness);
+}
+
+Result<NoiseFilterResult> Headset::setNoiseFilter(uint8_t level)
+{
+    if (auto error = checkLevelRange(CAP_NOISE_FILTER, level)) {
+        return *error;
+    }
+    HEADSET_FEATURE_IMPL(CAP_NOISE_FILTER, setNoiseFilter, level);
 }
 
 Result<MicMuteStatusResult> Headset::getMicMuteStatus()

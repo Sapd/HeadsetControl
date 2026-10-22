@@ -278,6 +278,7 @@ void testCNullHandling()
     ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_anc_button_modes(nullptr, &anc_button_modes), "set_anc_button_modes(null) should fail");
     ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_sidetone(nullptr, 64, nullptr), "set_sidetone(null) should fail");
     ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_lights(nullptr, true), "set_lights(null) should fail");
+    ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_noise_filter(nullptr, 1), "set_noise_filter(null) should fail");
 
     ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_headset_volume(nullptr, 64, nullptr), "set_headset_volume(null) should fail");
 
@@ -360,6 +361,18 @@ void testCppTestDeviceMode()
 
             ASSERT_TRUE(headset.setSidetone(255).hasError(), "Sidetone 255 should be rejected");
             ASSERT_TRUE(headset.setMicVolume(200).hasError(), "Microphone volume 200 should be rejected");
+
+            // Test noise filter
+            ASSERT_TRUE(headset.supports(CAP_NOISE_FILTER), "Test device should support noise filter");
+            auto noise_filter = headset.setNoiseFilter(2);
+            ASSERT_TRUE(noise_filter.hasValue(), "Noise filter should return success");
+            ASSERT_EQ(2, noise_filter->level, "Noise filter level should be 2");
+
+            // The test device accepts any level, so the 0-2 bound has to come from the library
+            auto noise_filter_high = headset.setNoiseFilter(3);
+            ASSERT_TRUE(noise_filter_high.hasError(), "Noise filter 3 should be rejected");
+            ASSERT_TRUE(noise_filter_high.error().code == DeviceError::Code::InvalidParameter,
+                "Noise filter 3 should be an invalid parameter");
 
             // Test chatmix
             auto chatmix = headset.getChatmix();
@@ -521,6 +534,11 @@ void testCTestDeviceMode()
             ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_headset_volume(headsets[i], 129, NULL), "Headset volume 129 should be rejected");
             ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_sidetone(headsets[i], 255, NULL), "Sidetone 255 should be rejected");
             ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_mic_volume(headsets[i], 200), "Microphone volume 200 should be rejected");
+
+            // Test noise filter
+            ASSERT_TRUE(hsc_supports(headsets[i], HSC_CAP_NOISE_FILTER), "Should support noise filter");
+            ASSERT_EQ(HSC_RESULT_OK, hsc_set_noise_filter(headsets[i], 1), "Noise filter should succeed");
+            ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_noise_filter(headsets[i], 3), "Noise filter 3 should be rejected");
 
             ASSERT_EQ(4, hsc_get_equalizer_presets_count(headsets[i]), "Preset count should be 4");
             ASSERT_EQ(std::string("Flat"), std::string(hsc_get_equalizer_preset_name(headsets[i], 0)), "Flat preset name should match");
