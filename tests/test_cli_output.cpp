@@ -307,7 +307,7 @@ void testCliActionOnlyOmitsUnrequestedInfo()
 
     // -s (sidetone) is an action; battery/chatmix were not asked for, so an
     // extended-format invocation should not pay for reading them.
-    std::string output = exec(HEADSETCONTROL_EXE " --test-device -s 20 -o json 2>&1");
+    std::string output = exec(HEADSETCONTROL_EXE " --test-device -d 0xf00b:0xa00c -s 20 -o json 2>&1");
 
     ASSERT_CONTAINS(output, "\"actions\":", "Should have actions array");
     ASSERT_NOT_CONTAINS(output, "\"battery\":", "Battery info should be omitted when not requested");
@@ -322,7 +322,7 @@ void testCliActionWithExplicitInfoKeepsOnlyThat()
 
     // -b is explicitly requested alongside the -s action; chatmix was not
     // asked for and should still be omitted.
-    std::string output = exec(HEADSETCONTROL_EXE " --test-device -b -s 20 -o json 2>&1");
+    std::string output = exec(HEADSETCONTROL_EXE " --test-device -d 0xf00b:0xa00c -b -s 20 -o json 2>&1");
 
     ASSERT_CONTAINS(output, "\"actions\":", "Should have actions array");
     ASSERT_CONTAINS(output, "\"battery\":", "Explicitly requested battery info should be present");
@@ -343,6 +343,41 @@ void testCliPureQueryStillReturnsAllInfo()
     ASSERT_CONTAINS(output, "\"chatmix\":", "Pure query should still report chatmix");
 
     std::cout << "    ✓ Pure query still returns all extended info" << std::endl;
+}
+
+// ============================================================================
+// Device Selection Tests
+// ============================================================================
+
+void testCliActionWithoutDeviceFilter()
+{
+    std::cout << "  Testing action without -d is refused only when several devices are found..." << std::endl;
+
+    // --test-device adds a single mock, so CI only sees the one-device case.
+    // With a real headset attached the action has to be refused for every
+    // device instead of being set on all of them.
+    std::string output   = exec(HEADSETCONTROL_EXE " --test-device -l 1 -o json 2>&1");
+    std::string standard = exec(HEADSETCONTROL_EXE " --test-device -l 1 2>&1");
+
+    auto actions_start = output.find("\"actions\":");
+    auto actions_end   = output.find("\"device_count\":");
+    ASSERT_TRUE(actions_start != std::string::npos && actions_end != std::string::npos && actions_start < actions_end,
+        "Should have an actions array before device_count");
+    std::string actions = output.substr(actions_start, actions_end - actions_start);
+
+    if (output.find("\"device_count\": 1,") != std::string::npos) {
+        ASSERT_CONTAINS(actions, "\"status\": \"success\"", "A single device should not need -d");
+        ASSERT_CONTAINS(standard, "Successfully set lights!", "A single device should not need -d");
+        std::cout << "    ✓ Action without -d runs on a single device" << std::endl;
+        return;
+    }
+
+    ASSERT_CONTAINS(actions, "Multiple devices, specify with -d", "Action should be refused without -d");
+    ASSERT_NOT_CONTAINS(actions, "\"status\": \"success\"", "No device should be set without -d");
+    ASSERT_CONTAINS(standard, "Multiple devices, specify with -d", "Standard output should report the refusal");
+    ASSERT_NOT_CONTAINS(standard, "Successfully set", "No device should be set without -d");
+
+    std::cout << "    ✓ Action without -d is refused on multiple devices" << std::endl;
 }
 
 // ============================================================================
@@ -652,6 +687,9 @@ void runAllCliOutputTests()
     runTest("Action-Only Omits Unrequested Info", testCliActionOnlyOmitsUnrequestedInfo);
     runTest("Action With Explicit Info", testCliActionWithExplicitInfoKeepsOnlyThat);
     runTest("Pure Query Still Returns All Info", testCliPureQueryStillReturnsAllInfo);
+
+    std::cout << "\n=== Device Selection Tests ===" << std::endl;
+    runTest("Action Without Device Filter", testCliActionWithoutDeviceFilter);
 
     std::cout << "\n=== Standard Output Tests ===" << std::endl;
     runTest("Standard Output", testCliStandardOutput);
