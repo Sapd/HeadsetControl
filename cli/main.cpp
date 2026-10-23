@@ -1298,6 +1298,22 @@ void handleMultiDeviceActions(std::vector<DiscoveredDevice>& devices, const Opti
     }
 }
 
+// Drop the info results of the previous follow pass. Without this every request
+// carries a result after the first pass, so isPending() is false and the loop
+// re-prints the first reading instead of asking the device again.
+//
+// Action results are kept on purpose: a setter ran once and must not be applied
+// again on every pass, and a refusal from handleMultiDeviceActions has to stay.
+void resetInfoResults(std::vector<DiscoveredDevice>& devices)
+{
+    for (auto& dev : devices) {
+        for (auto& req : dev.feature_requests) {
+            if (req.type == CAPABILITYTYPE_INFO)
+                req.result = FeatureResult {};
+        }
+    }
+}
+
 // Process pending feature requests for all matching devices
 void processFeatureRequests(std::vector<DiscoveredDevice>& devices, const Options& opts)
 {
@@ -1443,8 +1459,10 @@ int main(int argc, char* argv[])
         auto legacy = toLegacyDeviceList(devices);
         output(legacy.data(), opts.print_capabilities, opts.output_format);
 
-        if (g_follow_running)
+        if (g_follow_running) {
             std::this_thread::sleep_for(std::chrono::seconds(opts.follow_seconds));
+            resetInfoResults(devices);
+        }
     } while (g_follow_running);
 
     // Note: hid_exit() is called automatically by library's LibraryState destructor
