@@ -1232,12 +1232,20 @@ std::vector<DeviceList> toLegacyDeviceList(std::vector<DiscoveredDevice>& device
     return legacy;
 }
 
+// Whether a request still has to be sent to the device. A request that already
+// carries a result, such as an action refused by handleMultiDeviceActions, is
+// reported as it is and not executed.
+bool isPending(const FeatureRequest& req)
+{
+    return req.should_process && req.result.status == FEATURE_NOT_PROCESSED;
+}
+
 // Whether this device was asked to set something. Only counts requests that are
 // still live, so it has to run after handleMultiDeviceActions has had its say.
 bool hasRequestedAction(const DiscoveredDevice& device)
 {
     for (const auto& req : device.feature_requests) {
-        if (req.type == CAPABILITYTYPE_ACTION && req.should_process) {
+        if (req.type == CAPABILITYTYPE_ACTION && isPending(req)) {
             return true;
         }
     }
@@ -1266,7 +1274,9 @@ void enableExtendedInfoRequests(std::vector<DiscoveredDevice>& devices, bool ext
     }
 }
 
-// Mark action requests as not processable when multiple devices and no filter
+// Refuse action requests when multiple devices and no filter. The refusal is
+// stored as the result, so the request is still reported but no longer pending:
+// NotProcessed is the default status and would let it run on every device.
 void handleMultiDeviceActions(std::vector<DiscoveredDevice>& devices, const Options& opts)
 {
     if (devices.size() <= 1)
@@ -1278,7 +1288,7 @@ void handleMultiDeviceActions(std::vector<DiscoveredDevice>& devices, const Opti
                 continue;
 
             if (!opts.hasDeviceFilter()) {
-                req.result.status  = FEATURE_NOT_PROCESSED;
+                req.result.status  = FEATURE_ERROR;
                 req.result.message = "Multiple devices, specify with -d";
                 req.result.value   = -1;
             } else if (!dev.matchesFilter(opts)) {
@@ -1296,7 +1306,7 @@ void processFeatureRequests(std::vector<DiscoveredDevice>& devices, const Option
             continue;
 
         for (auto& req : dev.feature_requests) {
-            if (req.should_process && req.result.status == FEATURE_NOT_PROCESSED) {
+            if (isPending(req)) {
                 req.result = handleFeature(dev, req.cap, req.type, req.param);
             }
         }
