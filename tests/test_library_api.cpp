@@ -282,6 +282,13 @@ void testCNullHandling()
     ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_lights(nullptr, true), "set_lights(null) should fail");
     ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_noise_filter(nullptr, 1), "set_noise_filter(null) should fail");
 
+    hsc_equalizer_info_t eq_info;
+    ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_get_equalizer_info(nullptr, &eq_info), "get_equalizer_info(null) should fail");
+    hsc_parametric_equalizer_info_t peq_info;
+    ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_get_parametric_equalizer_info(nullptr, &peq_info), "get_parametric_equalizer_info(null) should fail");
+    hsc_parametric_band_t peq_band = { .frequency = 1000.0f, .gain = 0.0f, .q_factor = 1.0f, .type = HSC_EQ_FILTER_PEAKING };
+    ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_parametric_equalizer(nullptr, &peq_band, 1), "set_parametric_equalizer(null) should fail");
+
     ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_headset_volume(nullptr, 64, nullptr), "set_headset_volume(null) should fail");
     hsc_headset_volume_t headset_volume;
     ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_get_headset_volume(nullptr, &headset_volume), "get_headset_volume(null) should fail");
@@ -584,6 +591,43 @@ void testCTestDeviceMode()
                 "Fetching preset bands should succeed");
             ASSERT_EQ(6.0f, preset_bands[0], "Bass Boost first band should match");
             ASSERT_EQ(4.0f, preset_bands[1], "Bass Boost second band should match");
+
+            // Test equalizer layouts
+            hsc_equalizer_info_t eq_info;
+            ASSERT_EQ(HSC_RESULT_OK, hsc_get_equalizer_info(headsets[i], &eq_info), "Equalizer info should succeed");
+            ASSERT_EQ(10, eq_info.bands_count, "Equalizer should have 10 bands");
+            ASSERT_EQ(0, eq_info.bands_baseline, "Equalizer baseline should be 0");
+            ASSERT_EQ(0.5f, eq_info.bands_step, "Equalizer step should be 0.5");
+            ASSERT_EQ(-12, eq_info.bands_min, "Equalizer min should be -12");
+            ASSERT_EQ(12, eq_info.bands_max, "Equalizer max should be 12");
+            ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_get_equalizer_info(headsets[i], nullptr), "Equalizer info with null output should fail");
+
+            hsc_parametric_equalizer_info_t peq_info;
+            ASSERT_EQ(HSC_RESULT_OK, hsc_get_parametric_equalizer_info(headsets[i], &peq_info), "Parametric equalizer info should succeed");
+            ASSERT_EQ(10, peq_info.bands_count, "Parametric equalizer should have 10 bands");
+            ASSERT_EQ(-12.0f, peq_info.gain_min, "Parametric gain min should be -12");
+            ASSERT_EQ(12.0f, peq_info.gain_max, "Parametric gain max should be 12");
+            ASSERT_EQ(20, peq_info.freq_min, "Parametric frequency min should be 20");
+            ASSERT_EQ(20000, peq_info.freq_max, "Parametric frequency max should be 20000");
+            ASSERT_TRUE((peq_info.filter_types & (1 << HSC_EQ_FILTER_PEAKING)) != 0, "Peaking filter should be supported");
+            ASSERT_TRUE((peq_info.filter_types & (1 << HSC_EQ_FILTER_NOTCH)) == 0, "Notch filter should not be supported");
+
+            // Test parametric equalizer
+            hsc_parametric_band_t peq_bands[] = {
+                { .frequency = 100.0f, .gain = 3.0f, .q_factor = 0.7f, .type = HSC_EQ_FILTER_LOW_SHELF },
+                { .frequency = 1000.0f, .gain = -2.0f, .q_factor = 1.414f, .type = HSC_EQ_FILTER_PEAKING },
+            };
+            ASSERT_EQ(HSC_RESULT_OK, hsc_set_parametric_equalizer(headsets[i], peq_bands, 2), "Parametric equalizer should succeed");
+            ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_parametric_equalizer(headsets[i], peq_bands, 0), "Parametric equalizer with no bands should fail");
+            ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_parametric_equalizer(headsets[i], nullptr, 2), "Parametric equalizer with null bands should fail");
+            hsc_parametric_band_t bad_type = { .frequency = 1000.0f, .gain = 0.0f, .q_factor = 1.0f, .type = static_cast<hsc_eq_filter_type_t>(6) };
+            ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_parametric_equalizer(headsets[i], &bad_type, 1), "Unknown filter type should be rejected");
+
+            // Profile 10 drops both equalizers from the test device
+            hsc_set_test_profile(10);
+            ASSERT_EQ(HSC_RESULT_NOT_SUPPORTED, hsc_get_equalizer_info(headsets[i], &eq_info), "Equalizer info should be unsupported in profile 10");
+            ASSERT_EQ(HSC_RESULT_NOT_SUPPORTED, hsc_get_parametric_equalizer_info(headsets[i], &peq_info), "Parametric equalizer info should be unsupported in profile 10");
+            hsc_set_test_profile(0);
 
             break;
         }

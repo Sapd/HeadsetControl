@@ -186,6 +186,47 @@ typedef struct {
     uint8_t device_max; /**< Device's native maximum */
 } hsc_headset_volume_t;
 
+/* Band layout of the custom equalizer, see hsc_get_equalizer_info() */
+typedef struct {
+    int bands_count; /**< Number of bands hsc_set_equalizer() expects */
+    int bands_baseline; /**< Band value that leaves the sound unchanged */
+    float bands_step; /**< Smallest change of a band value */
+    int bands_min; /**< Lowest band value */
+    int bands_max; /**< Highest band value */
+} hsc_equalizer_info_t;
+
+/* Parametric equalizer filter types (matches the C++ EqualizerFilterType) */
+typedef enum {
+    HSC_EQ_FILTER_LOW_SHELF  = 0,
+    HSC_EQ_FILTER_LOW_PASS   = 1,
+    HSC_EQ_FILTER_PEAKING    = 2,
+    HSC_EQ_FILTER_HIGH_PASS  = 3,
+    HSC_EQ_FILTER_HIGH_SHELF = 4,
+    HSC_EQ_FILTER_NOTCH      = 5,
+} hsc_eq_filter_type_t;
+
+/* Ranges of the parametric equalizer, see hsc_get_parametric_equalizer_info() */
+typedef struct {
+    int bands_count; /**< Maximum number of bands */
+    float gain_base; /**< Gain that leaves the sound unchanged, in dB */
+    float gain_step; /**< Smallest gain change, in dB */
+    float gain_min; /**< Lowest gain, in dB */
+    float gain_max; /**< Highest gain, in dB */
+    float q_factor_min; /**< Lowest Q factor */
+    float q_factor_max; /**< Highest Q factor */
+    int freq_min; /**< Lowest frequency, in Hz */
+    int freq_max; /**< Highest frequency, in Hz */
+    int filter_types; /**< Supported types: bit (1 << type) for each hsc_eq_filter_type_t */
+} hsc_parametric_equalizer_info_t;
+
+/* One band of a parametric equalizer, see hsc_set_parametric_equalizer() */
+typedef struct {
+    float frequency; /**< Frequency in Hz */
+    float gain; /**< Gain in dB */
+    float q_factor; /**< Q factor */
+    hsc_eq_filter_type_t type; /**< Filter type */
+} hsc_parametric_band_t;
+
 /* ============================================================================
  * Discovery Functions
  * ============================================================================ */
@@ -426,6 +467,48 @@ HSC_API hsc_result_t hsc_set_equalizer_preset(hsc_headset_t headset, uint8_t pre
  * @return HSC_RESULT_OK on success, negative error code on failure
  */
 HSC_API hsc_result_t hsc_set_equalizer(hsc_headset_t headset, const float* bands, int num_bands);
+
+/**
+ * @brief Get the band layout of the custom equalizer
+ *
+ * Reads no HID data. Some devices learn their layout from the headset and can
+ * only report it after an equalizer command on the same device (the Logitech
+ * PRO X 2 does); until then this returns HSC_RESULT_NOT_SUPPORTED.
+ *
+ * @param headset Headset handle
+ * @param[out] info Band layout
+ * @return HSC_RESULT_OK on success, HSC_RESULT_NOT_SUPPORTED if the device
+ *         doesn't describe its equalizer, negative error code on failure
+ */
+HSC_API hsc_result_t hsc_get_equalizer_info(hsc_headset_t headset, hsc_equalizer_info_t* info);
+
+/**
+ * @brief Get the ranges of the parametric equalizer
+ *
+ * Reads no HID data. As with hsc_get_equalizer_info(), some devices can only
+ * report it after an equalizer command on the same device.
+ *
+ * @param headset Headset handle
+ * @param[out] info Parametric equalizer ranges
+ * @return HSC_RESULT_OK on success, HSC_RESULT_NOT_SUPPORTED if the device
+ *         doesn't describe its parametric equalizer, negative error code on failure
+ */
+HSC_API hsc_result_t hsc_get_parametric_equalizer_info(
+    hsc_headset_t headset,
+    hsc_parametric_equalizer_info_t* info);
+
+/**
+ * @brief Set parametric equalizer bands
+ *
+ * @param headset Headset handle
+ * @param bands Array of bands
+ * @param num_bands Number of bands in array
+ * @return HSC_RESULT_OK on success, negative error code on failure
+ */
+HSC_API hsc_result_t hsc_set_parametric_equalizer(
+    hsc_headset_t headset,
+    const hsc_parametric_band_t* bands,
+    int num_bands);
 
 /**
  * @brief Get number of equalizer presets

@@ -799,6 +799,33 @@ hsc_set_equalizer_preset(headset, 2);
 float bands[] = { 0.0f, 2.0f, 4.0f, 2.0f, 0.0f, -2.0f };
 hsc_set_equalizer(headset, bands, 6);
 
+// Custom EQ layout: band count, baseline, range and step
+// (HSC_RESULT_NOT_SUPPORTED if the device doesn't describe it)
+hsc_equalizer_info_t eq_info;
+if (hsc_get_equalizer_info(headset, &eq_info) == HSC_RESULT_OK) {
+    printf("%d bands, %d to %d in steps of %.1f\n",
+        eq_info.bands_count, eq_info.bands_min, eq_info.bands_max, eq_info.bands_step);
+}
+
+// Parametric EQ: check the ranges, then set bands that fit them.
+// Every band uses a filter type the device lists in filter_types.
+hsc_parametric_equalizer_info_t peq_info;
+if (hsc_get_parametric_equalizer_info(headset, &peq_info) == HSC_RESULT_OK
+    && (peq_info.filter_types & (1 << HSC_EQ_FILTER_PEAKING))) {
+    // Some devices take a single Q factor (the PRO X 2 only accepts 1.0)
+    float q = 1.0f;
+    if (q < peq_info.q_factor_min) q = peq_info.q_factor_min;
+    if (q > peq_info.q_factor_max) q = peq_info.q_factor_max;
+
+    hsc_parametric_band_t peq[] = {
+        { .frequency = 100.0f, .gain = 3.0f, .q_factor = q, .type = HSC_EQ_FILTER_PEAKING },
+        { .frequency = 1000.0f, .gain = -2.0f, .q_factor = q, .type = HSC_EQ_FILTER_PEAKING },
+    };
+    if (hsc_set_parametric_equalizer(headset, peq, 2) != HSC_RESULT_OK) {
+        // The device rejected a band, e.g. a gain outside gain_min..gain_max
+    }
+}
+
 // Mic volume
 hsc_set_mic_volume(headset, 100);
 
