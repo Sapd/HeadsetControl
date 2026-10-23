@@ -7,6 +7,7 @@
 #include <chrono>
 #include <cstdint>
 #include <format>
+#include <optional>
 #include <span>
 #include <string_view>
 
@@ -78,9 +79,19 @@ public:
         return "Corsair Virtuoso XT/SE"sv;
     }
 
-    constexpr int getCapabilities() const override
+    int getCapabilities() const override
     {
-        return B(CAP_BATTERY_STATUS) | B(CAP_SIDETONE) | B(CAP_INACTIVE_TIME) | B(CAP_LIGHTS);
+        int capabilities = B(CAP_BATTERY_STATUS) | B(CAP_INACTIVE_TIME) | B(CAP_LIGHTS);
+
+        // Sidetone through the Bragi properties is verified only on the XT. The
+        // SE also exposes an ALSA sidetone control, which the XT does not have,
+        // and that control did not move when these properties were written.
+        const auto product_id = getMatchedProductId();
+        if (product_id == PID_XT_WIRELESS || product_id == PID_XT_WIRED) {
+            capabilities |= B(CAP_SIDETONE);
+        }
+
+        return capabilities;
     }
 
     constexpr capability_detail
@@ -271,8 +282,9 @@ private:
     static constexpr uint8_t REPORT_ID_IN  = 0x01;
 
     // A wireless receiver relays commands to the headset paired with it, whereas a
-    // wired headset answers for itself. Addressing the wrong one is not reported as
-    // an error - the device simply stays silent.
+    // wired headset answers for itself. Addressing the wrong one is not reported
+    // consistently: the XT simply stays silent, while a wired SE answers in a way
+    // that fails as a protocol error.
     static constexpr uint8_t TARGET_HEADSET     = 0x09;
     static constexpr uint8_t TARGET_SELF        = 0x08;
     static constexpr uint8_t REPLY_FROM_HEADSET = 0x01;
@@ -386,6 +398,7 @@ private:
         const uint8_t hinted    = wired ? TARGET_SELF : TARGET_HEADSET;
         const uint8_t alternate = wired ? TARGET_HEADSET : TARGET_SELF;
 
+        std::optional<DeviceError> protocol_error;
         for (const uint8_t candidate : { hinted, alternate }) {
             auto level
                 = readProperty(device_handle, candidate, PROP_BATTERY_LEVEL, TARGET_PROBE_TIMEOUT_MS);
@@ -395,14 +408,25 @@ private:
 
             // Silence means nothing is listening on that target, and "no such
             // property" is a receiver answering for itself with no headset behind
-            // it. Anything else - a failed HID write, an unexpected status - is a
-            // real fault, and reporting it as offline would hide it.
+            // it. A protocol error can also just mean the wrong target - a wired
+            // SE answers that way - so the other target is still tried, but the
+            // error is kept: if nothing answers it is the real fault, and
+            // reporting it as offline would hide it. Anything else, such as a
+            // failed HID write, fails the same way on either target.
             const auto code = level.error().code;
-            if (code != DeviceError::Code::DeviceOffline && code != DeviceError::Code::NotSupported) {
+            if (code == DeviceError::Code::ProtocolError) {
+                if (!protocol_error) {
+                    protocol_error = level.error();
+                }
+            } else if (code != DeviceError::Code::DeviceOffline
+                && code != DeviceError::Code::NotSupported) {
                 return level.error();
             }
         }
 
+        if (protocol_error) {
+            return *protocol_error;
+        }
         return DeviceError::deviceOffline("Headset not connected or powered off");
     }
 

@@ -118,11 +118,14 @@ private:
 
 constexpr uint16_t PID_WIRELESS  = 0x0a64;
 constexpr uint16_t PID_WIRED     = 0x0a62;
+constexpr uint16_t PID_SE_WIRED  = 0x0a3d;
+constexpr uint16_t PID_SE_RX     = 0x0a3e;
 constexpr uint8_t FROM_HEADSET   = 0x01;
 constexpr uint8_t FROM_SELF      = 0x00;
 constexpr uint8_t GET            = 0x02;
 constexpr uint8_t STATUS_OK      = 0x00;
 constexpr uint8_t STATUS_NO_PROP = 0x05;
+constexpr uint8_t STATUS_REFUSED = 0x09;
 constexpr uint32_t CHARGING      = 1;
 constexpr uint32_t DISCHARGING   = 2;
 
@@ -204,7 +207,52 @@ void testVirtuosoTargetResolutionErrors()
         "a HID error during target resolution should be propagated");
     VIRTUOSO_ASSERT(broken.writes.size() == 1, "a HID error should not fall through to the other target");
 
+    // A wired SE answers on the target it does not use with something that is
+    // a protocol error rather than silence. That must not stop the other target
+    // from being tried.
+    VirtuosoMockHID wired_se;
+    TestableVirtuoso wired_se_device(wired_se, PID_SE_WIRED);
+    wired_se.reply(1, FROM_SELF, GET, STATUS_REFUSED);
+    wired_se.reply(2, FROM_HEADSET, GET, STATUS_OK, 960);
+    wired_se.reply(3, FROM_HEADSET, GET, STATUS_OK, CHARGING);
+    auto fallback = wired_se_device.getBattery(nullptr);
+    VIRTUOSO_ASSERT(fallback.hasValue(), "a protocol error on one target should fall through to the other");
+    VIRTUOSO_ASSERT(fallback->level_percent == 96 && fallback->status == BATTERY_CHARGING,
+        "the battery should come from the target that answered");
+    VIRTUOSO_ASSERT(wired_se.writes[1][1] == 0x09 && wired_se.writes[2][1] == 0x09,
+        "requests after the probe should go to the target that answered");
+
+    // If neither target answers properly, the protocol error is the fault to
+    // report, not "offline".
+    VirtuosoMockHID garbled;
+    TestableVirtuoso garbled_device(garbled, PID_SE_WIRED);
+    garbled.reply(1, FROM_SELF, GET, STATUS_REFUSED);
+    auto protocol = garbled_device.getBattery(nullptr);
+    VIRTUOSO_ASSERT(protocol.hasError(), "no usable reply should fail");
+    VIRTUOSO_ASSERT(protocol.error().code == DeviceError::Code::ProtocolError,
+        "a protocol error with nothing else answering should be reported, not dressed up as offline");
+    VIRTUOSO_ASSERT(garbled.writes.size() == 2, "both targets should have been probed");
+
     std::cout << "    OK target resolution errors" << std::endl;
+}
+
+void testVirtuosoSidetoneOnlyOnXT()
+{
+    std::cout << "  Testing sidetone is advertised on the XT only..." << std::endl;
+
+    VirtuosoMockHID hid;
+    for (const uint16_t pid : { PID_WIRELESS, PID_WIRED }) {
+        TestableVirtuoso device(hid, pid);
+        VIRTUOSO_ASSERT(device.getCapabilities() & B(CAP_SIDETONE), "the XT should advertise sidetone");
+    }
+    for (const uint16_t pid : { PID_SE_RX, PID_SE_WIRED }) {
+        TestableVirtuoso device(hid, pid);
+        VIRTUOSO_ASSERT(!(device.getCapabilities() & B(CAP_SIDETONE)),
+            "the SE should not advertise sidetone");
+        VIRTUOSO_ASSERT(device.getCapabilities() & B(CAP_BATTERY_STATUS), "the SE keeps battery");
+    }
+
+    std::cout << "    OK sidetone on the XT only" << std::endl;
 }
 
 void runAllCorsairVirtuosoTests()
@@ -213,6 +261,7 @@ void runAllCorsairVirtuosoTests()
     testVirtuosoBattery();
     testVirtuosoStaleReplyIsDiscarded();
     testVirtuosoTargetResolutionErrors();
+    testVirtuosoSidetoneOnlyOnXT();
     std::cout << "  Corsair Virtuoso tests passed" << std::endl;
 }
 
