@@ -24,8 +24,9 @@ namespace headsetcontrol {
  */
 class SteelSeriesArctis9 : public protocols::SteelSeriesLegacyDevice<SteelSeriesArctis9> {
 public:
-    static constexpr std::array<uint16_t, 1> SUPPORTED_PRODUCT_IDS {
-        0x12c2 // Arctis 9
+    static constexpr std::array<uint16_t, 2> SUPPORTED_PRODUCT_IDS {
+        0x12c2, // Arctis 9
+        0x12c4 // Arctis 9, later hardware revision - reported, not verified on hardware
     };
 
     static constexpr uint8_t BATTERY_MIN = 0x64;
