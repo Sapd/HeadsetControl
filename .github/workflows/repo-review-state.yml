@@ -12,6 +12,9 @@ name: Label PR Review State
 # The events keep it current, the daily run recomputes everything from scratch
 # so a missed event, a hand-edited label or a PR older than this workflow all
 # heal by themselves.
+#
+# Reviews arrive indirectly, through the Review State Signal workflow - see the
+# workflow_run trigger below for why.
 
 on:
   schedule:
@@ -24,12 +27,14 @@ on:
         default: false
   issue_comment:
     types: [created]
-  pull_request_review:
-    types: [submitted]
-  # Replies inside an existing diff thread are neither issue_comment nor a new
-  # review, so without this they would wait for the nightly run.
-  pull_request_review_comment:
-    types: [created]
+  # Review events are not listed here: on a fork PR they get a read-only token
+  # regardless of the permissions below, so the label write fails with 403.
+  # "Review State Signal" catches them instead and its completion reaches us as
+  # workflow_run, which does get a write token. That payload carries no PR
+  # number, so it reconciles every open PR, like the nightly run.
+  workflow_run:
+    workflows: ["Review State Signal"]
+    types: [completed]
   pull_request_target:
     types: [opened, reopened, synchronize, ready_for_review, converted_to_draft, closed]
 
