@@ -27,6 +27,7 @@ void runAllStringEscapingTests();
 void runAllLibraryApiTests();
 void runAllProtocolTests();
 void runAllSteelSeriesSidetoneTests();
+void runAllCorsairVirtuosoTests();
 }
 
 int main()
@@ -69,6 +70,8 @@ int main()
         headsetcontrol::testing::runAllProtocolTests();
 
         headsetcontrol::testing::runAllSteelSeriesSidetoneTests();
+
+        headsetcontrol::testing::runAllCorsairVirtuosoTests();
 
         std::cout << "\n====================================================================" << std::endl;
         std::cout << "                    All tests passed successfully!                  " << std::endl;
