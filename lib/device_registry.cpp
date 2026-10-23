@@ -7,6 +7,7 @@
 
 // Logitech devices
 #include "devices/logitech_astro_a50.hpp"
+#include "devices/logitech_astro_a50_gen4.hpp"
 
 // Logitech devices with HIDPPDevice protocol template
 #include "devices/logitech_g432.hpp"
@@ -54,9 +55,15 @@
 // Plantronics / Poly devices
 #include "devices/plantronics_bt600.hpp"
 
+// Jabra devices
+#include "devices/jabra_evolve2_65_flex.hpp"
+#include "devices/jabra_link_380.hpp"
+#include "devices/jabra_link_390.hpp"
+
 // Sony devices
 #include "devices/sony_inzone_buds.hpp"
 #include "devices/sony_inzone_h5.hpp"
+#include "devices/sony_inzone_h9_ii.hpp"
 
 // MCHOSE devices
 #include "devices/mchose_x9.hpp"
@@ -103,6 +110,7 @@ void DeviceRegistry::initialize()
         // Each device is managed by a unique_ptr for automatic cleanup
 
         // Logitech devices
+        registerDevice(std::make_unique<LogitechAstroA50Gen4>());
         registerDevice(std::make_unique<LogitechAstroA50>());
 
         // Logitech devices (using HIDPPDevice protocol template)
@@ -156,9 +164,15 @@ void DeviceRegistry::initialize()
         // Plantronics / Poly devices
         registerDevice(std::make_unique<PlantronicsBT600>());
 
+        // Jabra devices
+        registerDevice(std::make_unique<JabraLink380>());
+        registerDevice(std::make_unique<JabraLink390>());
+        registerDevice(std::make_unique<JabraEvolve265Flex>());
+
         // Sony devices
         registerDevice(std::make_unique<SonyINZONEBuds>());
         registerDevice(std::make_unique<SonyINZONEH5>());
+        registerDevice(std::make_unique<SonyINZONEH9II>());
 
         // MCHOSE devices
         registerDevice(std::make_unique<MchoseX9>());

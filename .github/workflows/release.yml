@@ -116,3 +116,10 @@ jobs:
     with:
       tag: ${{ github.event.inputs.tag || github.ref_name }}
     secrets: inherit
+
+  winget:
+    needs: [release]
+    uses: ./.github/workflows/bump-winget.yml
+    with:
+      tag: ${{ github.event.inputs.tag || github.ref_name }}
+    secrets: inherit

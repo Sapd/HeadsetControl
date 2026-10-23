@@ -241,6 +241,72 @@ inline constexpr std::array<CapabilityDescriptor, NUM_CAPABILITIES> CAPABILITY_D
         .min_value   = std::nullopt,
         .max_value   = std::nullopt,
         .value_hint  = "" },
+
+    // CAP_ANC
+    {
+        .cap         = CAP_ANC,
+        .type        = CAPABILITYTYPE_ACTION,
+        .name        = "anc",
+        .short_flag  = "",
+        .description = "Set active noise cancellation mode (0=off, 1=ANC, 2=ambient sound)",
+        .min_value   = 0,
+        .max_value   = 2,
+        .value_hint  = "<0|1|2>" },
+
+    // CAP_ANC_STARTUP_MODE
+    {
+        .cap         = CAP_ANC_STARTUP_MODE,
+        .type        = CAPABILITYTYPE_ACTION,
+        .name        = "anc-startup-mode",
+        .short_flag  = "",
+        .description = "Set ANC mode at power-on (0=off, 1=NC, 2=ambient, 3=mode at power off)",
+        .min_value   = 0,
+        .max_value   = 3,
+        .value_hint  = "<0|1|2|3>" },
+
+    // CAP_ANC_BUTTON_MODES
+    {
+        .cap         = CAP_ANC_BUTTON_MODES,
+        .type        = CAPABILITYTYPE_ACTION,
+        .name        = "anc-button-modes",
+        .short_flag  = "",
+        .description = "Set ANC modes the headset's ANC button cycles through",
+        .min_value   = std::nullopt,
+        .max_value   = std::nullopt,
+        .value_hint  = "<off,anc,ambient>" },
+
+    // CAP_MICROPHONE_ATTACHMENT_STATUS
+    {
+        .cap         = CAP_MICROPHONE_ATTACHMENT_STATUS,
+        .type        = CAPABILITYTYPE_INFO,
+        .name        = "microphone-attachment-status",
+        .short_flag  = "",
+        .description = "Show whether the detachable boom mic is physically attached",
+        .min_value   = std::nullopt,
+        .max_value   = std::nullopt,
+        .value_hint  = "" },
+
+    // CAP_MICROPHONE_MUTE_STATUS
+    {
+        .cap         = CAP_MICROPHONE_MUTE_STATUS,
+        .type        = CAPABILITYTYPE_INFO,
+        .name        = "microphone-mute-status",
+        .short_flag  = "",
+        .description = "Show whether the microphone is muted",
+        .min_value   = std::nullopt,
+        .max_value   = std::nullopt,
+        .value_hint  = "" },
+
+    // CAP_HEADSET_VOLUME
+    {
+        .cap         = CAP_HEADSET_VOLUME,
+        .type        = CAPABILITYTYPE_ACTION,
+        .name        = "volume",
+        .short_flag  = "",
+        .description = "Get current headset hardware volume, or set it to LEVEL",
+        .min_value   = 0,
+        .max_value   = 128,
+        .value_hint  = "[LEVEL]" },
 } };
 
 /**

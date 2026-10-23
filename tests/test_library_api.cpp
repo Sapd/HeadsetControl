@@ -6,6 +6,7 @@
  * 1. C++ API functions that don't require hardware (version, supportedDevices, discover)
  * 2. C API functions that don't require hardware
  * 3. Both APIs are consistent with each other
+ * 4. Product name refinement, against a mock device
  *
  * Note: discover() will return empty results without actual hardware,
  * but we test that it executes without crashing.
@@ -13,6 +14,7 @@
 
 #include "headsetcontrol.hpp"
 #include "headsetcontrol_c.h"
+#include "product_name.hpp"
 
 #include <algorithm>
 #include <array>
@@ -266,8 +268,31 @@ void testCNullHandling()
     hsc_sidetone_status_t sidetone_status;
     ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_get_sidetone(nullptr, &sidetone_status), "get_sidetone(null) should fail");
 
+    hsc_mic_mute_status_t mic_mute_status;
+    ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_get_mic_mute_status(nullptr, &mic_mute_status), "get_mic_mute_status(null) should fail");
+
+    hsc_mic_attachment_status_t mic_attachment_status;
+    ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_get_mic_attachment_status(nullptr, &mic_attachment_status), "get_mic_attachment_status(null) should fail");
+
+    ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_anc(nullptr, 1), "set_anc(null) should fail");
+    ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_anc_startup_mode(nullptr, 1), "set_anc_startup_mode(null) should fail");
+    hsc_anc_button_modes_t anc_button_modes = { .off = true, .anc = true, .ambient = false };
+    ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_anc_button_modes(nullptr, &anc_button_modes), "set_anc_button_modes(null) should fail");
     ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_sidetone(nullptr, 64, nullptr), "set_sidetone(null) should fail");
     ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_lights(nullptr, true), "set_lights(null) should fail");
+    ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_noise_filter(nullptr, 1), "set_noise_filter(null) should fail");
+
+    hsc_equalizer_info_t eq_info;
+    ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_get_equalizer_info(nullptr, &eq_info), "get_equalizer_info(null) should fail");
+    hsc_parametric_equalizer_info_t peq_info;
+    ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_get_parametric_equalizer_info(nullptr, &peq_info), "get_parametric_equalizer_info(null) should fail");
+    hsc_parametric_band_t peq_band = { .frequency = 1000.0f, .gain = 0.0f, .q_factor = 1.0f, .type = HSC_EQ_FILTER_PEAKING };
+    ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_parametric_equalizer(nullptr, &peq_band, 1), "set_parametric_equalizer(null) should fail");
+
+    ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_headset_volume(nullptr, 64, nullptr), "set_headset_volume(null) should fail");
+    hsc_headset_volume_t headset_volume;
+    ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_get_headset_volume(nullptr, &headset_volume), "get_headset_volume(null) should fail");
+    ASSERT_EQ(0, hsc_get_readable_capabilities(nullptr), "get_readable_capabilities(null) should be 0");
 
     std::cout << "    OK C API null handling" << std::endl;
 }
@@ -325,6 +350,63 @@ void testCppTestDeviceMode()
             ASSERT_TRUE(sidetone_status.hasValue(), "Sidetone status should return success");
             ASSERT_EQ(85, sidetone_status->current_level, "Sidetone status should be 85");
             ASSERT_EQ(2, sidetone_status->device_level, "Native sidetone level should be 2");
+
+            // Test headset volume
+            ASSERT_TRUE(headset.supports(CAP_HEADSET_VOLUME), "Test device should support headset volume");
+
+            auto volume = headset.setHeadsetVolume(64);
+            ASSERT_TRUE(volume.hasValue(), "Headset volume set should return success");
+            ASSERT_EQ(64, volume->volume, "Headset volume should be 64");
+            ASSERT_EQ(21, volume->device_max, "Native volume max should be 21");
+            ASSERT_EQ(12, volume->device_volume, "Native volume level should be 12");
+
+            ASSERT_TRUE(headset.canRead(CAP_HEADSET_VOLUME), "Test device should read back headset volume");
+            ASSERT_FALSE(headset.canRead(CAP_LIGHTS), "Test device can't read back lights");
+            ASSERT_EQ(B(CAP_SIDETONE) | B(CAP_HEADSET_VOLUME), headset.readableCapabilitiesMask(),
+                "Readable mask should be sidetone and headset volume");
+
+            auto volume_read = headset.getHeadsetVolume();
+            ASSERT_TRUE(volume_read.hasValue(), "Headset volume read should return success");
+            ASSERT_EQ(77, volume_read->volume, "Headset volume read should be 77");
+            ASSERT_EQ(15, volume_read->device_volume, "Native volume read should be 15");
+
+            // Profile 6: volume stays settable but can't be read back
+            headsetcontrol::setTestProfile(6);
+            ASSERT_TRUE(headset.supports(CAP_HEADSET_VOLUME), "Profile 6 should still support headset volume");
+            ASSERT_FALSE(headset.canRead(CAP_HEADSET_VOLUME), "Profile 6 can't read back headset volume");
+            ASSERT_TRUE(headset.setHeadsetVolume(64).hasValue(), "Profile 6 should still set headset volume");
+
+            auto volume_write_only = headset.getHeadsetVolume();
+            ASSERT_TRUE(volume_write_only.hasError(), "Profile 6 headset volume read should fail");
+            ASSERT_TRUE(volume_write_only.error().code == DeviceError::Code::NotSupported,
+                "Profile 6 headset volume read should be not supported");
+            headsetcontrol::setTestProfile(0);
+
+            // The normalised 0-128 setters are reachable without the CLI's parsing,
+            // so they have to reject out-of-range levels instead of letting the
+            // device scale them into maximum volume.
+            auto volume_max = headset.setHeadsetVolume(128);
+            ASSERT_TRUE(volume_max.hasValue(), "Headset volume 128 should be accepted");
+
+            auto volume_high = headset.setHeadsetVolume(129);
+            ASSERT_TRUE(volume_high.hasError(), "Headset volume 129 should be rejected");
+            ASSERT_TRUE(volume_high.error().code == DeviceError::Code::InvalidParameter,
+                "Headset volume 129 should be an invalid parameter");
+
+            ASSERT_TRUE(headset.setSidetone(255).hasError(), "Sidetone 255 should be rejected");
+            ASSERT_TRUE(headset.setMicVolume(200).hasError(), "Microphone volume 200 should be rejected");
+
+            // Test noise filter
+            ASSERT_TRUE(headset.supports(CAP_NOISE_FILTER), "Test device should support noise filter");
+            auto noise_filter = headset.setNoiseFilter(2);
+            ASSERT_TRUE(noise_filter.hasValue(), "Noise filter should return success");
+            ASSERT_EQ(2, noise_filter->level, "Noise filter level should be 2");
+
+            // The test device accepts any level, so the 0-2 bound has to come from the library
+            auto noise_filter_high = headset.setNoiseFilter(3);
+            ASSERT_TRUE(noise_filter_high.hasError(), "Noise filter 3 should be rejected");
+            ASSERT_TRUE(noise_filter_high.error().code == DeviceError::Code::InvalidParameter,
+                "Noise filter 3 should be an invalid parameter");
 
             // Test chatmix
             auto chatmix = headset.getChatmix();
@@ -426,11 +508,24 @@ void testCTestDeviceMode()
             ASSERT_TRUE(hsc_supports(headsets[i], HSC_CAP_BATTERY_STATUS), "Should support battery");
             ASSERT_TRUE(hsc_supports(headsets[i], HSC_CAP_SIDETONE), "Should support sidetone");
             ASSERT_TRUE(hsc_supports(headsets[i], HSC_CAP_SIDETONE_STATUS), "Should support sidetone status");
+            ASSERT_TRUE(hsc_supports(headsets[i], HSC_CAP_ANC), "Should support ANC");
+            ASSERT_TRUE(hsc_supports(headsets[i], HSC_CAP_ANC_STARTUP_MODE), "Should support ANC startup mode");
+            ASSERT_TRUE(hsc_supports(headsets[i], HSC_CAP_ANC_BUTTON_MODES), "Should support ANC button modes");
+            ASSERT_TRUE(hsc_supports(headsets[i], HSC_CAP_MICROPHONE_ATTACHMENT_STATUS), "Should support microphone attachment status");
+            ASSERT_TRUE(hsc_supports(headsets[i], HSC_CAP_MICROPHONE_MUTE_STATUS), "Should support microphone mute status");
 
             // Test battery
             hsc_battery_t battery;
             ASSERT_EQ(HSC_RESULT_OK, hsc_get_battery(headsets[i], &battery), "Battery should succeed");
             ASSERT_EQ(42, battery.level_percent, "Battery level should be 42%");
+            ASSERT_EQ(HSC_BATTERY_AVAILABLE, battery.status, "Battery status should be available");
+
+            // Profile 2 reports a charging battery
+            hsc_set_test_profile(2);
+            hsc_battery_t charging;
+            ASSERT_EQ(HSC_RESULT_OK, hsc_get_battery(headsets[i], &charging), "Charging battery should succeed");
+            ASSERT_EQ(HSC_BATTERY_CHARGING, charging.status, "Battery status should be charging");
+            hsc_set_test_profile(0);
 
             // Test sidetone
             hsc_sidetone_t sidetone;
@@ -444,6 +539,48 @@ void testCTestDeviceMode()
             ASSERT_NOT_NULL(sidetone_status.level_name, "Sidetone name should be available");
             ASSERT_EQ(std::string("Medium"), std::string(sidetone_status.level_name), "Sidetone name should match");
 
+            hsc_mic_mute_status_t mic_mute_status;
+            ASSERT_EQ(HSC_RESULT_OK, hsc_get_mic_mute_status(headsets[i], &mic_mute_status), "Mic mute status should succeed");
+            ASSERT_FALSE(mic_mute_status.muted, "Mic mute status should be unmuted");
+
+            hsc_mic_attachment_status_t mic_attachment_status;
+            ASSERT_EQ(HSC_RESULT_OK, hsc_get_mic_attachment_status(headsets[i], &mic_attachment_status), "Mic attachment status should succeed");
+            ASSERT_TRUE(mic_attachment_status.attached, "Mic should be attached");
+
+            ASSERT_EQ(HSC_RESULT_OK, hsc_set_anc(headsets[i], 2), "ANC should succeed");
+            ASSERT_EQ(HSC_RESULT_OK, hsc_set_anc_startup_mode(headsets[i], 3), "ANC startup mode should succeed");
+            hsc_anc_button_modes_t anc_button_modes = { .off = true, .anc = true, .ambient = false };
+            ASSERT_EQ(HSC_RESULT_OK, hsc_set_anc_button_modes(headsets[i], &anc_button_modes), "ANC button modes should succeed");
+            hsc_anc_button_modes_t no_modes = { .off = false, .anc = false, .ambient = false };
+            ASSERT_TRUE(HSC_RESULT_OK != hsc_set_anc_button_modes(headsets[i], &no_modes), "ANC button modes with no mode should fail");
+            ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_anc_button_modes(headsets[i], nullptr), "ANC button modes with null modes should fail");
+
+            // Test headset volume
+            ASSERT_TRUE(hsc_supports(headsets[i], HSC_CAP_HEADSET_VOLUME), "Should support headset volume");
+
+            hsc_headset_volume_t volume;
+            ASSERT_EQ(HSC_RESULT_OK, hsc_set_headset_volume(headsets[i], 64, &volume), "Headset volume set should succeed");
+            ASSERT_EQ(64, volume.volume, "Headset volume should be 64");
+            ASSERT_EQ(12, volume.device_volume, "Native volume level should be 12");
+            ASSERT_EQ(21, volume.device_max, "Native volume max should be 21");
+            ASSERT_EQ(HSC_RESULT_OK, hsc_set_headset_volume(headsets[i], 64, NULL), "Headset volume set with NULL result should succeed");
+            ASSERT_EQ(HSC_RESULT_OK, hsc_set_headset_volume(headsets[i], 128, NULL), "Headset volume 128 should be accepted");
+            ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_headset_volume(headsets[i], 129, NULL), "Headset volume 129 should be rejected");
+
+            ASSERT_TRUE((hsc_get_readable_capabilities(headsets[i]) & (1 << HSC_CAP_HEADSET_VOLUME)) != 0,
+                "Headset volume should be readable");
+            ASSERT_EQ(HSC_RESULT_OK, hsc_get_headset_volume(headsets[i], &volume), "Headset volume read should succeed");
+            ASSERT_EQ(77, volume.volume, "Headset volume read should be 77");
+            ASSERT_EQ(15, volume.device_volume, "Native volume read should be 15");
+            ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_get_headset_volume(headsets[i], NULL), "Headset volume read with NULL should fail");
+            ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_sidetone(headsets[i], 255, NULL), "Sidetone 255 should be rejected");
+            ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_mic_volume(headsets[i], 200), "Microphone volume 200 should be rejected");
+
+            // Test noise filter
+            ASSERT_TRUE(hsc_supports(headsets[i], HSC_CAP_NOISE_FILTER), "Should support noise filter");
+            ASSERT_EQ(HSC_RESULT_OK, hsc_set_noise_filter(headsets[i], 1), "Noise filter should succeed");
+            ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_noise_filter(headsets[i], 3), "Noise filter 3 should be rejected");
+
             ASSERT_EQ(4, hsc_get_equalizer_presets_count(headsets[i]), "Preset count should be 4");
             ASSERT_EQ(std::string("Flat"), std::string(hsc_get_equalizer_preset_name(headsets[i], 0)), "Flat preset name should match");
             ASSERT_EQ(10, hsc_get_equalizer_preset_band_count(headsets[i], 0), "Flat preset should have 10 bands");
@@ -454,6 +591,43 @@ void testCTestDeviceMode()
                 "Fetching preset bands should succeed");
             ASSERT_EQ(6.0f, preset_bands[0], "Bass Boost first band should match");
             ASSERT_EQ(4.0f, preset_bands[1], "Bass Boost second band should match");
+
+            // Test equalizer layouts
+            hsc_equalizer_info_t eq_info;
+            ASSERT_EQ(HSC_RESULT_OK, hsc_get_equalizer_info(headsets[i], &eq_info), "Equalizer info should succeed");
+            ASSERT_EQ(10, eq_info.bands_count, "Equalizer should have 10 bands");
+            ASSERT_EQ(0, eq_info.bands_baseline, "Equalizer baseline should be 0");
+            ASSERT_EQ(0.5f, eq_info.bands_step, "Equalizer step should be 0.5");
+            ASSERT_EQ(-12, eq_info.bands_min, "Equalizer min should be -12");
+            ASSERT_EQ(12, eq_info.bands_max, "Equalizer max should be 12");
+            ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_get_equalizer_info(headsets[i], nullptr), "Equalizer info with null output should fail");
+
+            hsc_parametric_equalizer_info_t peq_info;
+            ASSERT_EQ(HSC_RESULT_OK, hsc_get_parametric_equalizer_info(headsets[i], &peq_info), "Parametric equalizer info should succeed");
+            ASSERT_EQ(10, peq_info.bands_count, "Parametric equalizer should have 10 bands");
+            ASSERT_EQ(-12.0f, peq_info.gain_min, "Parametric gain min should be -12");
+            ASSERT_EQ(12.0f, peq_info.gain_max, "Parametric gain max should be 12");
+            ASSERT_EQ(20, peq_info.freq_min, "Parametric frequency min should be 20");
+            ASSERT_EQ(20000, peq_info.freq_max, "Parametric frequency max should be 20000");
+            ASSERT_TRUE((peq_info.filter_types & (1 << HSC_EQ_FILTER_PEAKING)) != 0, "Peaking filter should be supported");
+            ASSERT_TRUE((peq_info.filter_types & (1 << HSC_EQ_FILTER_NOTCH)) == 0, "Notch filter should not be supported");
+
+            // Test parametric equalizer
+            hsc_parametric_band_t peq_bands[] = {
+                { .frequency = 100.0f, .gain = 3.0f, .q_factor = 0.7f, .type = HSC_EQ_FILTER_LOW_SHELF },
+                { .frequency = 1000.0f, .gain = -2.0f, .q_factor = 1.414f, .type = HSC_EQ_FILTER_PEAKING },
+            };
+            ASSERT_EQ(HSC_RESULT_OK, hsc_set_parametric_equalizer(headsets[i], peq_bands, 2), "Parametric equalizer should succeed");
+            ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_parametric_equalizer(headsets[i], peq_bands, 0), "Parametric equalizer with no bands should fail");
+            ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_parametric_equalizer(headsets[i], nullptr, 2), "Parametric equalizer with null bands should fail");
+            hsc_parametric_band_t bad_type = { .frequency = 1000.0f, .gain = 0.0f, .q_factor = 1.0f, .type = static_cast<hsc_eq_filter_type_t>(6) };
+            ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_parametric_equalizer(headsets[i], &bad_type, 1), "Unknown filter type should be rejected");
+
+            // Profile 10 drops both equalizers from the test device
+            hsc_set_test_profile(10);
+            ASSERT_EQ(HSC_RESULT_NOT_SUPPORTED, hsc_get_equalizer_info(headsets[i], &eq_info), "Equalizer info should be unsupported in profile 10");
+            ASSERT_EQ(HSC_RESULT_NOT_SUPPORTED, hsc_get_parametric_equalizer_info(headsets[i], &peq_info), "Parametric equalizer info should be unsupported in profile 10");
+            hsc_set_test_profile(0);
 
             break;
         }
@@ -645,6 +819,117 @@ void testEqualizerPresetConsistency()
 }
 
 // ============================================================================
+// Product Name Refinement Tests
+// ============================================================================
+
+// The test device opens no HID handle, so a device that reports its own name
+// stands in for e.g. a Jabra Link dongle naming the headset paired to it
+class MetadataDevice : public HIDDevice {
+public:
+    uint16_t getVendorId() const override { return 0x1234; }
+    std::vector<uint16_t> getProductIds() const override { return { 0x5678 }; }
+    std::string_view getDeviceName() const override { return "Metadata Device"; }
+    int getCapabilities() const override { return 0; }
+
+    Result<DeviceMetadata> getMetadata([[maybe_unused]] hid_device* device_handle) override
+    {
+        calls++;
+        if (fail) {
+            return DeviceError::timeout("No answer");
+        }
+        return DeviceMetadata {
+            .name       = getDeviceName(),
+            .vendor_id  = getVendorId(),
+            .product_id = 0x5678,
+            .product    = product,
+        };
+    }
+
+    std::string product;
+    bool fail = false;
+    int calls = 0;
+};
+
+void testProductNameRefined()
+{
+    std::cout << "  Testing product name refinement..." << std::endl;
+
+    MetadataDevice device;
+    device.product = "Paired Headset";
+
+    ProductName name("USB Dongle With A Name Too Long For SSO");
+    std::string_view before = name.get();
+    ASSERT_EQ(std::string("USB Dongle With A Name Too Long For SSO"), std::string(before),
+        "Name should start as the enumeration name");
+
+    name.refine(device, nullptr);
+    ASSERT_EQ(std::string("Paired Headset"), std::string(name.get()), "Name should be the refined one");
+    ASSERT_EQ(std::string("USB Dongle With A Name Too Long For SSO"), std::string(before),
+        "A view taken before refinement should keep the enumeration name");
+
+    std::cout << "    OK product name refinement" << std::endl;
+}
+
+void testProductNameRefinedOnce()
+{
+    std::cout << "  Testing product name is refined once..." << std::endl;
+
+    MetadataDevice device;
+    device.product = "First Headset";
+
+    ProductName name("USB Dongle");
+    name.refine(device, nullptr);
+    std::string_view after = name.get();
+
+    device.product = "Second Headset";
+    name.refine(device, nullptr);
+
+    ASSERT_EQ(1, device.calls, "Metadata should be queried once");
+    ASSERT_EQ(std::string("First Headset"), std::string(name.get()), "A later refine should not change the name");
+    ASSERT_EQ(std::string("First Headset"), std::string(after), "A view taken after refinement should stay valid");
+
+    std::cout << "    OK product name is refined once" << std::endl;
+}
+
+void testProductNameEmptyRefinement()
+{
+    std::cout << "  Testing empty refined product name..." << std::endl;
+
+    MetadataDevice device;
+
+    ProductName name("USB Dongle");
+    name.refine(device, nullptr);
+    ASSERT_EQ(std::string("USB Dongle"), std::string(name.get()), "An empty name should keep the enumeration name");
+
+    device.product = "Paired Headset";
+    name.refine(device, nullptr);
+    ASSERT_EQ(1, device.calls, "An empty answer should still count as the one query");
+    ASSERT_EQ(std::string("USB Dongle"), std::string(name.get()), "The enumeration name should stay");
+
+    std::cout << "    OK empty refined product name" << std::endl;
+}
+
+void testProductNameRefinementError()
+{
+    std::cout << "  Testing product name refinement error..." << std::endl;
+
+    MetadataDevice device;
+    device.product = "Paired Headset";
+    device.fail    = true;
+
+    ProductName name("USB Dongle");
+    name.refine(device, nullptr);
+    ASSERT_EQ(std::string("USB Dongle"), std::string(name.get()), "An error should keep the enumeration name");
+
+    device.fail = false;
+    name.refine(device, nullptr);
+    ASSERT_EQ(1, device.calls, "A failed query should not be retried");
+    ASSERT_EQ(std::string("USB Dongle"), std::string(name.get()), "The enumeration name should stay");
+
+    std::cout << "    OK product name refinement error" << std::endl;
+}
+
+// ============================================================================
 // Test Runner
 // ============================================================================
 
@@ -694,6 +979,12 @@ void runAllLibraryApiTests()
     std::cout << "\n=== Test Device Mode Tests ===" << std::endl;
     runTest("C++ test device mode", testCppTestDeviceMode);
     runTest("C test device mode", testCTestDeviceMode);
+
+    std::cout << "\n=== Product Name Refinement Tests ===" << std::endl;
+    runTest("Product name refined", testProductNameRefined);
+    runTest("Product name refined once", testProductNameRefinedOnce);
+    runTest("Product name empty refinement", testProductNameEmptyRefinement);
+    runTest("Product name refinement error", testProductNameRefinementError);
 
     std::cout << "\n-------------------------------------------------------------------" << std::endl;
     std::cout << "Library API Tests: " << passed << " passed, " << failed << " failed" << std::endl;

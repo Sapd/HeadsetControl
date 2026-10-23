@@ -101,23 +101,30 @@ typedef enum {
     HSC_CAP_BT_CALL_VOLUME                 = 15,
     HSC_CAP_NOISE_FILTER                   = 16,
     HSC_CAP_SIDETONE_STATUS                = 17,
-    HSC_NUM_CAPABILITIES                   = 18,
+    HSC_CAP_ANC                            = 18,
+    HSC_CAP_ANC_STARTUP_MODE               = 19,
+    HSC_CAP_ANC_BUTTON_MODES               = 20,
+    HSC_CAP_MICROPHONE_ATTACHMENT_STATUS   = 21,
+    HSC_CAP_MICROPHONE_MUTE_STATUS         = 22,
+    HSC_CAP_HEADSET_VOLUME                 = 23,
+    HSC_NUM_CAPABILITIES                   = 24,
 } hsc_capability_t;
 
 /* ============================================================================
  * Battery Status
  * ============================================================================ */
 
+/* Matches the C++ battery_status enum, which hsc_get_battery() reports */
 typedef enum {
-    HSC_BATTERY_UNAVAILABLE = -1,
-    HSC_BATTERY_CHARGING    = -2,
-    HSC_BATTERY_AVAILABLE   = 0,
-    HSC_BATTERY_ERROR       = -100,
-    HSC_BATTERY_TIMEOUT     = -101,
+    HSC_BATTERY_UNAVAILABLE = 0,
+    HSC_BATTERY_CHARGING    = 1,
+    HSC_BATTERY_AVAILABLE   = 2,
+    HSC_BATTERY_ERROR       = 3,
+    HSC_BATTERY_TIMEOUT     = 4,
 } hsc_battery_status_t;
 
 typedef struct {
-    int level_percent; /**< Battery level 0-100, or negative for status */
+    int level_percent; /**< Battery level 0-100, or -1 if unknown */
     hsc_battery_status_t status; /**< Battery status */
     int voltage_mv; /**< Voltage in mV, or -1 if not available */
     int time_to_full_min; /**< Minutes to full, or -1 if not available */
@@ -155,6 +162,70 @@ typedef struct {
     uint8_t min_minutes;
     uint8_t max_minutes;
 } hsc_inactive_time_t;
+
+typedef struct {
+    bool muted;
+} hsc_mic_mute_status_t;
+
+typedef struct {
+    bool attached;
+} hsc_mic_attachment_status_t;
+
+typedef struct {
+    bool off; /* Include off mode */
+    bool anc; /* Include noise cancelling mode */
+    bool ambient; /* Include ambient sound mode */
+} hsc_anc_button_modes_t;
+
+typedef struct {
+    uint8_t volume; /**< Normalized volume level (0-128) */
+    uint8_t min_volume; /**< Minimum supported level */
+    uint8_t max_volume; /**< Maximum supported level */
+    uint8_t device_volume; /**< Device's native level (e.g., 0-21 for the ASTRO A50) */
+    uint8_t device_min; /**< Device's native minimum */
+    uint8_t device_max; /**< Device's native maximum */
+} hsc_headset_volume_t;
+
+/* Band layout of the custom equalizer, see hsc_get_equalizer_info() */
+typedef struct {
+    int bands_count; /**< Number of bands hsc_set_equalizer() expects */
+    int bands_baseline; /**< Band value that leaves the sound unchanged */
+    float bands_step; /**< Smallest change of a band value */
+    int bands_min; /**< Lowest band value */
+    int bands_max; /**< Highest band value */
+} hsc_equalizer_info_t;
+
+/* Parametric equalizer filter types (matches the C++ EqualizerFilterType) */
+typedef enum {
+    HSC_EQ_FILTER_LOW_SHELF  = 0,
+    HSC_EQ_FILTER_LOW_PASS   = 1,
+    HSC_EQ_FILTER_PEAKING    = 2,
+    HSC_EQ_FILTER_HIGH_PASS  = 3,
+    HSC_EQ_FILTER_HIGH_SHELF = 4,
+    HSC_EQ_FILTER_NOTCH      = 5,
+} hsc_eq_filter_type_t;
+
+/* Ranges of the parametric equalizer, see hsc_get_parametric_equalizer_info() */
+typedef struct {
+    int bands_count; /**< Maximum number of bands */
+    float gain_base; /**< Gain that leaves the sound unchanged, in dB */
+    float gain_step; /**< Smallest gain change, in dB */
+    float gain_min; /**< Lowest gain, in dB */
+    float gain_max; /**< Highest gain, in dB */
+    float q_factor_min; /**< Lowest Q factor */
+    float q_factor_max; /**< Highest Q factor */
+    int freq_min; /**< Lowest frequency, in Hz */
+    int freq_max; /**< Highest frequency, in Hz */
+    int filter_types; /**< Supported types: bit (1 << type) for each hsc_eq_filter_type_t */
+} hsc_parametric_equalizer_info_t;
+
+/* One band of a parametric equalizer, see hsc_set_parametric_equalizer() */
+typedef struct {
+    float frequency; /**< Frequency in Hz */
+    float gain; /**< Gain in dB */
+    float q_factor; /**< Q factor */
+    hsc_eq_filter_type_t type; /**< Filter type */
+} hsc_parametric_band_t;
 
 /* ============================================================================
  * Discovery Functions
@@ -237,10 +308,15 @@ HSC_API const char* hsc_get_vendor_name(hsc_headset_t headset);
 HSC_API uint16_t hsc_get_product_id(hsc_headset_t headset);
 
 /**
- * @brief Get USB product name
+ * @brief Get product name
+ *
+ * Starts as the USB product string. The first call that opens the device lets
+ * it refine the name, e.g. a dongle reporting the headset paired to it, so call
+ * this again after a query such as hsc_get_battery() to get the refined name.
  *
  * @param headset Headset handle
- * @return Product name (do not free), or NULL if unavailable
+ * @return Product name (do not free), or NULL if unavailable. Valid until the
+ *         headset is freed; a pointer returned earlier keeps the USB string.
  */
 HSC_API const char* hsc_get_product_name(hsc_headset_t headset);
 
@@ -260,6 +336,17 @@ HSC_API bool hsc_supports(hsc_headset_t headset, hsc_capability_t cap);
  * @return Bitmask of supported capabilities
  */
 HSC_API int hsc_get_capabilities(hsc_headset_t headset);
+
+/**
+ * @brief Get the bitmask of capabilities that can also be read back
+ *
+ * Uses the same bits as hsc_get_capabilities(). For example, if
+ * HSC_CAP_HEADSET_VOLUME is set, hsc_get_headset_volume() is available.
+ *
+ * @param headset Headset handle
+ * @return Bitmask of readable capabilities
+ */
+HSC_API int hsc_get_readable_capabilities(hsc_headset_t headset);
 
 /* ============================================================================
  * Battery & Status
@@ -292,6 +379,24 @@ HSC_API hsc_result_t hsc_get_chatmix(hsc_headset_t headset, hsc_chatmix_t* chatm
  */
 HSC_API hsc_result_t hsc_get_sidetone(hsc_headset_t headset, hsc_sidetone_status_t* sidetone);
 
+/**
+ * @brief Get microphone mute status
+ *
+ * @param headset Headset handle
+ * @param[out] status Microphone mute status to fill
+ * @return HSC_RESULT_OK on success, negative error code on failure
+ */
+HSC_API hsc_result_t hsc_get_mic_mute_status(hsc_headset_t headset, hsc_mic_mute_status_t* status);
+
+/**
+ * @brief Get whether the detachable boom mic is attached
+ *
+ * @param headset Headset handle
+ * @param[out] status Microphone attachment status to fill
+ * @return HSC_RESULT_OK on success, negative error code on failure
+ */
+HSC_API hsc_result_t hsc_get_mic_attachment_status(hsc_headset_t headset, hsc_mic_attachment_status_t* status);
+
 /* ============================================================================
  * Audio Controls
  * ============================================================================ */
@@ -315,6 +420,31 @@ HSC_API hsc_result_t hsc_set_sidetone(hsc_headset_t headset, uint8_t level, hsc_
  */
 HSC_API hsc_result_t hsc_set_volume_limiter(hsc_headset_t headset, bool enabled);
 
+/**
+ * @brief Set the headset (output) volume
+ *
+ * Controls the volume of the headset hardware itself (the value the
+ * on-device volume wheel changes), not the OS mixer volume.
+ *
+ * @param headset Headset handle
+ * @param volume Volume level (0-128)
+ * @param[out] result Optional result info (can be NULL)
+ * @return HSC_RESULT_OK on success, negative error code on failure
+ */
+HSC_API hsc_result_t hsc_set_headset_volume(hsc_headset_t headset, uint8_t volume, hsc_headset_volume_t* result);
+
+/**
+ * @brief Read the headset (output) volume
+ *
+ * Only available when HSC_CAP_HEADSET_VOLUME is set in
+ * hsc_get_readable_capabilities().
+ *
+ * @param headset Headset handle
+ * @param[out] volume Volume info
+ * @return HSC_RESULT_OK on success, negative error code on failure
+ */
+HSC_API hsc_result_t hsc_get_headset_volume(hsc_headset_t headset, hsc_headset_volume_t* volume);
+
 /* ============================================================================
  * Equalizer
  * ============================================================================ */
@@ -337,6 +467,48 @@ HSC_API hsc_result_t hsc_set_equalizer_preset(hsc_headset_t headset, uint8_t pre
  * @return HSC_RESULT_OK on success, negative error code on failure
  */
 HSC_API hsc_result_t hsc_set_equalizer(hsc_headset_t headset, const float* bands, int num_bands);
+
+/**
+ * @brief Get the band layout of the custom equalizer
+ *
+ * Reads no HID data. Some devices learn their layout from the headset and can
+ * only report it after an equalizer command on the same device (the Logitech
+ * PRO X 2 does); until then this returns HSC_RESULT_NOT_SUPPORTED.
+ *
+ * @param headset Headset handle
+ * @param[out] info Band layout
+ * @return HSC_RESULT_OK on success, HSC_RESULT_NOT_SUPPORTED if the device
+ *         doesn't describe its equalizer, negative error code on failure
+ */
+HSC_API hsc_result_t hsc_get_equalizer_info(hsc_headset_t headset, hsc_equalizer_info_t* info);
+
+/**
+ * @brief Get the ranges of the parametric equalizer
+ *
+ * Reads no HID data. As with hsc_get_equalizer_info(), some devices can only
+ * report it after an equalizer command on the same device.
+ *
+ * @param headset Headset handle
+ * @param[out] info Parametric equalizer ranges
+ * @return HSC_RESULT_OK on success, HSC_RESULT_NOT_SUPPORTED if the device
+ *         doesn't describe its parametric equalizer, negative error code on failure
+ */
+HSC_API hsc_result_t hsc_get_parametric_equalizer_info(
+    hsc_headset_t headset,
+    hsc_parametric_equalizer_info_t* info);
+
+/**
+ * @brief Set parametric equalizer bands
+ *
+ * @param headset Headset handle
+ * @param bands Array of bands
+ * @param num_bands Number of bands in array
+ * @return HSC_RESULT_OK on success, negative error code on failure
+ */
+HSC_API hsc_result_t hsc_set_parametric_equalizer(
+    hsc_headset_t headset,
+    const hsc_parametric_band_t* bands,
+    int num_bands);
 
 /**
  * @brief Get number of equalizer presets
@@ -400,6 +572,15 @@ HSC_API hsc_result_t hsc_set_mic_volume(hsc_headset_t headset, uint8_t volume);
  * @return HSC_RESULT_OK on success, negative error code on failure
  */
 HSC_API hsc_result_t hsc_set_mic_mute_led_brightness(hsc_headset_t headset, uint8_t brightness);
+
+/**
+ * @brief Set microphone noise filter level
+ *
+ * @param headset Headset handle
+ * @param level 0 = off, 1 = low, 2 = high
+ * @return HSC_RESULT_OK on success, negative error code on failure
+ */
+HSC_API hsc_result_t hsc_set_noise_filter(hsc_headset_t headset, uint8_t level);
 
 /**
  * @brief Set rotate-to-mute feature
@@ -472,6 +653,35 @@ HSC_API hsc_result_t hsc_set_bluetooth_when_powered_on(hsc_headset_t headset, bo
  * @return HSC_RESULT_OK on success, negative error code on failure
  */
 HSC_API hsc_result_t hsc_set_bluetooth_call_volume(hsc_headset_t headset, uint8_t volume);
+
+/**
+ * @brief Set active noise cancellation mode
+ *
+ * @param headset Headset handle
+ * @param mode 0 = off, 1 = noise cancelling, 2 = ambient sound
+ * @return HSC_RESULT_OK on success, negative error code on failure
+ */
+HSC_API hsc_result_t hsc_set_anc(hsc_headset_t headset, uint8_t mode);
+
+/**
+ * @brief Set ANC mode used at power-on
+ *
+ * @param headset Headset handle
+ * @param mode 0 = off, 1 = noise cancelling, 2 = ambient sound, 3 = mode at power off
+ * @return HSC_RESULT_OK on success, negative error code on failure
+ */
+HSC_API hsc_result_t hsc_set_anc_startup_mode(hsc_headset_t headset, uint8_t mode);
+
+/**
+ * @brief Set ANC modes the headset's ANC button cycles through
+ *
+ * At least one mode must be enabled.
+ *
+ * @param headset Headset handle
+ * @param modes Modes the ANC button cycles through
+ * @return HSC_RESULT_OK on success, negative error code on failure
+ */
+HSC_API hsc_result_t hsc_set_anc_button_modes(hsc_headset_t headset, const hsc_anc_button_modes_t* modes);
 
 /* ============================================================================
  * Test Device Mode

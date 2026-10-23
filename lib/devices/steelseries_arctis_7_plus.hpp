@@ -18,6 +18,10 @@ namespace headsetcontrol {
  * - Chatmix
  * - Inactive time
  * - Equalizer (10 bands, -12 to +12 range)
+ *
+ * Every setter follows the write with the save command (00 09), so the value
+ * survives a power cycle. That means each set writes to flash - worth knowing
+ * before calling these on a timer.
  */
 class SteelSeriesArctis7Plus : public protocols::SteelSeriesNovaDevice<SteelSeriesArctis7Plus> {
 public:
@@ -85,6 +89,12 @@ public:
         return presets;
     }
 
+    Result<void> saveStateArctis7Plus(hid_device* device_handle) const
+    {
+        std::array<uint8_t, 2> cmd { 0x00, 0x09 };
+        return sendCommand(device_handle, cmd);
+    }
+
     // Rich Results V2 API
     Result<BatteryResult> getBattery(hid_device* device_handle) override
     {
@@ -137,6 +147,10 @@ public:
             return result.error();
         }
 
+        if (auto save_result = saveStateArctis7Plus(device_handle); !save_result) {
+            return save_result.error();
+        }
+
         return SidetoneResult {
             .current_level = level,
             .min_level     = 0,
@@ -156,6 +170,10 @@ public:
         auto result = sendCommand(device_handle, cmd);
         if (!result) {
             return result.error();
+        }
+
+        if (auto save_result = saveStateArctis7Plus(device_handle); !save_result) {
+            return save_result.error();
         }
 
         return InactiveTimeResult {
@@ -228,6 +246,10 @@ public:
             return result.error();
         }
 
+        if (auto save_result = saveStateArctis7Plus(device_handle); !save_result) {
+            return save_result.error();
+        }
+
         return EqualizerPresetResult { .preset = preset, .total_presets = EQUALIZER_PRESETS_COUNT };
     }
 
@@ -253,6 +275,10 @@ public:
         auto result = sendCommand(device_handle, cmd);
         if (!result) {
             return result.error();
+        }
+
+        if (auto save_result = saveStateArctis7Plus(device_handle); !save_result) {
+            return save_result.error();
         }
 
         return EqualizerResult {};

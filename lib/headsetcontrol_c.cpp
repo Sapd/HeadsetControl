@@ -17,6 +17,7 @@ struct HeadsetWrapper {
     std::string name_str; // Persistent storage for C string
     std::string vendor_name_str;
     std::string product_name_str;
+    std::string refined_product_name_str; // Assigned once, so earlier pointers stay valid
     std::optional<EqualizerPresets> equalizer_presets_cache;
     std::string sidetone_level_name_cache;
 
@@ -95,6 +96,16 @@ void copySidetoneStatus(const headsetcontrol::SidetoneResult& source,
     destination.device_max    = source.device_max;
     level_name_cache          = source.level_name.value_or("");
     destination.level_name    = level_name_cache.empty() ? nullptr : level_name_cache.c_str();
+}
+
+void copyHeadsetVolume(const headsetcontrol::HeadsetVolumeResult& source, hsc_headset_volume_t& target)
+{
+    target.volume        = source.volume;
+    target.min_volume    = source.min_volume;
+    target.max_volume    = source.max_volume;
+    target.device_volume = source.device_volume;
+    target.device_min    = source.device_min;
+    target.device_max    = source.device_max;
 }
 
 } // namespace
@@ -221,9 +232,28 @@ const char* hsc_get_product_name(hsc_headset_t headset)
         return nullptr;
     }
 
-    const auto& product_name = static_cast<HeadsetWrapper*>(headset)->product_name_str;
+    auto* wrapper = static_cast<HeadsetWrapper*>(headset);
+
+    // The device may have refined the name since the wrapper was created. It is
+    // refined at most once, so the copy never has to be reassigned.
+    if (wrapper->refined_product_name_str.empty()
+        && wrapper->headset.productName() != wrapper->product_name_str) {
+        wrapper->refined_product_name_str = wrapper->headset.productName();
+    }
+
+    const auto& product_name = wrapper->refined_product_name_str.empty()
+        ? wrapper->product_name_str
+        : wrapper->refined_product_name_str;
     return product_name.empty() ? nullptr : product_name.c_str();
 }
+
+// hsc_capability_t mirrors the capabilities enum by value, and hsc_supports()
+// casts straight between them, so the X-macro generates one check per capability
+// rather than leaving the C header to be kept in step by hand.
+#define X(cap, str, short_char) static_assert(HSC_##cap == static_cast<int>(cap));
+CAPABILITIES_XLIST
+#undef X
+static_assert(HSC_NUM_CAPABILITIES == static_cast<int>(NUM_CAPABILITIES));
 
 bool hsc_supports(hsc_headset_t headset, hsc_capability_t cap)
 {
@@ -242,9 +272,25 @@ int hsc_get_capabilities(hsc_headset_t headset)
     return static_cast<HeadsetWrapper*>(headset)->headset.capabilitiesMask();
 }
 
+int hsc_get_readable_capabilities(hsc_headset_t headset)
+{
+    if (!headset) {
+        return 0;
+    }
+    return static_cast<HeadsetWrapper*>(headset)->headset.readableCapabilitiesMask();
+}
+
 // ============================================================================
 // Battery & Status
 // ============================================================================
+
+// hsc_get_battery() passes the C++ status through unchanged, so the C values
+// have to stay in step with it.
+static_assert(HSC_BATTERY_UNAVAILABLE == static_cast<int>(BATTERY_UNAVAILABLE));
+static_assert(HSC_BATTERY_CHARGING == static_cast<int>(BATTERY_CHARGING));
+static_assert(HSC_BATTERY_AVAILABLE == static_cast<int>(BATTERY_AVAILABLE));
+static_assert(HSC_BATTERY_ERROR == static_cast<int>(BATTERY_HIDERROR));
+static_assert(HSC_BATTERY_TIMEOUT == static_cast<int>(BATTERY_TIMEOUT));
 
 hsc_result_t hsc_get_battery(hsc_headset_t headset, hsc_battery_t* battery)
 {
@@ -302,6 +348,36 @@ hsc_result_t hsc_get_sidetone(hsc_headset_t headset, hsc_sidetone_status_t* side
     return HSC_RESULT_OK;
 }
 
+hsc_result_t hsc_get_mic_mute_status(hsc_headset_t headset, hsc_mic_mute_status_t* status)
+{
+    if (!headset || !status) {
+        return HSC_RESULT_INVALID_PARAM;
+    }
+
+    auto result = static_cast<HeadsetWrapper*>(headset)->headset.getMicMuteStatus();
+    if (!result) {
+        return toErrorCode(result.error());
+    }
+
+    status->muted = result->muted;
+    return HSC_RESULT_OK;
+}
+
+hsc_result_t hsc_get_mic_attachment_status(hsc_headset_t headset, hsc_mic_attachment_status_t* status)
+{
+    if (!headset || !status) {
+        return HSC_RESULT_INVALID_PARAM;
+    }
+
+    auto result = static_cast<HeadsetWrapper*>(headset)->headset.getMicAttachmentStatus();
+    if (!result) {
+        return toErrorCode(result.error());
+    }
+
+    status->attached = result->attached;
+    return HSC_RESULT_OK;
+}
+
 // ============================================================================
 // Audio Controls
 // ============================================================================
@@ -337,6 +413,41 @@ hsc_result_t hsc_set_volume_limiter(hsc_headset_t headset, bool enabled)
     return result ? HSC_RESULT_OK : toErrorCode(result.error());
 }
 
+hsc_result_t hsc_set_headset_volume(hsc_headset_t headset, uint8_t volume, hsc_headset_volume_t* result_out)
+{
+    if (!headset) {
+        return HSC_RESULT_INVALID_PARAM;
+    }
+
+    auto result = static_cast<HeadsetWrapper*>(headset)->headset.setHeadsetVolume(volume);
+
+    if (!result) {
+        return toErrorCode(result.error());
+    }
+
+    if (result_out) {
+        copyHeadsetVolume(*result, *result_out);
+    }
+
+    return HSC_RESULT_OK;
+}
+
+hsc_result_t hsc_get_headset_volume(hsc_headset_t headset, hsc_headset_volume_t* volume)
+{
+    if (!headset || !volume) {
+        return HSC_RESULT_INVALID_PARAM;
+    }
+
+    auto result = static_cast<HeadsetWrapper*>(headset)->headset.getHeadsetVolume();
+
+    if (!result) {
+        return toErrorCode(result.error());
+    }
+
+    copyHeadsetVolume(*result, *volume);
+    return HSC_RESULT_OK;
+}
+
 // ============================================================================
 // Equalizer
 // ============================================================================
@@ -359,6 +470,92 @@ hsc_result_t hsc_set_equalizer(hsc_headset_t headset, const float* bands, int nu
 
     EqualizerSettings settings({ bands, bands + num_bands });
     auto result = static_cast<HeadsetWrapper*>(headset)->headset.setEqualizer(settings);
+    return result ? HSC_RESULT_OK : toErrorCode(result.error());
+}
+
+hsc_result_t hsc_get_equalizer_info(hsc_headset_t headset, hsc_equalizer_info_t* info)
+{
+    if (!headset || !info) {
+        return HSC_RESULT_INVALID_PARAM;
+    }
+
+    const auto& h = static_cast<HeadsetWrapper*>(headset)->headset;
+    if (!h.supports(CAP_EQUALIZER)) {
+        return HSC_RESULT_NOT_SUPPORTED;
+    }
+
+    auto eq_info = h.getEqualizerInfo();
+    if (!eq_info) {
+        return HSC_RESULT_NOT_SUPPORTED;
+    }
+
+    info->bands_count    = eq_info->bands_count;
+    info->bands_baseline = eq_info->bands_baseline;
+    info->bands_step     = eq_info->bands_step;
+    info->bands_min      = eq_info->bands_min;
+    info->bands_max      = eq_info->bands_max;
+    return HSC_RESULT_OK;
+}
+
+// Filter types cross the boundary as their numeric value, in both directions.
+static_assert(HSC_EQ_FILTER_LOW_SHELF == static_cast<int>(EqualizerFilterType::LowShelf));
+static_assert(HSC_EQ_FILTER_LOW_PASS == static_cast<int>(EqualizerFilterType::LowPass));
+static_assert(HSC_EQ_FILTER_PEAKING == static_cast<int>(EqualizerFilterType::Peaking));
+static_assert(HSC_EQ_FILTER_HIGH_PASS == static_cast<int>(EqualizerFilterType::HighPass));
+static_assert(HSC_EQ_FILTER_HIGH_SHELF == static_cast<int>(EqualizerFilterType::HighShelf));
+static_assert(HSC_EQ_FILTER_NOTCH == static_cast<int>(EqualizerFilterType::Notch));
+static_assert(HSC_EQ_FILTER_NOTCH + 1 == NUM_EQ_FILTER_TYPES);
+
+hsc_result_t hsc_get_parametric_equalizer_info(hsc_headset_t headset, hsc_parametric_equalizer_info_t* info)
+{
+    if (!headset || !info) {
+        return HSC_RESULT_INVALID_PARAM;
+    }
+
+    const auto& h = static_cast<HeadsetWrapper*>(headset)->headset;
+    if (!h.supports(CAP_PARAMETRIC_EQUALIZER)) {
+        return HSC_RESULT_NOT_SUPPORTED;
+    }
+
+    auto peq_info = h.getParametricEqualizerInfo();
+    if (!peq_info) {
+        return HSC_RESULT_NOT_SUPPORTED;
+    }
+
+    info->bands_count  = peq_info->bands_count;
+    info->gain_base    = peq_info->gain_base;
+    info->gain_step    = peq_info->gain_step;
+    info->gain_min     = peq_info->gain_min;
+    info->gain_max     = peq_info->gain_max;
+    info->q_factor_min = peq_info->q_factor_min;
+    info->q_factor_max = peq_info->q_factor_max;
+    info->freq_min     = peq_info->freq_min;
+    info->freq_max     = peq_info->freq_max;
+    info->filter_types = peq_info->filter_types;
+    return HSC_RESULT_OK;
+}
+
+hsc_result_t hsc_set_parametric_equalizer(hsc_headset_t headset, const hsc_parametric_band_t* bands, int num_bands)
+{
+    if (!headset || !bands || num_bands <= 0) {
+        return HSC_RESULT_INVALID_PARAM;
+    }
+
+    ParametricEqualizerSettings settings;
+    settings.bands.reserve(static_cast<size_t>(num_bands));
+    for (int i = 0; i < num_bands; ++i) {
+        const auto& band = bands[i];
+        const int type   = band.type;
+        if (type < 0 || type >= NUM_EQ_FILTER_TYPES) {
+            return HSC_RESULT_INVALID_PARAM;
+        }
+        settings.bands.push_back({ .frequency = band.frequency,
+            .gain                             = band.gain,
+            .q_factor                         = band.q_factor,
+            .type                             = static_cast<EqualizerFilterType>(band.type) });
+    }
+
+    auto result = static_cast<HeadsetWrapper*>(headset)->headset.setParametricEqualizer(settings);
     return result ? HSC_RESULT_OK : toErrorCode(result.error());
 }
 
@@ -453,6 +650,16 @@ hsc_result_t hsc_set_mic_mute_led_brightness(hsc_headset_t headset, uint8_t brig
     return result ? HSC_RESULT_OK : toErrorCode(result.error());
 }
 
+hsc_result_t hsc_set_noise_filter(hsc_headset_t headset, uint8_t level)
+{
+    if (!headset) {
+        return HSC_RESULT_INVALID_PARAM;
+    }
+
+    auto result = static_cast<HeadsetWrapper*>(headset)->headset.setNoiseFilter(level);
+    return result ? HSC_RESULT_OK : toErrorCode(result.error());
+}
+
 hsc_result_t hsc_set_rotate_to_mute(hsc_headset_t headset, bool enabled)
 {
     if (!headset) {
@@ -539,6 +746,37 @@ hsc_result_t hsc_set_bluetooth_call_volume(hsc_headset_t headset, uint8_t volume
     }
 
     auto result = static_cast<HeadsetWrapper*>(headset)->headset.setBluetoothCallVolume(volume);
+    return result ? HSC_RESULT_OK : toErrorCode(result.error());
+}
+
+hsc_result_t hsc_set_anc(hsc_headset_t headset, uint8_t mode)
+{
+    if (!headset) {
+        return HSC_RESULT_INVALID_PARAM;
+    }
+
+    auto result = static_cast<HeadsetWrapper*>(headset)->headset.setAnc(mode);
+    return result ? HSC_RESULT_OK : toErrorCode(result.error());
+}
+
+hsc_result_t hsc_set_anc_startup_mode(hsc_headset_t headset, uint8_t mode)
+{
+    if (!headset) {
+        return HSC_RESULT_INVALID_PARAM;
+    }
+
+    auto result = static_cast<HeadsetWrapper*>(headset)->headset.setAncStartupMode(mode);
+    return result ? HSC_RESULT_OK : toErrorCode(result.error());
+}
+
+hsc_result_t hsc_set_anc_button_modes(hsc_headset_t headset, const hsc_anc_button_modes_t* modes)
+{
+    if (!headset || !modes) {
+        return HSC_RESULT_INVALID_PARAM;
+    }
+
+    auto result = static_cast<HeadsetWrapper*>(headset)->headset.setAncButtonModes(
+        AncButtonModes { .off = modes->off, .anc = modes->anc, .ambient = modes->ambient });
     return result ? HSC_RESULT_OK : toErrorCode(result.error());
 }
 

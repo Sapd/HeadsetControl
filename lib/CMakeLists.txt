@@ -21,6 +21,7 @@ set(LIBRARY_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/headsetcontrol.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/headsetcontrol_c.h
     ${CMAKE_CURRENT_SOURCE_DIR}/hid_utility.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/product_name.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/result_types.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/string_utils.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/utility.hpp

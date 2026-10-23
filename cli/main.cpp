@@ -29,6 +29,7 @@
 #include "hid_utility.hpp"
 #include "output.hpp"
 #include "result_types.hpp"
+#include "string_utils.hpp"
 #include "utility.hpp"
 #include "version.h"
 
@@ -36,6 +37,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cctype>
 #include <chrono>
 #include <csignal>
 #include <cstdio>
@@ -111,6 +113,56 @@ void eprintln(std::format_string<Args...> fmt, Args&&... args)
     return " ? ";
 }
 
+[[nodiscard]] std::optional<cli::ParseError> parseAncButtonModes(
+    std::optional<std::string_view> arg, AncButtonModes& out)
+{
+    if (!arg || arg->empty()) {
+        return cli::ParseError { "requires one or more modes: off,anc,ambient", "anc-button-modes" };
+    }
+
+    AncButtonModes modes;
+    std::string token;
+    auto consume_token = [&]() -> std::optional<cli::ParseError> {
+        if (token.empty()) {
+            return std::nullopt;
+        }
+
+        if (token == "off") {
+            modes.off = true;
+        } else if (token == "anc") {
+            modes.anc = true;
+        } else if (token == "ambient") {
+            modes.ambient = true;
+        } else {
+            return cli::ParseError { std::format("unknown ANC button mode '{}'", token), "anc-button-modes" };
+        }
+
+        token.clear();
+        return std::nullopt;
+    };
+
+    for (unsigned char c : *arg) {
+        if (c == ',' || std::isspace(c) != 0) {
+            if (auto error = consume_token()) {
+                return error;
+            }
+            continue;
+        }
+        token += static_cast<char>(std::tolower(c));
+    }
+
+    if (auto error = consume_token()) {
+        return error;
+    }
+
+    if (!modes.any()) {
+        return cli::ParseError { "requires at least one ANC button mode", "anc-button-modes" };
+    }
+
+    out = modes;
+    return std::nullopt;
+}
+
 // ============================================================================
 // Command-line options - Clean data structure
 // ============================================================================
@@ -149,11 +201,18 @@ struct Options {
     std::optional<bool> bt_when_powered_on;
     std::optional<uint8_t> bt_call_volume;
     std::optional<uint8_t> noise_filter;
+    std::optional<uint8_t> anc_mode;
+    std::optional<uint8_t> anc_startup_mode;
+    std::optional<AncButtonModes> anc_button_modes;
+    std::optional<uint8_t> headset_volume;
 
     // Info requests
-    bool request_battery  = false;
-    bool request_chatmix  = false;
-    bool request_sidetone = false;
+    bool request_battery                      = false;
+    bool request_chatmix                      = false;
+    bool request_sidetone                     = false;
+    bool request_microphone_attachment_status = false;
+    bool request_microphone_mute_status       = false;
+    bool request_headset_volume               = false;
 
     // Complex settings
     std::optional<EqualizerSettings> equalizer;
@@ -191,9 +250,18 @@ std::optional<cli::ParseError> configureParser(cli::ArgumentParser& parser, Opti
         .custom('d', "device", cli::ArgRequirement::Required, [&opts](std::optional<std::string_view> arg) -> std::optional<cli::ParseError> {
                 if (!arg)
                     return cli::ParseError { "requires vendor:product", "device" };
-                auto ids = headsetcontrol::parse_two_ids(*arg);
+                // USB IDs are hex, and are written without a 0x prefix by lsusb
+                // and by our own device listing.
+                auto ids = headsetcontrol::parse_two_ids(*arg, 16);
                 if (!ids) {
                     return cli::ParseError { "format: vendorid:productid", "device" };
+                }
+                // Narrowing an out-of-range ID would wrap it, and a wrapped-to-zero
+                // ID reads as "no filter" - so -d 10000:10000 would silently match
+                // every device instead of none.
+                constexpr int id_max = 0xffff;
+                if (ids->first < 0 || ids->first > id_max || ids->second < 0 || ids->second > id_max) {
+                    return cli::ParseError { "ids must be between 0 and ffff", "device" };
                 }
                 opts.vendor_id = static_cast<uint16_t>(ids->first);
                 opts.product_id = static_cast<uint16_t>(ids->second);
@@ -229,6 +297,17 @@ std::optional<cli::ParseError> configureParser(cli::ArgumentParser& parser, Opti
         .toggle('r', "rotate-to-mute", opts.rotate_to_mute_enabled, "Toggle rotate to mute")
         .value('p', "equalizer-preset", opts.equalizer_preset, uint8_t(0), uint8_t(255), "Set equalizer preset", "PRESET")
         .long_value("noise-filter", opts.noise_filter, uint8_t(0), uint8_t(2), "Set microphone noise filter level", "LEVEL")
+        .long_value("anc", opts.anc_mode, uint8_t(0), uint8_t(2), "Set headphone ANC mode (0=off, 1=ANC, 2=ambient)", "MODE")
+        .long_value("anc-startup-mode", opts.anc_startup_mode, uint8_t(0), uint8_t(3), "Set ANC mode at power-on (0=off, 1=NC, 2=ambient, 3=mode at power off)", "MODE")
+        .long_custom("anc-button-modes", cli::ArgRequirement::Required, [&opts](std::optional<std::string_view> arg) -> std::optional<cli::ParseError> {
+                AncButtonModes modes;
+                if (auto error = parseAncButtonModes(arg, modes)) {
+                    return error;
+                }
+                opts.anc_button_modes = modes;
+                return std::nullopt; }, "Set ANC modes the headset button cycles through", "off,anc,ambient")
+        .long_flag("microphone-attachment-status", opts.request_microphone_attachment_status, "Show whether the boom mic is attached")
+        .long_flag("microphone-mute-status", opts.request_microphone_mute_status, "Show whether the microphone is muted")
 
         // === Equalizer (custom parsing) ===
         .custom('e', "equalizer", cli::ArgRequirement::Required, [&opts](std::optional<std::string_view> arg) -> std::optional<cli::ParseError> {
@@ -259,6 +338,21 @@ std::optional<cli::ParseError> configureParser(cli::ArgumentParser& parser, Opti
         .long_value("microphone-volume", opts.mic_volume, uint8_t(0), uint8_t(128), "Set microphone volume", "VOLUME")
 
         // === Volume ===
+        .long_custom("volume", cli::ArgRequirement::Optional, [&opts](std::optional<std::string_view> arg) -> std::optional<cli::ParseError> {
+                if (!arg || arg->empty()) {
+                    opts.headset_volume.reset();
+                    opts.request_headset_volume = true;
+                    return std::nullopt;
+                }
+
+                uint8_t level {};
+                if (auto error = cli::parseInteger(*arg, level, uint8_t(0), uint8_t(128), "volume")) {
+                    return error;
+                }
+
+                opts.headset_volume = level;
+                opts.request_headset_volume = false;
+                return std::nullopt; }, "Get current headset hardware volume, or set it to LEVEL", "LEVEL")
         .long_toggle("volume-limiter", opts.volume_limiter_enabled, "Toggle volume limiter")
 
         // === Bluetooth ===
@@ -328,27 +422,32 @@ std::optional<cli::ParseError> configureParser(cli::ArgumentParser& parser, Opti
                     // getCapabilities() may depend on the matched product ID, so ask
                     // each variant: capabilities all of them report get an "x", ones
                     // only some report get an "x*" (explained by a footnote below the
-                    // table in the README).
-                    int caps_any = 0;
-                    int caps_all = 0;
-                    bool first    = true;
+                    // table in the README). Capabilities that can also be read back
+                    // get an "r" instead of the "x".
+                    int caps_any     = 0;
+                    int caps_all     = 0;
+                    int readable_any = 0;
+                    bool first       = true;
                     for (uint16_t pid : device->getProductIds()) {
                         device->setMatchedProductId(pid);
-                        const int caps = device->getCapabilities();
+                        const int caps = device->getAdvertisedCapabilities();
                         caps_any |= caps;
                         caps_all = first ? caps : (caps_all & caps);
-                        first    = false;
+                        readable_any |= device->getCapabilities() & device->getReadableCapabilities();
+                        first = false;
                     }
                     device->setMatchedProductId(0);
                     if (first) { // device without product IDs
-                        caps_any = caps_all = device->getCapabilities();
+                        caps_any = caps_all = device->getAdvertisedCapabilities();
+                        readable_any        = device->getCapabilities() & device->getReadableCapabilities();
                     }
 
                     for (int j = 0; j < NUM_CAPABILITIES; j++) {
+                        const char* mark = (readable_any & B(j)) ? "r" : "x";
                         if (caps_all & B(j)) {
-                            std::cout << " x |";
+                            std::cout << " " << mark << " |";
                         } else if (caps_any & B(j)) {
-                            std::cout << " x* |";
+                            std::cout << " " << mark << "* |";
                         } else {
                             std::cout << "   |";
                         }
@@ -374,6 +473,7 @@ public:
 
     HIDConnection(HIDConnection&& other) noexcept
         : handle_(other.handle_)
+        , device_(other.device_)
         , path_(std::move(other.path_))
     {
         other.handle_ = nullptr;
@@ -383,6 +483,7 @@ public:
     {
         if (this != &other) {
             close();
+            device_       = other.device_;
             handle_       = other.handle_;
             path_         = std::move(other.path_);
             other.handle_ = nullptr;
@@ -393,14 +494,15 @@ public:
     [[nodiscard]] bool isOpen() const { return handle_ != nullptr; }
     [[nodiscard]] hid_device* get() const { return handle_; }
 
-    bool open(const std::string& new_path)
+    bool open(const std::string& new_path, const HIDDevice* device)
     {
-        if (path_ == new_path && handle_)
+        if (path_ == new_path && handle_ && device_ == device)
             return true;
         close();
         handle_ = hid_open_path(new_path.c_str());
         if (handle_) {
-            path_ = new_path;
+            device_ = device;
+            path_   = new_path;
             return true;
         }
         return false;
@@ -409,6 +511,9 @@ public:
     void close()
     {
         if (handle_) {
+            if (device_) {
+                device_->onConnectionClosed(handle_);
+            }
             hid_close(handle_);
             handle_ = nullptr;
         }
@@ -416,7 +521,8 @@ public:
     }
 
 private:
-    hid_device* handle_ = nullptr;
+    hid_device* handle_      = nullptr;
+    const HIDDevice* device_ = nullptr;
     std::string path_;
 };
 
@@ -431,6 +537,7 @@ struct DiscoveredDevice {
     std::vector<FeatureRequest> feature_requests;
     std::wstring vendor_name;
     std::wstring product_name;
+    bool metadata_queried = false;
 
     [[nodiscard]] uint16_t vendorId() const
     {
@@ -442,9 +549,9 @@ struct DiscoveredDevice {
         return device && opts.matchesDevice(device->getVendorId(), product_id);
     }
 
-    [[nodiscard]] bool hasCapability(capabilities cap) const
+    [[nodiscard]] bool hasCapability(capabilities cap, capabilitytype type = CAPABILITYTYPE_ACTION) const
     {
-        return device && (device->getCapabilities() & B(cap)) != 0;
+        return device && device->supports(cap, type);
     }
 };
 
@@ -513,6 +620,23 @@ std::vector<DiscoveredDevice> discoverDevices(const Options& opts)
 // Feature handling
 // ============================================================================
 
+/**
+ * @brief Let the device refine the product name once it is open.
+ *
+ * A device may know more than its USB strings, e.g. which headset is currently
+ * paired to a generic dongle. The default getMetadata() returns the HID strings,
+ * so devices without such knowledge are unaffected.
+ */
+static void refineProductName(DiscoveredDevice& dev, hid_device* handle)
+{
+    if (dev.metadata_queried)
+        return;
+    dev.metadata_queried = true;
+
+    if (auto meta = dev.device->getMetadata(handle); meta && !meta->product.empty())
+        dev.product_name = headsetcontrol::string_to_wstring(meta->product);
+}
+
 hid_device* connectForCapability(HIDConnection& conn, const HIDDevice* device, uint16_t product_id, capabilities cap)
 {
     auto detail   = device->getCapabilityDetail(cap);
@@ -520,7 +644,7 @@ hid_device* connectForCapability(HIDConnection& conn, const HIDDevice* device, u
     if (!hid_path)
         return nullptr;
 
-    return conn.open(*hid_path) ? conn.get() : nullptr;
+    return conn.open(*hid_path, device) ? conn.get() : nullptr;
 }
 
 // Convert FeatureOutput to FeatureResult for output formatting
@@ -558,11 +682,17 @@ FeatureResult convertToFeatureResult(const headsetcontrol::FeatureOutput& output
         result.sidetone_level_name   = output.sidetone->level_name;
     }
 
+    // Handle headset volume special case
+    if (output.headset_volume) {
+        result.value                       = output.headset_volume->volume;
+        result.headset_volume_device_level = output.headset_volume->device_volume;
+    }
+
     return result;
 }
 
 // Handle a feature request via the handler registry
-FeatureResult handleFeature(DiscoveredDevice& dev, capabilities cap, const FeatureParam& param)
+FeatureResult handleFeature(DiscoveredDevice& dev, capabilities cap, capabilitytype type, const FeatureParam& param)
 {
     // Validate parameter
     if (auto error = headsetcontrol::validateFeatureParam(cap, param)) {
@@ -570,8 +700,11 @@ FeatureResult handleFeature(DiscoveredDevice& dev, capabilities cap, const Featu
     }
 
     // Check device support
-    if (!dev.hasCapability(cap)) {
+    if (!dev.hasCapability(cap, type)) {
         const auto& desc = headsetcontrol::getCapabilityDescriptor(cap);
+        if (type == CAPABILITYTYPE_INFO && desc.isActionFeature() && dev.hasCapability(cap)) {
+            return make_error(-1, std::format("This headset can't read back {}", desc.name));
+        }
         return make_error(-1, std::format("This headset doesn't support {}", desc.name));
     }
 
@@ -584,11 +717,12 @@ FeatureResult handleFeature(DiscoveredDevice& dev, capabilities cap, const Featu
         if (!handle) {
             return make_error(-1, "Could not open device");
         }
+        refineProductName(dev, handle);
     }
 
     // Execute via handler registry (no more giant switch!)
     auto result = headsetcontrol::FeatureHandlerRegistry::instance().execute(
-        cap, dev.device, handle, param);
+        cap, type, dev.device, handle, param);
 
     if (result.hasError()) {
         return make_error(-1, result.error().message);
@@ -657,7 +791,7 @@ namespace help {
             : program_name_(program)
             , device_(dev)
             , show_all_(all)
-            , caps_(dev ? dev->getCapabilities() : 0)
+            , caps_(dev ? dev->getAdvertisedCapabilities() : 0)
         {
         }
 
@@ -834,7 +968,10 @@ namespace help {
             sections.push_back({ "AUDIO", {} });
             sections.back()
                 .add('s', "sidetone", getValueHint(CAP_SIDETONE), "Get current level or set mic feedback (0-128)", CAP_SIDETONE)
-                .add("volume-limiter", getValueHint(CAP_VOLUME_LIMITER), "Enable/disable volume limiter", CAP_VOLUME_LIMITER);
+                .add("volume", getValueHint(CAP_HEADSET_VOLUME), "Get current level or set headset hardware volume (0-128)", CAP_HEADSET_VOLUME)
+                .add("volume-limiter", getValueHint(CAP_VOLUME_LIMITER), "Enable/disable volume limiter", CAP_VOLUME_LIMITER)
+                .add("anc", getValueHint(CAP_ANC), "ANC mode (0=off, 1=noise cancelling, 2=ambient sound)", CAP_ANC)
+                .add("anc-button-modes", getValueHint(CAP_ANC_BUTTON_MODES), "ANC modes the headset's ANC button cycles through", CAP_ANC_BUTTON_MODES);
 
             // Equalizer
             sections.push_back({ "EQUALIZER", {} });
@@ -858,7 +995,9 @@ namespace help {
                 .add('r', "rotate-to-mute", getValueHint(CAP_ROTATE_TO_MUTE), "Mute when boom arm raised", CAP_ROTATE_TO_MUTE)
                 .add("microphone-mute-led-brightness", getValueHint(CAP_MICROPHONE_MUTE_LED_BRIGHTNESS), "Mute LED brightness", CAP_MICROPHONE_MUTE_LED_BRIGHTNESS)
                 .add("microphone-volume", getValueHint(CAP_MICROPHONE_VOLUME), "Microphone gain level", CAP_MICROPHONE_VOLUME)
-                .add("noise-filter", getValueHint(CAP_NOISE_FILTER), "Microphone noise filter level (0=off, 1=low, 2=high)", CAP_NOISE_FILTER);
+                .add("noise-filter", getValueHint(CAP_NOISE_FILTER), "Microphone noise filter level (0=off, 1=low, 2=high)", CAP_NOISE_FILTER)
+                .add("microphone-attachment-status", "", "Show whether the boom mic is physically attached", CAP_MICROPHONE_ATTACHMENT_STATUS)
+                .add("microphone-mute-status", "", "Show whether the microphone is muted", CAP_MICROPHONE_MUTE_STATUS);
 
             // Lights & Audio Cues - value hints from capability descriptors
             sections.push_back({ "LIGHTS & AUDIO CUES", {} });
@@ -872,7 +1011,8 @@ namespace help {
             sections.back()
                 .add('i', "inactive-time", getValueHint(CAP_INACTIVE_TIME), "Auto-off after N minutes (0=never)", CAP_INACTIVE_TIME)
                 .add("bt-when-powered-on", getValueHint(CAP_BT_WHEN_POWERED_ON), "Enable Bluetooth at power-on", CAP_BT_WHEN_POWERED_ON)
-                .add("bt-call-volume", getValueHint(CAP_BT_CALL_VOLUME), "Bluetooth call volume", CAP_BT_CALL_VOLUME);
+                .add("bt-call-volume", getValueHint(CAP_BT_CALL_VOLUME), "Bluetooth call volume", CAP_BT_CALL_VOLUME)
+                .add("anc-startup-mode", getValueHint(CAP_ANC_STARTUP_MODE), "ANC mode at power-on (0=off, 1=NC, 2=ambient, 3=mode at power off)", CAP_ANC_STARTUP_MODE);
 
             // Output - always shown
             sections.push_back({ "OUTPUT", {} });
@@ -955,10 +1095,14 @@ struct FeatureParamStorage {
     int battery_req          = 0;
     int chatmix_req          = 0;
     int noise_filter_val     = 0;
+    int anc_mode_val         = 0;
+    int anc_startup_mode_val = 0;
+    int headset_volume_val   = 0;
 
     // Store copies of complex settings to avoid const_cast
     EqualizerSettings equalizer_settings;
     ParametricEqualizerSettings parametric_eq_settings;
+    AncButtonModes anc_button_modes;
 
     void updateFrom(const Options& opts)
     {
@@ -988,6 +1132,14 @@ struct FeatureParamStorage {
             bt_call_vol_val = *opts.bt_call_volume;
         if (opts.noise_filter.has_value())
             noise_filter_val = *opts.noise_filter;
+        if (opts.anc_mode.has_value())
+            anc_mode_val = *opts.anc_mode;
+        if (opts.anc_startup_mode.has_value())
+            anc_startup_mode_val = *opts.anc_startup_mode;
+        if (opts.anc_button_modes.has_value())
+            anc_button_modes = *opts.anc_button_modes;
+        if (opts.headset_volume.has_value())
+            headset_volume_val = *opts.headset_volume;
         battery_req = opts.request_battery ? 1 : 0;
         chatmix_req = opts.request_chatmix ? 1 : 0;
 
@@ -1026,7 +1178,14 @@ void initializeFeatureRequests(std::vector<DiscoveredDevice>& devices, const Opt
         { CAP_VOLUME_LIMITER, CAPABILITYTYPE_ACTION, g_feature_params.volume_limiter_val, opts.volume_limiter_enabled.has_value(), {} },
         { CAP_BT_WHEN_POWERED_ON, CAPABILITYTYPE_ACTION, g_feature_params.bt_power_val, opts.bt_when_powered_on.has_value(), {} },
         { CAP_BT_CALL_VOLUME, CAPABILITYTYPE_ACTION, g_feature_params.bt_call_vol_val, opts.bt_call_volume.has_value(), {} },
-        { CAP_NOISE_FILTER, CAPABILITYTYPE_ACTION, g_feature_params.noise_filter_val, opts.noise_filter.has_value(), {} }
+        { CAP_NOISE_FILTER, CAPABILITYTYPE_ACTION, g_feature_params.noise_filter_val, opts.noise_filter.has_value(), {} },
+        { CAP_ANC, CAPABILITYTYPE_ACTION, g_feature_params.anc_mode_val, opts.anc_mode.has_value(), {} },
+        { CAP_ANC_STARTUP_MODE, CAPABILITYTYPE_ACTION, g_feature_params.anc_startup_mode_val, opts.anc_startup_mode.has_value(), {} },
+        { CAP_ANC_BUTTON_MODES, CAPABILITYTYPE_ACTION, opts.anc_button_modes.has_value() ? FeatureParam { g_feature_params.anc_button_modes } : FeatureParam { std::monostate {} }, opts.anc_button_modes.has_value(), {} },
+        { CAP_MICROPHONE_ATTACHMENT_STATUS, CAPABILITYTYPE_INFO, std::monostate {}, opts.request_microphone_attachment_status, {} },
+        { CAP_MICROPHONE_MUTE_STATUS, CAPABILITYTYPE_INFO, std::monostate {}, opts.request_microphone_mute_status, {} },
+        { CAP_HEADSET_VOLUME, CAPABILITYTYPE_ACTION, g_feature_params.headset_volume_val, opts.headset_volume.has_value(), {} },
+        { CAP_HEADSET_VOLUME, CAPABILITYTYPE_INFO, std::monostate {}, opts.request_headset_volume, {} }
     };
 
     for (auto& dev : devices) {
@@ -1073,12 +1232,20 @@ std::vector<DeviceList> toLegacyDeviceList(std::vector<DiscoveredDevice>& device
     return legacy;
 }
 
+// Whether a request still has to be sent to the device. A request that already
+// carries a result, such as an action refused by handleMultiDeviceActions, is
+// reported as it is and not executed.
+bool isPending(const FeatureRequest& req)
+{
+    return req.should_process && req.result.status == FEATURE_NOT_PROCESSED;
+}
+
 // Whether this device was asked to set something. Only counts requests that are
 // still live, so it has to run after handleMultiDeviceActions has had its say.
 bool hasRequestedAction(const DiscoveredDevice& device)
 {
     for (const auto& req : device.feature_requests) {
-        if (req.type == CAPABILITYTYPE_ACTION && req.should_process) {
+        if (req.type == CAPABILITYTYPE_ACTION && isPending(req)) {
             return true;
         }
     }
@@ -1100,14 +1267,16 @@ void enableExtendedInfoRequests(std::vector<DiscoveredDevice>& devices, bool ext
             continue;
 
         for (auto& req : dev.feature_requests) {
-            if (req.type == CAPABILITYTYPE_INFO && !req.should_process && dev.hasCapability(req.cap)) {
+            if (req.type == CAPABILITYTYPE_INFO && !req.should_process && dev.hasCapability(req.cap, req.type)) {
                 req.should_process = true;
             }
         }
     }
 }
 
-// Mark action requests as not processable when multiple devices and no filter
+// Refuse action requests when multiple devices and no filter. The refusal is
+// stored as the result, so the request is still reported but no longer pending:
+// NotProcessed is the default status and would let it run on every device.
 void handleMultiDeviceActions(std::vector<DiscoveredDevice>& devices, const Options& opts)
 {
     if (devices.size() <= 1)
@@ -1119,12 +1288,28 @@ void handleMultiDeviceActions(std::vector<DiscoveredDevice>& devices, const Opti
                 continue;
 
             if (!opts.hasDeviceFilter()) {
-                req.result.status  = FEATURE_NOT_PROCESSED;
+                req.result.status  = FEATURE_ERROR;
                 req.result.message = "Multiple devices, specify with -d";
                 req.result.value   = -1;
             } else if (!dev.matchesFilter(opts)) {
                 req.should_process = false;
             }
+        }
+    }
+}
+
+// Drop the info results of the previous follow pass. Without this every request
+// carries a result after the first pass, so isPending() is false and the loop
+// re-prints the first reading instead of asking the device again.
+//
+// Action results are kept on purpose: a setter ran once and must not be applied
+// again on every pass, and a refusal from handleMultiDeviceActions has to stay.
+void resetInfoResults(std::vector<DiscoveredDevice>& devices)
+{
+    for (auto& dev : devices) {
+        for (auto& req : dev.feature_requests) {
+            if (req.type == CAPABILITYTYPE_INFO)
+                req.result = FeatureResult {};
         }
     }
 }
@@ -1137,8 +1322,8 @@ void processFeatureRequests(std::vector<DiscoveredDevice>& devices, const Option
             continue;
 
         for (auto& req : dev.feature_requests) {
-            if (req.should_process && req.result.status == FEATURE_NOT_PROCESSED) {
-                req.result = handleFeature(dev, req.cap, req.param);
+            if (isPending(req)) {
+                req.result = handleFeature(dev, req.cap, req.type, req.param);
             }
         }
     }
@@ -1274,8 +1459,10 @@ int main(int argc, char* argv[])
         auto legacy = toLegacyDeviceList(devices);
         output(legacy.data(), opts.print_capabilities, opts.output_format);
 
-        if (g_follow_running)
+        if (g_follow_running) {
             std::this_thread::sleep_for(std::chrono::seconds(opts.follow_seconds));
+            resetInfoResults(devices);
+        }
     } while (g_follow_running);
 
     // Note: hid_exit() is called automatically by library's LibraryState destructor

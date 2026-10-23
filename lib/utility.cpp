@@ -180,7 +180,7 @@ std::vector<float> parse_float_data(std::string_view input)
     return result;
 }
 
-std::optional<std::pair<int, int>> parse_two_ids(std::string_view input)
+std::optional<std::pair<int, int>> parse_two_ids(std::string_view input, int default_base)
 {
     constexpr std::string_view delimiters = " :.,";
 
@@ -200,19 +200,23 @@ std::optional<std::pair<int, int>> parse_two_ids(std::string_view input)
 
         std::string_view token = input.substr(pos, end - pos);
 
-        // Parse the value (supports hex with 0x prefix)
-        long val = 0;
+        // An explicit prefix always wins; otherwise the caller decides how a bare
+        // token is read, because a USB ID means something different to a decimal.
+        int base = default_base;
         if (token.starts_with("0x") || token.starts_with("0X")) {
-            auto [ptr, ec] = std::from_chars(token.data() + 2, token.data() + token.size(), val, 16);
-            if (ec == std::errc()) {
-                values.push_back(val);
-            }
-        } else {
-            auto [ptr, ec] = std::from_chars(token.data(), token.data() + token.size(), val, 10);
-            if (ec == std::errc()) {
-                values.push_back(val);
-            }
+            token.remove_prefix(2);
+            base = 16;
         }
+
+        long val       = 0;
+        auto [ptr, ec] = std::from_chars(token.data(), token.data() + token.size(), val, base);
+
+        // The whole token has to be a number. Accepting a partial parse is how
+        // "1b1c" read as decimal turns into 1 and quietly selects nothing.
+        if (ec != std::errc() || ptr != token.data() + token.size()) {
+            return std::nullopt;
+        }
+        values.push_back(val);
 
         pos = end;
     }

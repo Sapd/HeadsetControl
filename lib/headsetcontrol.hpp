@@ -93,7 +93,13 @@ public:
     [[nodiscard]] std::string_view vendorName() const;
 
     /**
-     * @brief Get USB product name from HID enumeration
+     * @brief Get the product name
+     *
+     * Starts as the USB product string from HID enumeration. The first call that
+     * opens the device lets it refine the name, e.g. a dongle reporting the
+     * headset paired to it, so read it after that call to get the refined name.
+     * A view taken earlier keeps the USB string and stays valid.
+     *
      * @return Empty string if unavailable
      */
     [[nodiscard]] std::string_view productName() const;
@@ -107,6 +113,20 @@ public:
      * @brief Get bitmask of all supported capabilities
      */
     [[nodiscard]] int capabilitiesMask() const;
+
+    /**
+     * @brief Check if a supported capability can also be read back
+     *
+     * E.g. canRead(CAP_HEADSET_VOLUME) means getHeadsetVolume() is available.
+     */
+    [[nodiscard]] bool canRead(enum capabilities cap) const;
+
+    /**
+     * @brief Get bitmask of capabilities that can also be read back
+     *
+     * Uses the same bits as capabilitiesMask().
+     */
+    [[nodiscard]] int readableCapabilitiesMask() const;
 
     /**
      * @brief Get list of supported capability names
@@ -151,6 +171,23 @@ public:
      * @param enabled Enable/disable volume limiter
      */
     [[nodiscard]] Result<VolumeLimiterResult> setVolumeLimiter(bool enabled);
+
+    /**
+     * @brief Set the headset (output) volume
+     *
+     * Controls the volume of the headset hardware itself (the value the
+     * on-device volume wheel changes), not the OS mixer volume.
+     *
+     * @param volume Volume level (0-128)
+     */
+    [[nodiscard]] Result<HeadsetVolumeResult> setHeadsetVolume(uint8_t volume);
+
+    /**
+     * @brief Read the headset (output) volume
+     *
+     * Only available when canRead(CAP_HEADSET_VOLUME) is true.
+     */
+    [[nodiscard]] Result<HeadsetVolumeResult> getHeadsetVolume();
 
     // ========================================================================
     // Equalizer
@@ -212,6 +249,22 @@ public:
     [[nodiscard]] Result<MicMuteLedBrightnessResult> setMicMuteLedBrightness(uint8_t brightness);
 
     /**
+     * @brief Set microphone noise filter level
+     * @param level 0 = off, 1 = low, 2 = high
+     */
+    [[nodiscard]] Result<NoiseFilterResult> setNoiseFilter(uint8_t level);
+
+    /**
+     * @brief Get microphone mute status
+     */
+    [[nodiscard]] Result<MicMuteStatusResult> getMicMuteStatus();
+
+    /**
+     * @brief Get whether the detachable boom mic is attached
+     */
+    [[nodiscard]] Result<MicAttachmentStatusResult> getMicAttachmentStatus();
+
+    /**
      * @brief Set rotate-to-mute feature
      * @param enabled Enable/disable
      */
@@ -260,6 +313,24 @@ public:
      * @param volume Volume level
      */
     [[nodiscard]] Result<BluetoothCallVolumeResult> setBluetoothCallVolume(uint8_t volume);
+
+    /**
+     * @brief Set active noise cancellation mode
+     * @param mode 0 = off, 1 = noise cancelling, 2 = ambient sound
+     */
+    [[nodiscard]] Result<AncResult> setAnc(uint8_t mode);
+
+    /**
+     * @brief Set ANC mode used at power-on
+     * @param mode 0 = off, 1 = noise cancelling, 2 = ambient sound, 3 = mode at power off
+     */
+    [[nodiscard]] Result<AncStartupModeResult> setAncStartupMode(uint8_t mode);
+
+    /**
+     * @brief Set ANC modes the headset's ANC button cycles through
+     * @param modes Modes to include; at least one must be set
+     */
+    [[nodiscard]] Result<AncButtonModesResult> setAncButtonModes(const AncButtonModes& modes);
 
 private:
     friend class HeadsetImpl;
@@ -373,6 +444,7 @@ void setDeviceTimeout(int timeout_ms);
  * - 2: Simulate charging state
  * - 3: Basic battery info only (no extended info)
  * - 5: Simulate timeout errors
+ * - 6: Headset volume can be set but not read back
  * - 10: Minimal capabilities
  *
  * @param profile Profile number

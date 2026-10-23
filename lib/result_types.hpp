@@ -320,6 +320,55 @@ struct NoiseFilterResult {
 };
 
 /**
+ * @brief Active noise cancellation result
+ */
+struct AncResult {
+    uint8_t mode; // 0 = off, 1 = ANC, 2 = ambient sound
+};
+
+/**
+ * @brief ANC startup mode result
+ */
+struct AncStartupModeResult {
+    uint8_t mode; // 0 = off, 1 = NC, 2 = ambient, 3 = mode at power off
+};
+
+/**
+ * @brief ANC modes the headset's ANC button cycles through
+ */
+struct AncButtonModesResult {
+    bool off;
+    bool anc;
+    bool ambient;
+};
+
+/**
+ * @brief Boom mic physical attachment status
+ */
+struct MicAttachmentStatusResult {
+    bool attached; // true = boom mic physically connected
+};
+
+/**
+ * @brief Microphone mute status
+ */
+struct MicMuteStatusResult {
+    bool muted; // true = microphone is muted
+};
+
+/**
+ * @brief Headset (output) volume result
+ */
+struct HeadsetVolumeResult {
+    uint8_t volume; // Normalized volume level (0-128)
+    uint8_t min_volume; // Minimum supported level
+    uint8_t max_volume; // Maximum supported level
+    uint8_t device_min; // Device's native min
+    uint8_t device_max; // Device's native max (e.g., 21 steps for the ASTRO A50)
+    uint8_t device_volume = 0; // Current level in the device's native range
+};
+
+/**
  * @brief Capability information with details
  */
 struct CapabilityInfo {

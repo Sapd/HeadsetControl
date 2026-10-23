@@ -13,6 +13,8 @@ A capability is a feature like sidetone, battery status, or LED control. Adding 
 5. Register a handler
 6. Add CLI argument parsing
 7. Implement in device classes
+8. Bump `API_VERSION`
+9. Expose it in the C++ and C library APIs
 
 ## Files You'll Modify
 
@@ -25,6 +27,12 @@ A capability is a feature like sidetone, battery status, or LED control. Adding 
 | `lib/feature_handlers.hpp` | Handler registration |
 | `cli/main.cpp` | CLI argument parsing |
 | `lib/devices/*.hpp` | Device implementations |
+| `cli/output/output.cpp` | `API_VERSION` |
+| `tests/test_output_formats.cpp` | `API_VERSION` in the fixture |
+| `docs/LIBRARY_USAGE.md` | `api_version` in the sample output, library examples |
+| `lib/headsetcontrol.hpp` / `lib/headsetcontrol.cpp` | C++ `Headset` method |
+| `lib/headsetcontrol_c.h` / `lib/headsetcontrol_c.cpp` | `HSC_CAP_*` value and `hsc_*` function |
+| `tests/test_library_api.cpp` | Library API coverage via the test device |
 
 ## Step-by-Step Guide
 
@@ -94,7 +102,9 @@ public:
 
 ### 5. Register Handler (`lib/feature_handlers.hpp`)
 
-Find `registerAllHandlers()` and add:
+Find `registerAllHandlers()` and add. Each capability has two slots: `CAPABILITYTYPE_ACTION`
+for setting it and `CAPABILITYTYPE_INFO` for reading it. Use the one matching the
+descriptor's `.type` (info-only capabilities such as battery use `CAPABILITYTYPE_INFO`):
 
 ```cpp
 void FeatureHandlerRegistry::registerAllHandlers()
@@ -102,7 +112,7 @@ void FeatureHandlerRegistry::registerAllHandlers()
     // ... existing handlers ...
 
     // CAP_YOUR_FEATURE
-    registerHandler(CAP_YOUR_FEATURE,
+    registerHandler(CAP_YOUR_FEATURE, CAPABILITYTYPE_ACTION,
         [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
             auto r = dev->setYourFeature(h, detail::getUint8(p));
             if (r.hasError())
@@ -118,6 +128,38 @@ void FeatureHandlerRegistry::registerAllHandlers()
 - `getBool(p)` - Get bool from param (int != 0)
 - `getEqualizer(p)` - Get EqualizerSettings
 - `getParametricEq(p)` - Get ParametricEqualizerSettings
+
+### Reading a setting back
+
+Don't add a `*_STATUS` capability for reading back something that already has a setter.
+Readability is a property of the capability:
+
+1. Add a `getYourFeature(hid_device*)` virtual next to the setter in `hid_device.hpp`,
+   returning `notSupported` by default.
+2. Register a second handler for the same capability under `CAPABILITYTYPE_INFO`:
+
+```cpp
+registerHandler(CAP_YOUR_FEATURE, CAPABILITYTYPE_INFO,
+    [](HIDDevice* dev, hid_device* h, const FeatureParam&) -> Result<FeatureOutput> {
+        auto r = dev->getYourFeature(h);
+        if (r.hasError())
+            return r.error();
+        return FeatureOutput::success(r->value);
+    });
+```
+
+3. Add a `CAPABILITYTYPE_INFO` row for it to the CLI request table in `cli/main.cpp`, next
+   to the `CAPABILITYTYPE_ACTION` one. `--volume` (`CAP_HEADSET_VOLUME`) sets with a value
+   and reads without one.
+4. Show the result: add a field to `DeviceData` (`cli/output/output_data.hpp`), fill it in
+   `processFeatureRequest()` (`cli/output/output.cpp`) and write it in each output format.
+   Without that branch the read result is dropped. The new field is an addition to the
+   structured output, so bump `API_VERSION` (step 8).
+5. Devices that implement the getter list the capability in `getReadableCapabilities()`
+   as well as `getCapabilities()`.
+
+`CAP_SIDETONE_STATUS` predates this and is kept for compatibility: a device with
+`CAP_SIDETONE` in `getReadableCapabilities()` reports it automatically.
 
 ### 6. Add CLI Argument (`cli/main.cpp`)
 
@@ -176,6 +218,41 @@ public:
 };
 ```
 
+### 8. Bump `API_VERSION` (`cli/output/output.cpp`)
+
+The capability list is part of the structured output, so adding a capability is an
+addition to the output format. Raise the second number and say what changed:
+
+```cpp
+// 1.7: the capability list grew by CAP_HEADSET_VOLUME.
+constexpr std::string_view API_VERSION = "1.7";
+```
+
+The same version appears in `tests/test_output_formats.cpp` and in the sample output in
+`docs/LIBRARY_USAGE.md`; all three have to move together. Raise the first number instead
+if you change or remove an existing field.
+
+### 9. Expose It in the Library APIs
+
+Applications that link `libheadsetcontrol` never see the CLI or the handler table, so a
+capability without a library entry point is CLI-only. Add a `Headset` method that
+dispatches through `HEADSET_FEATURE_IMPL`:
+
+```cpp
+// lib/headsetcontrol.hpp
+[[nodiscard]] Result<YourFeatureResult> setYourFeature(uint8_t value);
+
+// lib/headsetcontrol.cpp
+Result<YourFeatureResult> Headset::setYourFeature(uint8_t value)
+{
+    HEADSET_FEATURE_IMPL(CAP_YOUR_FEATURE, setYourFeature, value);
+}
+```
+
+Then add the matching `HSC_CAP_YOUR_FEATURE` value and an `hsc_set_your_feature()` wrapper
+to the C API, cover both in `tests/test_library_api.cpp` through the test device, and add
+an example for each to `docs/LIBRARY_USAGE.md`.
+
 ## Example: Adding Volume Limiter
 
 Here's a real example from the codebase:
@@ -216,7 +293,7 @@ virtual Result<VolumeLimiterResult> setVolumeLimiter(hid_device*, bool enabled)
 
 **feature_handlers.hpp:**
 ```cpp
-registerHandler(CAP_VOLUME_LIMITER,
+registerHandler(CAP_VOLUME_LIMITER, CAPABILITYTYPE_ACTION,
     [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
         auto r = dev->setVolumeLimiter(h, detail::getBool(p));
         if (r.hasError())
@@ -243,12 +320,38 @@ cd build && make
 
 ## Validation
 
-The descriptor's `min_value` and `max_value` are automatically enforced. If a user passes an invalid value:
+There are three bounds, checked in this order, and each may be narrower than the one
+before it.
+
+The parser range in `cli/main.cpp` goes first:
 
 ```bash
 $ ./headsetcontrol --sidetone 200
-Error: sidetone must be <= 128
+Error: sidetone: value 200 out of range [0, 128]
 ```
+
+The descriptor's `min_value` and `max_value` are checked next, by `validateFeatureParam()`
+in `lib/feature_handlers.hpp`. They are a real bound on the CLI path, not just help text,
+and several capabilities use a parser range that is deliberately looser:
+
+```bash
+$ ./headsetcontrol --notificate 2
+notificate must be <= 1 (got 2)
+```
+
+For the normalised 0-128 levels, and for any other range every device shares such as
+`setNoiseFilter()`'s three levels, they are also the bound `Headset::setSidetone()`,
+`setMicVolume()`, `setHeadsetVolume()` and `setNoiseFilter()` apply, since library callers
+never go through the parser:
+
+```cpp
+headset.setHeadsetVolume(200);  // invalid parameter: volume must be 0-128 (got 200)
+headset.setNoiseFilter(3);      // invalid parameter: noise-filter must be 0-2 (got 3)
+```
+
+Anything narrower still, or specific to one device, belongs in the device
+implementation, which returns `DeviceError::invalidParameter()` itself - a device whose
+hardware only has four steps validates that, not the descriptor.
 
 ## Tips
 

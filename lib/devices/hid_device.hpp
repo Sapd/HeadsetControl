@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../capability_descriptors.hpp"
 #include "../device.hpp"
 #include "../result_types.hpp"
 #include "../string_utils.hpp"
@@ -75,6 +76,59 @@ public:
     virtual int getCapabilities() const = 0;
 
     /**
+     * @brief Get the bitmask of capabilities that can also be read back
+     *
+     * Same enum as getCapabilities(): a set bit means the device implements the
+     * getter for a capability it already lists there (e.g. CAP_HEADSET_VOLUME
+     * -> getHeadsetVolume()). Readability is a property of a capability, so new
+     * code sets a bit here instead of adding a *_STATUS capability.
+     */
+    virtual constexpr int getReadableCapabilities() const
+    {
+        return 0;
+    }
+
+    /**
+     * @brief Capabilities as reported to users and API consumers
+     *
+     * getCapabilities() plus CAP_SIDETONE_STATUS for devices that can read
+     * sidetone back. CAP_SIDETONE_STATUS shipped before the readable mask and
+     * can't be removed, so it is derived here and new devices only set the mask.
+     */
+    [[nodiscard]] int getAdvertisedCapabilities() const
+    {
+        int caps = getCapabilities();
+        if (canRead(CAP_SIDETONE)) {
+            caps |= B(CAP_SIDETONE_STATUS);
+        }
+        return caps;
+    }
+
+    /**
+     * @brief Check whether a capability can be read back
+     *
+     * Only true for capabilities the device also lists in getCapabilities().
+     */
+    [[nodiscard]] bool canRead(enum capabilities cap) const
+    {
+        return (getCapabilities() & getReadableCapabilities() & B(cap)) != 0;
+    }
+
+    /**
+     * @brief Check whether a capability is supported in the given direction
+     *
+     * Info capabilities (battery, chatmix, ...) are read by nature. For a
+     * settable capability, CAPABILITYTYPE_INFO asks whether it can be read back.
+     */
+    [[nodiscard]] bool supports(enum capabilities cap, capabilitytype type) const
+    {
+        if (type == CAPABILITYTYPE_INFO && getCapabilityDescriptor(cap).isActionFeature()) {
+            return canRead(cap);
+        }
+        return (getAdvertisedCapabilities() & B(cap)) != 0;
+    }
+
+    /**
      * @brief Get capability details for a specific capability
      */
     virtual constexpr capability_detail getCapabilityDetail([[maybe_unused]] enum capabilities cap) const
@@ -82,6 +136,15 @@ public:
         // Default: interface 0, no usage page/id (C++20 designated initializers)
         return { .usagepage = 0, .usageid = 0, .interface_id = 0 };
     }
+
+    /**
+     * @brief Release per-connection protocol state when a HID handle is closed.
+     *
+     * Optional. Devices that keep per-handle state recover on their own if this is
+     * skipped; calling it before hid_close() avoids a bounded delay on the next
+     * request if the handle address is reused.
+     */
+    virtual void onConnectionClosed(hid_device* /*device_handle*/) const { }
 
     /**
      * @brief Get equalizer presets count
@@ -185,15 +248,15 @@ public:
         wchar_t serial[128]       = {};
 
         if (hid_get_manufacturer_string(device_handle, manufacturer, 128) == 0) {
-            meta.manufacturer = wstring_to_string(manufacturer);
+            meta.manufacturer = wstring_to_utf8(manufacturer);
         }
 
         if (hid_get_product_string(device_handle, product, 128) == 0) {
-            meta.product = wstring_to_string(product);
+            meta.product = wstring_to_utf8(product);
         }
 
         if (hid_get_serial_number_string(device_handle, serial, 128) == 0 && serial[0] != 0) {
-            meta.serial_number = wstring_to_string(serial);
+            meta.serial_number = wstring_to_utf8(serial);
         }
 
         return meta;
@@ -206,7 +269,7 @@ public:
     {
         CapabilityInfo info {
             .capability  = cap,
-            .supported   = (getCapabilities() & B(cap)) != 0,
+            .supported   = (getAdvertisedCapabilities() & B(cap)) != 0,
             .description = capability_to_string(cap),
             .hid_details = getCapabilityDetail(cap)
         };
@@ -316,6 +379,69 @@ public:
     virtual Result<NoiseFilterResult> setNoiseFilter(hid_device*, uint8_t /*level*/)
     {
         return DeviceError::notSupported("Device does not support mic noise filtering");
+    }
+
+    /**
+     * @brief Set headphone active noise cancellation mode (0=off, 1=ANC, 2=ambient)
+     */
+    virtual Result<AncResult> setAnc(hid_device* /*device_handle*/, uint8_t /*mode*/)
+    {
+        return DeviceError::notSupported("Device does not support ANC");
+    }
+
+    /**
+     * @brief Set ANC mode used at power-on (0=off, 1=NC, 2=ambient, 3=mode at power off)
+     */
+    virtual Result<AncStartupModeResult> setAncStartupMode(hid_device* /*device_handle*/, uint8_t /*mode*/)
+    {
+        return DeviceError::notSupported("Device does not support ANC startup mode");
+    }
+
+    /**
+     * @brief Set ANC modes the headset's ANC button cycles through
+     */
+    virtual Result<AncButtonModesResult> setAncButtonModes(
+        hid_device* /*device_handle*/, const AncButtonModes& /*modes*/)
+    {
+        return DeviceError::notSupported("Device does not support ANC button modes");
+    }
+
+    /**
+     * @brief Query whether the detachable boom mic is physically attached
+     */
+    virtual Result<MicAttachmentStatusResult> getMicAttachmentStatus(hid_device* /*device_handle*/)
+    {
+        return DeviceError::notSupported("Device does not support mic attachment status");
+    }
+
+    /**
+     * @brief Query whether the microphone is muted
+     */
+    virtual Result<MicMuteStatusResult> getMicMuteStatus(hid_device* /*device_handle*/)
+    {
+        return DeviceError::notSupported("Device does not support microphone mute status");
+    }
+
+    /**
+     * @brief Set the headset (output) volume
+     *
+     * Controls the volume of the headset hardware itself (e.g. the same value
+     * the on-device volume wheel changes), not the OS mixer volume.
+     */
+    virtual Result<HeadsetVolumeResult> setHeadsetVolume(hid_device* /*device_handle*/, uint8_t /*volume*/)
+    {
+        return DeviceError::notSupported("Device does not support headset volume control");
+    }
+
+    /**
+     * @brief Read the headset (output) volume
+     *
+     * Only called for devices that list CAP_HEADSET_VOLUME in
+     * getReadableCapabilities().
+     */
+    virtual Result<HeadsetVolumeResult> getHeadsetVolume(hid_device* /*device_handle*/)
+    {
+        return DeviceError::notSupported("Device cannot read headset volume");
     }
 
     // ========================================================================

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../result_types.hpp"
+#include "device_utils.hpp"
 #include "hid_device.hpp"
 #include <array>
 #include <string_view>
@@ -25,7 +26,9 @@ namespace headsetcontrol {
  * - Profile 3: Different battery level
  * - Profile 4: Unavailable battery
  * - Profile 5: Timeout conditions
- * - Profile 6-9: Reserved
+ * - Profile 6: Full battery; headset volume settable but not readable
+ * - Profile 7: Low battery
+ * - Profile 8-9: Reserved
  * - Profile 10: Limited capabilities (sidetone, lights, battery only)
  */
 class HeadsetControlTest : public HIDDevice {
@@ -69,7 +72,25 @@ public:
             | B(CAP_EQUALIZER) | B(CAP_PARAMETRIC_EQUALIZER)
             | B(CAP_MICROPHONE_MUTE_LED_BRIGHTNESS) | B(CAP_MICROPHONE_VOLUME)
             | B(CAP_VOLUME_LIMITER) | B(CAP_BT_WHEN_POWERED_ON) | B(CAP_BT_CALL_VOLUME)
-            | B(CAP_NOISE_FILTER) | B(CAP_SIDETONE_STATUS);
+            | B(CAP_NOISE_FILTER) | B(CAP_ANC) | B(CAP_ANC_STARTUP_MODE)
+            | B(CAP_ANC_BUTTON_MODES) | B(CAP_MICROPHONE_ATTACHMENT_STATUS) | B(CAP_MICROPHONE_MUTE_STATUS)
+            | B(CAP_HEADSET_VOLUME);
+    }
+
+    int getReadableCapabilities() const override
+    {
+        // Profile 10 can't read anything back
+        if (test_profile == 10) {
+            return 0;
+        }
+
+        // Profile 6 keeps CAP_HEADSET_VOLUME settable but not readable
+        if (test_profile == 6) {
+            return B(CAP_SIDETONE);
+        }
+
+        // CAP_SIDETONE here also reports CAP_SIDETONE_STATUS
+        return B(CAP_SIDETONE) | B(CAP_HEADSET_VOLUME);
     }
 
     std::optional<EqualizerInfo> getEqualizerInfo() const override
@@ -80,6 +101,24 @@ public:
             .bands_step     = 0.5f,
             .bands_min      = -12,
             .bands_max      = 12
+        };
+    }
+
+    std::optional<ParametricEqualizerInfo> getParametricEqualizerInfo() const override
+    {
+        return ParametricEqualizerInfo {
+            .bands_count  = 10,
+            .gain_base    = 0.0f,
+            .gain_step    = 0.5f,
+            .gain_min     = -12.0f,
+            .gain_max     = 12.0f,
+            .q_factor_min = 0.5f,
+            .q_factor_max = 10.0f,
+            .freq_min     = 20,
+            .freq_max     = 20000,
+            .filter_types = B(static_cast<int>(EqualizerFilterType::LowShelf))
+                | B(static_cast<int>(EqualizerFilterType::Peaking))
+                | B(static_cast<int>(EqualizerFilterType::HighShelf))
         };
     }
 
@@ -242,6 +281,92 @@ public:
         }
 
         return NoiseFilterResult { .level = level };
+    }
+
+    Result<AncResult> setAnc([[maybe_unused]] hid_device* device_handle, uint8_t mode) override
+    {
+        if (test_profile == 1) {
+            return DeviceError::hidError("Test error condition");
+        }
+
+        return AncResult { .mode = mode };
+    }
+
+    Result<AncStartupModeResult> setAncStartupMode([[maybe_unused]] hid_device* device_handle, uint8_t mode) override
+    {
+        if (test_profile == 1) {
+            return DeviceError::hidError("Test error condition");
+        }
+
+        return AncStartupModeResult { .mode = mode };
+    }
+
+    Result<AncButtonModesResult> setAncButtonModes(
+        [[maybe_unused]] hid_device* device_handle, const AncButtonModes& modes) override
+    {
+        if (test_profile == 1) {
+            return DeviceError::hidError("Test error condition");
+        }
+        if (!modes.any()) {
+            return DeviceError::invalidParameter("At least one ANC button mode must be enabled");
+        }
+
+        return AncButtonModesResult {
+            .off     = modes.off,
+            .anc     = modes.anc,
+            .ambient = modes.ambient,
+        };
+    }
+
+    Result<MicAttachmentStatusResult> getMicAttachmentStatus([[maybe_unused]] hid_device* device_handle) override
+    {
+        if (test_profile == 1) {
+            return DeviceError::hidError("Test error condition");
+        }
+
+        return MicAttachmentStatusResult { .attached = true };
+    }
+
+    Result<MicMuteStatusResult> getMicMuteStatus([[maybe_unused]] hid_device* device_handle) override
+    {
+        if (test_profile == 1) {
+            return DeviceError::hidError("Test error condition");
+        }
+
+        return MicMuteStatusResult { .muted = false };
+    }
+
+    Result<HeadsetVolumeResult> setHeadsetVolume([[maybe_unused]] hid_device* device_handle, uint8_t volume) override
+    {
+        if (test_profile == 1) {
+            return DeviceError::hidError("Test error condition");
+        }
+
+        return HeadsetVolumeResult {
+            .volume        = volume,
+            .min_volume    = 0,
+            .max_volume    = 128,
+            .device_min    = 0,
+            .device_max    = 21,
+            .device_volume = mapSidetoneToDiscrete<22>(volume)
+        };
+    }
+
+    Result<HeadsetVolumeResult> getHeadsetVolume([[maybe_unused]] hid_device* device_handle) override
+    {
+        if (test_profile == 1) {
+            return DeviceError::hidError("Test error condition");
+        }
+
+        constexpr uint8_t device_volume = 15;
+        return HeadsetVolumeResult {
+            .volume        = mapDiscreteToSidetone<22>(device_volume),
+            .min_volume    = 0,
+            .max_volume    = 128,
+            .device_min    = 0,
+            .device_max    = 21,
+            .device_volume = device_volume
+        };
     }
 
     Result<NotificationSoundResult> notificationSound([[maybe_unused]] hid_device* device_handle, uint8_t sound_id) override

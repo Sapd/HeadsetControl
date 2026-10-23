@@ -1,15 +1,20 @@
 #include "headsetcontrol.hpp"
 
+#include "capability_descriptors.hpp"
 #include "device_registry.hpp"
 #include "devices/hid_device.hpp"
 #include "hid_utility.hpp"
+#include "product_name.hpp"
 #include "string_utils.hpp"
 #include "version.h"
 
 #include <hidapi.h>
 
 #include <algorithm>
+#include <format>
 #include <mutex>
+#include <optional>
+#include <source_location>
 #include <unordered_map>
 
 namespace headsetcontrol {
@@ -28,7 +33,7 @@ namespace {
 
     std::string hidStringOrEmpty(const wchar_t* value)
     {
-        return value ? wstring_to_string(value) : std::string();
+        return value ? wstring_to_utf8(value) : std::string();
     }
 
     class LibraryState {
@@ -98,7 +103,7 @@ public:
     HIDDevice* device() const { return device_; }
     uint16_t productId() const { return product_id_; }
     std::string_view vendorName() const { return vendor_name_; }
-    std::string_view productName() const { return product_name_; }
+    std::string_view productName() const { return product_name_.get(); }
     bool isTestDevice() const { return is_test_device_; }
 
     /**
@@ -140,6 +145,7 @@ public:
         hid_device* handle = hid_open_path(path->c_str());
         if (handle) {
             connections_[key] = handle;
+            product_name_.refine(*device_, handle);
         }
 
         return handle;
@@ -150,6 +156,9 @@ private:
     {
         for (auto& [key, handle] : connections_) {
             if (handle) {
+                if (device_) {
+                    device_->onConnectionClosed(handle);
+                }
                 hid_close(handle);
             }
         }
@@ -160,7 +169,7 @@ private:
     uint16_t product_id_;
     bool is_test_device_;
     std::string vendor_name_;
-    std::string product_name_;
+    ProductName product_name_;
     std::unordered_map<uint64_t, hid_device*> connections_;
 };
 
@@ -204,18 +213,29 @@ std::string_view Headset::productName() const
 
 bool Headset::supports(enum capabilities cap) const
 {
-    return (impl_->device()->getCapabilities() & B(cap)) != 0;
+    return (impl_->device()->getAdvertisedCapabilities() & B(cap)) != 0;
 }
 
 int Headset::capabilitiesMask() const
 {
-    return impl_->device()->getCapabilities();
+    return impl_->device()->getAdvertisedCapabilities();
+}
+
+bool Headset::canRead(enum capabilities cap) const
+{
+    return impl_->device()->canRead(cap);
+}
+
+int Headset::readableCapabilitiesMask() const
+{
+    const auto* device = impl_->device();
+    return device->getCapabilities() & device->getReadableCapabilities();
 }
 
 std::vector<std::string_view> Headset::capabilityNames() const
 {
     std::vector<std::string_view> names;
-    int caps = impl_->device()->getCapabilities();
+    int caps = impl_->device()->getAdvertisedCapabilities();
 
     for (int i = 0; i < NUM_CAPABILITIES; i++) {
         if (caps & B(i)) {
@@ -245,6 +265,29 @@ std::vector<std::string_view> Headset::capabilityNames() const
         return impl_->device()->method(handle __VA_OPT__(, ) __VA_ARGS__); \
     } while (0)
 
+namespace {
+
+    // The CLI parser bounds every option before it reaches a device, but the library
+    // setters are called directly, so the normalised 0-128 levels have to be bounded
+    // here as well. A device scales them onto its own range, so an out-of-range level
+    // would otherwise land on the device maximum instead of returning an error. The
+    // same applies to a range that is part of the public contract for every device,
+    // such as the noise filter's three levels.
+    std::optional<DeviceError> checkLevelRange(capabilities cap, int value,
+        std::source_location loc = std::source_location::current())
+    {
+        const auto& desc = getCapabilityDescriptor(cap);
+        if (!desc.hasValueRange() || (value >= *desc.min_value && value <= *desc.max_value)) {
+            return std::nullopt;
+        }
+
+        return DeviceError::invalidParameter(
+            std::format("{} must be {}-{} (got {})", desc.name, *desc.min_value, *desc.max_value, value),
+            loc);
+    }
+
+}
+
 Result<BatteryResult> Headset::getBattery()
 {
     HEADSET_FEATURE_IMPL(CAP_BATTERY_STATUS, getBattery);
@@ -262,12 +305,31 @@ Result<SidetoneResult> Headset::getSidetone()
 
 Result<SidetoneResult> Headset::setSidetone(uint8_t level)
 {
+    if (auto error = checkLevelRange(CAP_SIDETONE, level)) {
+        return *error;
+    }
     HEADSET_FEATURE_IMPL(CAP_SIDETONE, setSidetone, level);
 }
 
 Result<VolumeLimiterResult> Headset::setVolumeLimiter(bool enabled)
 {
     HEADSET_FEATURE_IMPL(CAP_VOLUME_LIMITER, setVolumeLimiter, enabled);
+}
+
+Result<HeadsetVolumeResult> Headset::setHeadsetVolume(uint8_t volume)
+{
+    if (auto error = checkLevelRange(CAP_HEADSET_VOLUME, volume)) {
+        return *error;
+    }
+    HEADSET_FEATURE_IMPL(CAP_HEADSET_VOLUME, setHeadsetVolume, volume);
+}
+
+Result<HeadsetVolumeResult> Headset::getHeadsetVolume()
+{
+    if (supports(CAP_HEADSET_VOLUME) && !canRead(CAP_HEADSET_VOLUME)) {
+        return DeviceError::notSupported("Device cannot read headset volume");
+    }
+    HEADSET_FEATURE_IMPL(CAP_HEADSET_VOLUME, getHeadsetVolume);
 }
 
 Result<EqualizerPresetResult> Headset::setEqualizerPreset(uint8_t preset)
@@ -308,12 +370,33 @@ std::optional<EqualizerPresets> Headset::getEqualizerPresets() const
 
 Result<MicVolumeResult> Headset::setMicVolume(uint8_t volume)
 {
+    if (auto error = checkLevelRange(CAP_MICROPHONE_VOLUME, volume)) {
+        return *error;
+    }
     HEADSET_FEATURE_IMPL(CAP_MICROPHONE_VOLUME, setMicVolume, volume);
 }
 
 Result<MicMuteLedBrightnessResult> Headset::setMicMuteLedBrightness(uint8_t brightness)
 {
     HEADSET_FEATURE_IMPL(CAP_MICROPHONE_MUTE_LED_BRIGHTNESS, setMicMuteLedBrightness, brightness);
+}
+
+Result<NoiseFilterResult> Headset::setNoiseFilter(uint8_t level)
+{
+    if (auto error = checkLevelRange(CAP_NOISE_FILTER, level)) {
+        return *error;
+    }
+    HEADSET_FEATURE_IMPL(CAP_NOISE_FILTER, setNoiseFilter, level);
+}
+
+Result<MicMuteStatusResult> Headset::getMicMuteStatus()
+{
+    HEADSET_FEATURE_IMPL(CAP_MICROPHONE_MUTE_STATUS, getMicMuteStatus);
+}
+
+Result<MicAttachmentStatusResult> Headset::getMicAttachmentStatus()
+{
+    HEADSET_FEATURE_IMPL(CAP_MICROPHONE_ATTACHMENT_STATUS, getMicAttachmentStatus);
 }
 
 Result<RotateToMuteResult> Headset::setRotateToMute(bool enabled)
@@ -349,6 +432,21 @@ Result<BluetoothWhenPoweredOnResult> Headset::setBluetoothWhenPoweredOn(bool ena
 Result<BluetoothCallVolumeResult> Headset::setBluetoothCallVolume(uint8_t volume)
 {
     HEADSET_FEATURE_IMPL(CAP_BT_CALL_VOLUME, setBluetoothCallVolume, volume);
+}
+
+Result<AncResult> Headset::setAnc(uint8_t mode)
+{
+    HEADSET_FEATURE_IMPL(CAP_ANC, setAnc, mode);
+}
+
+Result<AncStartupModeResult> Headset::setAncStartupMode(uint8_t mode)
+{
+    HEADSET_FEATURE_IMPL(CAP_ANC_STARTUP_MODE, setAncStartupMode, mode);
+}
+
+Result<AncButtonModesResult> Headset::setAncButtonModes(const AncButtonModes& modes)
+{
+    HEADSET_FEATURE_IMPL(CAP_ANC_BUTTON_MODES, setAncButtonModes, modes);
 }
 
 #undef HEADSET_FEATURE_IMPL

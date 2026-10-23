@@ -28,7 +28,7 @@ headsetcontrol -o env
 {
   "name": "HeadsetControl",
   "version": "3.0.0",
-  "api_version": "1.5",
+  "api_version": "1.8",
   "device_count": 1,
   "devices": [
     {
@@ -38,6 +38,8 @@ headsetcontrol -o env
       "id_product": "0x1b27",
       "capabilities": ["CAP_SIDETONE", "CAP_BATTERY_STATUS", "CAP_LIGHTS"],
       "capabilities_str": ["sidetone", "battery", "lights"],
+      "readable_capabilities": [],
+      "readable_capabilities_str": [],
       "battery": {
         "status": "BATTERY_AVAILABLE",
         "level": 85
@@ -73,6 +75,9 @@ headsetcontrol -s 64 -b -o json
 
 # Read the current sidetone setting (when supported)
 headsetcontrol -s -o json
+
+# Set the headset hardware volume (0-128, when supported)
+headsetcontrol --volume 64
 ```
 
 Action results include status:
@@ -273,9 +278,15 @@ std::string_view productName = headset.productName(); // "G PRO X 2 LIGHTSPEED"
 bool hasBattery = headset.supports(CAP_BATTERY_STATUS);
 int capsMask = headset.capabilitiesMask();        // Bitmask
 std::vector<std::string_view> capNames = headset.capabilityNames();
+
+// Settings that can also be read back (same bits as capabilitiesMask())
+bool canReadVolume = headset.canRead(CAP_HEADSET_VOLUME);
+int readableMask = headset.readableCapabilitiesMask();
 ```
 
 `vendorName()` and `productName()` come from HID enumeration metadata. If the OS or device does not provide these strings, they return an empty string.
+
+Some devices know more than their USB strings: a Jabra Link dongle, for example, reports the headset paired to it. The first call that opens the device (such as `getBattery()`) lets it refine `productName()`, so read the name after that call to show the refined one. A name read earlier keeps the USB string and stays valid. The same applies to `hsc_get_product_name()` in the C API.
 
 ### Battery & Status
 
@@ -333,6 +344,24 @@ if (headset.supports(CAP_SIDETONE)) {
 if (headset.supports(CAP_VOLUME_LIMITER)) {
     headset.setVolumeLimiter(true);  // Enable
 }
+
+// Headset (output) volume, 0-128: the headset hardware volume (the value the
+// on-device wheel changes), not the OS mixer.
+if (headset.supports(CAP_HEADSET_VOLUME)) {
+    auto result = headset.setHeadsetVolume(64);
+    if (result) {
+        std::cout << "Volume set (device level " << (int)result->device_volume
+                  << "/" << (int)result->device_max << ")\n";
+    }
+}
+
+// Read it back, on devices that support that
+if (headset.canRead(CAP_HEADSET_VOLUME)) {
+    auto result = headset.getHeadsetVolume();
+    if (result) {
+        std::cout << "Volume: " << (int)result->volume << "\n";
+    }
+}
 ```
 
 ### Equalizer
@@ -389,6 +418,11 @@ if (headset.supports(CAP_MICROPHONE_MUTE_LED_BRIGHTNESS)) {
     headset.setMicMuteLedBrightness(2);
 }
 
+// Noise filter (0 = off, 1 = low, 2 = high)
+if (headset.supports(CAP_NOISE_FILTER)) {
+    headset.setNoiseFilter(1);
+}
+
 // Rotate-to-mute
 if (headset.supports(CAP_ROTATE_TO_MUTE)) {
     headset.setRotateToMute(true);
@@ -429,6 +463,33 @@ if (headset.supports(CAP_BT_WHEN_POWERED_ON)) {
 
 if (headset.supports(CAP_BT_CALL_VOLUME)) {
     headset.setBluetoothCallVolume(2);
+}
+```
+
+### Noise Cancelling & Microphone Status
+
+```cpp
+// ANC mode (0 = off, 1 = noise cancelling, 2 = ambient sound)
+if (headset.supports(CAP_ANC)) {
+    headset.setAnc(1);
+}
+
+// ANC mode at power-on (0-2 as above, 3 = mode at power off)
+if (headset.supports(CAP_ANC_STARTUP_MODE)) {
+    headset.setAncStartupMode(3);
+}
+
+// Modes the headset's ANC button cycles through (at least one)
+if (headset.supports(CAP_ANC_BUTTON_MODES)) {
+    headset.setAncButtonModes({ .off = true, .anc = true, .ambient = false });
+}
+
+if (auto r = headset.getMicAttachmentStatus()) {
+    std::cout << "Boom mic: " << (r->attached ? "attached" : "detached") << "\n";
+}
+
+if (auto r = headset.getMicMuteStatus()) {
+    std::cout << "Mic: " << (r->muted ? "muted" : "unmuted") << "\n";
 }
 ```
 
@@ -679,6 +740,9 @@ if (hsc_supports(headset, HSC_CAP_BATTERY_STATUS)) {
 
 // Get all capabilities as bitmask
 int caps = hsc_get_capabilities(headset);
+
+// Capabilities that can also be read back (same bits)
+int readable = hsc_get_readable_capabilities(headset);
 ```
 
 ### Battery
@@ -735,11 +799,63 @@ hsc_set_equalizer_preset(headset, 2);
 float bands[] = { 0.0f, 2.0f, 4.0f, 2.0f, 0.0f, -2.0f };
 hsc_set_equalizer(headset, bands, 6);
 
+// Custom EQ layout: band count, baseline, range and step
+// (HSC_RESULT_NOT_SUPPORTED if the device doesn't describe it)
+hsc_equalizer_info_t eq_info;
+if (hsc_get_equalizer_info(headset, &eq_info) == HSC_RESULT_OK) {
+    printf("%d bands, %d to %d in steps of %.1f\n",
+        eq_info.bands_count, eq_info.bands_min, eq_info.bands_max, eq_info.bands_step);
+}
+
+// Parametric EQ: check the ranges, then set bands that fit them.
+// Every band uses a filter type the device lists in filter_types.
+hsc_parametric_equalizer_info_t peq_info;
+if (hsc_get_parametric_equalizer_info(headset, &peq_info) == HSC_RESULT_OK
+    && (peq_info.filter_types & (1 << HSC_EQ_FILTER_PEAKING))) {
+    // Some devices take a single Q factor (the PRO X 2 only accepts 1.0)
+    float q = 1.0f;
+    if (q < peq_info.q_factor_min) q = peq_info.q_factor_min;
+    if (q > peq_info.q_factor_max) q = peq_info.q_factor_max;
+
+    hsc_parametric_band_t peq[] = {
+        { .frequency = 100.0f, .gain = 3.0f, .q_factor = q, .type = HSC_EQ_FILTER_PEAKING },
+        { .frequency = 1000.0f, .gain = -2.0f, .q_factor = q, .type = HSC_EQ_FILTER_PEAKING },
+    };
+    if (hsc_set_parametric_equalizer(headset, peq, 2) != HSC_RESULT_OK) {
+        // The device rejected a band, e.g. a gain outside gain_min..gain_max
+    }
+}
+
 // Mic volume
 hsc_set_mic_volume(headset, 100);
 
+// Mic noise filter (0 = off, 1 = low, 2 = high)
+hsc_set_noise_filter(headset, 1);
+
 // Voice prompts
 hsc_set_voice_prompts(headset, false);
+
+// ANC (0 = off, 1 = noise cancelling, 2 = ambient sound)
+hsc_set_anc(headset, 1);
+hsc_set_anc_startup_mode(headset, 3); // 3 = mode at power off
+hsc_anc_button_modes_t modes = { .off = true, .anc = true, .ambient = false };
+hsc_set_anc_button_modes(headset, &modes);
+
+// Microphone status
+hsc_mic_attachment_status_t attachment;
+hsc_get_mic_attachment_status(headset, &attachment);
+
+hsc_mic_mute_status_t mute;
+hsc_get_mic_mute_status(headset, &mute);
+
+// Headset hardware volume (0-128); result param is optional (NULL ok)
+hsc_headset_volume_t volume_result;
+hsc_set_headset_volume(headset, 64, &volume_result);
+
+// Read it back, on devices that support that
+if (hsc_get_readable_capabilities(headset) & (1 << HSC_CAP_HEADSET_VOLUME)) {
+    hsc_get_headset_volume(headset, &volume_result);
+}
 ```
 
 ### Error Handling
@@ -768,6 +884,12 @@ default:
 }
 ```
 
+Sidetone, microphone volume and headset volume take a normalised 0-128 level. The library
+checks that range itself and returns `HSC_RESULT_INVALID_PARAM` (C) or an
+`InvalidParameter` error (C++) for anything above it, rather than passing it on to be
+scaled into the device's maximum. Narrower limits are the device's own, so a device with
+four hardware steps can still reject a level the library accepted.
+
 ### Capabilities
 
 ```c
@@ -788,6 +910,14 @@ HSC_CAP_MICROPHONE_VOLUME
 HSC_CAP_VOLUME_LIMITER
 HSC_CAP_BT_WHEN_POWERED_ON
 HSC_CAP_BT_CALL_VOLUME
+HSC_CAP_NOISE_FILTER
+HSC_CAP_SIDETONE_STATUS
+HSC_CAP_ANC
+HSC_CAP_ANC_STARTUP_MODE
+HSC_CAP_ANC_BUTTON_MODES
+HSC_CAP_MICROPHONE_ATTACHMENT_STATUS
+HSC_CAP_MICROPHONE_MUTE_STATUS
+HSC_CAP_HEADSET_VOLUME
 ```
 
 ## Compiling C Programs
@@ -864,13 +994,23 @@ class Capability(IntEnum):
     VOLUME_LIMITER = 13
     BT_WHEN_POWERED_ON = 14
     BT_CALL_VOLUME = 15
+    NOISE_FILTER = 16
+    SIDETONE_STATUS = 17
+    ANC = 18
+    ANC_STARTUP_MODE = 19
+    ANC_BUTTON_MODES = 20
+    MICROPHONE_ATTACHMENT_STATUS = 21
+    MICROPHONE_MUTE_STATUS = 22
+    HEADSET_VOLUME = 23
 
 
 # Battery status
 class BatteryStatus(IntEnum):
-    UNAVAILABLE = -1
-    CHARGING = -2
-    AVAILABLE = 0
+    UNAVAILABLE = 0
+    CHARGING = 1
+    AVAILABLE = 2
+    ERROR = 3
+    TIMEOUT = 4
 
 
 # Structures
