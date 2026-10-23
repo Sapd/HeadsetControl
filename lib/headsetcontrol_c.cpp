@@ -247,6 +247,14 @@ const char* hsc_get_product_name(hsc_headset_t headset)
     return product_name.empty() ? nullptr : product_name.c_str();
 }
 
+// hsc_capability_t mirrors the capabilities enum by value, and hsc_supports()
+// casts straight between them, so the X-macro generates one check per capability
+// rather than leaving the C header to be kept in step by hand.
+#define X(cap, str, short_char) static_assert(HSC_##cap == static_cast<int>(cap));
+CAPABILITIES_XLIST
+#undef X
+static_assert(HSC_NUM_CAPABILITIES == static_cast<int>(NUM_CAPABILITIES));
+
 bool hsc_supports(hsc_headset_t headset, hsc_capability_t cap)
 {
     if (!headset) {
