@@ -104,6 +104,24 @@ public:
         };
     }
 
+    std::optional<ParametricEqualizerInfo> getParametricEqualizerInfo() const override
+    {
+        return ParametricEqualizerInfo {
+            .bands_count  = 10,
+            .gain_base    = 0.0f,
+            .gain_step    = 0.5f,
+            .gain_min     = -12.0f,
+            .gain_max     = 12.0f,
+            .q_factor_min = 0.5f,
+            .q_factor_max = 10.0f,
+            .freq_min     = 20,
+            .freq_max     = 20000,
+            .filter_types = B(static_cast<int>(EqualizerFilterType::LowShelf))
+                | B(static_cast<int>(EqualizerFilterType::Peaking))
+                | B(static_cast<int>(EqualizerFilterType::HighShelf))
+        };
+    }
+
     uint8_t getEqualizerPresetsCount() const override
     {
         return 4;

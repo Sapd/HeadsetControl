@@ -465,6 +465,92 @@ hsc_result_t hsc_set_equalizer(hsc_headset_t headset, const float* bands, int nu
     return result ? HSC_RESULT_OK : toErrorCode(result.error());
 }
 
+hsc_result_t hsc_get_equalizer_info(hsc_headset_t headset, hsc_equalizer_info_t* info)
+{
+    if (!headset || !info) {
+        return HSC_RESULT_INVALID_PARAM;
+    }
+
+    const auto& h = static_cast<HeadsetWrapper*>(headset)->headset;
+    if (!h.supports(CAP_EQUALIZER)) {
+        return HSC_RESULT_NOT_SUPPORTED;
+    }
+
+    auto eq_info = h.getEqualizerInfo();
+    if (!eq_info) {
+        return HSC_RESULT_NOT_SUPPORTED;
+    }
+
+    info->bands_count    = eq_info->bands_count;
+    info->bands_baseline = eq_info->bands_baseline;
+    info->bands_step     = eq_info->bands_step;
+    info->bands_min      = eq_info->bands_min;
+    info->bands_max      = eq_info->bands_max;
+    return HSC_RESULT_OK;
+}
+
+// Filter types cross the boundary as their numeric value, in both directions.
+static_assert(HSC_EQ_FILTER_LOW_SHELF == static_cast<int>(EqualizerFilterType::LowShelf));
+static_assert(HSC_EQ_FILTER_LOW_PASS == static_cast<int>(EqualizerFilterType::LowPass));
+static_assert(HSC_EQ_FILTER_PEAKING == static_cast<int>(EqualizerFilterType::Peaking));
+static_assert(HSC_EQ_FILTER_HIGH_PASS == static_cast<int>(EqualizerFilterType::HighPass));
+static_assert(HSC_EQ_FILTER_HIGH_SHELF == static_cast<int>(EqualizerFilterType::HighShelf));
+static_assert(HSC_EQ_FILTER_NOTCH == static_cast<int>(EqualizerFilterType::Notch));
+static_assert(HSC_EQ_FILTER_NOTCH + 1 == NUM_EQ_FILTER_TYPES);
+
+hsc_result_t hsc_get_parametric_equalizer_info(hsc_headset_t headset, hsc_parametric_equalizer_info_t* info)
+{
+    if (!headset || !info) {
+        return HSC_RESULT_INVALID_PARAM;
+    }
+
+    const auto& h = static_cast<HeadsetWrapper*>(headset)->headset;
+    if (!h.supports(CAP_PARAMETRIC_EQUALIZER)) {
+        return HSC_RESULT_NOT_SUPPORTED;
+    }
+
+    auto peq_info = h.getParametricEqualizerInfo();
+    if (!peq_info) {
+        return HSC_RESULT_NOT_SUPPORTED;
+    }
+
+    info->bands_count  = peq_info->bands_count;
+    info->gain_base    = peq_info->gain_base;
+    info->gain_step    = peq_info->gain_step;
+    info->gain_min     = peq_info->gain_min;
+    info->gain_max     = peq_info->gain_max;
+    info->q_factor_min = peq_info->q_factor_min;
+    info->q_factor_max = peq_info->q_factor_max;
+    info->freq_min     = peq_info->freq_min;
+    info->freq_max     = peq_info->freq_max;
+    info->filter_types = peq_info->filter_types;
+    return HSC_RESULT_OK;
+}
+
+hsc_result_t hsc_set_parametric_equalizer(hsc_headset_t headset, const hsc_parametric_band_t* bands, int num_bands)
+{
+    if (!headset || !bands || num_bands <= 0) {
+        return HSC_RESULT_INVALID_PARAM;
+    }
+
+    ParametricEqualizerSettings settings;
+    settings.bands.reserve(static_cast<size_t>(num_bands));
+    for (int i = 0; i < num_bands; ++i) {
+        const auto& band = bands[i];
+        const int type   = band.type;
+        if (type < 0 || type >= NUM_EQ_FILTER_TYPES) {
+            return HSC_RESULT_INVALID_PARAM;
+        }
+        settings.bands.push_back({ .frequency = band.frequency,
+            .gain                             = band.gain,
+            .q_factor                         = band.q_factor,
+            .type                             = static_cast<EqualizerFilterType>(band.type) });
+    }
+
+    auto result = static_cast<HeadsetWrapper*>(headset)->headset.setParametricEqualizer(settings);
+    return result ? HSC_RESULT_OK : toErrorCode(result.error());
+}
+
 int hsc_get_equalizer_presets_count(hsc_headset_t headset)
 {
     if (!headset) {
