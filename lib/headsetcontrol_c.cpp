@@ -684,6 +684,17 @@ hsc_result_t hsc_set_lights(hsc_headset_t headset, bool enabled)
     return result ? HSC_RESULT_OK : toErrorCode(result.error());
 }
 
+hsc_result_t hsc_set_light_color(hsc_headset_t headset, uint8_t r, uint8_t g, uint8_t b)
+{
+    if (!headset) {
+        return HSC_RESULT_INVALID_PARAM;
+    }
+
+    auto result = static_cast<HeadsetWrapper*>(headset)->headset.setLightColor(
+        LightColorSettings { .r = r, .g = g, .b = b });
+    return result ? HSC_RESULT_OK : toErrorCode(result.error());
+}
+
 hsc_result_t hsc_set_voice_prompts(hsc_headset_t headset, bool enabled)
 {
     if (!headset) {

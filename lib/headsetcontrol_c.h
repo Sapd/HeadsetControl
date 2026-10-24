@@ -107,7 +107,8 @@ typedef enum {
     HSC_CAP_MICROPHONE_ATTACHMENT_STATUS   = 21,
     HSC_CAP_MICROPHONE_MUTE_STATUS         = 22,
     HSC_CAP_HEADSET_VOLUME                 = 23,
-    HSC_NUM_CAPABILITIES                   = 24,
+    HSC_CAP_LIGHT_COLOR                    = 24,
+    HSC_NUM_CAPABILITIES                   = 25,
 } hsc_capability_t;
 
 /* ============================================================================
@@ -603,6 +604,20 @@ HSC_API hsc_result_t hsc_set_rotate_to_mute(hsc_headset_t headset, bool enabled)
  * @return HSC_RESULT_OK on success, negative error code on failure
  */
 HSC_API hsc_result_t hsc_set_lights(hsc_headset_t headset, bool enabled);
+
+/**
+ * @brief Set the color of the lights, which also turns them on
+ *
+ * Applies to every LED zone. Black (0, 0, 0) is a valid color and may switch
+ * the lights off on some devices.
+ *
+ * @param headset Headset handle
+ * @param r Red component (0-255)
+ * @param g Green component (0-255)
+ * @param b Blue component (0-255)
+ * @return HSC_RESULT_OK on success, negative error code on failure
+ */
+HSC_API hsc_result_t hsc_set_light_color(hsc_headset_t headset, uint8_t r, uint8_t g, uint8_t b);
 
 /**
  * @brief Set voice prompts on/off

@@ -28,7 +28,7 @@ headsetcontrol -o env
 {
   "name": "HeadsetControl",
   "version": "3.0.0",
-  "api_version": "1.8",
+  "api_version": "1.9",
   "device_count": 1,
   "devices": [
     {
@@ -437,6 +437,11 @@ if (headset.supports(CAP_LIGHTS)) {
     headset.setLights(true);
 }
 
+// Light color - applies to every zone and turns the lights on
+if (headset.supports(CAP_LIGHT_COLOR)) {
+    headset.setLightColor({ .r = 0xff, .g = 0x80, .b = 0x00 });
+}
+
 // Voice prompts on/off
 if (headset.supports(CAP_VOICE_PROMPTS)) {
     headset.setVoicePrompts(false);
@@ -788,6 +793,9 @@ hsc_set_sidetone(headset, 64, &sidetone_result);  // result param is optional (N
 hsc_set_lights(headset, true);   // on
 hsc_set_lights(headset, false);  // off
 
+// Light color (r, g, b) - applies to every zone and turns the lights on
+hsc_set_light_color(headset, 0xff, 0x80, 0x00);
+
 // Inactive time (minutes, 0 = disabled)
 hsc_inactive_time_t time_result;
 hsc_set_inactive_time(headset, 30, &time_result);
@@ -918,6 +926,7 @@ HSC_CAP_ANC_BUTTON_MODES
 HSC_CAP_MICROPHONE_ATTACHMENT_STATUS
 HSC_CAP_MICROPHONE_MUTE_STATUS
 HSC_CAP_HEADSET_VOLUME
+HSC_CAP_LIGHT_COLOR
 ```
 
 ## Compiling C Programs
@@ -1002,6 +1011,7 @@ class Capability(IntEnum):
     MICROPHONE_ATTACHMENT_STATUS = 21
     MICROPHONE_MUTE_STATUS = 22
     HEADSET_VOLUME = 23
+    LIGHT_COLOR = 24
 
 
 # Battery status
@@ -1083,6 +1093,9 @@ _lib.hsc_set_sidetone.restype = c_int
 _lib.hsc_set_lights.argtypes = [c_void_p, c_bool]
 _lib.hsc_set_lights.restype = c_int
 
+_lib.hsc_set_light_color.argtypes = [c_void_p, c_uint8, c_uint8, c_uint8]
+_lib.hsc_set_light_color.restype = c_int
+
 _lib.hsc_set_inactive_time.argtypes = [c_void_p, c_uint8, c_void_p]
 _lib.hsc_set_inactive_time.restype = c_int
 
@@ -1156,6 +1169,12 @@ class Headset:
         if not self.supports(Capability.LIGHTS):
             return False
         return _lib.hsc_set_lights(self._handle, enabled) == Result.OK
+
+    def set_light_color(self, r: int, g: int, b: int) -> bool:
+        """Set the light color, which also turns the lights on. Returns True on success."""
+        if not self.supports(Capability.LIGHT_COLOR):
+            return False
+        return _lib.hsc_set_light_color(self._handle, r, g, b) == Result.OK
 
     def set_inactive_time(self, minutes: int) -> bool:
         """Set auto power-off time (0 = disabled). Returns True on success."""

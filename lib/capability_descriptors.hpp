@@ -307,6 +307,17 @@ inline constexpr std::array<CapabilityDescriptor, NUM_CAPABILITIES> CAPABILITY_D
         .min_value   = 0,
         .max_value   = 128,
         .value_hint  = "[LEVEL]" },
+
+    // CAP_LIGHT_COLOR
+    {
+        .cap         = CAP_LIGHT_COLOR,
+        .type        = CAPABILITYTYPE_ACTION,
+        .name        = "light-color",
+        .short_flag  = "",
+        .description = "Set the light color (implies lights on)",
+        .min_value   = std::nullopt,
+        .max_value   = std::nullopt,
+        .value_hint  = "<RRGGBB>" },
 } };
 
 /**
