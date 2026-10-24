@@ -135,9 +135,9 @@ private:
         if (report.size() < REPORT_SIZE || report[0] != STATUS_REPORT_ID)
             return;
 
-        auto& status       = last_status_[device_handle];
+        auto& status        = last_status_[device_handle];
         const uint8_t level = report[BYTE_LEVEL];
-        status.connected   = (report[BYTE_FLAGS] & FLAG_CONNECTED) != 0;
+        status.connected    = (report[BYTE_FLAGS] & FLAG_CONNECTED) != 0;
         if (level == LEVEL_CHARGING) {
             status.charging = true;
         } else if (level <= 100) {

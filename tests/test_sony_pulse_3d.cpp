@@ -20,9 +20,9 @@ public:
     }
 };
 
-#define PULSE_ASSERT(condition, message)                                            \
-    do {                                                                            \
-        if (!(condition))                                                           \
+#define PULSE_ASSERT(condition, message)                                             \
+    do {                                                                             \
+        if (!(condition))                                                            \
             throw Pulse3DTestFailure(std::string("Assertion failed: ") + (message)); \
     } while (false)
 
@@ -97,10 +97,10 @@ private:
 };
 
 // Reports captured from a real headset
-const std::vector<uint8_t> AT_80    { 0xb0, 0x05, 0x0a, 0x50, 0xef, 0x11, 0x11, 0x64 };
-const std::vector<uint8_t> AT_30    { 0xb0, 0x05, 0x00, 0x1e, 0xef, 0x15, 0x11, 0x64 };
+const std::vector<uint8_t> AT_80 { 0xb0, 0x05, 0x0a, 0x50, 0xef, 0x11, 0x11, 0x64 };
+const std::vector<uint8_t> AT_30 { 0xb0, 0x05, 0x00, 0x1e, 0xef, 0x15, 0x11, 0x64 };
 const std::vector<uint8_t> CHARGING { 0xb0, 0x05, 0x00, 0x80, 0xed, 0x58, 0x11, 0x64 };
-const std::vector<uint8_t> OFF      { 0xb0, 0x05, 0x14, 0x28, 0xe1, 0x5b, 0x11, 0x64 };
+const std::vector<uint8_t> OFF { 0xb0, 0x05, 0x14, 0x28, 0xe1, 0x5b, 0x11, 0x64 };
 const std::vector<uint8_t> MEDIA_KEY { 0x01, 0x00, 0x00, 0x00, 0x00 };
 
 auto* const HANDLE_A = reinterpret_cast<hid_device*>(0x1);
