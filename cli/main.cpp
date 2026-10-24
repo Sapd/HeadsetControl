@@ -1343,8 +1343,11 @@ bool checkDeviceConnected(DiscoveredDevice& selected, const Options& opts)
     if (!h)
         return false;
 
+    // A charging headset is plainly there; the other statuses all mean it could
+    // not be talked to.
     auto r = selected.device->getBattery(h);
-    return !r.hasError() && r.value().status == BATTERY_AVAILABLE;
+    return !r.hasError()
+        && (r.value().status == BATTERY_AVAILABLE || r.value().status == BATTERY_CHARGING);
 }
 
 } // anonymous namespace
