@@ -282,9 +282,10 @@ private:
     static constexpr uint8_t REPORT_ID_IN  = 0x01;
 
     // A wireless receiver relays commands to the headset paired with it, whereas a
-    // wired headset answers for itself. Addressing the wrong one is not reported
-    // consistently: the XT simply stays silent, while a wired SE answers in a way
-    // that fails as a protocol error.
+    // wired XT answers for itself. A wired SE is addressed like a receiver, on
+    // 0x09. Addressing the wrong target is not reported consistently: the XT
+    // simply stays silent, while a wired SE refuses 0x08 with a status that fails
+    // as a protocol error.
     static constexpr uint8_t TARGET_HEADSET     = 0x09;
     static constexpr uint8_t TARGET_SELF        = 0x08;
     static constexpr uint8_t REPLY_FROM_HEADSET = 0x01;
@@ -392,11 +393,11 @@ private:
 
     [[nodiscard]] Result<ResolvedTarget> resolveTarget(hid_device* device_handle)
     {
-        const auto product_id = getMatchedProductId();
-        const bool wired      = product_id == PID_XT_WIRED || product_id == PID_SE_WIRED;
-
-        const uint8_t hinted    = wired ? TARGET_SELF : TARGET_HEADSET;
-        const uint8_t alternate = wired ? TARGET_HEADSET : TARGET_SELF;
+        // Only the wired XT answers for itself. The wired SE refuses on 0x08 and
+        // answers on 0x09, like a receiver.
+        const bool self         = getMatchedProductId() == PID_XT_WIRED;
+        const uint8_t hinted    = self ? TARGET_SELF : TARGET_HEADSET;
+        const uint8_t alternate = self ? TARGET_HEADSET : TARGET_SELF;
 
         std::optional<DeviceError> protocol_error;
         for (const uint8_t candidate : { hinted, alternate }) {
@@ -409,7 +410,7 @@ private:
             // Silence means nothing is listening on that target, and "no such
             // property" is a receiver answering for itself with no headset behind
             // it. A protocol error can also just mean the wrong target - a wired
-            // SE answers that way - so the other target is still tried, but the
+            // SE refuses 0x08 that way - so the other target is still tried, but the
             // error is kept: if nothing answers it is the real fault, and
             // reporting it as offline would hide it. Anything else, such as a
             // failed HID write, fails the same way on either target.

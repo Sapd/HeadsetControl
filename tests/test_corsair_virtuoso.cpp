@@ -156,6 +156,16 @@ void testVirtuosoBattery()
         "wired battery should read 100% discharging");
     VIRTUOSO_ASSERT(wired.writes[0][1] == 0x08, "wired requests target the device itself");
 
+    // Wired SE: addressed on 0x09 like a receiver, so the probe lands first time.
+    VirtuosoMockHID wired_se;
+    TestableVirtuoso wired_se_device(wired_se, PID_SE_WIRED);
+    wired_se.reply(1, FROM_HEADSET, GET, STATUS_OK, 990);
+    wired_se.reply(2, FROM_HEADSET, GET, STATUS_OK, CHARGING);
+    battery = wired_se_device.getBattery(nullptr);
+    VIRTUOSO_ASSERT(battery.hasValue() && battery->level_percent == 99, "wired SE battery should succeed");
+    VIRTUOSO_ASSERT(wired_se.writes.size() == 2 && wired_se.writes[0][1] == 0x09,
+        "the wired SE should be probed on 0x09 first");
+
     std::cout << "    OK battery over both targets" << std::endl;
 }
 
@@ -207,11 +217,11 @@ void testVirtuosoTargetResolutionErrors()
         "a HID error during target resolution should be propagated");
     VIRTUOSO_ASSERT(broken.writes.size() == 1, "a HID error should not fall through to the other target");
 
-    // A wired SE answers on the target it does not use with something that is
-    // a protocol error rather than silence. That must not stop the other target
-    // from being tried.
+    // A wired SE refuses 0x08 with something that is a protocol error rather
+    // than silence. With a stale hint pointing at 0x08 (the registry last
+    // matched a wired XT), that must not stop 0x09 from being tried.
     VirtuosoMockHID wired_se;
-    TestableVirtuoso wired_se_device(wired_se, PID_SE_WIRED);
+    TestableVirtuoso wired_se_device(wired_se, PID_WIRED);
     wired_se.reply(1, FROM_SELF, GET, STATUS_REFUSED);
     wired_se.reply(2, FROM_HEADSET, GET, STATUS_OK, 960);
     wired_se.reply(3, FROM_HEADSET, GET, STATUS_OK, CHARGING);
@@ -225,7 +235,7 @@ void testVirtuosoTargetResolutionErrors()
     // If neither target answers properly, the protocol error is the fault to
     // report, not "offline".
     VirtuosoMockHID garbled;
-    TestableVirtuoso garbled_device(garbled, PID_SE_WIRED);
+    TestableVirtuoso garbled_device(garbled, PID_WIRED);
     garbled.reply(1, FROM_SELF, GET, STATUS_REFUSED);
     auto protocol = garbled_device.getBattery(nullptr);
     VIRTUOSO_ASSERT(protocol.hasError(), "no usable reply should fail");
