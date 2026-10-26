@@ -28,7 +28,8 @@ namespace headsetcontrol {
  * - Profile 5: Timeout conditions
  * - Profile 6: Full battery; headset volume settable but not readable
  * - Profile 7: Low battery
- * - Profile 8-9: Reserved
+ * - Profile 8: Charging, level not yet reported
+ * - Profile 9: Reserved
  * - Profile 10: Limited capabilities (sidetone, lights, battery only)
  */
 class HeadsetControlTest : public HIDDevice {
@@ -180,6 +181,10 @@ public:
             result.status            = BATTERY_AVAILABLE;
             result.voltage_mv        = 3400; // Low voltage
             result.time_to_empty_min = 72; // ~1.2 hours remaining
+            break;
+        case 8: // Charging before the headset has reported a level
+            result.level_percent = -1;
+            result.status        = BATTERY_CHARGING;
             break;
         default:
             result.level_percent = 42;

@@ -574,7 +574,11 @@ void outputStandard(const OutputData& data, bool print_capabilities)
         if (dev.battery.has_value()) {
             s.println("Battery:");
             s.println("\tStatus: {}", batteryStatusToString(dev.battery->status));
-            if (dev.battery->status != BATTERY_UNAVAILABLE) {
+            // A level below 0 means it is not known: the headset is off, or it is
+            // charging and has not reported one yet. Printing it as "-1%" reads as
+            // a real reading, so the line is left out like it is for an
+            // unavailable battery. The structured formats keep -1 as the sentinel.
+            if (dev.battery->status != BATTERY_UNAVAILABLE && dev.battery->level >= 0) {
                 s.println("\tLevel: {}%", dev.battery->level);
             }
             if (dev.battery->voltage_mv.has_value()) {
