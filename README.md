@@ -181,6 +181,7 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 | SteelSeries Arctis Nova 3P Wireless | All | x | x |   |   | x |   |   |   | x | x | x |   | x |   |   |   |   |   |   |   |   |   |   |   |   |
 | SteelSeries Arctis GameBuds | All |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | HyperX Cloud Alpha Wireless | All | x | x |   |   | x |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
+| HyperX Cloud Alpha 2 Wireless | L/W | x | x |   |   |   | x |   |   | x |   |   |   |   |   |   |   |   | x |   |   |   |   |   |   |   |
 | HyperX Cloud Flight Wireless | All |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | HyperX Cloud II Wireless | All |   | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | HyperX Cloud II Wireless (Kingston) | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
@@ -205,6 +206,8 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 \* Only available on some product variants of that device. Sidetone status reading, for instance, is verified only for the SteelSeries Arctis Nova 7 Gen 2 (`1038:227e`).
 
 > **Note:** Some Corsair headsets may need additional configuration - see [Adding a Corsair device](docs/ADDING_A_CORSAIR_DEVICE.md). Some headsets (HS80, HS70 wired, RGB Elite, Virtuoso other than the XT/SE) expose sidetone via ALSA mixer instead.
+
+> **Note:** HyperX Cloud Alpha 2 Wireless - while HyperX NGENUITY is running, changing any audio setting in it (sidetone, game/chat balance, equalizer preset, ...) makes NGENUITY write *all* of them back from its own saved values, which can undo changes made with HeadsetControl. Close NGENUITY, or make the change in NGENUITY instead.
 
 ## Usage
 
