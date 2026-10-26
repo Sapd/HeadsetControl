@@ -27,6 +27,7 @@ void runAllStringEscapingTests();
 void runAllLibraryApiTests();
 void runAllProtocolTests();
 void runAllSteelSeriesSidetoneTests();
+void runAllHyperXCloudAlpha2WirelessTests();
 void runAllSonyPulse3DTests();
 }
 
@@ -70,6 +71,8 @@ int main()
         headsetcontrol::testing::runAllProtocolTests();
 
         headsetcontrol::testing::runAllSteelSeriesSidetoneTests();
+
+        headsetcontrol::testing::runAllHyperXCloudAlpha2WirelessTests();
 
         headsetcontrol::testing::runAllSonyPulse3DTests();
 
