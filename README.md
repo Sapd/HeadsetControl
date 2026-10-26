@@ -167,7 +167,7 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 | Logitech Zone Wired/Zone 750 | All | x |   |   |   |   |   | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | Corsair Headset Device | All | x | x | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   | x |   |   |
 | Corsair Wireless V2 Headset Device | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   | x |   |   |
-| Corsair Virtuoso XT/SE | All |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
+| Corsair Virtuoso XT/SE | All | x* | x |   | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | SteelSeries Arctis (1/7X/7P) Wireless | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | SteelSeries Arctis (7/Pro) | All | x | x |   | x | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | SteelSeries Arctis 9 | All | x | x |   |   | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
@@ -204,9 +204,9 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 
 **Platform:** All = Linux, macOS, Windows | L/M = Linux and macOS only | L/W = Linux and Windows only
 
-\* Only available on some product variants of that device. Sidetone status reading, for instance, is verified only for the SteelSeries Arctis Nova 7 Gen 2 (`1038:227e`).
+\* Only available on some product variants of that device. Sidetone status reading, for instance, is verified only for the SteelSeries Arctis Nova 7 Gen 2 (`1038:227e`). Sidetone on the Corsair Virtuoso XT/SE is verified only for the XT (`1b1c:0a64`, `1b1c:0a62`).
 
-> **Note:** Some Corsair headsets may need additional configuration - see [Adding a Corsair device](docs/ADDING_A_CORSAIR_DEVICE.md). Some headsets (HS80, HS70 wired, RGB Elite, Virtuoso other than the XT/SE) expose sidetone via ALSA mixer instead.
+> **Note:** Some Corsair headsets may need additional configuration - see [Adding a Corsair device](docs/ADDING_A_CORSAIR_DEVICE.md). Some headsets (HS80, HS70 wired, RGB Elite, Virtuoso other than the XT) expose sidetone via ALSA mixer instead.
 
 > **Note:** HyperX Cloud Alpha 2 Wireless - while HyperX NGENUITY is running, changing any audio setting in it (sidetone, game/chat balance, equalizer preset, ...) makes NGENUITY write *all* of them back from its own saved values, which can undo changes made with HeadsetControl. Close NGENUITY, or make the change in NGENUITY instead.
 
