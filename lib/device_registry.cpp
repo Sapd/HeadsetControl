@@ -38,6 +38,7 @@
 #include "devices/hyperx_cloud_2_wireless.hpp"
 #include "devices/hyperx_cloud_2_wireless_kingston.hpp"
 #include "devices/hyperx_cloud_3.hpp"
+#include "devices/hyperx_cloud_alpha_2_wireless.hpp"
 #include "devices/hyperx_cloud_alpha_wireless.hpp"
 #include "devices/hyperx_cloud_flight.hpp"
 
@@ -64,6 +65,7 @@
 #include "devices/sony_inzone_buds.hpp"
 #include "devices/sony_inzone_h5.hpp"
 #include "devices/sony_inzone_h9_ii.hpp"
+#include "devices/sony_pulse_3d.hpp"
 
 // MCHOSE devices
 #include "devices/mchose_x9.hpp"
@@ -145,6 +147,7 @@ void DeviceRegistry::initialize()
 
         // HyperX devices
         registerDevice(std::make_unique<HyperXCloudAlphaWireless>());
+        registerDevice(std::make_unique<HyperXCloudAlpha2Wireless>());
         registerDevice(std::make_unique<HyperXCloudFlight>());
         registerDevice(std::make_unique<HyperXCloud2Wireless>());
         registerDevice(std::make_unique<HyperXCloud2WirelessKingston>());
@@ -173,6 +176,7 @@ void DeviceRegistry::initialize()
         registerDevice(std::make_unique<SonyINZONEBuds>());
         registerDevice(std::make_unique<SonyINZONEH5>());
         registerDevice(std::make_unique<SonyINZONEH9II>());
+        registerDevice(std::make_unique<SonyPulse3D>());
 
         // MCHOSE devices
         registerDevice(std::make_unique<MchoseX9>());

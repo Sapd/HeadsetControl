@@ -294,6 +294,8 @@ void testCNullHandling()
     ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_get_headset_volume(nullptr, &headset_volume), "get_headset_volume(null) should fail");
     ASSERT_EQ(0, hsc_get_readable_capabilities(nullptr), "get_readable_capabilities(null) should be 0");
 
+    ASSERT_EQ(HSC_RESULT_INVALID_PARAM, hsc_set_light_color(nullptr, 0, 0, 0), "set_light_color(null) should fail");
+
     std::cout << "    OK C API null handling" << std::endl;
 }
 
@@ -335,6 +337,14 @@ void testCppTestDeviceMode()
             ASSERT_TRUE(headset.supports(CAP_SIDETONE), "Test device should support sidetone");
             ASSERT_TRUE(headset.supports(CAP_CHATMIX_STATUS), "Test device should support chatmix");
             ASSERT_TRUE(headset.supports(CAP_SIDETONE_STATUS), "Test device should support sidetone status");
+            ASSERT_TRUE(headset.supports(CAP_LIGHT_COLOR), "Test device should support light color");
+
+            // Test light color
+            auto color = headset.setLightColor(LightColorSettings { .r = 0x12, .g = 0x34, .b = 0x56 });
+            ASSERT_TRUE(color.hasValue(), "Light color should return success");
+            ASSERT_EQ(0x12, color->color.r, "Red should be echoed");
+            ASSERT_EQ(0x34, color->color.g, "Green should be echoed");
+            ASSERT_EQ(0x56, color->color.b, "Blue should be echoed");
 
             // Test battery
             auto battery = headset.getBattery();
@@ -513,6 +523,11 @@ void testCTestDeviceMode()
             ASSERT_TRUE(hsc_supports(headsets[i], HSC_CAP_ANC_BUTTON_MODES), "Should support ANC button modes");
             ASSERT_TRUE(hsc_supports(headsets[i], HSC_CAP_MICROPHONE_ATTACHMENT_STATUS), "Should support microphone attachment status");
             ASSERT_TRUE(hsc_supports(headsets[i], HSC_CAP_MICROPHONE_MUTE_STATUS), "Should support microphone mute status");
+            ASSERT_TRUE(hsc_supports(headsets[i], HSC_CAP_LIGHT_COLOR), "Should support light color");
+
+            // Test light color, including black
+            ASSERT_EQ(HSC_RESULT_OK, hsc_set_light_color(headsets[i], 0xff, 0x80, 0x00), "Light color should succeed");
+            ASSERT_EQ(HSC_RESULT_OK, hsc_set_light_color(headsets[i], 0, 0, 0), "Black should succeed");
 
             // Test battery
             hsc_battery_t battery;

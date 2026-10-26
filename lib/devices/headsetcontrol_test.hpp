@@ -28,7 +28,8 @@ namespace headsetcontrol {
  * - Profile 5: Timeout conditions
  * - Profile 6: Full battery; headset volume settable but not readable
  * - Profile 7: Low battery
- * - Profile 8-9: Reserved
+ * - Profile 8: Charging, level not yet reported
+ * - Profile 9: Reserved
  * - Profile 10: Limited capabilities (sidetone, lights, battery only)
  */
 class HeadsetControlTest : public HIDDevice {
@@ -74,7 +75,7 @@ public:
             | B(CAP_VOLUME_LIMITER) | B(CAP_BT_WHEN_POWERED_ON) | B(CAP_BT_CALL_VOLUME)
             | B(CAP_NOISE_FILTER) | B(CAP_ANC) | B(CAP_ANC_STARTUP_MODE)
             | B(CAP_ANC_BUTTON_MODES) | B(CAP_MICROPHONE_ATTACHMENT_STATUS) | B(CAP_MICROPHONE_MUTE_STATUS)
-            | B(CAP_HEADSET_VOLUME);
+            | B(CAP_HEADSET_VOLUME) | B(CAP_LIGHT_COLOR);
     }
 
     int getReadableCapabilities() const override
@@ -181,6 +182,10 @@ public:
             result.voltage_mv        = 3400; // Low voltage
             result.time_to_empty_min = 72; // ~1.2 hours remaining
             break;
+        case 8: // Charging before the headset has reported a level
+            result.level_percent = -1;
+            result.status        = BATTERY_CHARGING;
+            break;
         default:
             result.level_percent = 42;
             result.status        = BATTERY_AVAILABLE;
@@ -224,6 +229,12 @@ public:
     Result<LightsResult> setLights([[maybe_unused]] hid_device* device_handle, bool on) override
     {
         return LightsResult { .enabled = on };
+    }
+
+    Result<LightColorResult> setLightColor([[maybe_unused]] hid_device* device_handle,
+        const LightColorSettings& color) override
+    {
+        return LightColorResult { .color = color };
     }
 
     Result<InactiveTimeResult> setInactiveTime([[maybe_unused]] hid_device* device_handle, uint8_t minutes) override

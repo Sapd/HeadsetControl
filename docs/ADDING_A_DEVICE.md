@@ -404,6 +404,7 @@ return makeCapabilityDetail(0xffc0, 0x1, 3);
 | `CAP_MICROPHONE_ATTACHMENT_STATUS` | Info | Detachable boom mic attachment status |
 | `CAP_MICROPHONE_MUTE_STATUS` | Info | Microphone mute status |
 | `CAP_HEADSET_VOLUME` | Action | Headset hardware (output) volume; readable via `getHeadsetVolume()` |
+| `CAP_LIGHT_COLOR` | Action | Set the light color (implies lights on) |
 
 ## Example: Complete Device Implementation
 

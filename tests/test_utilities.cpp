@@ -518,6 +518,41 @@ void testParseTwoIds()
     std::cout << "    ✓ parse_two_ids works correctly" << std::endl;
 }
 
+void testParseLightColor()
+{
+    std::cout << "  Testing parse_light_color..." << std::endl;
+
+    auto plain = parse_light_color("ff8000");
+    ASSERT_TRUE(plain.has_value(), "Should parse RRGGBB");
+    ASSERT_EQ(0xff, plain->r, "Red should be 0xff");
+    ASSERT_EQ(0x80, plain->g, "Green should be 0x80");
+    ASSERT_EQ(0x00, plain->b, "Blue should be 0x00");
+
+    auto hashed = parse_light_color("#12AbeF");
+    ASSERT_TRUE(hashed.has_value(), "Should parse #RRGGBB in mixed case");
+    ASSERT_EQ(0x12, hashed->r, "Red should be 0x12");
+    ASSERT_EQ(0xab, hashed->g, "Green should be 0xab");
+    ASSERT_EQ(0xef, hashed->b, "Blue should be 0xef");
+
+    // Black is a real color, not "unset"
+    auto black = parse_light_color("000000");
+    ASSERT_TRUE(black.has_value(), "Black should parse");
+    ASSERT_EQ(0, black->r + black->g + black->b, "Black should be all zero");
+
+    ASSERT_FALSE(parse_light_color("").has_value(), "Empty should fail");
+    ASSERT_FALSE(parse_light_color("#").has_value(), "Bare # should fail");
+    ASSERT_FALSE(parse_light_color("fff").has_value(), "Shorthand should fail");
+    ASSERT_FALSE(parse_light_color("1234567").has_value(), "Seven digits should fail");
+    ASSERT_FALSE(parse_light_color("12345G").has_value(), "Non-hex digit should fail");
+    ASSERT_FALSE(parse_light_color("0xff00").has_value(), "0x prefix should fail");
+    ASSERT_FALSE(parse_light_color("+fffff").has_value(), "Sign should fail");
+    ASSERT_FALSE(parse_light_color("-fffff").has_value(), "Negative should fail");
+    ASSERT_FALSE(parse_light_color("##ff00ff").has_value(), "Double # should fail");
+    ASSERT_FALSE(parse_light_color("ff 000").has_value(), "Embedded space should fail");
+
+    std::cout << "    ✓ parse_light_color works correctly" << std::endl;
+}
+
 // ============================================================================
 // result_types.hpp Tests
 // ============================================================================
@@ -830,6 +865,7 @@ void runAllUtilityTests()
     runTest("parse_float_data", testParseFloatData);
     runTest("parse_parametric_eq", testParseParametricEqualizerSettings);
     runTest("parse_two_ids", testParseTwoIds);
+    runTest("parse_light_color", testParseLightColor);
 
     std::cout << "\n=== result_types.hpp Tests ===" << std::endl;
     runTest("Result<T> success", testResultSuccess);

@@ -12,6 +12,7 @@
 
 // Forward declarations
 struct ParametricEqualizerSettings;
+struct LightColorSettings;
 
 namespace headsetcontrol {
 
@@ -100,6 +101,16 @@ ParametricEqualizerSettings parse_parametric_equalizer_settings(std::string_view
  * @return pair of IDs if successful, nullopt otherwise
  */
 std::optional<std::pair<int, int>> parse_two_ids(std::string_view input, int default_base = 10);
+
+/**
+ * @brief Parse a color written as "RRGGBB" or "#RRGGBB"
+ *
+ * Exactly six hex digits, in either case. "000000" is a valid color.
+ *
+ * @param input string to parse
+ * @return the color if successful, nullopt otherwise
+ */
+std::optional<LightColorSettings> parse_light_color(std::string_view input);
 
 /**
  * @brief Cross-platform sleep for milliseconds

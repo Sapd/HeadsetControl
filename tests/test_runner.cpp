@@ -27,6 +27,8 @@ void runAllStringEscapingTests();
 void runAllLibraryApiTests();
 void runAllProtocolTests();
 void runAllSteelSeriesSidetoneTests();
+void runAllHyperXCloudAlpha2WirelessTests();
+void runAllSonyPulse3DTests();
 void runAllCorsairVirtuosoTests();
 }
 
@@ -71,6 +73,9 @@ int main()
 
         headsetcontrol::testing::runAllSteelSeriesSidetoneTests();
 
+        headsetcontrol::testing::runAllHyperXCloudAlpha2WirelessTests();
+
+        headsetcontrol::testing::runAllSonyPulse3DTests();
         headsetcontrol::testing::runAllCorsairVirtuosoTests();
 
         std::cout << "\n====================================================================" << std::endl;

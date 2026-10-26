@@ -23,6 +23,7 @@ struct FeatureOutput {
     std::optional<ChatmixResult> chatmix; // Extended chatmix info
     std::optional<SidetoneResult> sidetone; // Extended sidetone info
     std::optional<HeadsetVolumeResult> headset_volume; // Extended headset volume info
+    std::optional<LightColorSettings> light_color; // Color that was set
 
     static FeatureOutput success(int val, std::string msg = "")
     {
@@ -62,6 +63,15 @@ struct FeatureOutput {
             .value          = v.volume,
             .message        = "",
             .headset_volume = v
+        };
+    }
+
+    static FeatureOutput fromLightColor(const LightColorResult& c)
+    {
+        return {
+            .value       = (c.color.r << 16) | (c.color.g << 8) | c.color.b,
+            .message     = "",
+            .light_color = c.color
         };
     }
 };
@@ -213,6 +223,11 @@ namespace detail {
     inline const AncButtonModes& getAncButtonModes(const FeatureParam& p)
     {
         return std::get<AncButtonModes>(p);
+    }
+
+    inline const LightColorSettings& getLightColor(const FeatureParam& p)
+    {
+        return std::get<LightColorSettings>(p);
     }
 
 } // namespace detail
@@ -429,6 +444,14 @@ inline void FeatureHandlerRegistry::registerAllHandlers()
         if (r.hasError())
             return r.error();
         return FeatureOutput::fromHeadsetVolume(r.value());
+    });
+
+    // CAP_LIGHT_COLOR
+    registerHandler(CAP_LIGHT_COLOR, CAPABILITYTYPE_ACTION, [](HIDDevice* dev, hid_device* h, const FeatureParam& p) -> Result<FeatureOutput> {
+        auto r = dev->setLightColor(h, getLightColor(p));
+        if (r.hasError())
+            return r.error();
+        return FeatureOutput::fromLightColor(r.value());
     });
 }
 
