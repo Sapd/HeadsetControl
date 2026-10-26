@@ -67,8 +67,9 @@ public:
 
     constexpr int getCapabilities() const override { return B(CAP_BATTERY_STATUS); }
 
-    // usagepage/usageid select the status collection on Windows; elsewhere the
-    // whole interface 3 is opened and other collections' reports are skipped.
+    // usagepage/usageid select the status collection on every platform where
+    // hidapi reports usages; with older hidapi the lookup falls back to
+    // interface 3, and reports from its other collections are skipped by ID.
     constexpr capability_detail getCapabilityDetail([[maybe_unused]] enum capabilities cap) const override
     {
         return { .usagepage = 0xff01, .usageid = 0x0020, .interface_id = 3 };

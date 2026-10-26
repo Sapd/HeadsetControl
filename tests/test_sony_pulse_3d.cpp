@@ -102,6 +102,8 @@ const std::vector<uint8_t> AT_30 { 0xb0, 0x05, 0x00, 0x1e, 0xef, 0x15, 0x11, 0x6
 const std::vector<uint8_t> CHARGING { 0xb0, 0x05, 0x00, 0x80, 0xed, 0x58, 0x11, 0x64 };
 const std::vector<uint8_t> OFF { 0xb0, 0x05, 0x14, 0x28, 0xe1, 0x5b, 0x11, 0x64 };
 const std::vector<uint8_t> MEDIA_KEY { 0x01, 0x00, 0x00, 0x00, 0x00 };
+// Same length as a status report but another collection's report ID
+const std::vector<uint8_t> OTHER_COLLECTION_8B { 0x01, 0x05, 0x00, 0x64, 0xef, 0x15, 0x11, 0x64 };
 
 auto* const HANDLE_A = reinterpret_cast<hid_device*>(0x1);
 auto* const HANDLE_B = reinterpret_cast<hid_device*>(0x2);
@@ -124,6 +126,7 @@ void testPulse3DLatestQueuedReportWins()
     hid.reads.emplace_back(AT_80);
     hid.reads.emplace_back(MEDIA_KEY);
     hid.reads.emplace_back(AT_30);
+    hid.reads.emplace_back(OTHER_COLLECTION_8B);
 
     auto result = device.getBattery(HANDLE_A);
     PULSE_ASSERT(result.hasValue(), "queued status should be read");
