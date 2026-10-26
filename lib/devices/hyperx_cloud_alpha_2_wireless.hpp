@@ -105,8 +105,12 @@ public:
 
     constexpr int getCapabilities() const override
     {
-        return B(CAP_BATTERY_STATUS) | B(CAP_SIDETONE) | B(CAP_SIDETONE_STATUS) | B(CAP_CHATMIX_STATUS)
-            | B(CAP_EQUALIZER_PRESET);
+        return B(CAP_BATTERY_STATUS) | B(CAP_SIDETONE) | B(CAP_CHATMIX_STATUS) | B(CAP_EQUALIZER_PRESET);
+    }
+
+    constexpr int getReadableCapabilities() const override
+    {
+        return B(CAP_SIDETONE);
     }
 
     uint8_t getEqualizerPresetsCount() const override
