@@ -65,6 +65,7 @@
 #include "devices/sony_inzone_buds.hpp"
 #include "devices/sony_inzone_h5.hpp"
 #include "devices/sony_inzone_h9_ii.hpp"
+#include "devices/sony_pulse_3d.hpp"
 
 // MCHOSE devices
 #include "devices/mchose_x9.hpp"
@@ -175,6 +176,7 @@ void DeviceRegistry::initialize()
         registerDevice(std::make_unique<SonyINZONEBuds>());
         registerDevice(std::make_unique<SonyINZONEH5>());
         registerDevice(std::make_unique<SonyINZONEH9II>());
+        registerDevice(std::make_unique<SonyPulse3D>());
 
         // MCHOSE devices
         registerDevice(std::make_unique<MchoseX9>());

@@ -28,6 +28,7 @@ void runAllLibraryApiTests();
 void runAllProtocolTests();
 void runAllSteelSeriesSidetoneTests();
 void runAllHyperXCloudAlpha2WirelessTests();
+void runAllSonyPulse3DTests();
 }
 
 int main()
@@ -72,6 +73,8 @@ int main()
         headsetcontrol::testing::runAllSteelSeriesSidetoneTests();
 
         headsetcontrol::testing::runAllHyperXCloudAlpha2WirelessTests();
+
+        headsetcontrol::testing::runAllSonyPulse3DTests();
 
         std::cout << "\n====================================================================" << std::endl;
         std::cout << "                    All tests passed successfully!                  " << std::endl;

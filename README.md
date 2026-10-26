@@ -198,6 +198,7 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 | Sony INZONE Buds | All |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | Sony INZONE H5 | All | x | x |   |   |   | x |   |   |   |   |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |
 | Sony INZONE H9 II | All | x | x |   |   | x | x | x |   |   |   |   |   |   |   | x |   |   |   | x | x | x | x | x |   |   |
+| Sony PULSE 3D | All |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | MCHOSE X9 Wireless | L/W |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | HeadsetControl Test device | All | r | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | r | x |
 
