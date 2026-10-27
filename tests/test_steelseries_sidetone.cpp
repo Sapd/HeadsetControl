@@ -1,3 +1,4 @@
+#include "devices/steelseries_arctis_nova_5.hpp"
 #include "devices/steelseries_arctis_nova_7.hpp"
 
 #include <algorithm>
@@ -250,6 +251,125 @@ void testSteelSeriesSidetoneShortAsyncStatus()
     SIDETONE_ASSERT(result->current_level == 85, "the real response after it should still be read");
 }
 
+// --- Arctis Nova 5 -----------------------------------------------------------
+// The Nova 5 answers 0x20 with the whole audio-settings frame: opcode, then ten
+// 6-byte EQ bands, then mic_volume (61), sidetone (62) and volume_limiter (63).
+
+class TestableNova5 final : public SteelSeriesArctisNova5 {
+public:
+    explicit TestableNova5(SidetoneMockHID& hid, uint16_t product_id = 0x2232)
+        : hid_(hid)
+    {
+        setMatchedProductId(product_id);
+    }
+
+protected:
+    HIDInterface& getHIDInterface() const override { return hid_; }
+
+private:
+    SidetoneMockHID& hid_;
+};
+
+std::vector<uint8_t> nova5AudioSettings(uint8_t sidetone, uint8_t mic = 15, uint8_t limiter = 1)
+{
+    std::vector<uint8_t> frame(64, 0x00);
+    frame[0]  = 0x20;
+    frame[61] = mic;
+    frame[62] = sidetone;
+    frame[63] = limiter;
+    return frame;
+}
+
+void checkNova5Level(uint8_t raw, uint8_t normalized)
+{
+    SidetoneMockHID hid;
+    TestableNova5 device(hid);
+    hid.reads.emplace_back(nova5AudioSettings(raw));
+
+    auto result = device.getSidetone(nullptr);
+    SIDETONE_ASSERT(result.hasValue(), "valid Nova 5 response should succeed");
+    SIDETONE_ASSERT(result->current_level == normalized, "normalized level should match");
+    SIDETONE_ASSERT(result->device_level == raw, "native level should match");
+    SIDETONE_ASSERT(result->device_max == 0x0a, "Nova 5 has 11 discrete levels");
+    SIDETONE_ASSERT(result->is_muted == (raw == 0), "mute flag should follow device level 0");
+    SIDETONE_ASSERT(hid.writes.size() == 1, "query should write once");
+    SIDETONE_ASSERT(hid.writes[0].size() == 64, "query report should be 64 bytes");
+    SIDETONE_ASSERT(hid.writes[0][0] == 0x00 && hid.writes[0][1] == 0x20,
+        "query should use the audio settings command");
+}
+
+void testNova5SidetoneLevels()
+{
+    checkNova5Level(0, 0);
+    checkNova5Level(1, 16);
+    checkNova5Level(5, 60);
+    checkNova5Level(10, 128);
+}
+
+void testNova5SidetoneRoundTripsThroughSetter()
+{
+    // Every normalised value reported must map back to the level it came from,
+    // otherwise the CLI would show a level it cannot re-apply.
+    for (uint8_t raw = 0; raw <= 10; ++raw) {
+        SidetoneMockHID hid;
+        TestableNova5 device(hid);
+        hid.reads.emplace_back(nova5AudioSettings(raw));
+        auto result = device.getSidetone(nullptr);
+        SIDETONE_ASSERT(result.hasValue(), "read should succeed");
+        SIDETONE_ASSERT(mapSidetoneToDiscrete<11>(result->current_level) == raw,
+            "reported level must round-trip through setSidetone");
+    }
+}
+
+void testNova5SidetoneValidation()
+{
+    {
+        SidetoneMockHID hid;
+        TestableNova5 device(hid);
+        hid.reads.emplace_back(std::vector<uint8_t>(40, 0x00));
+        auto result = device.getSidetone(nullptr);
+        SIDETONE_ASSERT(result.hasError(), "short response should fail");
+        SIDETONE_ASSERT(result.error().code == DeviceError::Code::ProtocolError,
+            "short response should be a protocol error");
+    }
+    {
+        SidetoneMockHID hid;
+        TestableNova5 device(hid);
+        auto frame = nova5AudioSettings(0);
+        frame[0]   = 0x22;
+        hid.reads.emplace_back(frame);
+        auto result = device.getSidetone(nullptr);
+        SIDETONE_ASSERT(result.hasError(), "unexpected response type should fail");
+        SIDETONE_ASSERT(result.error().code == DeviceError::Code::ProtocolError,
+            "unexpected response type should be a protocol error");
+    }
+    {
+        SidetoneMockHID hid;
+        TestableNova5 device(hid);
+        hid.reads.emplace_back(nova5AudioSettings(11));
+        auto result = device.getSidetone(nullptr);
+        SIDETONE_ASSERT(result.hasError(), "out-of-range level should fail");
+        SIDETONE_ASSERT(result.error().code == DeviceError::Code::ProtocolError,
+            "out-of-range level should be a protocol error");
+    }
+}
+
+void testNova5SidetoneAsyncStatusAndCapabilities()
+{
+    SidetoneMockHID hid;
+    TestableNova5 device(hid);
+    hid.reads.emplace_back(std::vector<uint8_t> { 0xb0, 0x03, 0x03, 0x63 });
+    hid.reads.emplace_back(nova5AudioSettings(5));
+
+    auto result = device.getSidetone(nullptr);
+    SIDETONE_ASSERT(result.hasValue() && result->current_level == 60,
+        "asynchronous status report should be skipped");
+    SIDETONE_ASSERT((device.getCapabilities() & B(CAP_SIDETONE_STATUS)) == 0,
+        "sidetone status is derived, not listed in getCapabilities");
+    SIDETONE_ASSERT((device.getAdvertisedCapabilities() & B(CAP_SIDETONE_STATUS)) != 0,
+        "Nova 5 should advertise sidetone read-back");
+}
+
 void runAllSteelSeriesSidetoneTests()
 {
     std::cout << "\n=== SteelSeries Sidetone Tests ===" << std::endl;
@@ -258,6 +378,10 @@ void runAllSteelSeriesSidetoneTests()
     testSteelSeriesSidetoneHIDErrors();
     testSteelSeriesSidetoneAsyncStatusAndSave();
     testSteelSeriesSidetoneShortAsyncStatus();
+    testNova5SidetoneLevels();
+    testNova5SidetoneRoundTripsThroughSetter();
+    testNova5SidetoneValidation();
+    testNova5SidetoneAsyncStatusAndCapabilities();
     std::cout << "  SteelSeries sidetone tests passed" << std::endl;
 }
 
