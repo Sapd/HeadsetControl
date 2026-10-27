@@ -269,6 +269,64 @@ protected:
     }
 
     /**
+     * @brief Reply to the audio settings query (0x20)
+     *
+     * Bytes actually sent are kept: a short reply has to be rejected by the
+     * caller, which knows how much of the frame it needs.
+     */
+    struct AudioSettingsReply {
+        std::array<uint8_t, MSG_SIZE> data {};
+        size_t bytes_read = 0;
+    };
+
+    /**
+     * @brief Read the audio settings frame (0x20)
+     *
+     * Families put different things in this frame — the Nova 7 Gen 2 has the
+     * sidetone level at offset 2, the Nova 5 has the ten EQ bands first and
+     * the level at offset 62 — so the caller picks its own offset and length
+     * check; everything up to a validated 0x20 reply is shared.
+     *
+     * Status reports (0xb0) can arrive asynchronously on this interface.
+     * Ignore those while waiting for the requested report: hidraw broadcasts
+     * input reports to every open handle, so another client polling the
+     * device puts its answer in front of ours.
+     */
+    Result<AudioSettingsReply> readAudioSettings(hid_device* device_handle) const
+    {
+        constexpr std::array<uint8_t, 2> request { 0x00, 0x20 };
+        if (auto result = this->sendCommand(device_handle, request); !result) {
+            return result.error();
+        }
+
+        constexpr int MAX_REPORTS = 8;
+        for (int report = 0; report < MAX_REPORTS; ++report) {
+            std::array<uint8_t, MSG_SIZE> response {};
+            auto read_result = this->readHIDTimeout(device_handle, response, hsc_device_timeout);
+            if (!read_result) {
+                return read_result.error();
+            }
+
+            if (*read_result == 0) {
+                return DeviceError::timeout("No SteelSeries settings response received");
+            }
+
+            // A short 0xb0 report is still one to skip, not a bad response.
+            if (response[0] == 0xb0) {
+                continue;
+            }
+
+            if (response[0] != 0x20) {
+                return DeviceError::protocolError("Unexpected SteelSeries settings response");
+            }
+
+            return AudioSettingsReply { .data = response, .bytes_read = *read_result };
+        }
+
+        return DeviceError::protocolError("No SteelSeries settings response received");
+    }
+
+    /**
      * @brief Send command using modern HID wrapper
      */
     template <typename T>
