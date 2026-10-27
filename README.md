@@ -173,7 +173,7 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 | SteelSeries Arctis 9 | All | x | x |   |   | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | SteelSeries Arctis Pro Wireless | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | SteelSeries Arctis Nova 3 | All | x |   |   |   |   |   |   |   | x | x |   | x | x |   |   |   |   |   |   |   |   |   |   |   |   |
-| SteelSeries Arctis Nova (5/5X) | All | x | x |   |   | x | x |   |   | x | x | x | x | x | x |   |   |   |   |   |   |   |   |   |   |   |
+| SteelSeries Arctis Nova (5/5X) | All | r | x |   |   | x | x |   |   | x | x | x | x | x | x |   |   |   | x |   |   |   |   |   |   |   |
 | SteelSeries Arctis Nova 7 | All | x | x |   |   | x | x |   |   | x | x |   | x | x | x | x | x |   | x* |   |   |   |   |   |   |   |
 | SteelSeries Arctis Nova 7P | All |   | x |   |   | x |   |   |   | x | x |   | x | x | x | x | x |   |   |   |   |   |   |   |   |   |
 | SteelSeries Arctis 7+ | All | x | x |   |   | x | x |   |   | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
