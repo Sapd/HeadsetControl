@@ -89,7 +89,10 @@ void processSidetoneResult(const FeatureResult& result, DeviceData& dev)
         dev.sidetone = SidetoneData {
             .level        = result.value,
             .device_level = result.sidetone_device_level.value_or(0),
-            .name         = result.sidetone_level_name.value_or("")
+            .name         = result.sidetone_level_name.value_or(""),
+            .min_level    = 0,
+            .max_level    = 128,
+            .levels       = result.sidetone_levels.value_or(std::vector<int> {})
         };
     } else if (result.status == FEATURE_ERROR) {
         dev.errors.emplace_back(capability_to_string(CAP_SIDETONE_STATUS), result.message);

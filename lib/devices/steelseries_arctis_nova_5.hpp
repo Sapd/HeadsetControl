@@ -278,7 +278,8 @@ public:
             .device_min    = 0x00,
             .device_max    = 0x0a,
             .is_muted      = raw_level == 0,
-            .device_level  = raw_level
+            .device_level  = raw_level,
+            .levels        = std::vector<uint8_t>(SIDETONE_LEVELS.begin(), SIDETONE_LEVELS.end())
         };
     }
 

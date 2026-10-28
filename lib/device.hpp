@@ -216,6 +216,7 @@ struct FeatureResult {
     std::optional<int> battery_time_to_empty_min;
     std::optional<int> sidetone_device_level;
     std::optional<std::string> sidetone_level_name;
+    std::optional<std::vector<int>> sidetone_levels;
     std::optional<int> headset_volume_device_level;
     // Color that was set (only populated for CAP_LIGHT_COLOR)
     std::optional<LightColorSettings> light_color;

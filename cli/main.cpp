@@ -690,6 +690,14 @@ FeatureResult convertToFeatureResult(const headsetcontrol::FeatureOutput& output
         result.value                 = output.sidetone->current_level;
         result.sidetone_device_level = output.sidetone->device_level;
         result.sidetone_level_name   = output.sidetone->level_name;
+        if (output.sidetone->levels) {
+            std::vector<int> levels;
+            levels.reserve(output.sidetone->levels->size());
+            for (const auto level : *output.sidetone->levels) {
+                levels.push_back(static_cast<int>(level));
+            }
+            result.sidetone_levels = std::move(levels);
+        }
     }
 
     // Handle headset volume special case

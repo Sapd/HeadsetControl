@@ -122,12 +122,28 @@ struct SidetoneData {
     int level        = 0;
     int device_level = 0;
     std::string name;
+    int min_level = 0;
+    int max_level = 0;
+    // Selectable levels when the device is quantised; empty when the whole
+    // min..max range is meaningful.
+    std::vector<int> levels;
 
     void serialize(Serializer& s) const
     {
         s.beginObject("sidetone");
         s.write("level", level);
         s.write("device_level", device_level);
+        if (max_level > min_level) {
+            s.write("min", min_level);
+            s.write("max", max_level);
+        }
+        if (!levels.empty()) {
+            s.beginArray("levels");
+            for (const auto level : levels) {
+                s.writeArrayItem(level);
+            }
+            s.endArray();
+        }
         if (!name.empty()) {
             s.write("name", name);
         }

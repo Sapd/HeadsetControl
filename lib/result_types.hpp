@@ -186,6 +186,10 @@ struct SidetoneResult {
     bool is_muted        = false; // Whether sidetone is muted
     uint8_t device_level = 0; // Current level in the device's native range
     std::optional<std::string> level_name; // Named level, when exposed by the device
+    // The levels this device actually has, in the app-facing range, when they
+    // are quantised. The Nova 5, for example, has 11 steps between 0 and 128,
+    // so any other value a caller sends is silently snapped to one of them.
+    std::optional<std::vector<uint8_t>> levels;
 };
 
 /**
