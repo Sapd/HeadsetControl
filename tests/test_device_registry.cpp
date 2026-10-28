@@ -460,11 +460,11 @@ void testReadableCapabilities()
     ASSERT_TRUE(set.hasValue(), "Headset volume set should succeed");
     ASSERT_EQ(64, set->value, "Headset volume set should report the level");
 
-    // A device that can set the volume but not read it back
     auto* a50 = registry.getDevice(0x046d, 0x0b1c);
     ASSERT_TRUE(a50 != nullptr, "ASTRO A50 Gen 5 should be registered");
     ASSERT_TRUE(a50->supports(CAP_HEADSET_VOLUME, CAPABILITYTYPE_ACTION), "A50 Gen 5 sets headset volume");
-    ASSERT_FALSE(a50->supports(CAP_HEADSET_VOLUME, CAPABILITYTYPE_INFO), "A50 Gen 5 can't read headset volume yet");
+    ASSERT_TRUE(a50->supports(CAP_HEADSET_VOLUME, CAPABILITYTYPE_INFO), "A50 Gen 5 reads headset volume back");
+    ASSERT_FALSE(a50->supports(CAP_SIDETONE, CAPABILITYTYPE_INFO), "A50 Gen 5 can't read sidetone back");
 
     std::cout << "    OK readable capabilities" << std::endl;
 }

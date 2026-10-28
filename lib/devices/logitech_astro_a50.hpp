@@ -38,7 +38,7 @@ namespace headsetcontrol {
  * - Battery status   (CMD 0x06) — reply byte6 = %, byte8 = dock/charging flag
  * - Chatmix          (CMD 0x0a) — value 0..12 (0 = chat/voice, 12 = game)
  * - Sidetone         (CMD 0x09) — payload 01 ff <level>
- * - Master volume    (CMD 0x08) — SET handle 0x1b, payload ff <0..21>
+ * - Master volume    (CMD 0x08) — SET handle 0x1b, payload ff <0..21>; GET reply byte8 = <0..21>
  * - Lights/dock LED  (CMD 0x0f) — payload <brightness 0..100>
  * - Parametric EQ    (CMD 0x0d) — 10 bands [freqBE16][Q LE16][gainB]; Q=scale/32,
  *                                 gain byte=120+dB*20 (±6 dB).
@@ -48,19 +48,21 @@ namespace headsetcontrol {
  * the dock LED, battery reads %/charging, chatmix reads 0..12 (linear), sidetone is audible,
  * the parametric EQ visibly shifts the sound (a ±6 dB bass boost/cut was clearly audible while
  * music played), the noise gate is audible on the mic, and master volume follows --volume
- * 0/64/128 on the headset itself (not the OS mixer). The byte5 handle is an echo token
- * (the device echoes it back) — any value works, which is why the battery GET (handle 0x0c)
- * reads correctly even though G HUB only ever pushed it.
+ * 0/64/128 on the headset itself (not the OS mixer) and --volume reads the current level back.
+ * The byte5 handle is an echo token (the device echoes it back) — any value works, which is
+ * why the battery GET (handle 0x0c) reads correctly even though G HUB only ever pushed it.
+ * Replies are matched on CMD alone, not the handle: the battery reply comes back with 0x00.
  */
 class LogitechAstroA50 : public HIDDevice {
 public:
     static constexpr std::array<uint16_t, 1> PRODUCT_IDS { 0x0b1c };
 
     // Frame structure
-    static constexpr uint8_t REPORT_ID = 0x02;
-    static constexpr uint8_t MARKER    = 0x0c;
-    static constexpr size_t FRAME_SIZE = 64;
-    static constexpr int POLL_ATTEMPTS = 8;
+    static constexpr uint8_t REPORT_ID  = 0x02;
+    static constexpr uint8_t MARKER     = 0x0c;
+    static constexpr size_t FRAME_SIZE  = 64;
+    static constexpr uint8_t HEADER_LEN = 3; // LEN counts byte[3..5] plus the payload
+    static constexpr int POLL_ATTEMPTS  = 8;
 
     // Command ids (byte[4])
     static constexpr uint8_t CMD_VOLUME     = 0x08;
@@ -73,6 +75,7 @@ public:
 
     // Transaction handles (byte[5]) — observed per command in captures
     static constexpr uint8_t HANDLE_VOLUME_SET = 0x1b;
+    static constexpr uint8_t HANDLE_VOLUME_GET = 0x0c;
     static constexpr uint8_t HANDLE_CHATMIX    = 0x0c;
     static constexpr uint8_t HANDLE_SIDETONE   = 0x1c;
     static constexpr uint8_t HANDLE_BRIGHTNESS = 0x1c;
@@ -81,7 +84,8 @@ public:
     static constexpr uint8_t HANDLE_BATTERY    = 0x0c; // handle is an echo token (verified)
 
     // Master volume (CMD 0x08) — the headset hardware volume wheel has 22 steps (0..21).
-    static constexpr size_t VOLUME_LEVELS = 22;
+    static constexpr size_t VOLUME_LEVELS   = 22;
+    static constexpr uint8_t VOLUME_GET_LEN = HEADER_LEN + 3; // payload <raw> 00 <level>
 
     // Noise gate (CMD 0x14) — device has 4 levels; HeadsetControl noise filter is 0/1/2.
     // Map off/low/high -> A50 Off(0x00) / Night(0x01) / Tournament(0x04).
@@ -116,6 +120,11 @@ public:
         return B(CAP_BATTERY_STATUS) | B(CAP_CHATMIX_STATUS) | B(CAP_SIDETONE) | B(CAP_LIGHTS)
             | B(CAP_PARAMETRIC_EQUALIZER) | B(CAP_NOISE_FILTER)
             | B(CAP_HEADSET_VOLUME);
+    }
+
+    constexpr int getReadableCapabilities() const override
+    {
+        return B(CAP_HEADSET_VOLUME);
     }
 
     constexpr capability_detail getCapabilityDetail([[maybe_unused]] enum capabilities cap) const override
@@ -240,6 +249,36 @@ public:
         };
     }
 
+    Result<HeadsetVolumeResult> getHeadsetVolume(hid_device* device_handle) override
+    {
+        // GET (verified): 02 0c 03 00 08 0c   reply: 02 0c 06 00 08 0c <raw> 00 <level 0..21>
+        // byte6 is an undecoded raw value (0x11 at level 12). The wheel has 22 steps, so the
+        // level reads back as the middle of its step (--volume 36 reads back as 37).
+        auto resp = sendRequest(device_handle, CMD_VOLUME, HANDLE_VOLUME_GET, {}, /*read_reply=*/true);
+        if (!resp) {
+            return resp.error();
+        }
+
+        // A shorter CMD 0x08 frame would leave byte8 as zero padding, i.e. a bogus level 0
+        if ((*resp)[2] < VOLUME_GET_LEN) {
+            return DeviceError::protocolError("ASTRO A50: volume reply too short");
+        }
+
+        const uint8_t device_level = (*resp)[8];
+        if (device_level >= VOLUME_LEVELS) {
+            return DeviceError::protocolError("ASTRO A50: volume level out of range");
+        }
+
+        return HeadsetVolumeResult {
+            .volume        = mapDiscreteToSidetone<VOLUME_LEVELS>(device_level),
+            .min_volume    = 0,
+            .max_volume    = 128,
+            .device_min    = 0,
+            .device_max    = VOLUME_LEVELS - 1,
+            .device_volume = device_level,
+        };
+    }
+
     std::optional<ParametricEqualizerInfo> getParametricEqualizerInfo() const override
     {
         return ParametricEqualizerInfo {
@@ -313,9 +352,10 @@ private:
      * @brief Build a vendor frame, write it, and (optionally) read the matching reply.
      *
      * @param read_reply  When true, polls reads and returns the first 64-byte frame
-     *                    whose marker matches and whose CMD byte equals @p cmd
-     *                    (ignoring unrelated async push frames). When false, returns
-     *                    an empty frame after a successful write (fire-and-forget SET).
+     *                    whose marker matches, whose CMD byte equals @p cmd and that
+     *                    carries a payload (ignoring unrelated async push frames and
+     *                    bare SET acks). When false, returns an empty frame after a
+     *                    successful write (fire-and-forget SET).
      */
     [[nodiscard]] Result<std::array<uint8_t, FRAME_SIZE>> sendRequest(
         hid_device* device_handle,
@@ -327,7 +367,7 @@ private:
         std::array<uint8_t, FRAME_SIZE> frame {};
         frame[0] = REPORT_ID;
         frame[1] = MARKER;
-        frame[2] = static_cast<uint8_t>(3 + payload.size()); // LEN counts byte[3..]
+        frame[2] = static_cast<uint8_t>(HEADER_LEN + payload.size());
         frame[3] = 0x00;
         frame[4] = cmd;
         frame[5] = handle_byte;
@@ -352,11 +392,13 @@ private:
             if (*read_result == 0) {
                 continue; // timed out with no data; retry
             }
-            if (response[0] == REPORT_ID && response[1] == MARKER && response[4] == cmd) {
+            if (response[0] == REPORT_ID && response[1] == MARKER && response[4] == cmd && response[2] > HEADER_LEN) {
                 return response;
             }
-            // Otherwise it is an unrelated asynchronous push (volume, mic, BT, …);
-            // keep polling for the frame that answers our command.
+            // Otherwise it is an unrelated asynchronous push (volume, mic, BT, …) or a
+            // bare SET ack (02 0c 03 00 CMD HANDLE, no payload) — a fire-and-forget SET
+            // leaves its ack to whoever reads next; keep polling for the frame that
+            // answers our command.
         }
 
         return DeviceError::timeout("ASTRO A50: no response for command");

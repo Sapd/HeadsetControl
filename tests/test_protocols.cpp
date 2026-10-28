@@ -1424,6 +1424,107 @@ void testAstroA50Gen5VolumeSet()
     std::cout << "    [OK] ASTRO A50 Gen 5 volume SET frames verified" << std::endl;
 }
 
+/// Build a 64-byte Gen 5 frame: 02 0c LEN 00 CMD HANDLE PAYLOAD...
+static std::vector<uint8_t> a50Gen5Frame(uint8_t cmd, uint8_t handle, std::initializer_list<uint8_t> payload)
+{
+    std::vector<uint8_t> frame(LogitechAstroA50::FRAME_SIZE, 0);
+    frame[0] = LogitechAstroA50::REPORT_ID;
+    frame[1] = LogitechAstroA50::MARKER;
+    frame[2] = static_cast<uint8_t>(LogitechAstroA50::HEADER_LEN + payload.size());
+    frame[4] = cmd;
+    frame[5] = handle;
+    std::copy(payload.begin(), payload.end(), frame.begin() + 6);
+    return frame;
+}
+
+void testAstroA50Gen5VolumeGet()
+{
+    using Dev = LogitechAstroA50;
+
+    // mapDiscreteToSidetone<22>: middle of each bucket of 5, so it round-trips through the setter.
+    const struct {
+        uint8_t device_level;
+        uint8_t normalized;
+    } levels[] = {
+        { 0, 2 },
+        { 1, 7 },
+        { 12, 62 },
+        { 21, 107 },
+    };
+
+    for (const auto& level : levels) {
+        TestableAstroA50Gen5 dev;
+        dev.hid.replies.emplace_back(a50Gen5Frame(Dev::CMD_VOLUME, Dev::HANDLE_VOLUME_GET, { 0x00, 0x00, level.device_level }));
+
+        auto result = dev.getHeadsetVolume(nullptr);
+        ASSERT_TRUE(result.hasValue(), "Headset volume read should succeed");
+        ASSERT_EQ(level.device_level, result->device_volume, "Device level should come from reply byte 8");
+        ASSERT_EQ(level.normalized, result->volume, "Volume should be normalised to 0-128");
+        ASSERT_EQ(21, result->device_max, "Device max should report the 0-21 range");
+        ASSERT_EQ(level.device_level, mapSidetoneToDiscrete<Dev::VOLUME_LEVELS>(result->volume),
+            "Read-back level should round-trip through the setter mapping");
+
+        ASSERT_EQ(1u, dev.hid.writes.size(), "Volume GET should send one request");
+        ASSERT_EQ(64u, dev.hid.writes[0].size(), "Volume GET should use a full report");
+        const std::vector<uint8_t> expected { 0x02, 0x0c, 0x03, 0x00, 0x08, 0x0c, 0x00 };
+        ASSERT_TRUE(std::equal(expected.begin(), expected.end(), dev.hid.writes[0].begin()),
+            "Volume GET should be 02 0c 03 00 08 0c with no payload");
+    }
+
+    // An unrelated push (battery) arriving first is skipped
+    {
+        TestableAstroA50Gen5 dev;
+        dev.hid.replies.emplace_back(a50Gen5Frame(Dev::CMD_BATTERY, 0x00, { 80, 80, 0 }));
+        dev.hid.replies.emplace_back(a50Gen5Frame(Dev::CMD_VOLUME, Dev::HANDLE_VOLUME_GET, { 0x00, 0x00, 15 }));
+
+        auto result = dev.getHeadsetVolume(nullptr);
+        ASSERT_TRUE(result.hasValue(), "Volume read should skip unrelated pushes");
+        ASSERT_EQ(15, result->device_volume, "Volume read should use the CMD 0x08 frame");
+    }
+
+    // A previous SET's ack (02 0c 03 00 08 1b, no payload) is skipped, not read as level 0.
+    // Captured on hardware: --volume 64 exits before its ack arrives, so the next read gets it.
+    {
+        TestableAstroA50Gen5 dev;
+        dev.hid.replies.emplace_back(a50Gen5Frame(Dev::CMD_VOLUME, Dev::HANDLE_VOLUME_SET, {}));
+        dev.hid.replies.emplace_back(a50Gen5Frame(Dev::CMD_VOLUME, Dev::HANDLE_VOLUME_GET, { 0x11, 0x00, 0x0c }));
+
+        auto result = dev.getHeadsetVolume(nullptr);
+        ASSERT_TRUE(result.hasValue(), "Volume read should skip a stale SET ack");
+        ASSERT_EQ(12, result->device_volume, "Volume read should use the GET reply, not the ack");
+    }
+
+    // A level past 21 is a protocol error, not a clamped value
+    {
+        TestableAstroA50Gen5 dev;
+        dev.hid.replies.emplace_back(a50Gen5Frame(Dev::CMD_VOLUME, Dev::HANDLE_VOLUME_GET, { 0x00, 0x00, 22 }));
+
+        auto result = dev.getHeadsetVolume(nullptr);
+        ASSERT_TRUE(result.hasError() && result.error().code == DeviceError::Code::ProtocolError,
+            "Out-of-range volume is a protocol error");
+    }
+
+    // A CMD 0x08 frame too short to hold byte8 is a protocol error, not level 0
+    {
+        TestableAstroA50Gen5 dev;
+        dev.hid.replies.emplace_back(a50Gen5Frame(Dev::CMD_VOLUME, 0x00, { 0x0c }));
+
+        auto result = dev.getHeadsetVolume(nullptr);
+        ASSERT_TRUE(result.hasError() && result.error().code == DeviceError::Code::ProtocolError,
+            "Short volume frame is a protocol error");
+    }
+
+    // No reply at all propagates the timeout
+    {
+        TestableAstroA50Gen5 dev;
+        auto result = dev.getHeadsetVolume(nullptr);
+        ASSERT_TRUE(result.hasError() && result.error().code == DeviceError::Code::Timeout,
+            "Volume read without a reply is a timeout");
+    }
+
+    std::cout << "    [OK] ASTRO A50 Gen 5 volume GET verified" << std::endl;
+}
+
 // ============================================================================
 // Logitech Centurion: G522 framing and opt-in options
 // ============================================================================
@@ -2678,6 +2779,7 @@ void runAllProtocolTests()
 
     std::cout << "\n=== Logitech ASTRO A50 Gen 5 ===" << std::endl;
     runTest("ASTRO A50 Gen 5 Volume Set", testAstroA50Gen5VolumeSet);
+    runTest("ASTRO A50 Gen 5 Volume Get", testAstroA50Gen5VolumeGet);
 
     std::cout << "\n=== HID++ Protocol (Logitech) ===" << std::endl;
     runTest("HID++ Constants", testHIDPPConstants);

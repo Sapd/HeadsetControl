@@ -155,7 +155,7 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 | Device | Platform | sidetone | battery | notification sound | lights | inactive time | chatmix | voice prompts | rotate to mute | equalizer preset | equalizer | parametric equalizer | microphone mute led brightness | microphone volume | volume limiter | bluetooth when powered on | bluetooth call volume | microphone noise filter | sidetone status | anc | anc startup mode | anc button modes | microphone attachment status | microphone mute status | headset volume | light color |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Logitech ASTRO A50 Gen 4 | All | x | x |   |   |   | x |   |   | x | x | x |   | x |   |   |   | x | x |   |   |   |   |   |   |   |
-| Logitech ASTRO A50 Gen 5 | All | x | x |   | x |   | x |   |   |   |   | x |   |   |   |   |   | x |   |   |   |   |   |   | x |   |
+| Logitech ASTRO A50 Gen 5 | All | x | x |   | x |   | x |   |   |   |   | x |   |   |   |   |   | x |   |   |   |   |   |   | r |   |
 | Logitech G522 LIGHTSPEED | All | x | x |   | x | x |   | x |   | x | x | x | x |   |   |   |   |   | x |   |   |   |   |   |   |   |
 | Logitech G533 | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | Logitech G535 | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
