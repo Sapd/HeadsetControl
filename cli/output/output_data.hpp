@@ -277,6 +277,21 @@ struct DeviceData {
                 s.writeArray(lower_name, preset.values);
             }
             s.endObject();
+
+            // The key order of the object above is not preserved by all JSON
+            // consumers (Qt, for one, sorts object keys), while `--equalizer-preset`
+            // takes an index. This array is the preset list in index order so a
+            // front-end can label preset N with the right name.
+            s.beginArray("equalizer_presets_ordered");
+            for (const auto& preset : *equalizer_presets) {
+                std::string lower_name;
+                lower_name.reserve(preset.name.size());
+                for (char c : preset.name) {
+                    lower_name += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+                }
+                s.writeArrayItem(lower_name);
+            }
+            s.endArray();
         }
 
         if (parametric_eq.has_value()) {
