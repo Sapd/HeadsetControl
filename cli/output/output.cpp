@@ -243,6 +243,32 @@ void processFeatureRequest(const FeatureRequest& req, DeviceData& dev, std::stri
             }
         }
 
+        // Parametric equalizer limits. The device layer has had these all
+        // along (getParametricEqualizerInfo); nothing copied them into the
+        // output, so a front-end had to guess the band count and the legal
+        // frequency, gain and Q ranges instead of reading them.
+        if (device_caps & B(CAP_PARAMETRIC_EQUALIZER)) {
+            if (auto peq_info = hid_device->getParametricEqualizerInfo()) {
+                ParametricEqData peq;
+                peq.bands_count  = peq_info->bands_count;
+                peq.gain_base    = peq_info->gain_base;
+                peq.gain_step    = peq_info->gain_step;
+                peq.gain_min     = peq_info->gain_min;
+                peq.gain_max     = peq_info->gain_max;
+                peq.q_min        = peq_info->q_factor_min;
+                peq.q_max        = peq_info->q_factor_max;
+                peq.freq_min     = peq_info->freq_min;
+                peq.freq_max     = peq_info->freq_max;
+                for (int i = 0; i < NUM_EQ_FILTER_TYPES; i++) {
+                    if (peq_info->filter_types & (1 << i)) {
+                        peq.filter_types.emplace_back(
+                            equalizer_filter_type_to_string(static_cast<EqualizerFilterType>(i)));
+                    }
+                }
+                dev.parametric_eq = std::move(peq);
+            }
+        }
+
         // Equalizer presets count and presets
         if (device_caps & B(CAP_EQUALIZER_PRESET)) {
             auto presets_count = hid_device->getEqualizerPresetsCount();
