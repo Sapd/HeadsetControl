@@ -422,19 +422,23 @@ void testCliStandardChargingWithoutLevel()
 
     // Profile 8 charges without having reported a level, as the Sony PULSE 3D
     // and the two HyperX devices do. -1 is not a reading, so no Level line.
-    std::string output = exec(HEADSETCONTROL_EXE " --test-device 8 -b 2>&1");
+    //
+    // -d restricts this to the test device. Without it a real headset plugged
+    // into the machine running the suite is enumerated too and prints its own
+    // Level line, which this asserts the absence of.
+    std::string output = exec(HEADSETCONTROL_EXE " --test-device 8 -d 0xf00b:0xa00c -b 2>&1");
 
     ASSERT_CONTAINS(output, "BATTERY_CHARGING", "Charging status should still be shown");
     ASSERT_NOT_CONTAINS(output, "Level:", "An unknown level should not be printed");
     ASSERT_NOT_CONTAINS(output, "-1", "-1 should never reach the output");
 
     // A charging headset that does report a level still prints it
-    std::string with_level = exec(HEADSETCONTROL_EXE " --test-device 2 -b 2>&1");
+    std::string with_level = exec(HEADSETCONTROL_EXE " --test-device 2 -d 0xf00b:0xa00c -b 2>&1");
     ASSERT_CONTAINS(with_level, "BATTERY_CHARGING", "Profile 2 is charging too");
     ASSERT_CONTAINS(with_level, "Level: 50%", "A known level is still printed");
 
     // The structured formats keep -1 as the sentinel, so consumers are unaffected
-    std::string json = exec(HEADSETCONTROL_EXE " --test-device 8 -b -o json 2>&1");
+    std::string json = exec(HEADSETCONTROL_EXE " --test-device 8 -d 0xf00b:0xa00c -b -o json 2>&1");
     ASSERT_CONTAINS(json, "\"level\": -1", "JSON keeps the -1 sentinel");
 
     std::cout << "    ✓ Charging without a level omits the level line" << std::endl;
