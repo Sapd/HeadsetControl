@@ -252,8 +252,10 @@ public:
     Result<HeadsetVolumeResult> getHeadsetVolume(hid_device* device_handle) override
     {
         // GET (verified): 02 0c 03 00 08 0c   reply: 02 0c 06 00 08 0c <raw> 00 <level 0..21>
-        // byte6 is an undecoded raw value (0x11 at level 12). The wheel has 22 steps, so the
-        // level reads back as the middle of its step (--volume 36 reads back as 37).
+        // Turning the wheel pushes the same frame with handle 0x00 (verified), so a push that
+        // lands first is just as current. byte6 is an undecoded raw value (0x0b..0x11 at levels
+        // 8..12). The wheel has 22 steps, so the level reads back as the middle of its step
+        // (--volume 36 reads back as 37).
         auto resp = sendRequest(device_handle, CMD_VOLUME, HANDLE_VOLUME_GET, {}, /*read_reply=*/true);
         if (!resp) {
             return resp.error();

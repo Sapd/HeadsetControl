@@ -1482,6 +1482,17 @@ void testAstroA50Gen5VolumeGet()
         ASSERT_EQ(15, result->device_volume, "Volume read should use the CMD 0x08 frame");
     }
 
+    // A wheel push (handle 0x00, same layout) arriving first is taken as the current level.
+    // Captured on hardware while turning the wheel: 02 0c 06 00 08 00 0e 00 0a
+    {
+        TestableAstroA50Gen5 dev;
+        dev.hid.replies.emplace_back(a50Gen5Frame(Dev::CMD_VOLUME, 0x00, { 0x0e, 0x00, 0x0a }));
+
+        auto result = dev.getHeadsetVolume(nullptr);
+        ASSERT_TRUE(result.hasValue(), "Volume read should accept a wheel push");
+        ASSERT_EQ(10, result->device_volume, "Wheel push level should come from byte 8");
+    }
+
     // A previous SET's ack (02 0c 03 00 08 1b, no payload) is skipped, not read as level 0.
     // Captured on hardware: --volume 64 exits before its ack arrives, so the next read gets it.
     {
