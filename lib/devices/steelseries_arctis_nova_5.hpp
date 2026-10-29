@@ -168,7 +168,9 @@ public:
             .q_factor_max = EQUALIZER_Q_FACTOR_MAX,
             .freq_min     = EQUALIZER_FREQ_MIN,
             .freq_max     = EQUALIZER_FREQ_MAX,
-            .filter_types = supported_filters
+            .filter_types = supported_filters,
+            .default_frequencies = std::vector<int>(BAND_FREQUENCIES.begin(),
+                                                    BAND_FREQUENCIES.end())
         };
     }
 
@@ -487,6 +489,63 @@ public:
         }
 
         return EqualizerResult {};
+    }
+
+    /// Inverse of getFilterByte(): the reply carries the same numbering.
+    static constexpr EqualizerFilterType filterTypeFromByte(uint8_t raw)
+    {
+        switch (raw) {
+        case 2:
+            return EqualizerFilterType::LowPass;
+        case 3:
+            return EqualizerFilterType::HighPass;
+        case 4:
+            return EqualizerFilterType::LowShelf;
+        case 5:
+            return EqualizerFilterType::HighShelf;
+        case 1:
+        default:
+            return EqualizerFilterType::Peaking;
+        }
+    }
+
+    /// Read the ten stored bands out of the audio settings reply (0x20),
+    /// which is the same frame getSidetone() reads for level 62. The bands
+    /// start at offset 1 there - the reply echoes only the opcode, while the
+    /// *write* frame carries a report id and an opcode, so its bands start at
+    /// 2. Getting that one byte wrong turns the opcode echo into a frequency
+    /// and still decodes into plausible-looking bands.
+    Result<ParametricEqualizerSettings> getParametricEqualizerBands(hid_device* device_handle) override
+    {
+        auto reply = readAudioSettings(device_handle);
+        if (!reply) {
+            return reply.error();
+        }
+
+        constexpr size_t bands_offset = 1;
+        constexpr size_t band_size    = 6;
+        if (reply->bytes_read < bands_offset + band_size * EQUALIZER_BANDS) {
+            return DeviceError::protocolError("SteelSeries settings response too short for EQ bands");
+        }
+
+        ParametricEqualizerSettings settings;
+        settings.bands.reserve(EQUALIZER_BANDS);
+        for (size_t i = 0; i < EQUALIZER_BANDS; i++) {
+            const uint8_t* band = &reply->data[bands_offset + band_size * i];
+            const uint16_t freq = static_cast<uint16_t>(band[0] | (band[1] << 8));
+            const uint16_t q    = static_cast<uint16_t>(band[4] | (band[5] << 8));
+
+            // Same scale setParametricEqualizer() writes: raw = (gain + 10) * 2.
+            const float gain = static_cast<float>(band[3]) / 2.0f - 10.0f;
+
+            settings.bands.push_back(ParametricEqualizerBand {
+                .frequency = static_cast<float>(freq),
+                .gain      = gain,
+                .q_factor  = static_cast<float>(q) / 1000.0f,
+                .type      = filterTypeFromByte(band[2])
+            });
+        }
+        return settings;
     }
 
     Result<ParametricEqualizerResult> setParametricEqualizer(hid_device* device_handle, const ParametricEqualizerSettings& settings) override

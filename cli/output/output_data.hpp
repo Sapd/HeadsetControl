@@ -193,12 +193,33 @@ struct EqualizerData {
     }
 };
 
+struct ParametricEqBandData {
+    double frequency = 0;
+    double gain      = 0;
+    double q_factor  = 0;
+    std::string type;
+
+    void serialize(Serializer& s) const
+    {
+        s.beginObject();
+        s.write("frequency", frequency);
+        s.write("gain", gain);
+        s.write("q_factor", q_factor);
+        s.write("type", type);
+        s.endObject();
+    }
+};
+
 struct ParametricEqData {
     int bands_count  = 0;
     double gain_step = 0, gain_min = 0, gain_max = 0, gain_base = 0;
     double q_min = 0, q_max = 0;
     int freq_min = 0, freq_max = 0;
     std::vector<std::string> filter_types;
+    std::vector<int> default_frequencies;
+    // What the device currently holds, when it can be read back. Empty means
+    // the caller has to treat its own copy as the only source of truth.
+    std::vector<ParametricEqBandData> bands;
 
     void serialize(Serializer& s) const
     {
@@ -223,6 +244,24 @@ struct ParametricEqData {
         s.endObject();
 
         s.writeArray("filter_types", filter_types);
+
+        if (!default_frequencies.empty()) {
+            s.beginArray("default_frequencies");
+            for (const auto freq : default_frequencies) {
+                s.writeArrayItem(freq);
+            }
+            s.endArray();
+        }
+
+        if (!bands.empty()) {
+            // "bands" is already the count in this object, so the values
+            // live under their own key rather than duplicating it.
+            s.beginArray("current_bands");
+            for (const auto& band : bands) {
+                band.serialize(s);
+            }
+            s.endArray();
+        }
         s.endObject();
     }
 };

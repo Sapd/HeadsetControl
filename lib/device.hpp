@@ -157,6 +157,9 @@ struct ParametricEqualizerInfo {
     int freq_min       = 0; // frequency
     int freq_max       = 0;
     int filter_types   = 0; // bitmap containing available filter types
+    // Frequencies the family's ten bands sit on by default, so an editor can
+    // start from the device's own layout instead of inventing one.
+    std::vector<int> default_frequencies;
 };
 
 /** @brief Collection of equalizer presets

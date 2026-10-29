@@ -163,6 +163,18 @@ public:
     }
 
     /**
+     * @brief Read the parametric bands the device currently holds
+     *
+     * Separate from getParametricEqualizerInfo(), which reports the limits.
+     * Returns nullopt when the family cannot be read back; a front-end then
+     * has to treat its own copy as the only source of truth.
+     */
+    virtual Result<ParametricEqualizerSettings> getParametricEqualizerBands(hid_device* /*device_handle*/)
+    {
+        return DeviceError::notSupported("Device cannot read back its parametric equalizer");
+    }
+
+    /**
      * @brief Get equalizer info
      */
     virtual std::optional<EqualizerInfo> getEqualizerInfo() const

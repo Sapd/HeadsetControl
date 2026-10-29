@@ -259,6 +259,7 @@ void processFeatureRequest(const FeatureRequest& req, DeviceData& dev, std::stri
                 peq.q_max        = peq_info->q_factor_max;
                 peq.freq_min     = peq_info->freq_min;
                 peq.freq_max     = peq_info->freq_max;
+                peq.default_frequencies = peq_info->default_frequencies;
                 for (int i = 0; i < NUM_EQ_FILTER_TYPES; i++) {
                     if (peq_info->filter_types & (1 << i)) {
                         peq.filter_types.emplace_back(
