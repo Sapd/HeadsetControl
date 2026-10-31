@@ -326,7 +326,11 @@ void testNova5SidetoneValidation()
     {
         SidetoneMockHID hid;
         TestableNova5 device(hid);
-        hid.reads.emplace_back(std::vector<uint8_t>(40, 0x00));
+        // A valid 0x20 reply that stops before offset 62, so the length check is
+        // what rejects it rather than the opcode check.
+        std::vector<uint8_t> truncated(40, 0x00);
+        truncated[0] = 0x20;
+        hid.reads.emplace_back(truncated);
         auto result = device.getSidetone(nullptr);
         SIDETONE_ASSERT(result.hasError(), "short response should fail");
         SIDETONE_ASSERT(result.error().code == DeviceError::Code::ProtocolError,
