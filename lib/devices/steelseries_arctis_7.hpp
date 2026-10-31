@@ -54,7 +54,8 @@ public:
         case CAP_INACTIVE_TIME:
         case CAP_CHATMIX_STATUS:
         case CAP_LIGHTS:
-            return { .interface_id = 0x05 };
+            // Interface 5 has several HID collections on Windows; the vendor one is 0xff43:0x0202
+            return { .usagepage = 0xff43, .usageid = 0x0202, .interface_id = 0x05 };
         default:
             return HIDDevice::getCapabilityDetail(cap);
         }
