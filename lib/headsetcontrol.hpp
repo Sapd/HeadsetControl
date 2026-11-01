@@ -449,13 +449,17 @@ void setDeviceTimeout(int timeout_ms);
  * Only useful when test device mode is enabled.
  *
  * Profiles:
- * - 0: Normal operation (default)
- * - 1: Simulate error conditions
- * - 2: Simulate charging state
- * - 3: Basic battery info only (no extended info)
- * - 5: Simulate timeout errors
- * - 6: Headset volume can be set but not read back
- * - 10: Minimal capabilities
+ * - 0: Normal operation (default; 42%, 3650 mV, ~302 min to empty)
+ * - 1: HID errors for battery and most get/set calls
+ * - 2: Charging (50%, ~60 min to full)
+ * - 3: Battery without extended info (64%, no optional fields)
+ * - 4: Battery unavailable (device offline error)
+ * - 5: Timeout errors
+ * - 6: Full battery (100%, 720 min to empty); headset volume settable only
+ * - 7: Low battery (10%, 72 min to empty)
+ * - 8: Charging, level not yet reported (level -1, BATTERY_CHARGING)
+ * - 9: Reserved (default fallback: 42%, available)
+ * - 10: Limited capabilities (sidetone, lights, battery only; nothing readable)
  *
  * @param profile Profile number
  */
