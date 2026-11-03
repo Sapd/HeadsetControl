@@ -71,6 +71,16 @@ public:
     }
 
     /**
+     * @brief Whether the device also needs access to a USB serial port
+     *
+     * Adds the device's serial port to the generated udev rules.
+     */
+    virtual constexpr bool usesSerialPort() const
+    {
+        return false;
+    }
+
+    /**
      * @brief Get capabilities bitmask
      */
     virtual int getCapabilities() const = 0;

@@ -30,6 +30,7 @@ void runAllSteelSeriesSidetoneTests();
 void runAllHyperXCloudAlpha2WirelessTests();
 void runAllHyperXCloudAlphaSTests();
 void runAllSonyPulse3DTests();
+void runAllSennheiserGSP370Tests();
 void runAllCorsairVirtuosoTests();
 }
 
@@ -78,6 +79,7 @@ int main()
         headsetcontrol::testing::runAllHyperXCloudAlphaSTests();
 
         headsetcontrol::testing::runAllSonyPulse3DTests();
+        headsetcontrol::testing::runAllSennheiserGSP370Tests();
         headsetcontrol::testing::runAllCorsairVirtuosoTests();
 
         std::cout << "\n====================================================================" << std::endl;

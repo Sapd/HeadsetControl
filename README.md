@@ -200,16 +200,19 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 | Sony INZONE H5 | All | x | x |   |   |   | x |   |   |   |   |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |
 | Sony INZONE H9 II | All | x | x |   |   | x | x | x |   |   |   |   |   |   |   | x |   |   |   | x | x | x | x | x |   |   |
 | Sony PULSE 3D | All |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
+| Sennheiser GSP 370 | L | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | MCHOSE X9 Wireless | L/W |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | HeadsetControl Test device | All | r | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | r | x |
 
-**Platform:** All = Linux, macOS, Windows | L/M = Linux and macOS only | L/W = Linux and Windows only
+**Platform:** All = Linux, macOS, Windows | L/M = Linux and macOS only | L/W = Linux and Windows only | L = Linux only
 
 \* Only available on some product variants of that device. Sidetone status reading, for instance, is verified only for the SteelSeries Arctis Nova 7 Gen 2 (`1038:227e`). Sidetone on the Corsair Virtuoso XT/SE is verified only for the XT (`1b1c:0a64`, `1b1c:0a62`).
 
 > **Note:** Some Corsair headsets may need additional configuration - see [Adding a Corsair device](docs/ADDING_A_CORSAIR_DEVICE.md). Some headsets (HS80, HS70 wired, RGB Elite, Virtuoso other than the XT) expose sidetone via ALSA mixer instead.
 
 > **Note:** HyperX Cloud Alpha 2 Wireless - while HyperX NGENUITY is running, changing any audio setting in it (sidetone, game/chat balance, equalizer preset, ...) makes NGENUITY write *all* of them back from its own saved values, which can undo changes made with HeadsetControl. Close NGENUITY, or make the change in NGENUITY instead.
+
+> **Note:** Sennheiser GSP 370 - settings go over the dongle's USB serial port, so install the udev rules from `headsetcontrol -u` for access without root. Sidetone is only audible while the microphone is in use, and its level cannot be read back.
 
 ## Usage
 
