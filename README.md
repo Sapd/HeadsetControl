@@ -319,6 +319,13 @@ Want to add support for a new headset or improve the software? See the [Developm
 
 Adding a new device requires capturing USB traffic between the headset and its Windows software using Wireshark or USBlyzer (a VM with USB passthrough works well).
 
+## Other Projects
+
+Also by me:
+
+- [Lumastra](https://lumastra.org) - Self-hosted media server for movies, series, music and audiobooks ([GitHub](https://github.com/Sapd/lumastra))
+- [Longcable](https://github.com/Sapd/longcable) - A replacement for VirtualHere on macOS: share USB devices from your Mac to a Windows or Linux PC over USB/IP
+
 ## License
 
 Released under [GPL v3](LICENSE).
