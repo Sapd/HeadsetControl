@@ -361,17 +361,6 @@ void testCenturionBridgeMessageSizeLimit()
     std::cout << "    [OK] Logitech Centurion bridge message size limit verified" << std::endl;
 }
 
-void testLogitechProX2EqualizerInfoRequiresDescriptor()
-{
-    std::cout << "  Testing Logitech PRO X2 equalizer info cache behavior..." << std::endl;
-
-    LogitechGProX2Lightspeed device;
-    ASSERT_TRUE(!device.getEqualizerInfo().has_value(), "Equalizer info should be unavailable before the descriptor is read");
-    ASSERT_TRUE(!device.getParametricEqualizerInfo().has_value(), "Parametric equalizer info should be unavailable before the descriptor is read");
-
-    std::cout << "    [OK] Logitech PRO X2 equalizer info cache behavior verified" << std::endl;
-}
-
 void testLogitechProX2OnboardEqCoefficientQuantization()
 {
     std::cout << "  Testing Logitech PRO X2 onboard EQ coefficient quantization..." << std::endl;
@@ -2092,6 +2081,44 @@ void testCenturionProX2BatteryWire()
     std::cout << "    [OK] Logitech PRO X2 battery lookup on the wire verified" << std::endl;
 }
 
+void testCenturionProX2GraphicEqualizer()
+{
+    std::cout << "  Testing Logitech PRO X2 graphic equalizer..." << std::endl;
+
+    TestableProX2 dev;
+    ASSERT_TRUE(!dev.getEqualizerInfo().has_value(), "Graphic EQ info requires a descriptor read");
+
+    dev.hid.replies.push_back(centurionFrame(PRO_X2_PREFIX, { 0x00, 0x01, 0x03, 0x00, 0x01 }));
+    queueBridgeReply(dev.hid, PRO_X2_PREFIX, 0x00, { 0x09, 0x00, 0x00 }); // Onboard EQ at index 9
+    queueBridgeReply(dev.hid, PRO_X2_PREFIX, 0x09, { 0x00, 0x00, 0x00, 0x00, 0x00 }); // EQ info
+    queueBridgeReply(dev.hid, PRO_X2_PREFIX, 0x09, hexBytes("00 05  00 50 00 01  00 f0 00 01  02 ee 00 01  08 98 00 01  19 c8 00 01")); // Slot 0 with five flat bands
+    queueBridgeReply(dev.hid, PRO_X2_PREFIX, 0x09, {}); // EQ write reply
+
+    auto preset = dev.setEqualizerPreset(nullptr, 3); // Shooter
+    ASSERT_TRUE(preset.hasValue(), "Shooter preset should succeed through Onboard EQ");
+    ASSERT_EQ(9u, dev.hid.writes.size(), "Two lookups, two descriptor reads and five write fragments");
+    assertFrame(dev.hid.writes[1], { 0x51, 0x0a, 0x00, 0x03, 0x11, 0x00, 0x05, 0x00, 0x00, 0x01, 0x06, 0x36 },
+        "Graphic EQ looks up the Onboard EQ feature directly");
+    assertFrame(dev.hid.writes[3], { 0x51, 0x09, 0x00, 0x03, 0x11, 0x00, 0x04, 0x00, 0x09, 0x11, 0x00 },
+        "Graphic EQ reads the band parameters from slot 0");
+    const auto expected_write_prefix = hexBytes("51 3d 01 03 11 01 00 00 09 21  00 05  00 50 ff 01  00 f0 ff 01  02 ee 04 01  08 98 03 01  19 c8 02 01");
+    const auto& first_fragment       = dev.hid.writes[4];
+    ASSERT_TRUE(first_fragment.size() >= expected_write_prefix.size()
+            && std::equal(expected_write_prefix.begin(), expected_write_prefix.end(), first_fragment.begin()),
+        "Onboard EQ write retains all five frequencies, Shooter gains and fixed Q values");
+    ASSERT_TRUE(dev.hid.replies.empty(), "All replies consumed");
+
+    const auto info = dev.getEqualizerInfo();
+    ASSERT_TRUE(info.has_value(), "Graphic EQ info is cached after reading the descriptor");
+    ASSERT_EQ(5, info->bands_count, "Graphic EQ should report five bands");
+    ASSERT_TRUE(!dev.getParametricEqualizerInfo().has_value(), "Graphic EQ info does not expose parametric EQ ranges");
+    const auto peq = dev.setParametricEqualizer(nullptr, ParametricEqualizerSettings {});
+    ASSERT_TRUE(peq.hasError() && peq.error().code == DeviceError::Code::NotSupported, "Parametric EQ is unsupported");
+    ASSERT_EQ(9u, dev.hid.writes.size(), "Parametric EQ sends no HID requests");
+
+    std::cout << "    [OK] Logitech PRO X2 graphic equalizer verified" << std::endl;
+}
+
 void testCenturionProX2Offline()
 {
     std::cout << "  Testing Logitech PRO X2 offline detection..." << std::endl;
@@ -2813,9 +2840,9 @@ void runAllProtocolTests()
     runTest("Logitech G522 Equalizer Commands", testG522EqualizerCommands);
     runTest("Logitech PRO X2 Default Centurion Options", testCenturionProX2DefaultOptionsUnchanged);
     runTest("Logitech PRO X2 Battery Wire", testCenturionProX2BatteryWire);
+    runTest("Logitech PRO X2 Graphic Equalizer", testCenturionProX2GraphicEqualizer);
     runTest("Logitech PRO X2 Offline Detection", testCenturionProX2Offline);
     runTest("Logitech PRO X2 Bridge Rejection", testCenturionProX2BridgeRejection);
-    runTest("Logitech PRO X2 Equalizer Info Cache", testLogitechProX2EqualizerInfoRequiresDescriptor);
     runTest("Logitech PRO X2 EQ Quantization", testLogitechProX2OnboardEqCoefficientQuantization);
     runTest("Logitech PRO X2 Onboard EQ Payload", testLogitechProX2OnboardEqPayloadBuilding);
 
