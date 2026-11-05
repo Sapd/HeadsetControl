@@ -4,15 +4,16 @@
 #include "device_utils.hpp"
 #include "hid_device.hpp"
 
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cstdint>
 #include <format>
 #include <mutex>
-#include <optional>
 #include <span>
 #include <string_view>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 
 using namespace std::string_view_literals;
@@ -49,7 +50,8 @@ namespace headsetcontrol {
  *      already, followed by the "read max length" ioctl the updater sends
  *   3. asks the headset for its battery voltage (0x06, 0x31): uint16 mV
  *   4. always switches the dongle back to local mode (0xE1 00), which is
- *      its normal state, and checks that it took effect
+ *      its normal state, and checks that it took effect; if it did not, the
+ *      call fails even when the voltage was read
  *
  * Only read commands and this mode switch are sent. Charging state is not
  * reported by the headset, so the status is always "available" while linked.
@@ -57,7 +59,13 @@ namespace headsetcontrol {
  * Tray frontends may poll every second. The link status is a cheap query and
  * is checked on every call, but the voltage is re-read (and the dongle
  * switched) at most once per VOLTAGE_CACHE; in between the last voltage is
- * returned. The cache is dropped whenever the headset is seen unlinked.
+ * returned. A failed read is not retried within FAILURE_BACKOFF, so an
+ * unresponsive headset does not make every poll switch the dongle; the one
+ * exception is a dongle that could not be switched back to local mode, which
+ * is retried on the next call. The cache is kept per device handle, so two
+ * dongles do not share it, and is dropped whenever the headset is seen
+ * unlinked. It lives in the process: a frontend that starts headsetcontrol
+ * for every poll gets a full read (and a mode switch) each time.
  */
 class RazerBlackSharkV2ProPS : public HIDDevice {
 public:
@@ -91,6 +99,7 @@ public:
     static constexpr uint16_t MIN_VOLTAGE  = 2500;
     static constexpr uint16_t MAX_VOLTAGE  = 4500;
     static constexpr std::chrono::seconds VOLTAGE_CACHE { 60 };
+    static constexpr std::chrono::seconds FAILURE_BACKOFF { 10 };
 
     // Typical single-cell Li-ion discharge curve; the headset reports no percentage
     static constexpr std::array<std::pair<uint8_t, uint16_t>, 11> CALIBRATION { {
@@ -135,26 +144,40 @@ public:
             return link.error();
         }
         if ((*link & LINK_HEADSET) == 0) {
-            cached_voltage_.reset();
+            voltage_cache_.erase(device_handle);
             return BatteryResult { .level_percent = -1, .status = BATTERY_UNAVAILABLE };
         }
 
-        if (!cached_voltage_ || now() - cached_at_ >= VOLTAGE_CACHE) {
-            auto voltage = readVoltageInRemoteMode(device_handle);
-            if (!voltage) {
+        auto cached        = voltage_cache_.find(device_handle);
+        const bool expired = cached == voltage_cache_.end()
+            || now() - cached->second.read_at >= (cached->second.voltage ? VOLTAGE_CACHE : FAILURE_BACKOFF);
+        if (expired) {
+            bool restored = true;
+            auto voltage  = readVoltageInRemoteMode(device_handle, restored);
+            if (!restored) {
+                voltage_cache_.erase(device_handle);
                 return voltage.error();
             }
-            cached_voltage_ = *voltage;
-            cached_at_      = now();
+            cached = voltage_cache_.insert_or_assign(device_handle, CachedVoltage { voltage, now() }).first;
         }
+        if (!cached->second.voltage) {
+            return cached->second.voltage.error();
+        }
+        const uint16_t mv = *cached->second.voltage;
 
         return BatteryResult {
-            .level_percent  = voltageToPercent(*cached_voltage_, CALIBRATION),
+            .level_percent  = voltageToPercent(mv, CALIBRATION),
             .status         = BATTERY_AVAILABLE,
-            .voltage_mv     = *cached_voltage_,
+            .voltage_mv     = mv,
             .query_duration = std::chrono::duration_cast<std::chrono::milliseconds>(
                 std::chrono::steady_clock::now() - start),
         };
+    }
+
+    void onConnectionClosed(hid_device* device_handle) const override
+    {
+        const std::lock_guard lock(mutex_);
+        voltage_cache_.erase(device_handle);
     }
 
     /// CRC16-CCITT (poly 0x1021, init 0, no reflection)
@@ -191,16 +214,25 @@ protected:
     virtual std::chrono::steady_clock::time_point now() const { return std::chrono::steady_clock::now(); }
 
 private:
+    struct CachedVoltage {
+        Result<uint16_t> voltage; // the last read, successful or not
+        std::chrono::steady_clock::time_point read_at;
+    };
+
     mutable std::mutex mutex_;
     uint8_t sequence_ = 0;
-    std::optional<uint16_t> cached_voltage_;
-    std::chrono::steady_clock::time_point cached_at_ {};
+    mutable std::unordered_map<hid_device*, CachedVoltage> voltage_cache_;
 
-    Result<uint16_t> readVoltageInRemoteMode(hid_device* device_handle)
+    /// @param restored set to false when the dongle may have been left in remote mode
+    Result<uint16_t> readVoltageInRemoteMode(hid_device* device_handle, bool& restored)
     {
         auto mode = getLinkValue(device_handle, GET_MODE);
         if (!mode) {
             return mode.error();
+        }
+        if (*mode != MODE_LOCAL && *mode != MODE_REMOTE) {
+            // Not a state this driver puts the dongle in (a firmware update?); leave it alone
+            return DeviceError::protocolError(std::format("Dongle is in unknown mode 0x{:02x}", *mode));
         }
 
         Result<uint16_t> voltage = DeviceError::protocolError("Dongle did not enter remote mode");
@@ -208,9 +240,17 @@ private:
             voltage = requestVoltage(device_handle);
         }
 
-        // Local is the dongle's normal mode; restore it even if the read failed
-        for (int attempt = 0; attempt < ATTEMPTS && !isMode(device_handle, MODE_LOCAL); ++attempt) {
+        // Local is the dongle's normal mode; restore it even if the read failed.
+        // Verify the last attempt too: leaving the dongle in remote mode outlives
+        // this call, so it is reported even when the voltage read succeeded.
+        bool local = isMode(device_handle, MODE_LOCAL);
+        for (int attempt = 0; attempt < ATTEMPTS && !local; ++attempt) {
             (void)setMode(device_handle, MODE_LOCAL);
+            local = isMode(device_handle, MODE_LOCAL);
+        }
+        if (!local) {
+            restored = false;
+            return DeviceError::protocolError("Could not switch the dongle back to local mode");
         }
         return voltage;
     }
@@ -240,7 +280,8 @@ private:
 
     bool setMode(hid_device* device_handle, uint8_t mode)
     {
-        if (!command(device_handle, TYPE_LINK, std::array<uint8_t, 2> { SET_MODE, mode }, REPLY_TIMEOUT_MS)) {
+        auto reply = command(device_handle, TYPE_LINK, std::array<uint8_t, 2> { SET_MODE, mode }, REPLY_TIMEOUT_MS);
+        if (!reply || reply->empty() || (*reply)[0] != 0) {
             return false;
         }
         settle(std::chrono::milliseconds { MODE_SETTLE_MS });

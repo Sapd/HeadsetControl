@@ -2,6 +2,7 @@
 #include "devices/razer_blackshark_v2_pro_ps.hpp"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <deque>
 #include <iostream>
@@ -49,6 +50,8 @@ public:
     int silent_battery_replies = 0;
     uint8_t ack                = Device::ACK_OK;
     bool send_noise            = false;
+    bool ignore_local          = false; // acks the switch to local mode but stays in remote
+    size_t fail_writes_from    = SIZE_MAX; // writes from this index on fail, as if unplugged
 
     std::deque<Bytes> scripted; // used instead of the simulation when not empty
     std::deque<Bytes> pending;
@@ -57,6 +60,8 @@ public:
 
     Result<void> write(hid_device*, std::span<const uint8_t> data) override
     {
+        if (writes.size() >= fail_writes_from)
+            return DeviceError::hidError("Simulated unplug");
         Bytes frame(data.begin(), data.end());
         writes.push_back(frame);
 
@@ -128,7 +133,7 @@ private:
         if (ack != Device::ACK_OK)
             return;
         if (send_noise) // a reply to some other request
-            pending.push_back({ 0x02, 0x0d, 0x50, 0x49, 0x01, 0xc0, 0, 0, 0, 0x02, 0x03, 0x00, type, 0xff, 0x00 });
+            pending.push_back({ 0x02, 0x0d, 0x50, 0x49, 0x01, 0xc0, 0, 0, 0, 0x02, 0x03, 0x00, type, 0x80, 0x00 });
         Bytes r { 0x02, static_cast<uint8_t>(13 + data.size()), 0x50, 0x49, 0x01, 0xc0, 0, 0, 0, 0x02, 0x03, 0x00,
             type, static_cast<uint8_t>(0x80 | seq), 0x00 };
         r.insert(r.end(), data.begin(), data.end());
@@ -142,7 +147,8 @@ private:
         if (type == Device::TYPE_LINK) {
             const uint8_t id = f[10];
             if (id == Device::SET_MODE) {
-                mode = f[11];
+                if (!(ignore_local && f[11] == Device::MODE_LOCAL))
+                    mode = f[11];
                 reply(type, seq, {});
                 return;
             }
@@ -262,10 +268,12 @@ void testBlackSharkSimulatedRead()
     BLACKSHARK_ASSERT(hid.mode == Device::MODE_LOCAL, "dongle is back in local mode");
     BLACKSHARK_ASSERT(!hid.bad_crc, "every frame carries a valid CRC");
 
-    // A later read on the same connection uses new sequence numbers
+    // A later read on the same connection uses new sequence numbers; the cache
+    // expires at exactly VOLTAGE_CACHE
+    hid.voltage_mv = 3810;
     device.clock += Device::VOLTAGE_CACHE;
     auto again = device.getBattery(TEST_HANDLE);
-    BLACKSHARK_ASSERT(again.hasValue() && again->voltage_mv == 3800, "second read works too");
+    BLACKSHARK_ASSERT(again.hasValue() && again->voltage_mv == 3810, "second read goes to the headset");
     BLACKSHARK_ASSERT(hid.mode == Device::MODE_LOCAL, "still local after the second read");
 }
 
@@ -322,6 +330,92 @@ void testBlackSharkRestoresLocalAfterFailure()
     BLACKSHARK_ASSERT(bogus.mode == Device::MODE_LOCAL, "local mode is restored after a bad value");
 }
 
+void testBlackSharkReportsStuckRemote()
+{
+    BlackSharkMockHID hid;
+    hid.ignore_local = true;
+    TestableBlackShark device(hid);
+
+    auto result = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(result.hasError() && result.error().code == DeviceError::Code::ProtocolError,
+        "a dongle left in remote mode fails the read even though the voltage arrived");
+    const auto local_switches = std::count_if(hid.writes.begin(), hid.writes.end(), [](const Bytes& f) {
+        return f[7] == Device::TYPE_LINK && f[10] == Device::SET_MODE && f[11] == Device::MODE_LOCAL;
+    });
+    BLACKSHARK_ASSERT(local_switches == Device::ATTEMPTS, "the switch back is retried");
+    BLACKSHARK_ASSERT(hid.writes.back()[10] == Device::GET_MODE, "the last switch is verified too");
+    BLACKSHARK_ASSERT(hid.sent(Device::TYPE_OTA, { Device::GET_BATTERY }), "the voltage was asked for");
+
+    hid.ignore_local = false;
+    hid.voltage_mv   = 3900;
+    auto retry       = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(retry.hasValue() && retry->voltage_mv == 3900, "the next call reads again");
+    BLACKSHARK_ASSERT(hid.mode == Device::MODE_LOCAL, "and restores local mode");
+
+    // A failed restore is reported in preference to a failed read
+    BlackSharkMockHID both;
+    both.ignore_local           = true;
+    both.silent_battery_replies = 99;
+    TestableBlackShark device2(both);
+    auto failed = device2.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(failed.hasError() && failed.error().code == DeviceError::Code::ProtocolError,
+        "restore failure wins over the read timeout");
+}
+
+void testBlackSharkBacksOffAfterFailure()
+{
+    BlackSharkMockHID hid;
+    hid.silent_battery_replies = 99;
+    TestableBlackShark device(hid);
+
+    auto first = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(first.hasError() && first.error().code == DeviceError::Code::Timeout, "headset does not answer");
+    const size_t after_first = hid.writes.size();
+
+    hid.silent_battery_replies = 0;
+    device.clock += std::chrono::seconds { 1 };
+    auto polled = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(polled.hasError() && polled.error().code == DeviceError::Code::Timeout, "failure is remembered");
+    BLACKSHARK_ASSERT(hid.writes.size() == after_first + 1, "and the dongle is not switched again");
+
+    device.clock += Device::FAILURE_BACKOFF;
+    auto later = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(later.hasValue() && later->voltage_mv == 3948, "retried after the backoff");
+    const size_t after_retry = hid.writes.size();
+
+    device.clock += Device::FAILURE_BACKOFF;
+    BLACKSHARK_ASSERT(device.getBattery(TEST_HANDLE).hasValue(), "a good read");
+    BLACKSHARK_ASSERT(hid.writes.size() == after_retry + 1, "is then cached for the full window");
+}
+
+void testBlackSharkUnknownMode()
+{
+    BlackSharkMockHID hid;
+    hid.mode = 0x05;
+    TestableBlackShark device(hid);
+
+    auto result = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(result.hasError() && result.error().code == DeviceError::Code::ProtocolError, "unknown mode");
+    BLACKSHARK_ASSERT(!hid.sent(Device::TYPE_LINK, { Device::SET_MODE }), "the dongle is left alone");
+    BLACKSHARK_ASSERT(hid.mode == 0x05, "mode unchanged");
+}
+
+void testBlackSharkUnplugged()
+{
+    // Unplugged just before the battery request: the error surfaces, nothing is cached
+    BlackSharkMockHID hid;
+    hid.fail_writes_from = 4; // link status, mode, switch to remote, ioctl
+    TestableBlackShark device(hid);
+    auto result = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(result.hasError(), "a HID error fails the read");
+
+    hid.fail_writes_from = SIZE_MAX;
+    hid.mode             = Device::MODE_LOCAL;
+    hid.voltage_mv       = 3700;
+    auto replugged       = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(replugged.hasValue() && replugged->voltage_mv == 3700, "no stale voltage after the failure");
+}
+
 void testBlackSharkRejectedFrame()
 {
     BlackSharkMockHID hid;
@@ -375,6 +469,27 @@ void testBlackSharkCachesVoltage()
     BLACKSHARK_ASSERT(hid.writes.size() > before + 1, "a full read follows");
 }
 
+void testBlackSharkCachePerHandle()
+{
+    BlackSharkMockHID hid;
+    TestableBlackShark device(hid);
+    auto* const other = reinterpret_cast<hid_device*>(0x2);
+
+    BLACKSHARK_ASSERT(device.getBattery(TEST_HANDLE).hasValue(), "first dongle");
+    hid.voltage_mv = 3700;
+    auto second    = device.getBattery(other);
+    BLACKSHARK_ASSERT(second.hasValue() && second->voltage_mv == 3700, "a second dongle is read, not served the cache");
+    auto first = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(first.hasValue() && first->voltage_mv == 3948, "the first dongle keeps its own cache");
+
+    hid.voltage_mv = 3600;
+    device.onConnectionClosed(TEST_HANDLE);
+    auto reopened = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(reopened.hasValue() && reopened->voltage_mv == 3600, "closing the handle drops its cache");
+    auto kept = device.getBattery(other);
+    BLACKSHARK_ASSERT(kept.hasValue() && kept->voltage_mv == 3700, "and only its own");
+}
+
 void testBlackSharkVoltageCurve()
 {
     BLACKSHARK_ASSERT(voltageToPercent(4200, Device::CALIBRATION) == 100, "full");
@@ -393,9 +508,14 @@ void runAllRazerBlackSharkV2ProPSTests()
     testBlackSharkAlreadyRemote();
     testBlackSharkRetriesBattery();
     testBlackSharkRestoresLocalAfterFailure();
+    testBlackSharkReportsStuckRemote();
+    testBlackSharkUnplugged();
+    testBlackSharkBacksOffAfterFailure();
+    testBlackSharkUnknownMode();
     testBlackSharkRejectedFrame();
     testBlackSharkSkipsOtherReplies();
     testBlackSharkCachesVoltage();
+    testBlackSharkCachePerHandle();
     testBlackSharkVoltageCurve();
     std::cout << "  Razer BlackShark V2 Pro (PlayStation) tests passed" << std::endl;
 }
