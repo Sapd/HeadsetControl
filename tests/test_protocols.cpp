@@ -2091,7 +2091,7 @@ void testCenturionProX2GraphicEqualizer()
     dev.hid.replies.push_back(centurionFrame(PRO_X2_PREFIX, { 0x00, 0x01, 0x03, 0x00, 0x01 }));
     queueBridgeReply(dev.hid, PRO_X2_PREFIX, 0x00, { 0x09, 0x00, 0x00 }); // Onboard EQ at index 9
     queueBridgeReply(dev.hid, PRO_X2_PREFIX, 0x09, { 0x00, 0x00, 0x00, 0x00, 0x00 }); // EQ info
-    queueBridgeReply(dev.hid, PRO_X2_PREFIX, 0x09, hexBytes("00 05  00 50 00 01  00 f0 00 01  02 ee 00 01  08 98 00 01  19 c8 00 01")); // Slot 0 with five flat bands
+    queueBridgeReply(dev.hid, PRO_X2_PREFIX, 0x09, hexBytes("00 05  00 50 00 02  00 f0 00 01  02 ee 00 02  08 98 00 02  19 c8 00 01")); // Slot 0 with flat gains and mixed Q values
     queueBridgeReply(dev.hid, PRO_X2_PREFIX, 0x09, {}); // EQ write reply
 
     auto preset = dev.setEqualizerPreset(nullptr, 3); // Shooter
@@ -2101,11 +2101,11 @@ void testCenturionProX2GraphicEqualizer()
         "Graphic EQ looks up the Onboard EQ feature directly");
     assertFrame(dev.hid.writes[3], { 0x51, 0x09, 0x00, 0x03, 0x11, 0x00, 0x04, 0x00, 0x09, 0x11, 0x00 },
         "Graphic EQ reads the band parameters from slot 0");
-    const auto expected_write_prefix = hexBytes("51 3d 01 03 11 01 00 00 09 21  00 05  00 50 ff 01  00 f0 ff 01  02 ee 04 01  08 98 03 01  19 c8 02 01");
+    const auto expected_write_prefix = hexBytes("51 3d 01 03 11 01 00 00 09 21  00 05  00 50 ff 02  00 f0 ff 01  02 ee 04 02  08 98 03 02  19 c8 02 01");
     const auto& first_fragment       = dev.hid.writes[4];
     ASSERT_TRUE(first_fragment.size() >= expected_write_prefix.size()
             && std::equal(expected_write_prefix.begin(), expected_write_prefix.end(), first_fragment.begin()),
-        "Onboard EQ write retains all five frequencies, Shooter gains and fixed Q values");
+        "Onboard EQ write applies Shooter gains and preserves each band's frequency and Q");
     ASSERT_TRUE(dev.hid.replies.empty(), "All replies consumed");
 
     const auto info = dev.getEqualizerInfo();
