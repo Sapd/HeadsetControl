@@ -327,8 +327,10 @@ if(PROJECT_IS_TOP_LEVEL)
     # On Windows, include the resource file for the application icon
     if(WIN32)
         set(WIN_RESOURCES ${CMAKE_CURRENT_SOURCE_DIR}/assets/headsetcontrol.rc)
-        # Ensure resource compiler can find the icon file
-        set(CMAKE_RC_FLAGS "${CMAKE_RC_FLAGS} -I${CMAKE_CURRENT_SOURCE_DIR}/assets")
+        # Ensure resource compiler can find the icon file. A source property
+        # (not CMAKE_RC_FLAGS) so CMake quotes the path when it has spaces.
+        set_source_files_properties(${WIN_RESOURCES} PROPERTIES
+            INCLUDE_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}/assets)
     endif()
 
     add_executable(headsetcontrol ${CLI_SOURCES} ${WIN_RESOURCES})
