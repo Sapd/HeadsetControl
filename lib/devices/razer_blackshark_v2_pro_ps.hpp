@@ -53,6 +53,11 @@ namespace headsetcontrol {
  *
  * Only read commands and this mode switch are sent. Charging state is not
  * reported by the headset, so the status is always "available" while linked.
+ *
+ * Tray frontends may poll every second. The link status is a cheap query and
+ * is checked on every call, but the voltage is re-read (and the dongle
+ * switched) at most once per VOLTAGE_CACHE; in between the last voltage is
+ * returned. The cache is dropped whenever the headset is seen unlinked.
  */
 class RazerBlackSharkV2ProPS : public HIDDevice {
 public:
@@ -85,6 +90,7 @@ public:
     static constexpr int ATTEMPTS          = 3;
     static constexpr uint16_t MIN_VOLTAGE  = 2500;
     static constexpr uint16_t MAX_VOLTAGE  = 4500;
+    static constexpr std::chrono::seconds VOLTAGE_CACHE { 60 };
 
     // Typical single-cell Li-ion discharge curve; the headset reports no percentage
     static constexpr std::array<std::pair<uint8_t, uint16_t>, 11> CALIBRATION { {
@@ -129,18 +135,23 @@ public:
             return link.error();
         }
         if ((*link & LINK_HEADSET) == 0) {
+            cached_voltage_.reset();
             return BatteryResult { .level_percent = -1, .status = BATTERY_UNAVAILABLE };
         }
 
-        auto voltage = readVoltageInRemoteMode(device_handle);
-        if (!voltage) {
-            return voltage.error();
+        if (!cached_voltage_ || now() - cached_at_ >= VOLTAGE_CACHE) {
+            auto voltage = readVoltageInRemoteMode(device_handle);
+            if (!voltage) {
+                return voltage.error();
+            }
+            cached_voltage_ = *voltage;
+            cached_at_      = now();
         }
 
         return BatteryResult {
-            .level_percent  = voltageToPercent(*voltage, CALIBRATION),
+            .level_percent  = voltageToPercent(*cached_voltage_, CALIBRATION),
             .status         = BATTERY_AVAILABLE,
-            .voltage_mv     = *voltage,
+            .voltage_mv     = *cached_voltage_,
             .query_duration = std::chrono::duration_cast<std::chrono::milliseconds>(
                 std::chrono::steady_clock::now() - start),
         };
@@ -176,10 +187,14 @@ public:
 protected:
     // Overridden in tests to skip the delay
     virtual void settle(std::chrono::milliseconds delay) const { std::this_thread::sleep_for(delay); }
+    // Overridden in tests to move time forward
+    virtual std::chrono::steady_clock::time_point now() const { return std::chrono::steady_clock::now(); }
 
 private:
     mutable std::mutex mutex_;
     uint8_t sequence_ = 0;
+    std::optional<uint16_t> cached_voltage_;
+    std::chrono::steady_clock::time_point cached_at_ {};
 
     Result<uint16_t> readVoltageInRemoteMode(hid_device* device_handle)
     {

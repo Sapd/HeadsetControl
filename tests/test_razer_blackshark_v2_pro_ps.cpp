@@ -170,6 +170,10 @@ public:
 protected:
     HIDInterface& getHIDInterface() const override { return hid_; }
     void settle(std::chrono::milliseconds) const override { }
+    std::chrono::steady_clock::time_point now() const override { return clock; }
+
+public:
+    std::chrono::steady_clock::time_point clock {};
 
 private:
     BlackSharkMockHID& hid_;
@@ -258,7 +262,8 @@ void testBlackSharkSimulatedRead()
     BLACKSHARK_ASSERT(hid.mode == Device::MODE_LOCAL, "dongle is back in local mode");
     BLACKSHARK_ASSERT(!hid.bad_crc, "every frame carries a valid CRC");
 
-    // A second read on the same connection uses new sequence numbers
+    // A later read on the same connection uses new sequence numbers
+    device.clock += Device::VOLTAGE_CACHE;
     auto again = device.getBattery(TEST_HANDLE);
     BLACKSHARK_ASSERT(again.hasValue() && again->voltage_mv == 3800, "second read works too");
     BLACKSHARK_ASSERT(hid.mode == Device::MODE_LOCAL, "still local after the second read");
@@ -339,6 +344,37 @@ void testBlackSharkSkipsOtherReplies()
     BLACKSHARK_ASSERT(hid.mode == Device::MODE_LOCAL, "back in local mode");
 }
 
+void testBlackSharkCachesVoltage()
+{
+    BlackSharkMockHID hid;
+    TestableBlackShark device(hid);
+
+    BLACKSHARK_ASSERT(device.getBattery(TEST_HANDLE).hasValue(), "first read");
+    const size_t full_read = hid.writes.size();
+
+    hid.voltage_mv = 3700;
+    device.clock += std::chrono::seconds { 30 };
+    auto cached = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(cached.hasValue() && cached->voltage_mv == 3948, "voltage is reused within the cache window");
+    BLACKSHARK_ASSERT(hid.writes.size() == full_read + 1, "only the link status is queried");
+
+    device.clock += std::chrono::seconds { 31 };
+    auto fresh = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(fresh.hasValue() && fresh->voltage_mv == 3700, "re-read after the cache window");
+    BLACKSHARK_ASSERT(hid.mode == Device::MODE_LOCAL, "back in local mode");
+
+    hid.link_status = 0x13;
+    auto off        = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(off.hasValue() && off->status == BATTERY_UNAVAILABLE, "headset switched off");
+
+    hid.link_status     = 0x1b;
+    hid.voltage_mv      = 4100;
+    const size_t before = hid.writes.size();
+    auto back           = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(back.hasValue() && back->voltage_mv == 4100, "cache is dropped while the headset is off");
+    BLACKSHARK_ASSERT(hid.writes.size() > before + 1, "a full read follows");
+}
+
 void testBlackSharkVoltageCurve()
 {
     BLACKSHARK_ASSERT(voltageToPercent(4200, Device::CALIBRATION) == 100, "full");
@@ -359,6 +395,7 @@ void runAllRazerBlackSharkV2ProPSTests()
     testBlackSharkRestoresLocalAfterFailure();
     testBlackSharkRejectedFrame();
     testBlackSharkSkipsOtherReplies();
+    testBlackSharkCachesVoltage();
     testBlackSharkVoltageCurve();
     std::cout << "  Razer BlackShark V2 Pro (PlayStation) tests passed" << std::endl;
 }
