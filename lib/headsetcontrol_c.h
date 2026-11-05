@@ -486,8 +486,7 @@ HSC_API hsc_result_t hsc_get_equalizer_info(hsc_headset_t headset, hsc_equalizer
 /**
  * @brief Get the ranges of the parametric equalizer
  *
- * Reads no HID data. As with hsc_get_equalizer_info(), some devices can only
- * report it after an equalizer command on the same device.
+ * Reads no HID data.
  *
  * @param headset Headset handle
  * @param[out] info Parametric equalizer ranges
