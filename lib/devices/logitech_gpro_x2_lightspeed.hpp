@@ -187,7 +187,8 @@ public:
 
             bands.push_back(OnboardEqBand {
                 .frequency = descriptor->bands[i].frequency,
-                .gain_db   = encodeGain(gain) });
+                .gain_db   = encodeGain(gain),
+                .q_factor  = descriptor->bands[i].q_factor });
         }
 
         if (auto write_result = writeOnboardEq(device_handle, *descriptor, bands); !write_result) {
