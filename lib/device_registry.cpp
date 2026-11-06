@@ -69,6 +69,7 @@
 #include "devices/sony_pulse_3d.hpp"
 
 // MCHOSE devices
+#include "devices/mchose_v9_pro.hpp"
 #include "devices/mchose_x9.hpp"
 
 // Razer devices
@@ -185,6 +186,7 @@ void DeviceRegistry::initialize()
 
         // MCHOSE devices
         registerDevice(std::make_unique<MchoseX9>());
+        registerDevice(std::make_unique<MchoseV9Pro>());
 
         // Razer devices
         registerDevice(std::make_unique<RazerBlackSharkV2ProPS>());
