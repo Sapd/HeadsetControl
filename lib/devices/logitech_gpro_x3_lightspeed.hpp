@@ -77,46 +77,6 @@ public:
         return *battery_result;
     }
 
-    // Preserve the two additional timer fields returned by the headset.
-    static Result<std::array<uint8_t, 3>> buildAutoSleepParams(uint8_t minutes, std::span<const uint8_t> current)
-    {
-        if (current.size() < 3) {
-            return DeviceError::protocolError("Unexpected PRO X 3 auto-sleep reply");
-        }
-        return std::array<uint8_t, 3> { minutes, current[1], current[2] };
-    }
-
-    Result<InactiveTimeResult> setInactiveTime(hid_device* device_handle, uint8_t minutes) override
-    {
-        auto current = sendCenturionFeatureRequest(
-            device_handle,
-            static_cast<uint16_t>(protocols::CenturionFeature::CenturionAutoSleep),
-            0x00);
-        if (!current) {
-            return current.error();
-        }
-
-        auto params = buildAutoSleepParams(minutes, *current);
-        if (!params) {
-            return params.error();
-        }
-
-        if (auto write_result = sendCenturionFeatureRequest(
-                device_handle,
-                static_cast<uint16_t>(protocols::CenturionFeature::CenturionAutoSleep),
-                0x10,
-                *params);
-            !write_result) {
-            return write_result.error();
-        }
-
-        return InactiveTimeResult {
-            .minutes     = minutes,
-            .min_minutes = 0,
-            .max_minutes = 90
-        };
-    }
-
 protected:
     std::span<const uint8_t> centurionFramePrefix() const override
     {

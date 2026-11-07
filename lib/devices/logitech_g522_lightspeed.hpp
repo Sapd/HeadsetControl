@@ -304,51 +304,6 @@ public:
         return VoicePromptsResult { .enabled = enabled };
     }
 
-    /**
-     * @brief Build the auto-sleep write parameters: <sleep minutes> <lights dim> <lights off>.
-     *
-     * The same command also carries the two lighting inactivity timers (minutes, 0 = never),
-     * and the headset rejects a write without them, so keep the values that were read back.
-     */
-    static Result<std::array<uint8_t, 3>> buildAutoSleepParams(uint8_t minutes, std::span<const uint8_t> current)
-    {
-        if (current.size() < 3) {
-            return DeviceError::protocolError("Unexpected G522 auto-sleep reply");
-        }
-        return std::array<uint8_t, 3> { minutes, current[1], current[2] };
-    }
-
-    Result<InactiveTimeResult> setInactiveTime(hid_device* device_handle, uint8_t minutes) override
-    {
-        auto current = sendCenturionFeatureRequest(
-            device_handle,
-            static_cast<uint16_t>(protocols::CenturionFeature::CenturionAutoSleep),
-            0x00);
-        if (!current) {
-            return current.error();
-        }
-
-        auto params = buildAutoSleepParams(minutes, *current);
-        if (!params) {
-            return params.error();
-        }
-
-        if (auto write_result = sendCenturionFeatureRequest(
-                device_handle,
-                static_cast<uint16_t>(protocols::CenturionFeature::CenturionAutoSleep),
-                0x10,
-                *params);
-            !write_result) {
-            return write_result.error();
-        }
-
-        return InactiveTimeResult {
-            .minutes     = minutes,
-            .min_minutes = 0,
-            .max_minutes = 90
-        };
-    }
-
     Result<MicMuteLedBrightnessResult> setMicMuteLedBrightness(hid_device* device_handle, uint8_t brightness) override
     {
         uint8_t mute_led = static_cast<uint8_t>(static_cast<bool>(brightness)); // 0 or 1

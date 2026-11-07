@@ -1655,7 +1655,12 @@ void testLogitechProX3CapturedTraffic()
     ASSERT_TRUE(dev.setInactiveTime(nullptr, 15).hasValue(), "X3 sleep timer write");
     assertFrame(dev.hid.writes.back(), { 0x50, 0x23, 0x0b, 0, 3, 0x11, 0, 6, 0, 0x11, 0x11, 15, 0, 0 }, "X3 sleep write");
     ASSERT_TRUE(dev.hid.replies.empty(), "Captured replies consumed");
-    ASSERT_TRUE(LogitechGProX3Lightspeed::buildAutoSleepParams(15, std::array<uint8_t, 2> { 15, 0 }).hasError(), "Reject truncated sleep reply");
+    ASSERT_TRUE(protocols::LogitechCenturionProtocol::buildAutoSleepParams(15, std::array<uint8_t, 2> { 15, 0 }).hasError(), "Reject truncated sleep reply");
+    auto preserved = protocols::LogitechCenturionProtocol::buildAutoSleepParams(15, std::array<uint8_t, 3> { 5, 1, 2 });
+    ASSERT_TRUE(preserved.hasValue(), "Sleep params should build from a full reply");
+    ASSERT_EQ(15, (*preserved)[0], "Minutes replaced");
+    ASSERT_EQ(1, (*preserved)[1], "Second timer field preserved");
+    ASSERT_EQ(2, (*preserved)[2], "Third timer field preserved");
 }
 
 void testCenturionG522FramePrefix()
