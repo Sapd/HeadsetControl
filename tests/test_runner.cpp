@@ -31,6 +31,8 @@ void runAllHyperXCloudAlpha2WirelessTests();
 void runAllHyperXCloudAlphaSTests();
 void runAllSonyPulse3DTests();
 void runAllCorsairVirtuosoTests();
+void runAllRazerBlackSharkV2ProPSTests();
+void runAllMchoseTests();
 }
 
 int main()
@@ -79,6 +81,8 @@ int main()
 
         headsetcontrol::testing::runAllSonyPulse3DTests();
         headsetcontrol::testing::runAllCorsairVirtuosoTests();
+        headsetcontrol::testing::runAllRazerBlackSharkV2ProPSTests();
+        headsetcontrol::testing::runAllMchoseTests();
 
         std::cout << "\n====================================================================" << std::endl;
         std::cout << "                    All tests passed successfully!                  " << std::endl;

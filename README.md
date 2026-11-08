@@ -162,7 +162,7 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 | Logitech G633/G635/G733/G933/G935 | All | x | x |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | Logitech G431/G432/G433 | All | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | Logitech G930 | All | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
-| Logitech G PRO X 2 LIGHTSPEED | All | x | x |   |   | x |   |   |   | x | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
+| Logitech G PRO X 2 LIGHTSPEED | All | x | x |   |   | x |   |   |   | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | Logitech G PRO X 3 LIGHTSPEED | All |   | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | Logitech G PRO Series | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | Logitech Zone Wired/Zone 750 | All | x |   |   |   |   |   | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
@@ -202,6 +202,8 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 | Sony INZONE H9 II | All | x | x |   |   | x | x | x |   |   |   |   |   |   |   | x |   |   |   | x | x | x | x | x |   |   |
 | Sony PULSE 3D | All |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | MCHOSE X9 Wireless | L/W |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
+| MCHOSE V9 Pro Wireless | L/W |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
+| Razer BlackShark V2 Pro (PlayStation) | All |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | HeadsetControl Test device | All | r | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | r | x |
 
 **Platform:** All = Linux, macOS, Windows | L/M = Linux and macOS only | L/W = Linux and Windows only
@@ -319,6 +321,13 @@ headsetcontrol --test-device -b
 Want to add support for a new headset or improve the software? See the [Development Guide](docs/DEVELOPMENT.md).
 
 Adding a new device requires capturing USB traffic between the headset and its Windows software using Wireshark or USBlyzer (a VM with USB passthrough works well).
+
+## Other Projects
+
+Also by me:
+
+- [Lumastra](https://lumastra.org) - Self-hosted media server for movies, series, music and audiobooks ([GitHub](https://github.com/Sapd/lumastra))
+- [Longcable](https://github.com/Sapd/longcable) - A replacement for VirtualHere on macOS: share USB devices from your Mac to a Windows or Linux PC over USB/IP
 
 ## License
 

@@ -820,7 +820,6 @@ if (hsc_get_equalizer_info(headset, &eq_info) == HSC_RESULT_OK) {
 hsc_parametric_equalizer_info_t peq_info;
 if (hsc_get_parametric_equalizer_info(headset, &peq_info) == HSC_RESULT_OK
     && (peq_info.filter_types & (1 << HSC_EQ_FILTER_PEAKING))) {
-    // Some devices take a single Q factor (the PRO X 2 only accepts 1.0)
     float q = 1.0f;
     if (q < peq_info.q_factor_min) q = peq_info.q_factor_min;
     if (q > peq_info.q_factor_max) q = peq_info.q_factor_max;

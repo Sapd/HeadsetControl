@@ -212,10 +212,27 @@ void testLookupLogitechProX2Lightspeed()
     auto* device = registry.getDevice(0x046d, 0x0af7);
     ASSERT_NOT_NULL(device, "Logitech PRO X2 LIGHTSPEED should be found");
     ASSERT_EQ("Logitech G PRO X 2 LIGHTSPEED", std::string(device->getDeviceName()), "Device name should match");
-    ASSERT_TRUE((device->getCapabilities() & B(CAP_SIDETONE)) != 0, "G PRO X2 should expose sidetone capability");
-    ASSERT_TRUE((device->getCapabilities() & B(CAP_EQUALIZER_PRESET)) != 0, "G PRO X2 should expose equalizer preset capability");
-    ASSERT_TRUE((device->getCapabilities() & B(CAP_EQUALIZER)) != 0, "G PRO X2 should expose equalizer capability");
-    ASSERT_TRUE((device->getCapabilities() & B(CAP_PARAMETRIC_EQUALIZER)) != 0, "G PRO X2 should expose parametric equalizer capability");
+    const int caps = device->getAdvertisedCapabilities();
+    ASSERT_TRUE((caps & B(CAP_SIDETONE)) != 0, "G PRO X2 should expose sidetone capability");
+    ASSERT_TRUE((caps & B(CAP_EQUALIZER_PRESET)) != 0, "G PRO X2 should expose equalizer preset capability");
+    ASSERT_TRUE((caps & B(CAP_EQUALIZER)) != 0, "G PRO X2 should expose equalizer capability");
+    ASSERT_EQ(0, caps & B(CAP_PARAMETRIC_EQUALIZER), "G PRO X2 should omit parametric equalizer capability");
+
+    const EqualizerPresets expected { {
+        { "Flat", { 0, 0, 0, 0, 0 } },
+        { "Bass Boost", { 4, 2, 0, 0, 0 } },
+        { "Team Chat", { -1, 2, 1, 3, 3 } },
+        { "Shooter", { -1, -1, 4, 3, 2 } },
+        { "MOBA", { 0, 1, 1, 2, 4 } },
+    } };
+    const auto presets = device->getEqualizerPresets();
+    ASSERT_TRUE(presets.has_value(), "G PRO X2 should list its equalizer presets");
+    ASSERT_EQ(expected.count(), device->getEqualizerPresetsCount(), "G PRO X2 advertised preset count");
+    ASSERT_EQ(expected.count(), presets->count(), "G PRO X2 listed preset count");
+    for (size_t i = 0; i < expected.presets.size(); ++i) {
+        ASSERT_EQ(expected.presets[i].name, presets->presets[i].name, "G PRO X2 preset name");
+        ASSERT_TRUE(expected.presets[i].values == presets->presets[i].values, "G PRO X2 preset gains");
+    }
 
     std::cout << "    OK lookup Logitech PRO X2 LIGHTSPEED" << std::endl;
 }
