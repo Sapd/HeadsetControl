@@ -163,6 +163,7 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 | Logitech G431/G432/G433 | All | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | Logitech G930 | All | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | Logitech G PRO X 2 LIGHTSPEED | All | x | x |   |   | x |   |   |   | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
+| Logitech G PRO X 3 LIGHTSPEED | All |   | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | Logitech G PRO Series | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | Logitech Zone Wired/Zone 750 | All | x |   |   |   |   |   | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | Corsair Headset Device | All | x | x | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   | x |   |   |

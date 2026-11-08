@@ -17,6 +17,7 @@
 #include "devices/logitech_astro_a50_gen4.hpp"
 #include "devices/logitech_g522_lightspeed.hpp"
 #include "devices/logitech_gpro_x2_lightspeed.hpp"
+#include "devices/logitech_gpro_x3_lightspeed.hpp"
 #include "devices/plantronics_bt600.hpp"
 #include "devices/protocols/hidpp_protocol.hpp"
 #include "devices/protocols/logitech_calibrations.hpp"
@@ -36,6 +37,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace headsetcontrol::testing {
@@ -1611,6 +1613,45 @@ static void assertFrame(const std::vector<uint8_t>& actual, std::initializer_lis
     }
 }
 
+// Replies captured from a G PRO X 3 LIGHTSPEED receiver (046d:0b45, bcdDevice 1.02).
+class TestableProX3 : public LogitechGProX3Lightspeed {
+public:
+    mutable ScriptedHIDInterface hid;
+    auto getHIDInterface() const -> HIDInterface& override { return hid; }
+};
+
+void testLogitechProX3CapturedTraffic()
+{
+    const auto prefix = LogitechGProX3Lightspeed::FRAME_PREFIX;
+    TestableProX3 dev;
+    dev.hid.replies.push_back(centurionFrame(prefix, { 0x00, 0x01, 0x03, 0x00, 0x01 }));
+    queueBridgeReply(dev.hid, prefix, 0, { 5, 0, 3 });
+    queueBridgeReply(dev.hid, prefix, 5, { 0x4e, 0x50, 0 });
+    auto battery = dev.getBattery(nullptr);
+    ASSERT_TRUE(battery.hasValue(), "Captured X3 battery reply should parse");
+    ASSERT_EQ(78, battery->level_percent, "X3 battery percentage");
+    ASSERT_EQ(BATTERY_AVAILABLE, battery->status, "X3 battery status");
+    assertFrame(dev.hid.writes.back(), { 0x50, 0x23, 8, 0, 3, 0x11, 0, 3, 0, 5, 1 }, "X3 battery query");
+
+    ASSERT_TRUE((dev.getAdvertisedCapabilities() & (B(CAP_SIDETONE) | B(CAP_SIDETONE_STATUS))) == 0, "X3 does not advertise sidetone");
+    ASSERT_TRUE(dev.getSidetone(nullptr).hasError(), "X3 sidetone read is unsupported");
+    ASSERT_TRUE(dev.setSidetone(nullptr, 64).hasError(), "X3 sidetone write is unsupported");
+    ASSERT_EQ(3u, dev.hid.writes.size(), "Unsupported sidetone must not send HID commands");
+
+    queueBridgeReply(dev.hid, prefix, 0, { 0x11, 0, 4 });
+    queueBridgeReply(dev.hid, prefix, 0x11, { 15, 0, 0 });
+    queueBridgeReply(dev.hid, prefix, 0x11, {});
+    ASSERT_TRUE(dev.setInactiveTime(nullptr, 15).hasValue(), "X3 sleep timer write");
+    assertFrame(dev.hid.writes.back(), { 0x50, 0x23, 0x0b, 0, 3, 0x11, 0, 6, 0, 0x11, 0x11, 15, 0, 0 }, "X3 sleep write");
+    ASSERT_TRUE(dev.hid.replies.empty(), "Captured replies consumed");
+    ASSERT_TRUE(protocols::LogitechCenturionProtocol::buildAutoSleepParams(15, std::array<uint8_t, 2> { 15, 0 }).hasError(), "Reject truncated sleep reply");
+    auto preserved = protocols::LogitechCenturionProtocol::buildAutoSleepParams(15, std::array<uint8_t, 3> { 5, 1, 2 });
+    ASSERT_TRUE(preserved.hasValue(), "Sleep params should build from a full reply");
+    ASSERT_EQ(15, (*preserved)[0], "Minutes replaced");
+    ASSERT_EQ(1, (*preserved)[1], "Second timer field preserved");
+    ASSERT_EQ(2, (*preserved)[2], "Third timer field preserved");
+}
+
 void testCenturionG522FramePrefix()
 {
     std::cout << "  Testing Logitech Centurion G522 frame prefix..." << std::endl;
@@ -2832,6 +2873,7 @@ void runAllProtocolTests()
     runTest("Logitech Centurion Bridge Size Limit", testCenturionBridgeMessageSizeLimit);
     runTest("Logitech Centurion G522 Frame Prefix", testCenturionG522FramePrefix);
     runTest("Logitech Centurion Connection Status", testCenturionConnectionStatusHelpers);
+    runTest("Logitech G PRO X 3 Captured Traffic", testLogitechProX3CapturedTraffic);
     runTest("Logitech G522 Battery Wire", testCenturionG522BatteryWire);
     runTest("Logitech G522 Offline Detection", testCenturionG522Offline);
     runTest("Logitech G522 Sidetone And Auto-Sleep Parsing", testG522SidetoneAndAutoSleepParsing);
