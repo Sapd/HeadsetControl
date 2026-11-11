@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <deque>
 #include <iostream>
+#include <optional>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -52,6 +53,8 @@ public:
     bool send_noise            = false;
     bool ignore_local          = false; // acks the switch to local mode but stays in remote
     size_t fail_writes_from    = SIZE_MAX; // writes from this index on fail, as if unplugged
+    std::optional<uint8_t> custom_percent; // answer to the customer GET 0x21, in remote mode
+    std::optional<uint8_t> custom_charge; // answer to the customer GET 0x2a, in remote mode
 
     std::deque<Bytes> scripted; // used instead of the simulation when not empty
     std::deque<Bytes> pending;
@@ -75,8 +78,12 @@ public:
         if (scripted.empty()) {
             respond(frame);
         } else {
-            pending.push_back(scripted.front());
+            // Replayed with the sequence number of the request it answers
+            Bytes r = scripted.front();
             scripted.pop_front();
+            if (r.size() > Device::REPLY_SEQUENCE && r[4] == 0x01 && (r[Device::REPLY_SEQUENCE] & 0x80))
+                r[Device::REPLY_SEQUENCE] = static_cast<uint8_t>(0x80 | frame[8]);
+            pending.push_back(r);
         }
         return {};
     }
@@ -127,6 +134,13 @@ public:
         });
     }
 
+    // Queue an indication the headset pushes on its own (captured format)
+    void indicate(uint8_t id, uint8_t value)
+    {
+        pending.push_back({ 0x02, 0x0e, 0x50, 0x49, 0x08, 0xd8, 0xde, 0x35, 0x20, 0x00, 0x04, 0x00, id, 0x02, 0x01,
+            value });
+    }
+
 private:
     void reply(uint8_t type, uint8_t seq, Bytes data)
     {
@@ -144,6 +158,16 @@ private:
     {
         const uint8_t type = f[7];
         const uint8_t seq  = f[8];
+        if (type == Device::FRAME_CUSTOM) {
+            const uint8_t id                   = f[10];
+            const std::optional<uint8_t> value = id == Device::IND_BATTERY ? custom_percent
+                : id == Device::IND_CHARGING                               ? custom_charge
+                                                                           : std::nullopt;
+            if (mode == Device::MODE_REMOTE && value && ack == Device::ACK_OK) // format captured on hardware
+                pending.push_back({ 0x02, 0x0e, 0x50, 0x49, 0x08, 0xe5, 0x30, 0x0a, 0x2d, 0x00, 0x04, 0x00, id, 0x01,
+                    0x01, *value });
+            return;
+        }
         if (type == Device::TYPE_LINK) {
             const uint8_t id = f[10];
             if (id == Device::SET_MODE) {
@@ -210,6 +234,9 @@ const std::vector<Bytes> CAPTURED_REPLIES {
         0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0xe0, 0x01, 0xce },
     { 0x02, 0x11, 0x50, 0x49, 0x01, 0xe4, 0xbd, 0xcd, 0xd3, 0x01, 0x07, 0x00, 0x06, 0x86, 0x00, 0x6c, 0x0f, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0xe0, 0x01, 0xce },
+    // The customer GETs were captured separately, with the headset on the charger
+    { 0x02, 0x0e, 0x50, 0x49, 0x08, 0xe5, 0x30, 0x0a, 0x2d, 0x00, 0x04, 0x00, 0x2a, 0x01, 0x01, 0x01 },
+    { 0x02, 0x0e, 0x50, 0x49, 0x08, 0xe6, 0xf7, 0x0e, 0x2d, 0x00, 0x04, 0x00, 0x21, 0x01, 0x01, 0x3b },
     { 0x02, 0x19, 0x50, 0x49, 0x01, 0xc0, 0xb7, 0x5d, 0x56, 0x02, 0x03, 0x00, 0x0e, 0x87, 0x00, 0x50, 0x49, 0x0e, 0xe5,
         0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0xe0, 0x01, 0xce },
     { 0x02, 0x0d, 0x50, 0x49, 0x01, 0xc0, 0xbc, 0x5d, 0x56, 0x02, 0x03, 0x00, 0x0e, 0x88, 0x00, 0x50, 0x49, 0x0e, 0xe5,
@@ -247,14 +274,21 @@ void testBlackSharkCapturedSession()
     auto result = device.getBattery(TEST_HANDLE);
     BLACKSHARK_ASSERT(result.hasValue(), "captured session should give a battery level");
     BLACKSHARK_ASSERT(result->voltage_mv == 3948, "voltage is 0x0f6c mV");
-    BLACKSHARK_ASSERT(result->level_percent == 72, "3948 mV is about 72%");
-    BLACKSHARK_ASSERT(result->status == BATTERY_AVAILABLE, "linked headset is available");
+    BLACKSHARK_ASSERT(result->level_percent == 59, "the headset's own level");
+    BLACKSHARK_ASSERT(result->status == BATTERY_CHARGING, "charge state 1 is charging");
     BLACKSHARK_ASSERT(hid.writes.size() == CAPTURED_REPLIES.size(), "same number of requests as the capture");
     BLACKSHARK_ASSERT(hid.writes[0] == padded(TX_LINK_STATUS), "first request reads the link status");
     BLACKSHARK_ASSERT(hid.writes[2] == padded(TX_REMOTE), "switches to remote mode");
     BLACKSHARK_ASSERT(hid.writes[3] == padded(TX_IOCTL), "sends the ioctl after switching");
     BLACKSHARK_ASSERT(hid.writes[5] == padded(TX_BATTERY), "asks for the battery voltage");
-    BLACKSHARK_ASSERT(hid.writes[7] == padded(TX_LOCAL), "switches back to local mode");
+    BLACKSHARK_ASSERT(hid.writes[6][7] == 0x08 && hid.writes[6][9] == 3 && hid.writes[6][10] == 0x2a,
+        "asks for the charge state");
+    BLACKSHARK_ASSERT(hid.writes[7][7] == 0x08 && hid.writes[7][10] == 0x21, "asks for the battery percent");
+    // Same frame as captured, two sequence numbers later because of the customer GETs
+    Bytes local_payload(TX_LOCAL.begin() + 5, TX_LOCAL.end());
+    local_payload[3] = 10;
+    const auto local = Device::buildFrame(local_payload);
+    BLACKSHARK_ASSERT(hid.writes[9] == Bytes(local.begin(), local.end()), "switches back to local mode");
 }
 
 void testBlackSharkSimulatedRead()
@@ -264,7 +298,8 @@ void testBlackSharkSimulatedRead()
     TestableBlackShark device(hid);
 
     auto result = device.getBattery(TEST_HANDLE);
-    BLACKSHARK_ASSERT(result.hasValue() && result->level_percent == 50, "3800 mV is 50%");
+    BLACKSHARK_ASSERT(result.hasValue() && result->level_percent == 46, "3800 mV is 46% on the firmware curve");
+    BLACKSHARK_ASSERT(result->status == BATTERY_AVAILABLE, "no charging state reported yet");
     BLACKSHARK_ASSERT(hid.mode == Device::MODE_LOCAL, "dongle is back in local mode");
     BLACKSHARK_ASSERT(!hid.bad_crc, "every frame carries a valid CRC");
 
@@ -286,7 +321,133 @@ void testBlackSharkHeadsetOff()
     auto result = device.getBattery(TEST_HANDLE);
     BLACKSHARK_ASSERT(result.hasValue(), "an unlinked headset is not an error");
     BLACKSHARK_ASSERT(result->status == BATTERY_UNAVAILABLE && result->level_percent == -1, "headset off");
-    BLACKSHARK_ASSERT(hid.writes.size() == 1, "nothing but the link status is requested");
+    BLACKSHARK_ASSERT(hid.writes.size() == 2, "only the link status and the mode are queried");
+    BLACKSHARK_ASSERT(!hid.sent(Device::TYPE_LINK, { Device::SET_MODE }), "a local dongle is not switched");
+}
+
+void testBlackSharkRestoresLocalWhileUnlinked()
+{
+    // Left in remote mode by someone else, with the headset off
+    BlackSharkMockHID hid;
+    hid.link_status = 0x13;
+    hid.mode        = Device::MODE_REMOTE;
+    TestableBlackShark device(hid);
+
+    auto result = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(result.hasValue() && result->status == BATTERY_UNAVAILABLE, "headset off");
+    BLACKSHARK_ASSERT(hid.mode == Device::MODE_LOCAL, "the dongle is put back in local mode");
+
+    // A dongle that refuses is not switched on every poll
+    BlackSharkMockHID stuck;
+    stuck.link_status  = 0x13;
+    stuck.mode         = Device::MODE_REMOTE;
+    stuck.ignore_local = true;
+    TestableBlackShark device2(stuck);
+    const auto switches = [&] {
+        return std::count_if(stuck.writes.begin(), stuck.writes.end(), [](const Bytes& f) {
+            return f[7] == Device::TYPE_LINK && f[10] == Device::SET_MODE;
+        });
+    };
+    BLACKSHARK_ASSERT(device2.getBattery(TEST_HANDLE).hasValue(), "headset off");
+    BLACKSHARK_ASSERT(switches() == Device::ATTEMPTS, "tried");
+    device2.clock += std::chrono::seconds { 1 };
+    BLACKSHARK_ASSERT(device2.getBattery(TEST_HANDLE).hasValue(), "headset off");
+    BLACKSHARK_ASSERT(switches() == Device::ATTEMPTS, "not again within the backoff");
+    device2.clock += Device::FAILURE_BACKOFF;
+    BLACKSHARK_ASSERT(device2.getBattery(TEST_HANDLE).hasValue(), "headset off");
+    BLACKSHARK_ASSERT(switches() == 2 * Device::ATTEMPTS, "retried after it");
+}
+
+void testBlackSharkCustomGets()
+{
+    BlackSharkMockHID hid;
+    hid.voltage_mv     = 4170; // on the charger
+    hid.custom_charge  = Device::CHARGE_FULL;
+    hid.custom_percent = 100;
+    TestableBlackShark device(hid);
+
+    auto full = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(full.hasValue() && full->level_percent == 100, "level asked from the headset");
+    BLACKSHARK_ASSERT(full->status == BATTERY_AVAILABLE, "full on the charger is not charging");
+    BLACKSHARK_ASSERT(hid.mode == Device::MODE_LOCAL, "back in local mode");
+
+    // Asked again with the voltage, once the cache expires
+    hid.custom_charge  = Device::CHARGE_CHARGING;
+    hid.custom_percent = 97;
+    device.clock += Device::VOLTAGE_CACHE;
+    auto charging = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(charging.hasValue() && charging->status == BATTERY_CHARGING && charging->level_percent == 97,
+        "updated with the voltage");
+
+    // State 3 (meaning unknown) forgets the charge state rather than keep claiming one
+    hid.custom_charge = Device::CHARGE_FAULT;
+    device.clock += Device::VOLTAGE_CACHE;
+    auto fault = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(fault.hasValue() && fault->status == BATTERY_AVAILABLE, "state 3 is not charging");
+    hid.custom_charge = Device::CHARGE_CHARGING;
+    device.clock += Device::VOLTAGE_CACHE;
+    BLACKSHARK_ASSERT(device.getBattery(TEST_HANDLE)->status == BATTERY_CHARGING, "charging again");
+
+    // Out-of-range answers are ignored and the last values kept
+    hid.custom_charge  = 9;
+    hid.custom_percent = 150;
+    device.clock += Device::VOLTAGE_CACHE;
+    auto odd = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(odd.hasValue() && odd->status == BATTERY_CHARGING && odd->level_percent == 97, "ignored");
+
+    // No answer at all: the voltage estimate, and the read still succeeds
+    BlackSharkMockHID silent;
+    silent.voltage_mv = 3809;
+    TestableBlackShark device2(silent);
+    auto estimate = device2.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(estimate.hasValue() && estimate->level_percent == 50 && estimate->status == BATTERY_AVAILABLE,
+        "falls back to the voltage");
+}
+
+void testBlackSharkIndications()
+{
+    BlackSharkMockHID hid;
+    hid.voltage_mv = 4070; // reads high on the charger
+    TestableBlackShark device(hid);
+
+    hid.indicate(Device::IND_CHARGING, 1);
+    hid.indicate(Device::IND_BATTERY, 45);
+    auto charging = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(charging.hasValue() && charging->status == BATTERY_CHARGING, "charger reported");
+    BLACKSHARK_ASSERT(charging->level_percent == 45, "the headset's own level wins over the voltage");
+    BLACKSHARK_ASSERT(charging->voltage_mv == 4070, "voltage still reported");
+
+    // Picked up by the cheap link query alone, between voltage reads
+    hid.indicate(Device::IND_CHARGING, 0);
+    device.clock += std::chrono::seconds { 1 };
+    const size_t before = hid.writes.size();
+    auto unplugged      = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(unplugged.hasValue() && unplugged->status == BATTERY_AVAILABLE, "charger removed");
+    BLACKSHARK_ASSERT(unplugged->level_percent == 45, "level kept");
+    BLACKSHARK_ASSERT(hid.writes.size() == before + 1, "seen without a voltage read");
+
+    // Out-of-range values and other ids are ignored
+    hid.indicate(Device::IND_BATTERY, 200);
+    hid.indicate(Device::IND_CHARGING, 7);
+    hid.indicate(0x20, 1);
+    auto odd = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(odd.hasValue() && odd->level_percent == 45 && odd->status == BATTERY_AVAILABLE, "ignored");
+
+    // Forgotten when the headset is switched off, then estimated from the voltage again
+    hid.link_status = 0x13;
+    BLACKSHARK_ASSERT(device.getBattery(TEST_HANDLE).hasValue(), "headset off");
+    hid.link_status = 0x1b;
+    auto back       = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(back.hasValue() && back->status == BATTERY_AVAILABLE, "charging state forgotten");
+    BLACKSHARK_ASSERT(back->level_percent == voltageToPercent(4070, Device::CALIBRATION), "voltage estimate");
+
+    // Kept per handle, and dropped with the connection
+    auto* const other = reinterpret_cast<hid_device*>(0x2);
+    hid.indicate(Device::IND_CHARGING, 1);
+    BLACKSHARK_ASSERT(device.getBattery(TEST_HANDLE)->status == BATTERY_CHARGING, "first dongle charging");
+    BLACKSHARK_ASSERT(device.getBattery(other)->status == BATTERY_AVAILABLE, "second dongle not");
+    device.onConnectionClosed(TEST_HANDLE);
+    BLACKSHARK_ASSERT(device.getBattery(TEST_HANDLE)->status == BATTERY_AVAILABLE, "dropped on close");
 }
 
 void testBlackSharkAlreadyRemote()
@@ -299,6 +460,9 @@ void testBlackSharkAlreadyRemote()
     BLACKSHARK_ASSERT(result.hasValue() && result->voltage_mv == 3948, "reads the battery directly");
     BLACKSHARK_ASSERT(!hid.sent(Device::TYPE_LINK, { Device::SET_MODE, Device::MODE_REMOTE }), "no switch to remote");
     BLACKSHARK_ASSERT(hid.mode == Device::MODE_LOCAL, "left in local mode afterwards");
+    BLACKSHARK_ASSERT(!hid.sent(Device::FRAME_CUSTOM, { Device::IND_CHARGING })
+            && !hid.sent(Device::FRAME_CUSTOM, { Device::IND_BATTERY }),
+        "no customer requests into a remote mode someone else set up");
 }
 
 void testBlackSharkRetriesBattery()
@@ -494,7 +658,8 @@ void testBlackSharkVoltageCurve()
 {
     BLACKSHARK_ASSERT(voltageToPercent(4200, Device::CALIBRATION) == 100, "full");
     BLACKSHARK_ASSERT(voltageToPercent(3200, Device::CALIBRATION) == 0, "empty");
-    BLACKSHARK_ASSERT(voltageToPercent(3750, Device::CALIBRATION) == 40, "calibration point");
+    BLACKSHARK_ASSERT(voltageToPercent(3782, Device::CALIBRATION) == 40, "firmware table point");
+    BLACKSHARK_ASSERT(voltageToPercent(4074, Device::CALIBRATION) == 90, "last firmware table point");
 }
 
 void runAllRazerBlackSharkV2ProPSTests()
@@ -505,6 +670,9 @@ void runAllRazerBlackSharkV2ProPSTests()
     testBlackSharkCapturedSession();
     testBlackSharkSimulatedRead();
     testBlackSharkHeadsetOff();
+    testBlackSharkRestoresLocalWhileUnlinked();
+    testBlackSharkIndications();
+    testBlackSharkCustomGets();
     testBlackSharkAlreadyRemote();
     testBlackSharkRetriesBattery();
     testBlackSharkRestoresLocalAfterFailure();
