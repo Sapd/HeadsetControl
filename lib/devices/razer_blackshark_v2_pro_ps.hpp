@@ -14,6 +14,7 @@
 #include <optional>
 #include <random>
 #include <span>
+#include <string>
 #include <string_view>
 #include <thread>
 #include <unordered_map>
@@ -193,7 +194,7 @@ public:
         // The whole conversation, mode switch included, is serialized across
         // processes: the dongle's ack is shared, and another HeadsetControl
         // (a tray app next to a CLI call) would otherwise take our replies
-        const ProcessLock dongle_lock(std::format("razer-{:04x}-{:04x}", VENDOR_RAZER, PRODUCT_IDS[0]), lockTimeout());
+        const ProcessLock dongle_lock(lockName(), lockTimeout());
         if (dongle_lock.status() == ProcessLock::Status::Busy) {
             // Another process is in a long conversation; what we read last is the best we have
             if (auto cached = voltage_cache_.find(device_handle); cached != voltage_cache_.end() && cached->second.voltage) {
@@ -279,8 +280,9 @@ protected:
     virtual void settle(std::chrono::milliseconds delay) const { std::this_thread::sleep_for(delay); }
     // Overridden in tests to move time forward
     virtual std::chrono::steady_clock::time_point now() const { return std::chrono::steady_clock::now(); }
-    // Overridden in tests to keep them fast
+    // Overridden in tests, so that they neither wait nor clash with a running HeadsetControl
     virtual std::chrono::milliseconds lockTimeout() const { return LOCK_TIMEOUT; }
+    virtual std::string lockName() const { return std::format("razer-{:04x}-{:04x}", VENDOR_RAZER, PRODUCT_IDS[0]); }
     // Random, so that a process that does not take the lock (an older build)
     // is unlikely to share our sequence numbers; overridden in tests
     virtual uint8_t firstSequence() const
