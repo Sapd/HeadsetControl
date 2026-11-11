@@ -5,11 +5,13 @@
 #include <cstddef>
 #include <cstdint>
 #include <deque>
+#include <future>
 #include <iostream>
 #include <optional>
 #include <span>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace headsetcontrol::testing {
@@ -201,6 +203,8 @@ protected:
     HIDInterface& getHIDInterface() const override { return hid_; }
     void settle(std::chrono::milliseconds) const override { }
     std::chrono::steady_clock::time_point now() const override { return clock; }
+    uint8_t firstSequence() const override { return 0; } // the capture started at 1
+    std::chrono::milliseconds lockTimeout() const override { return std::chrono::milliseconds { 100 }; }
 
 public:
     std::chrono::steady_clock::time_point clock {};
@@ -358,6 +362,52 @@ void testBlackSharkRestoresLocalWhileUnlinked()
     BLACKSHARK_ASSERT(switches() == 2 * Device::ATTEMPTS, "retried after it");
 }
 
+void testBlackSharkIgnoresStaleReplies()
+{
+    // Another process's reply to its first request (sequence 1, "headset off"),
+    // queued on our handle while we waited for the lock
+    BlackSharkMockHID hid;
+    hid.pending.push_back({ 0x02, 0x19, 0x50, 0x49, 0x01, 0xc0, 0, 0, 0, 0x02, 0x03, 0x00, Device::TYPE_LINK, 0x81, 0x00,
+        0x50, 0x49, 0x0e, 0xe0, 0, 0, 0, 0, 0x02, 0x00, Device::LINK_STATUS, 0x13 });
+    hid.indicate(Device::IND_CHARGING, 1); // queued alongside it
+    TestableBlackShark device(hid);
+
+    auto result = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(result.hasValue() && result->status == BATTERY_CHARGING, "stale reply skipped, notification kept");
+    BLACKSHARK_ASSERT(result->voltage_mv == 3948, "a full read follows");
+}
+
+void testBlackSharkBusyLock()
+{
+    BlackSharkMockHID hid;
+    TestableBlackShark device(hid);
+    BLACKSHARK_ASSERT(device.getBattery(TEST_HANDLE).hasValue(), "first read");
+    const size_t writes = hid.writes.size();
+
+    // Another process in a long conversation on the same dongle
+    std::promise<void> held, release;
+    auto release_future = release.get_future();
+    std::thread other([&] {
+        ProcessLock lock("razer-1532-1014", std::chrono::seconds { 10 });
+        held.set_value();
+        release_future.wait();
+    });
+    held.get_future().wait();
+
+    auto busy = device.getBattery(TEST_HANDLE);
+    BlackSharkMockHID hid2;
+    TestableBlackShark fresh(hid2);
+    auto none = fresh.getBattery(TEST_HANDLE);
+    release.set_value();
+    other.join();
+
+    BLACKSHARK_ASSERT(busy.hasValue() && busy->voltage_mv == 3948, "the last read is returned while busy");
+    BLACKSHARK_ASSERT(hid.writes.size() == writes, "nothing is sent without the lock");
+    BLACKSHARK_ASSERT(none.hasError() && none.error().code == DeviceError::Code::Timeout, "busy without a cache");
+    BLACKSHARK_ASSERT(hid2.writes.empty(), "nothing sent there either");
+    BLACKSHARK_ASSERT(device.getBattery(TEST_HANDLE).hasValue(), "works again once released");
+}
+
 void testBlackSharkCustomGets()
 {
     BlackSharkMockHID hid;
@@ -417,7 +467,7 @@ void testBlackSharkIndications()
     BLACKSHARK_ASSERT(charging->level_percent == 45, "the headset's own level wins over the voltage");
     BLACKSHARK_ASSERT(charging->voltage_mv == 4070, "voltage still reported");
 
-    // Picked up by the cheap link query alone, between voltage reads
+    // Picked up between voltage reads, at the start of the next call
     hid.indicate(Device::IND_CHARGING, 0);
     device.clock += std::chrono::seconds { 1 };
     const size_t before = hid.writes.size();
@@ -673,6 +723,8 @@ void runAllRazerBlackSharkV2ProPSTests()
     testBlackSharkRestoresLocalWhileUnlinked();
     testBlackSharkIndications();
     testBlackSharkCustomGets();
+    testBlackSharkIgnoresStaleReplies();
+    testBlackSharkBusyLock();
     testBlackSharkAlreadyRemote();
     testBlackSharkRetriesBattery();
     testBlackSharkRestoresLocalAfterFailure();

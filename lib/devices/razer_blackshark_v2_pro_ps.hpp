@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../result_types.hpp"
+#include "../utility.hpp"
 #include "device_utils.hpp"
 #include "hid_device.hpp"
 
@@ -11,6 +12,7 @@
 #include <format>
 #include <mutex>
 #include <optional>
+#include <random>
 #include <span>
 #include <string_view>
 #include <thread>
@@ -80,6 +82,14 @@ namespace headsetcontrol {
  * high on the charger; if neither has arrived, the level is estimated from
  * the voltage with the battery table from the headset firmware.
  *
+ * Every call holds a ProcessLock for the whole conversation: the dongle
+ * acknowledges frames through one shared input report and sends each reply
+ * to every open handle, so a tray app and a CLI call would otherwise take
+ * each other's acks and replies. After taking it, the replies that queued up
+ * on our handle meanwhile are discarded (notifications among them are kept).
+ * If another process holds it past LOCK_TIMEOUT, the last voltage read on
+ * this handle is returned, or an error if there is none.
+ *
  * Tray frontends may poll every second. The link status is a cheap query and
  * is checked on every call, but the voltage is re-read (and the dongle
  * switched) at most once per VOLTAGE_CACHE; in between the last voltage is
@@ -124,6 +134,8 @@ public:
     static constexpr uint16_t MAX_VOLTAGE  = 4500;
     static constexpr std::chrono::seconds VOLTAGE_CACHE { 60 };
     static constexpr std::chrono::seconds FAILURE_BACKOFF { 10 };
+    static constexpr std::chrono::seconds LOCK_TIMEOUT { 5 };
+    static constexpr int MAX_DRAINED = 256;
 
     static constexpr uint8_t FRAME_CUSTOM    = 0x08;
     static constexpr uint8_t CUSTOM_REPLY    = 0x01;
@@ -176,6 +188,26 @@ public:
         const std::lock_guard lock(mutex_);
         const auto start = std::chrono::steady_clock::now();
 
+        // The whole conversation, mode switch included, is serialized across
+        // processes: the dongle's ack is shared, and another HeadsetControl
+        // (a tray app next to a CLI call) would otherwise take our replies
+        const ProcessLock dongle_lock(std::format("razer-{:04x}-{:04x}", VENDOR_RAZER, PRODUCT_IDS[0]), lockTimeout());
+        if (dongle_lock.status() == ProcessLock::Status::Busy) {
+            // Another process is in a long conversation; what we read last is the best we have
+            if (auto cached = voltage_cache_.find(device_handle); cached != voltage_cache_.end() && cached->second.voltage) {
+                return makeResult(device_handle, *cached->second.voltage, start);
+            }
+            return DeviceError::timeout("The dongle is busy with another HeadsetControl process");
+        }
+        if (dongle_lock.recovered()) {
+            // The previous holder died mid-conversation and may have left the dongle in remote mode
+            voltage_cache_.erase(device_handle);
+        }
+        // Every open handle receives every reply, so while we waited for the
+        // lock, other processes' replies piled up here; one with a sequence
+        // number that happens to be ours would pass for our reply
+        drain(device_handle);
+
         auto link = getLinkValue(device_handle, LINK_STATUS);
         if (!link) {
             return link.error();
@@ -202,21 +234,7 @@ public:
         if (!cached->second.voltage) {
             return cached->second.voltage.error();
         }
-        const uint16_t mv = *cached->second.voltage;
-
-        const auto reported = reported_.find(device_handle);
-        const bool known    = reported != reported_.end();
-        const bool charging = known && reported->second.charge_state == CHARGE_CHARGING;
-        const int level     = known && reported->second.percent ? *reported->second.percent
-                                                                : voltageToPercent(mv, CALIBRATION);
-
-        return BatteryResult {
-            .level_percent  = level,
-            .status         = charging ? BATTERY_CHARGING : BATTERY_AVAILABLE,
-            .voltage_mv     = mv,
-            .query_duration = std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::chrono::steady_clock::now() - start),
-        };
+        return makeResult(device_handle, *cached->second.voltage, start);
     }
 
     void onConnectionClosed(hid_device* device_handle) const override
@@ -259,6 +277,15 @@ protected:
     virtual void settle(std::chrono::milliseconds delay) const { std::this_thread::sleep_for(delay); }
     // Overridden in tests to move time forward
     virtual std::chrono::steady_clock::time_point now() const { return std::chrono::steady_clock::now(); }
+    // Overridden in tests to keep them fast
+    virtual std::chrono::milliseconds lockTimeout() const { return LOCK_TIMEOUT; }
+    // Random, so that a process that does not take the lock (an older build)
+    // is unlikely to share our sequence numbers; overridden in tests
+    virtual uint8_t firstSequence() const
+    {
+        std::random_device random;
+        return static_cast<uint8_t>(random() % 127);
+    }
 
 private:
     struct CachedVoltage {
@@ -273,10 +300,27 @@ private:
     };
 
     mutable std::mutex mutex_;
-    uint8_t sequence_ = 0;
+    uint8_t sequence_     = 0;
+    bool sequence_seeded_ = false;
     mutable std::unordered_map<hid_device*, CachedVoltage> voltage_cache_;
     mutable std::unordered_map<hid_device*, Reported> reported_;
     mutable std::unordered_map<hid_device*, std::chrono::steady_clock::time_point> unlinked_restore_failed_;
+
+    BatteryResult makeResult(hid_device* device_handle, uint16_t mv, std::chrono::steady_clock::time_point start) const
+    {
+        const auto reported = reported_.find(device_handle);
+        const bool known    = reported != reported_.end();
+        const bool charging = known && reported->second.charge_state == CHARGE_CHARGING;
+        const int level     = known && reported->second.percent ? *reported->second.percent
+                                                                : voltageToPercent(mv, CALIBRATION);
+        return BatteryResult {
+            .level_percent  = level,
+            .status         = charging ? BATTERY_CHARGING : BATTERY_AVAILABLE,
+            .voltage_mv     = mv,
+            .query_duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now() - start),
+        };
+    }
 
     /// @param restored set to false when the dongle may have been left in remote mode
     Result<uint16_t> readVoltageInRemoteMode(hid_device* device_handle, bool& restored)
@@ -344,6 +388,22 @@ private:
             local = isMode(device_handle, MODE_LOCAL);
         }
         return local;
+    }
+
+    /// Discard queued input reports, keeping what the headset reported in them
+    void drain(hid_device* device_handle)
+    {
+        std::array<uint8_t, REPORT_SIZE> report {};
+        for (int i = 0; i < MAX_DRAINED; ++i) {
+            auto read = readHIDTimeout(device_handle, report, 0);
+            if (!read) {
+                return;
+            }
+            const size_t end = std::min<size_t>(*read, 2 + static_cast<size_t>(report[1]));
+            if (report[0] == REPORT_ID && end > 4 && report[2] == 0x50 && report[3] == 0x49) {
+                noteIndication(device_handle, std::span<const uint8_t>(report.data(), end));
+            }
+        }
     }
 
     /// Customer GET; the value is stored by noteIndication() when the reply arrives
@@ -440,6 +500,10 @@ private:
     Result<std::vector<uint8_t>> command(hid_device* device_handle, uint8_t type,
         std::span<const uint8_t> body, int timeout_ms, std::optional<uint8_t> custom_id = std::nullopt)
     {
+        if (!sequence_seeded_) {
+            sequence_        = firstSequence();
+            sequence_seeded_ = true;
+        }
         sequence_            = static_cast<uint8_t>(sequence_ % 127 + 1);
         const uint8_t seq    = sequence_;
         const uint8_t expect = static_cast<uint8_t>(0x80 | seq);

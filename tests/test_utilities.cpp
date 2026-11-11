@@ -18,11 +18,14 @@
 #include "string_utils.hpp"
 #include "utility.hpp"
 
+#include <chrono>
 #include <cmath>
+#include <future>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <thread>
 
 namespace headsetcontrol::testing {
 
@@ -818,6 +821,36 @@ void testBatteryStatusToString()
 // Test Runner
 // ============================================================================
 
+void testProcessLock()
+{
+    // A name of its own, so a running HeadsetControl cannot interfere; fixed,
+    // so repeated runs reuse one lock file
+    const std::string name = "selftest";
+
+    std::promise<void> held, release;
+    auto release_future = release.get_future();
+    std::thread holder([&] {
+        ProcessLock lock(name, std::chrono::milliseconds(1000));
+        held.set_value();
+        release_future.wait();
+    });
+    held.get_future().wait();
+
+    {
+        ProcessLock busy(name, std::chrono::milliseconds(50));
+        ASSERT_TRUE(busy.status() == ProcessLock::Status::Busy, "a held lock is busy until the timeout");
+    }
+    release.set_value();
+    holder.join();
+
+    ProcessLock lock(name, std::chrono::milliseconds(1000));
+    ASSERT_TRUE(lock.status() == ProcessLock::Status::Held, "a released lock is held");
+    ASSERT_FALSE(lock.recovered(), "released normally, not abandoned");
+
+    ProcessLock odd("../sel ftest/x", std::chrono::milliseconds(1000));
+    ASSERT_TRUE(odd.status() == ProcessLock::Status::Held, "unusual characters are replaced, not rejected");
+}
+
 void runAllUtilityTests()
 {
     std::cout << "\n╔══════════════════════════════════════════════════════╗" << std::endl;
@@ -866,6 +899,7 @@ void runAllUtilityTests()
     runTest("parse_parametric_eq", testParseParametricEqualizerSettings);
     runTest("parse_two_ids", testParseTwoIds);
     runTest("parse_light_color", testParseLightColor);
+    runTest("ProcessLock", testProcessLock);
 
     std::cout << "\n=== result_types.hpp Tests ===" << std::endl;
     runTest("Result<T> success", testResultSuccess);
