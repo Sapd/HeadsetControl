@@ -411,14 +411,14 @@ void testBlackSharkBusyLock()
 void testBlackSharkCustomGets()
 {
     BlackSharkMockHID hid;
-    hid.voltage_mv     = 4170; // on the charger
-    hid.custom_charge  = Device::CHARGE_FULL;
-    hid.custom_percent = 100;
+    hid.voltage_mv     = 4000;
+    hid.custom_charge  = Device::CHARGE_NONE;
+    hid.custom_percent = 95;
     TestableBlackShark device(hid);
 
-    auto full = device.getBattery(TEST_HANDLE);
-    BLACKSHARK_ASSERT(full.hasValue() && full->level_percent == 100, "level asked from the headset");
-    BLACKSHARK_ASSERT(full->status == BATTERY_AVAILABLE, "full on the charger is not charging");
+    auto first = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(first.hasValue() && first->level_percent == 95, "level asked from the headset");
+    BLACKSHARK_ASSERT(first->status == BATTERY_AVAILABLE, "not on the charger");
     BLACKSHARK_ASSERT(hid.mode == Device::MODE_LOCAL, "back in local mode");
 
     // Asked again with the voltage, once the cache expires
@@ -445,6 +445,13 @@ void testBlackSharkCustomGets()
     auto odd = device.getBattery(TEST_HANDLE);
     BLACKSHARK_ASSERT(odd.hasValue() && odd->status == BATTERY_CHARGING && odd->level_percent == 97, "ignored");
 
+    // Full on the charger is not charging
+    hid.custom_charge  = Device::CHARGE_FULL;
+    hid.custom_percent = 100;
+    device.clock += Device::VOLTAGE_CACHE;
+    auto full = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(full.hasValue() && full->status == BATTERY_AVAILABLE && full->level_percent == 100, "full");
+
     // No answer at all: the voltage estimate, and the read still succeeds
     BlackSharkMockHID silent;
     silent.voltage_mv = 3809;
@@ -452,6 +459,32 @@ void testBlackSharkCustomGets()
     auto estimate = device2.getBattery(TEST_HANDLE);
     BLACKSHARK_ASSERT(estimate.hasValue() && estimate->level_percent == 50 && estimate->status == BATTERY_AVAILABLE,
         "falls back to the voltage");
+}
+
+void testBlackSharkPercentFilter()
+{
+    // GETs return the raw percentage; it is filtered the way the firmware filters its own
+    BlackSharkMockHID hid;
+    hid.custom_charge  = Device::CHARGE_NONE;
+    hid.custom_percent = 80;
+    TestableBlackShark device(hid);
+    const auto read = [&](uint8_t raw) {
+        hid.custom_percent = raw;
+        device.clock += Device::VOLTAGE_CACHE;
+        return device.getBattery(TEST_HANDLE)->level_percent;
+    };
+    BLACKSHARK_ASSERT(device.getBattery(TEST_HANDLE)->level_percent == 80, "first reading taken as is");
+    BLACKSHARK_ASSERT(read(78) == 78, "falls off the charger");
+    BLACKSHARK_ASSERT(read(79) == 78, "does not rise off the charger");
+
+    hid.custom_charge = Device::CHARGE_CHARGING;
+    BLACKSHARK_ASSERT(read(81) == 81, "rises on the charger");
+    BLACKSHARK_ASSERT(read(80) == 81, "does not fall on the charger");
+
+    // A notification is the headset's filtered figure and is taken as is
+    hid.indicate(Device::IND_BATTERY, 79);
+    device.clock += std::chrono::seconds { 1 };
+    BLACKSHARK_ASSERT(device.getBattery(TEST_HANDLE)->level_percent == 79, "notification wins");
 }
 
 void testBlackSharkIndications()
@@ -723,6 +756,7 @@ void runAllRazerBlackSharkV2ProPSTests()
     testBlackSharkRestoresLocalWhileUnlinked();
     testBlackSharkIndications();
     testBlackSharkCustomGets();
+    testBlackSharkPercentFilter();
     testBlackSharkIgnoresStaleReplies();
     testBlackSharkBusyLock();
     testBlackSharkAlreadyRemote();

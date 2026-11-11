@@ -66,7 +66,9 @@ namespace headsetcontrol {
  *
  *   02 0e 50 49 08 .. .. .. .. 00 04 00 <id> <dir> 01 <value>
  *   dir 1 = reply, 2 = notification
- *   id 0x21 = battery percent
+ *   id 0x21 = battery percent: a GET returns the raw figure the headset works
+ *             out from the voltage; notifications carry its filtered figure,
+ *             which only rises on the charger and only falls off it
  *   id 0x2a = charge state: 0 no charger, 1 charging, 2 full on the charger,
  *             3 unknown (forgets the state); notifications only say 0 or 1
  *
@@ -426,12 +428,21 @@ private:
             return;
         }
         const uint8_t value = report[15];
+        auto& reported      = reported_[device_handle];
         if (report[12] == IND_BATTERY && value <= 100) {
-            reported_[device_handle].percent = value;
+            // A notification carries the headset's filtered figure. A GET returns
+            // the raw one, worked out from the voltage, so it is filtered the
+            // way the firmware does: only up on the charger, only down off it.
+            const bool on_charger = reported.charge_state == CHARGE_CHARGING || reported.charge_state == CHARGE_FULL;
+            if (report[13] == CUSTOM_NOTIFY || !reported.percent) {
+                reported.percent = value;
+            } else {
+                reported.percent = on_charger ? std::max(*reported.percent, value) : std::min(*reported.percent, value);
+            }
         } else if (report[12] == IND_CHARGING && value <= CHARGE_FULL) {
-            reported_[device_handle].charge_state = value;
+            reported.charge_state = value;
         } else if (report[12] == IND_CHARGING && value == CHARGE_FAULT) {
-            reported_[device_handle].charge_state.reset(); // meaning unknown: claim nothing
+            reported.charge_state.reset(); // meaning unknown: claim nothing
         }
     }
 
