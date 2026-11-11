@@ -33,6 +33,7 @@ void runAllSonyPulse3DTests();
 void runAllCorsairVirtuosoTests();
 void runAllRazerBlackSharkV2ProPSTests();
 void runAllMchoseTests();
+void runAllFifineTests();
 }
 
 int main()
@@ -83,6 +84,7 @@ int main()
         headsetcontrol::testing::runAllCorsairVirtuosoTests();
         headsetcontrol::testing::runAllRazerBlackSharkV2ProPSTests();
         headsetcontrol::testing::runAllMchoseTests();
+        headsetcontrol::testing::runAllFifineTests();
 
         std::cout << "\n====================================================================" << std::endl;
         std::cout << "                    All tests passed successfully!                  " << std::endl;
