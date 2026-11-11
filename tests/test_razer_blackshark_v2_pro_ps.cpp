@@ -192,6 +192,9 @@ private:
     }
 };
 
+// Not the real device's lock: a running HeadsetControl must not make the tests flaky
+const std::string TEST_LOCK = "selftest-blackshark";
+
 class TestableBlackShark final : public RazerBlackSharkV2ProPS {
 public:
     explicit TestableBlackShark(BlackSharkMockHID& hid)
@@ -205,6 +208,7 @@ protected:
     std::chrono::steady_clock::time_point now() const override { return clock; }
     uint8_t firstSequence() const override { return 0; } // the capture started at 1
     std::chrono::milliseconds lockTimeout() const override { return std::chrono::milliseconds { 100 }; }
+    std::string lockName() const override { return TEST_LOCK; }
 
 public:
     std::chrono::steady_clock::time_point clock {};
@@ -388,7 +392,7 @@ void testBlackSharkBusyLock()
     std::promise<void> held, release;
     auto release_future = release.get_future();
     std::thread other([&] {
-        ProcessLock lock("razer-1532-1014", std::chrono::seconds { 10 });
+        ProcessLock lock(TEST_LOCK, std::chrono::seconds { 10 });
         held.set_value();
         release_future.wait();
     });
