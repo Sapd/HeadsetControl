@@ -113,6 +113,59 @@ std::optional<std::pair<int, int>> parse_two_ids(std::string_view input, int def
 std::optional<LightColorSettings> parse_light_color(std::string_view input);
 
 /**
+ * @brief Lock shared between processes on this machine, held for its lifetime
+ *
+ * For devices whose protocol is a conversation that another process can
+ * interleave with, such as a mode switch around a request: a tray app and a
+ * one-off CLI call on the same dongle would otherwise read each other's
+ * replies. The OS releases the lock if the holder dies.
+ *
+ * - Windows: a named mutex, "Global\HeadsetControl-<name>" so that sessions
+ *   (a console login and an SSH session) share it; "Local\" if the global
+ *   one cannot be opened, e.g. because another user created it.
+ * - Elsewhere: flock() on /tmp/headsetcontrol-<name>.lock. The path does not
+ *   depend on the environment, so sudo, cron and a desktop session agree.
+ *   The file is opened without following symlinks and must be a plain file.
+ *
+ * Do not take the same name twice in one process: a Windows mutex is
+ * recursive per thread, flock() is not.
+ *
+ * If the OS facility fails, status() is Unavailable and the caller should
+ * carry on without the lock: losing the lock is better than losing the
+ * device.
+ */
+class ProcessLock {
+public:
+    enum class Status {
+        Held, ///< ours until destruction
+        Busy, ///< another holder kept it past the timeout
+        Unavailable, ///< the OS facility failed; nothing is locked
+    };
+
+    /// @param name short identifier; characters outside [A-Za-z0-9._-] become '_'
+    ProcessLock(std::string_view name, std::chrono::milliseconds timeout);
+    ~ProcessLock();
+    ProcessLock(const ProcessLock&)            = delete;
+    ProcessLock& operator=(const ProcessLock&) = delete;
+    ProcessLock(ProcessLock&&)                 = delete;
+    ProcessLock& operator=(ProcessLock&&)      = delete;
+
+    [[nodiscard]] Status status() const { return status_; }
+
+    /// Held, and the previous holder died while holding it (Windows only)
+    [[nodiscard]] bool recovered() const { return recovered_; }
+
+private:
+    Status status_  = Status::Unavailable;
+    bool recovered_ = false;
+#ifdef _WIN32
+    void* handle_ = nullptr;
+#else
+    int fd_ = -1;
+#endif
+};
+
+/**
  * @brief Cross-platform sleep for milliseconds
  */
 inline void sleep_ms(unsigned int ms)
