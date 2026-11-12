@@ -489,6 +489,13 @@ void testBlackSharkPercentFilter()
     hid.indicate(Device::IND_BATTERY, 79);
     device.clock += std::chrono::seconds { 1 };
     BLACKSHARK_ASSERT(device.getBattery(TEST_HANDLE)->level_percent == 79, "notification wins");
+
+    // An unknown charge state gives no direction: the reading is taken as is
+    hid.custom_charge = Device::CHARGE_FAULT;
+    BLACKSHARK_ASSERT(read(85) == 85, "rises with charge state 3");
+    BLACKSHARK_ASSERT(read(83) == 83, "falls with charge state 3");
+    hid.custom_charge.reset(); // no answer: still unknown
+    BLACKSHARK_ASSERT(read(86) == 86, "rises without a charge state");
 }
 
 void testBlackSharkIndications()
