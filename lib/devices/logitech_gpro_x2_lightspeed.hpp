@@ -28,6 +28,10 @@ public:
     static constexpr uint8_t SIDETONE_MIC_ID         = 0x01;
     static constexpr uint8_t EQUALIZER_PRESETS_COUNT = 5;
 
+    // Logitech specifies 50 hours: https://support.logi.com/hc/en-001/articles/11491199246615
+    // A linear estimate matches the observed G HUB value of 47 hours at 94%.
+    static constexpr int RATED_BATTERY_LIFE_MIN = 50 * 60;
+
     constexpr uint16_t getVendorId() const override
     {
         return VENDOR_LOGITECH;
@@ -108,7 +112,11 @@ public:
             if (!shouldUseLegacyBatteryFallback(centurion_battery.error().code)) {
                 return centurion_battery.error();
             }
-            return getLegacyBattery(device_handle, centurion_start_time);
+            auto legacy_battery = getLegacyBattery(device_handle, centurion_start_time);
+            if (legacy_battery) {
+                estimateBatteryRuntime(*legacy_battery);
+            }
+            return legacy_battery;
         }
 
         auto battery_result = parseCenturionBatteryResponse(*centurion_battery);
@@ -116,11 +124,19 @@ public:
             return battery_result.error();
         }
 
+        estimateBatteryRuntime(*battery_result);
         battery_result->raw_data       = *centurion_battery;
         auto centurion_end_time        = std::chrono::steady_clock::now();
         battery_result->query_duration = std::chrono::duration_cast<std::chrono::milliseconds>(
             centurion_end_time - centurion_start_time);
         return *battery_result;
+    }
+
+    static void estimateBatteryRuntime(BatteryResult& battery)
+    {
+        if (battery.status == BATTERY_AVAILABLE && battery.level_percent > 0) {
+            battery.time_to_empty_min = battery.level_percent * RATED_BATTERY_LIFE_MIN / 100;
+        }
     }
 
     static constexpr bool shouldUseLegacyBatteryFallback(DeviceError::Code code)
