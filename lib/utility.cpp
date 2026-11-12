@@ -377,3 +377,126 @@ ParametricEqualizerSettings parse_parametric_equalizer_settings(std::string_view
 }
 
 } // namespace headsetcontrol
+
+// ProcessLock: platform code kept out of the header
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#else
+#include <fcntl.h>
+#include <sys/file.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
+
+namespace headsetcontrol {
+
+namespace {
+    std::string sanitizeLockName(std::string_view name)
+    {
+        std::string out;
+        for (char c : name) {
+            const bool ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '.'
+                || c == '_' || c == '-';
+            out.push_back(ok ? c : '_');
+        }
+        return out;
+    }
+} // namespace
+
+ProcessLock::ProcessLock(std::string_view name, std::chrono::milliseconds timeout)
+{
+    const std::string safe = sanitizeLockName(name);
+#ifdef _WIN32
+    HANDLE handle = nullptr;
+    for (const char* scope : { "Global\\", "Local\\" }) {
+        std::wstring wide;
+        for (const char c : std::string(scope) + "HeadsetControl-" + safe) {
+            wide.push_back(static_cast<wchar_t>(c));
+        }
+        handle = CreateMutexW(nullptr, FALSE, wide.c_str());
+        if (handle) {
+            break;
+        }
+        if (GetLastError() != ERROR_ACCESS_DENIED) {
+            return; // e.g. the name belongs to another kind of object: Unavailable
+        }
+    }
+    if (!handle) {
+        return;
+    }
+    switch (WaitForSingleObject(handle, static_cast<DWORD>(timeout.count()))) {
+    case WAIT_OBJECT_0:
+        status_ = Status::Held;
+        handle_ = handle;
+        return;
+    case WAIT_ABANDONED: // the previous holder died; the mutex is ours now
+        status_    = Status::Held;
+        recovered_ = true;
+        handle_    = handle;
+        return;
+    case WAIT_TIMEOUT:
+        status_ = Status::Busy;
+        break;
+    default:
+        break; // WAIT_FAILED: Unavailable
+    }
+    CloseHandle(handle);
+#else
+    const std::string path = "/tmp/headsetcontrol-" + safe + ".lock";
+    int fd                 = open(path.c_str(), O_RDWR | O_CREAT | O_NOFOLLOW | O_CLOEXEC, 0644);
+    if (fd < 0 && errno == EACCES) {
+        fd = open(path.c_str(), O_RDONLY | O_NOFOLLOW | O_CLOEXEC); // another user's file
+    }
+    if (fd < 0) {
+        return;
+    }
+    struct stat st { };
+    if (fstat(fd, &st) != 0 || !S_ISREG(st.st_mode) || st.st_nlink != 1) {
+        close(fd);
+        return;
+    }
+    if (st.st_uid == geteuid()) {
+        (void)fchmod(fd, 0644); // readable for other users whatever our umask; read is enough for flock()
+    }
+    const auto deadline = std::chrono::steady_clock::now() + timeout;
+    while (true) {
+        if (flock(fd, LOCK_EX | LOCK_NB) == 0) {
+            status_ = Status::Held;
+            fd_     = fd;
+            return;
+        }
+        if (errno != EWOULDBLOCK && errno != EINTR) {
+            break; // Unavailable
+        }
+        if (std::chrono::steady_clock::now() >= deadline) {
+            status_ = Status::Busy;
+            break;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    close(fd);
+#endif
+}
+
+ProcessLock::~ProcessLock()
+{
+#ifdef _WIN32
+    if (handle_) {
+        ReleaseMutex(static_cast<HANDLE>(handle_));
+        CloseHandle(static_cast<HANDLE>(handle_));
+    }
+#else
+    if (fd_ >= 0) {
+        flock(fd_, LOCK_UN);
+        close(fd_);
+    }
+#endif
+}
+
+} // namespace headsetcontrol
