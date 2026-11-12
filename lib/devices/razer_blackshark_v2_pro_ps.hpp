@@ -373,8 +373,9 @@ private:
             // A notification carries the headset's filtered figure. A GET returns
             // the raw one, worked out from the voltage, so it is filtered the
             // way the firmware does: only up on the charger, only down off it.
+            // Without a known charge state there is no direction to filter in.
             const bool on_charger = reported.charge_state == CHARGE_CHARGING || reported.charge_state == CHARGE_FULL;
-            if (report[13] == CUSTOM_NOTIFY || !reported.percent) {
+            if (report[13] == CUSTOM_NOTIFY || !reported.percent || !reported.charge_state) {
                 reported.percent = value;
             } else {
                 reported.percent = on_charger ? std::max(*reported.percent, value) : std::min(*reported.percent, value);
