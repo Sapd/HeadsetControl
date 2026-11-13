@@ -291,6 +291,33 @@ void testLogitechProX2CenturionBatteryParsing()
     std::cout << "    [OK] Logitech PRO X2 Centurion battery parsing verified" << std::endl;
 }
 
+void testLogitechProX2BatteryRuntimeEstimate()
+{
+    std::cout << "  Testing Logitech PRO X2 battery runtime estimate..." << std::endl;
+
+    BatteryResult battery { .level_percent = 94, .status = BATTERY_AVAILABLE };
+    LogitechGProX2Lightspeed::estimateBatteryRuntime(battery);
+    ASSERT_TRUE(battery.time_to_empty_min.has_value(), "Available battery should have a runtime estimate");
+    ASSERT_EQ(2820, *battery.time_to_empty_min, "94% should match G HUB's observed 47 hours");
+    ASSERT_TRUE(!battery.time_to_full_min.has_value(), "Runtime estimate should not add a charging estimate");
+
+    BatteryResult full { .level_percent = 100, .status = BATTERY_AVAILABLE };
+    LogitechGProX2Lightspeed::estimateBatteryRuntime(full);
+    ASSERT_TRUE(full.time_to_empty_min.has_value(), "Full battery should have a runtime estimate");
+    ASSERT_EQ(3000, *full.time_to_empty_min, "100% should equal the rated 50 hours");
+
+    BatteryResult charging { .level_percent = 94, .status = BATTERY_CHARGING };
+    LogitechGProX2Lightspeed::estimateBatteryRuntime(charging);
+    ASSERT_TRUE(!charging.time_to_empty_min.has_value(), "Charging battery should not have a runtime estimate");
+    ASSERT_TRUE(!charging.time_to_full_min.has_value(), "Charging time should remain unknown");
+
+    BatteryResult empty { .level_percent = 0, .status = BATTERY_AVAILABLE };
+    LogitechGProX2Lightspeed::estimateBatteryRuntime(empty);
+    ASSERT_TRUE(!empty.time_to_empty_min.has_value(), "Empty battery should not have a runtime estimate");
+
+    std::cout << "    [OK] Logitech PRO X2 battery runtime estimate verified" << std::endl;
+}
+
 void testLogitechProX2LegacyBatteryFallbackDecision()
 {
     std::cout << "  Testing Logitech PRO X2 legacy battery fallback decision..." << std::endl;
@@ -2104,6 +2131,8 @@ void testCenturionProX2BatteryWire()
     ASSERT_TRUE(battery.hasValue(), "PRO X2 battery should succeed with direct feature lookup");
     ASSERT_EQ(47, battery->level_percent, "PRO X2 battery level");
     ASSERT_EQ(BATTERY_AVAILABLE, battery->status, "PRO X2 battery status");
+    ASSERT_TRUE(battery->time_to_empty_min.has_value(), "Centurion battery should include a runtime estimate");
+    ASSERT_EQ(1410, *battery->time_to_empty_min, "Centurion runtime should use the rated 50 hours");
     ASSERT_EQ(3u, dev.hid.writes.size(), "Two lookups and one battery request");
     assertFrame(dev.hid.writes[0], { 0x51, 0x05, 0x00, 0x00, 0x01, 0x00, 0x03 },
         "PRO X2 bridge lookup uses the exact direct length");
@@ -2116,10 +2145,36 @@ void testCenturionProX2BatteryWire()
     auto charging = dev.getBattery(nullptr);
     ASSERT_TRUE(charging.hasValue(), "Cached PRO X2 battery request should succeed");
     ASSERT_EQ(BATTERY_CHARGING, charging->status, "PRO X2 charging state");
+    ASSERT_TRUE(!charging->time_to_empty_min.has_value(), "Centurion charging reply should omit the runtime estimate");
     ASSERT_EQ(4u, dev.hid.writes.size(), "Cached indexes avoid further lookups");
     ASSERT_TRUE(dev.hid.replies.empty(), "All replies consumed");
 
     std::cout << "    [OK] Logitech PRO X2 battery lookup on the wire verified" << std::endl;
+}
+
+void testLogitechProX2LegacyBatteryRuntime()
+{
+    std::cout << "  Testing Logitech PRO X2 legacy battery runtime..." << std::endl;
+
+    TestableProX2 dev;
+    dev.hid.replies.push_back(centurionFrame(PRO_X2_PREFIX, { 0x00, 0x01, 0x03, 0x00, 0x01 }));
+    queueBridgeReply(dev.hid, PRO_X2_PREFIX, 0x00, { 0x00, 0x00, 0x00 }); // Battery feature unavailable
+
+    std::vector<uint8_t> response(64, 0);
+    response[0]  = 0x51;
+    response[1]  = 0x0b;
+    response[8]  = 0x04;
+    response[10] = 94;
+    dev.hid.replies.push_back(response);
+
+    auto battery = dev.getBattery(nullptr);
+    ASSERT_TRUE(battery.hasValue(), "Legacy fallback should succeed when the Centurion battery feature is missing");
+    ASSERT_EQ(94, battery->level_percent, "Legacy battery level");
+    ASSERT_TRUE(battery->time_to_empty_min.has_value(), "Legacy battery should include a runtime estimate");
+    ASSERT_EQ(2820, *battery->time_to_empty_min, "Legacy runtime should match the observed 47 hours at 94%");
+    ASSERT_TRUE(dev.hid.replies.empty(), "All legacy replies consumed");
+
+    std::cout << "    [OK] Logitech PRO X2 legacy battery runtime verified" << std::endl;
 }
 
 void testCenturionProX2GraphicEqualizer()
@@ -2867,6 +2922,7 @@ void runAllProtocolTests()
     runTest("HID++ Battery Response", testHIDPPBatteryResponseParsing);
     runTest("HID++ Offline Detection", testHIDPPOfflineDetection);
     runTest("Logitech PRO X2 Centurion Battery", testLogitechProX2CenturionBatteryParsing);
+    runTest("Logitech PRO X2 Battery Runtime Estimate", testLogitechProX2BatteryRuntimeEstimate);
     runTest("Logitech PRO X2 Legacy Battery Fallback", testLogitechProX2LegacyBatteryFallbackDecision);
     runTest("Logitech Centurion Frame Building", testCenturionFrameBuilding);
     runTest("Logitech Centurion Bridge Parsing", testCenturionBridgeResponseParsing);
@@ -2882,6 +2938,7 @@ void runAllProtocolTests()
     runTest("Logitech G522 Equalizer Commands", testG522EqualizerCommands);
     runTest("Logitech PRO X2 Default Centurion Options", testCenturionProX2DefaultOptionsUnchanged);
     runTest("Logitech PRO X2 Battery Wire", testCenturionProX2BatteryWire);
+    runTest("Logitech PRO X2 Legacy Battery Runtime", testLogitechProX2LegacyBatteryRuntime);
     runTest("Logitech PRO X2 Graphic Equalizer", testCenturionProX2GraphicEqualizer);
     runTest("Logitech PRO X2 Offline Detection", testCenturionProX2Offline);
     runTest("Logitech PRO X2 Bridge Rejection", testCenturionProX2BridgeRejection);
