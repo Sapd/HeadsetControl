@@ -1074,6 +1074,11 @@ void printUdevRules()
             println("KERNEL==\"hidraw*\", SUBSYSTEM==\"hidraw\", "
                     "ATTRS{{idVendor}}==\"{:04x}\", ATTRS{{idProduct}}==\"{:04x}\", TAG+=\"uaccess\"",
                 device->getVendorId(), pid);
+            if (device->usesSerialPort()) {
+                println("KERNEL==\"ttyACM*\", SUBSYSTEM==\"tty\", "
+                        "ATTRS{{idVendor}}==\"{:04x}\", ATTRS{{idProduct}}==\"{:04x}\", TAG+=\"uaccess\"",
+                    device->getVendorId(), pid);
+            }
         }
         println();
     }

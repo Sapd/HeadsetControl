@@ -18,6 +18,7 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/test_hyperx_cloud_alpha_2_wireless.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/test_hyperx_cloud_alpha_s.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/test_sony_pulse_3d.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/test_sennheiser_gsp370.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/test_corsair_virtuoso.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/test_razer_blackshark_v2_pro_ps.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/test_mchose.cpp

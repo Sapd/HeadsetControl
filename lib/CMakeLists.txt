@@ -12,6 +12,7 @@ set(LIBRARY_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/result_types.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/utility.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/devices/hid_device.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/devices/serial_interface.cpp
 )
 
 set(LIBRARY_HEADERS
