@@ -6,6 +6,13 @@
 #include <optional>
 #include <string>
 
+#ifdef __linux__
+#include <filesystem>
+#include <format>
+#include <fstream>
+#include <system_error>
+#endif
+
 namespace headsetcontrol {
 
 std::optional<std::string> get_hid_path(uint16_t vid, uint16_t pid, int iid, uint16_t usagepageid, uint16_t usageid)
@@ -58,6 +65,39 @@ std::optional<std::string> get_hid_path(uint16_t vid, uint16_t pid, int iid, uin
     hid_free_enumeration(devs);
 
     return result;
+}
+
+std::optional<std::string> get_serial_path([[maybe_unused]] uint16_t vid, [[maybe_unused]] uint16_t pid)
+{
+#ifdef __linux__
+    namespace fs = std::filesystem;
+
+    auto read_attribute = [](const fs::path& path) {
+        std::ifstream file(path);
+        std::string value;
+        file >> value;
+        return value;
+    };
+
+    const auto vendor  = std::format("{:04x}", vid);
+    const auto product = std::format("{:04x}", pid);
+
+    // Each tty links to its USB interface, whose parent is the USB device
+    std::error_code error;
+    for (const auto& entry : fs::directory_iterator("/sys/class/tty", error)) {
+        auto interface = fs::canonical(entry.path() / "device", error);
+        if (error) {
+            error.clear();
+            continue;
+        }
+        if (read_attribute(interface.parent_path() / "idVendor") == vendor
+            && read_attribute(interface.parent_path() / "idProduct") == product) {
+            return "/dev/" + entry.path().filename().string();
+        }
+    }
+#endif
+
+    return std::nullopt;
 }
 
 void close_hid_device(hid_device* handle)

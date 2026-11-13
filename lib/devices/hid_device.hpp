@@ -5,6 +5,7 @@
 #include "../result_types.hpp"
 #include "../string_utils.hpp"
 #include "hid_interface.hpp"
+#include "serial_interface.hpp"
 #include <array>
 #include <concepts>
 #include <cstdint>
@@ -73,7 +74,8 @@ public:
     /**
      * @brief Whether the device also needs access to a USB serial port
      *
-     * Adds the device's serial port to the generated udev rules.
+     * Adds the device's serial port to the generated udev rules. The device
+     * reaches the port through getSerialInterface().
      */
     virtual constexpr bool usesSerialPort() const
     {
@@ -489,6 +491,15 @@ protected:
     [[nodiscard]] virtual auto getHIDInterface() const -> HIDInterface&
     {
         static RealHIDInterface instance;
+        return instance;
+    }
+
+    /**
+     * @brief Get serial interface singleton, for devices that use a serial port
+     */
+    [[nodiscard]] virtual auto getSerialInterface() const -> SerialInterface&
+    {
+        static RealSerialInterface instance;
         return instance;
     }
     // ========================================================================

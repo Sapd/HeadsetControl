@@ -3,23 +3,13 @@
 #include "hid_device.hpp"
 
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <optional>
 #include <span>
-#include <string>
 #include <string_view>
-#include <vector>
-
-#ifdef __linux__
-#include <chrono>
-#include <fcntl.h>
-#include <filesystem>
-#include <fstream>
-#include <poll.h>
-#include <termios.h>
 #include <thread>
-#include <unistd.h>
-#endif
+#include <vector>
 
 using namespace std::string_view_literals;
 
@@ -41,7 +31,8 @@ namespace headsetcontrol {
  * skipped while waiting for a reply.
  *
  * The HID interface is only opened because every device needs a HID handle.
- * The handle stays unused, and the serial port is opened per request.
+ * The handle stays unused, and the serial port is opened per request through
+ * getSerialInterface().
  *
  * Known commands, captured from EPOS Gaming Suite:
  *   0x9C        Read battery, value is the percentage
@@ -64,8 +55,8 @@ public:
     static constexpr uint8_t OPCODE_SIDETONE_OFF = 0xA1;
     static constexpr uint8_t OPCODE_SIDETONE_SET = 0xA2;
 
-    static constexpr uint8_t STATUS_SUCCESS      = 0x00;
-    static constexpr uint8_t STATUS_HEADSET_OFF  = 0x0C;
+    static constexpr uint8_t STATUS_SUCCESS     = 0x00;
+    static constexpr uint8_t STATUS_HEADSET_OFF = 0x0C;
 
     static constexpr uint8_t SIDETONE_DEVICE_MIN = 0x06;
     static constexpr uint8_t SIDETONE_DEVICE_MAX = 0x10;
@@ -144,12 +135,13 @@ public:
 
     Result<BatteryResult> getBattery([[maybe_unused]] hid_device* device_handle) override
     {
-        auto port = SerialPort::open();
-        if (!port) {
-            return port.error();
+        auto handle = openSerialPort();
+        if (!handle) {
+            return handle.error();
         }
+        SerialPort port(getSerialInterface(), *handle);
 
-        auto reply = port->command(OPCODE_BATTERY);
+        auto reply = port.command(OPCODE_BATTERY);
         if (!reply) {
             return reply.error();
         }
@@ -166,18 +158,19 @@ public:
 
     Result<SidetoneResult> setSidetone([[maybe_unused]] hid_device* device_handle, uint8_t level) override
     {
-        auto port = SerialPort::open();
-        if (!port) {
-            return port.error();
+        auto handle = openSerialPort();
+        if (!handle) {
+            return handle.error();
         }
+        SerialPort port(getSerialInterface(), *handle);
 
         uint8_t device_level = sidetoneDeviceLevel(level);
 
-        auto prepared = port->command(device_level == 0 ? OPCODE_SIDETONE_OFF : OPCODE_SIDETONE_ON);
+        auto prepared = port.command(device_level == 0 ? OPCODE_SIDETONE_OFF : OPCODE_SIDETONE_ON);
         if (!prepared) {
             return prepared.error();
         }
-        auto set = port->command(OPCODE_SIDETONE_SET, std::array<uint8_t, 1> { device_level });
+        auto set = port.command(OPCODE_SIDETONE_SET, std::array<uint8_t, 1> { device_level });
         if (!set) {
             return set.error();
         }
@@ -193,59 +186,31 @@ public:
     }
 
 private:
-#ifdef __linux__
+    static constexpr uint32_t BAUD_RATE = 921600;
+    static constexpr auto SETTLE_TIME   = std::chrono::milliseconds(500);
+    static constexpr auto COMMAND_GAP   = std::chrono::milliseconds(100);
+    static constexpr auto REPLY_TIMEOUT = std::chrono::seconds(2);
+
+    Result<int> openSerialPort() const
+    {
+        return getSerialInterface().open(getVendorId(), PRODUCT_IDS[0], BAUD_RATE, SETTLE_TIME);
+    }
+
     /**
      * @brief The dongle's serial port, open for the lifetime of this object
      */
     class SerialPort {
     public:
+        SerialPort(SerialInterface& serial, int handle)
+            : serial_(serial)
+            , handle_(handle)
+        {
+        }
+
         SerialPort(const SerialPort&)            = delete;
         SerialPort& operator=(const SerialPort&) = delete;
 
-        SerialPort(SerialPort&& other) noexcept
-            : fd_(other.fd_)
-        {
-            other.fd_ = -1;
-        }
-
-        SerialPort& operator=(SerialPort&&) = delete;
-
-        ~SerialPort()
-        {
-            if (fd_ >= 0) {
-                ::close(fd_);
-            }
-        }
-
-        static Result<SerialPort> open()
-        {
-            auto path = findDevice();
-            if (!path) {
-                return DeviceError::deviceOffline("GSP 370 serial port not found");
-            }
-
-            int fd = ::open(path->c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
-            if (fd < 0) {
-                return DeviceError::hidError("Could not open " + *path + ", check its permissions (headsetcontrol -u prints udev rules)");
-            }
-            SerialPort port(fd);
-
-            termios settings {};
-            if (tcgetattr(fd, &settings) != 0) {
-                return DeviceError::hidError("Could not read serial port settings");
-            }
-            cfmakeraw(&settings);
-            settings.c_cflag |= CLOCAL | CREAD;
-            settings.c_cflag &= ~CRTSCTS;
-            cfsetspeed(&settings, B921600);
-            if (tcsetattr(fd, TCSANOW, &settings) != 0) {
-                return DeviceError::hidError("Could not apply serial port settings");
-            }
-
-            std::this_thread::sleep_for(SETTLE_TIME);
-            tcflush(fd, TCIFLUSH);
-            return port;
-        }
+        ~SerialPort() { serial_.close(handle_); }
 
         /**
          * @brief Send a command and wait for its reply
@@ -257,9 +222,8 @@ private:
             // The dongle is only known to work with EPOS Gaming Suite's pacing
             std::this_thread::sleep_for(COMMAND_GAP);
 
-            auto packet = buildCommand(opcode, params);
-            if (::write(fd_, packet.data(), packet.size()) != static_cast<ssize_t>(packet.size())) {
-                return DeviceError::hidError("Could not write to serial port");
+            if (auto written = serial_.write(handle_, buildCommand(opcode, params)); !written) {
+                return written.error();
             }
 
             std::vector<uint8_t> received;
@@ -282,77 +246,22 @@ private:
                     return DeviceError::timeout("No reply from the GSP 370 dongle");
                 }
 
-                pollfd waiting { .fd = fd_, .events = POLLIN, .revents = 0 };
-                int ready = ::poll(&waiting, 1, static_cast<int>(remaining.count()));
-                if (ready < 0) {
-                    return DeviceError::hidError("Could not wait for serial port");
-                }
-                if (ready == 0) {
-                    continue;
-                }
-
                 std::array<uint8_t, 256> buffer {};
-                ssize_t count = ::read(fd_, buffer.data(), buffer.size());
-                if (count <= 0) {
-                    return DeviceError::hidError("Could not read from serial port");
+                auto count = serial_.readTimeout(handle_, buffer, static_cast<int>(remaining.count()));
+                if (!count) {
+                    if (count.error().code == DeviceError::Code::Timeout) {
+                        return DeviceError::timeout("No reply from the GSP 370 dongle");
+                    }
+                    return count.error();
                 }
-                received.insert(received.end(), buffer.begin(), buffer.begin() + count);
+                received.insert(received.end(), buffer.begin(), buffer.begin() + *count);
             }
         }
 
     private:
-        static constexpr auto SETTLE_TIME   = std::chrono::milliseconds(500);
-        static constexpr auto COMMAND_GAP   = std::chrono::milliseconds(100);
-        static constexpr auto REPLY_TIMEOUT = std::chrono::seconds(2);
-
-        explicit SerialPort(int fd)
-            : fd_(fd)
-        {
-        }
-
-        static std::optional<std::string> findDevice()
-        {
-            namespace fs = std::filesystem;
-
-            std::error_code error;
-            for (const auto& entry : fs::directory_iterator("/sys/class/tty", error)) {
-                auto interface = fs::canonical(entry.path() / "device", error);
-                if (error) {
-                    error.clear();
-                    continue;
-                }
-                if (readAttribute(interface.parent_path() / "idVendor") == "1395"
-                    && readAttribute(interface.parent_path() / "idProduct") == "009a") {
-                    return "/dev/" + entry.path().filename().string();
-                }
-            }
-            return std::nullopt;
-        }
-
-        static std::string readAttribute(const std::filesystem::path& path)
-        {
-            std::ifstream file(path);
-            std::string value;
-            file >> value;
-            return value;
-        }
-
-        int fd_;
+        SerialInterface& serial_;
+        int handle_;
     };
-#else
-    class SerialPort {
-    public:
-        static Result<SerialPort> open()
-        {
-            return DeviceError::notSupported("The GSP 370 is only supported on Linux");
-        }
-
-        Result<std::vector<uint8_t>> command(uint8_t, std::span<const uint8_t> = {})
-        {
-            return DeviceError::notSupported("The GSP 370 is only supported on Linux");
-        }
-    };
-#endif
 };
 
 } // namespace headsetcontrol
