@@ -152,10 +152,10 @@ public:
 
         const auto& reply = *state;
         if (reply[1] == STATE_HEADPHONES_OFF) {
-            return DeviceError::timeout("FIFINE HT6: headset is powered off or out of range");
+            return DeviceError::deviceOffline("FIFINE HT6: headset is powered off or out of range");
         }
         if (reply[3] == STATE_LINK_LOST) {
-            return DeviceError::timeout("FIFINE HT6: wireless link to the headset was lost");
+            return DeviceError::deviceOffline("FIFINE HT6: wireless link to the headset was lost");
         }
 
         BatteryResult battery {

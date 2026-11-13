@@ -168,7 +168,9 @@ void testFifineHeadsetOff()
     hid.state_reply[1] = FifineHT6::STATE_HEADPHONES_OFF;
     TestableFifine device(hid);
 
-    FIFINE_ASSERT(!device.getBattery(FIFINE_TEST_HANDLE).hasValue(), "headset off is an error, not 0%");
+    auto battery = device.getBattery(FIFINE_TEST_HANDLE);
+    FIFINE_ASSERT(battery.hasError(), "headset off is an error, not 0%");
+    FIFINE_ASSERT(battery.error().code == DeviceError::Code::DeviceOffline, "reported as offline, not as a timeout");
 }
 
 void testFifineNoAnswer()
