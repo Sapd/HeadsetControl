@@ -21,6 +21,7 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/test_corsair_virtuoso.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/test_razer_blackshark_v2_pro_ps.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/test_mchose.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/test_fifine.cpp
 )
 
 # Export to parent scope

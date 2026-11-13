@@ -63,6 +63,9 @@
 #include "devices/jabra_link_380.hpp"
 #include "devices/jabra_link_390.hpp"
 
+// FIFINE devices
+#include "devices/fifine_ht6.hpp"
+
 // Sony devices
 #include "devices/sony_inzone_buds.hpp"
 #include "devices/sony_inzone_h5.hpp"
@@ -179,6 +182,9 @@ void DeviceRegistry::initialize()
         registerDevice(std::make_unique<JabraLink380>());
         registerDevice(std::make_unique<JabraLink390>());
         registerDevice(std::make_unique<JabraEvolve265Flex>());
+
+        // FIFINE devices
+        registerDevice(std::make_unique<FifineHT6>());
 
         // Sony devices
         registerDevice(std::make_unique<SonyINZONEBuds>());

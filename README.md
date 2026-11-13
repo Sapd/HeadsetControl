@@ -203,6 +203,7 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 | Sony PULSE 3D | All |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | MCHOSE X9 Wireless | L/W |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | MCHOSE V9 Pro Wireless | L/W |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
+| FIFINE HT6 Wireless | L/W |   | x |   | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   | x |
 | Razer BlackShark V2 Pro (PlayStation) | All |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | HeadsetControl Test device | All | r | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | r | x |
 
