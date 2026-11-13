@@ -198,13 +198,13 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 | Jabra Link 380 (paired headset) | L/M | x | x |   | x | x |   | x |   |   |   |   |   |   | x |   |   |   | x |   |   |   |   |   |   |   |
 | Jabra Link 390 (paired headset) | L/M | x | x |   | x | x |   | x |   |   |   |   |   |   | x |   |   |   | x |   |   |   |   |   |   |   |
 | Jabra Evolve2 65 Flex (USB) | L/M | x | x |   | x | x |   | x |   |   |   |   |   |   | x |   |   |   | x |   |   |   |   |   |   |   |
+| FIFINE HT6 Wireless | L/W |   | x |   | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   | x |
 | Sony INZONE Buds | All |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | Sony INZONE H5 | All | x | x |   |   |   | x |   |   |   |   |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |
 | Sony INZONE H9 II | All | x | x |   |   | x | x | x |   |   |   |   |   |   |   | x |   |   |   | x | x | x | x | x |   |   |
 | Sony PULSE 3D | All |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | MCHOSE X9 Wireless | L/W |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | MCHOSE V9 Pro Wireless | L/W |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
-| FIFINE HT6 Wireless | L/W |   | x |   | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   | x |
 | Razer BlackShark V2 Pro (PlayStation) | All |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | HeadsetControl Test device | All | r | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | r | x |
 
