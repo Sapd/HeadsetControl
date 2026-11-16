@@ -635,7 +635,7 @@ The test device implements all capabilities and returns predictable values, maki
 - Individual `Headset` objects are NOT thread-safe
 - Use external synchronization if accessing the same headset from multiple threads
 - Each thread should have its own `Headset` object if possible
-- Some devices serialize a request across processes, because another program talking to the same device at the same time would take their replies. A call can then wait a few seconds for the other process (the Razer BlackShark V2 Pro for PlayStation waits up to 5 seconds, then returns its last reading or a timeout).
+- Some devices serialize a request across processes, because another program talking to the same device at the same time would take their replies. A call can then wait for the other process: the Razer BlackShark V2 Pro for PlayStation waits up to 5 seconds, then returns its recent reading or a timeout, and does not wait again for the next 10 seconds. A read in which the headset stops answering can hold the device for longer (up to about 30 seconds), and calls from other processes meanwhile end that way.
 
 ## Platform Notes
 

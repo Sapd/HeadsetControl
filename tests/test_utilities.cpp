@@ -13,6 +13,7 @@
 
 #include "devices/device_utils.hpp"
 #include "feature_utils.hpp"
+#include "lock_test_utils.hpp"
 #include "output/output_data.hpp"
 #include "result_types.hpp"
 #include "string_utils.hpp"
@@ -20,8 +21,10 @@
 
 #include <chrono>
 #include <cmath>
+#include <format>
 #include <future>
 #include <iostream>
+#include <random>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -823,9 +826,8 @@ void testBatteryStatusToString()
 
 void testProcessLock()
 {
-    // A name of its own, so a running HeadsetControl cannot interfere; fixed,
-    // so repeated runs reuse one lock file
-    const std::string name = "selftest";
+    // A name of its own, so neither a running HeadsetControl nor another test run interferes
+    const std::string name = std::format("selftest-{}", std::random_device {}());
 
     std::promise<void> held, release;
     auto release_future = release.get_future();
@@ -849,6 +851,72 @@ void testProcessLock()
 
     ProcessLock odd("../sel ftest/x", std::chrono::milliseconds(1000));
     ASSERT_TRUE(odd.status() == ProcessLock::Status::Held, "unusual characters are replaced, not rejected");
+}
+
+void testProcessLockHandOver()
+{
+    const std::string name = std::format("selftest-{}", std::random_device {}());
+
+    // Released while another thread waits for it: the waiter gets it
+    std::promise<void> held;
+    std::thread holder([&] {
+        ProcessLock lock(name, std::chrono::milliseconds(1000));
+        held.set_value();
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    });
+    held.get_future().wait();
+    ProcessLock waiter(name, std::chrono::milliseconds(5000));
+    holder.join();
+    ASSERT_TRUE(waiter.status() == ProcessLock::Status::Held, "a waiter gets a released lock");
+
+    // The name is sanitized, not ignored: "a/b" and "a_b" are one lock
+    std::promise<void> taken, done;
+    auto done_future = done.get_future();
+    std::thread first([&] {
+        ProcessLock lock(name + "/x", std::chrono::milliseconds(0));
+        taken.set_value();
+        done_future.wait();
+    });
+    taken.get_future().wait();
+    ProcessLock clash(name + "_x", std::chrono::milliseconds(0));
+    done.set_value();
+    first.join();
+    ASSERT_TRUE(clash.status() == ProcessLock::Status::Busy, "\"x/y\" and \"x_y\" are the same lock");
+
+    // A negative timeout does not wait
+    {
+        std::promise<void> busy_held, busy_release;
+        auto busy_release_future = busy_release.get_future();
+        std::thread busy_holder([&] {
+            ProcessLock lock(name + "-neg", std::chrono::milliseconds(1000));
+            busy_held.set_value();
+            busy_release_future.wait();
+        });
+        busy_held.get_future().wait();
+        const auto t0 = std::chrono::steady_clock::now();
+        ProcessLock negative(name + "-neg", std::chrono::milliseconds(-1));
+        const auto waited = std::chrono::steady_clock::now() - t0;
+        busy_release.set_value();
+        busy_holder.join();
+        ASSERT_TRUE(negative.status() == ProcessLock::Status::Busy, "busy");
+        ASSERT_TRUE(waited < std::chrono::milliseconds(500), "without waiting");
+    }
+
+    // Another kind of object at the name: Unavailable, and no hang
+    {
+        const auto blocker = blockLockName(name + "-blocked");
+        ProcessLock blocked(name + "-blocked", std::chrono::milliseconds(100));
+        ASSERT_TRUE(blocked.status() == ProcessLock::Status::Unavailable, "unavailable");
+    }
+
+#ifdef _WIN32
+    // A holder that exits without releasing: the next holder is told
+    std::thread([&] { new ProcessLock(name + "-dead", std::chrono::milliseconds(1000)); }).join();
+    ProcessLock recovered(name + "-dead", std::chrono::milliseconds(1000));
+    ASSERT_TRUE(recovered.status() == ProcessLock::Status::Held && recovered.recovered(), "abandoned is recovered");
+#endif
+
+    std::cout << "    ✓ ProcessLock hands over, sanitizes names and fails safe" << std::endl;
 }
 
 void runAllUtilityTests()
@@ -900,6 +968,7 @@ void runAllUtilityTests()
     runTest("parse_two_ids", testParseTwoIds);
     runTest("parse_light_color", testParseLightColor);
     runTest("ProcessLock", testProcessLock);
+    runTest("ProcessLock hand-over", testProcessLockHandOver);
 
     std::cout << "\n=== result_types.hpp Tests ===" << std::endl;
     runTest("Result<T> success", testResultSuccess);

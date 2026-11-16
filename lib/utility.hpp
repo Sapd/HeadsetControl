@@ -120,15 +120,21 @@ std::optional<LightColorSettings> parse_light_color(std::string_view input);
  * one-off CLI call on the same dongle would otherwise read each other's
  * replies. The OS releases the lock if the holder dies.
  *
- * - Windows: a named mutex, "Global\HeadsetControl-<name>" so that sessions
- *   (a console login and an SSH session) share it; "Local\" if the global
- *   one cannot be opened, e.g. because another user created it.
+ * - Windows: a named mutex, "Global\HeadsetControl-<name>", which every
+ *   signed-in user may wait on, so that sessions (a console login and an SSH
+ *   session) and users share it.
  * - Elsewhere: flock() on /tmp/headsetcontrol-<name>.lock. The path does not
- *   depend on the environment, so sudo, cron and a desktop session agree.
- *   The file is opened without following symlinks and must be a plain file.
+ *   depend on the environment, so sudo, cron and a desktop session agree; a
+ *   sandbox with a private /tmp (Flatpak, systemd PrivateTmp) has its own.
+ *   The file is opened without following symlinks and must be a plain file
+ *   with one link; only the process that creates it changes its mode.
  *
  * Do not take the same name twice in one process: a Windows mutex is
- * recursive per thread, flock() is not.
+ * recursive per thread, flock() is not. Destroy it on the thread that
+ * created it: a Windows mutex can only be released by its owner thread.
+ * Names map to [A-Za-z0-9._-]; keep them short and lowercase, since case
+ * and long names behave differently across platforms. The timeout is
+ * clamped to [0, 1 h].
  *
  * If the OS facility fails, status() is Unavailable and the caller should
  * carry on without the lock: losing the lock is better than losing the
