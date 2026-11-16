@@ -59,6 +59,7 @@
 #include "devices/plantronics_bt600.hpp"
 
 // Sennheiser / EPOS devices
+#include "devices/epos_h3pro_hybrid.hpp"
 #include "devices/sennheiser_gsp370.hpp"
 
 // Jabra devices
@@ -183,6 +184,7 @@ void DeviceRegistry::initialize()
 
         // Sennheiser / EPOS devices
         registerDevice(std::make_unique<SennheiserGSP370>());
+        registerDevice(std::make_unique<EposH3ProHybrid>());
 
         // Jabra devices
         registerDevice(std::make_unique<JabraLink380>());
