@@ -43,4 +43,12 @@ inline std::shared_ptr<void> blockLockName(const std::string& name)
 #endif
 }
 
+/// Remove the file a ProcessLock left behind (POSIX; Windows has none)
+inline void removeLockFile([[maybe_unused]] const std::string& name)
+{
+#ifndef _WIN32
+    unlink(("/tmp/headsetcontrol-" + name + ".lock").c_str());
+#endif
+}
+
 } // namespace headsetcontrol::testing

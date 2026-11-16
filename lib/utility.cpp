@@ -425,13 +425,13 @@ ProcessLock::ProcessLock(std::string_view name, std::chrono::milliseconds timeou
         wide.push_back(static_cast<wchar_t>(c));
     }
     // Any signed-in user may wait on and release it (SYNCHRONIZE | MUTEX_MODIFY_STATE), so that
-    // users and sessions share one lock whoever created it. Only that access is asked for, which
-    // also opens a mutex another user created
+    // users and sessions share one lock whoever created it; its owner keeps full access. Only that
+    // access is asked for, which also opens a mutex another user created. Needs advapi32.
     constexpr DWORD ACCESS          = SYNCHRONIZE | MUTEX_MODIFY_STATE;
     PSECURITY_DESCRIPTOR descriptor = nullptr;
     SECURITY_ATTRIBUTES attributes { sizeof(SECURITY_ATTRIBUTES), nullptr, FALSE };
     if (ConvertStringSecurityDescriptorToSecurityDescriptorW(
-            L"D:(A;;GA;;;SY)(A;;GA;;;BA)(A;;0x00100001;;;AU)", SDDL_REVISION_1, &descriptor, nullptr)) {
+            L"D:(A;;GA;;;SY)(A;;GA;;;BA)(A;;GA;;;OW)(A;;0x00100001;;;AU)", SDDL_REVISION_1, &descriptor, nullptr)) {
         attributes.lpSecurityDescriptor = descriptor;
     }
     HANDLE handle = CreateMutexExW(&attributes, wide.c_str(), 0, ACCESS);
@@ -463,7 +463,8 @@ ProcessLock::ProcessLock(std::string_view name, std::chrono::milliseconds timeou
     const auto deadline    = std::chrono::steady_clock::now() + timeout;
     // O_NONBLOCK: a FIFO planted at the path must not block the open
     constexpr int FLAGS = O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK;
-    while (true) {
+    // A few passes, for a file removed by someone else between our calls
+    for (int pass = 0; pass < 8; ++pass) {
         // Only a file this call created is made readable for everyone: chmod on an existing
         // path could be aimed, through a hard link swapped in, at another file of ours
         int fd = open(path.c_str(), O_RDWR | O_CREAT | O_EXCL | FLAGS, 0644);
@@ -474,14 +475,21 @@ ProcessLock::ProcessLock(std::string_view name, std::chrono::milliseconds timeou
             if (fd < 0 && errno == EACCES) {
                 fd = open(path.c_str(), O_RDONLY | FLAGS); // another user's file
             }
+            if (fd < 0 && errno == ENOENT) {
+                continue; // removed in between
+            }
         }
         if (fd < 0) {
             return;
         }
         struct stat st { };
-        if (fstat(fd, &st) != 0 || !S_ISREG(st.st_mode) || st.st_nlink != 1) {
+        if (fstat(fd, &st) != 0 || !S_ISREG(st.st_mode) || st.st_nlink > 1) {
             close(fd);
             return;
+        }
+        if (st.st_nlink == 0) {
+            close(fd); // removed in between
+            continue;
         }
         bool locked = false;
         while (true) {
@@ -511,10 +519,6 @@ ProcessLock::ProcessLock(std::string_view name, std::chrono::milliseconds timeou
             return;
         }
         close(fd);
-        if (std::chrono::steady_clock::now() >= deadline) {
-            status_ = Status::Busy;
-            return;
-        }
     }
 #endif
 }

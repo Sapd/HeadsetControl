@@ -271,6 +271,11 @@ else()
     target_link_libraries(headsetcontrol_lib PUBLIC m ${HIDAPI_LIBRARIES})
 endif()
 
+# ProcessLock (lib/utility.cpp) builds the named mutex's DACL with advapi32
+if(WIN32)
+    target_link_libraries(headsetcontrol_lib PUBLIC advapi32)
+endif()
+
 # hidapi's macOS backend needs these frameworks. They are pulled in transitively
 # when linking the shared library, but not when linking hidapi statically (which
 # is what the portable release builds do).

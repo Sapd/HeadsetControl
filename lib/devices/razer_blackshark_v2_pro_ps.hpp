@@ -81,10 +81,10 @@ namespace headsetcontrol {
  *
  * Replies carry no sequence number and only come while the dongle is in
  * remote mode, so both are asked for right after the voltage. A charge state
- * that neither the GET nor a notification confirmed since the previous read
- * is forgotten. Notifications arrive in either
- * mode, on link-up, on every percent change and when the charger is plugged
- * in or out; they are picked up from whatever the dongle sends while a
+ * that neither the GET (asked twice) nor a notification confirmed since the
+ * previous read is forgotten. Notifications arrive in either mode, on
+ * link-up, on every percent change and when the charger is plugged in or
+ * out; they are picked up from whatever the dongle sends while a
  * command waits for its reply, so a long-running process sees them within a
  * poll. The headset's own figures are preferred over the voltage, which
  * reads high on the charger, while they are younger than STALE_AFTER; if
@@ -113,8 +113,10 @@ namespace headsetcontrol {
  * HeadsetControl while updating the firmware all the same: a session that
  * pauses looks like a leftover. The cache is kept per device handle, so two
  * dongles do not share it, and is dropped whenever the headset is seen
- * unlinked. It lives in the process: a frontend that starts headsetcontrol
- * for every poll gets a full read (and a mode switch) each time.
+ * unlinked. It lives with the handle: a frontend that opens the device for
+ * every poll (or starts headsetcontrol for it) gets a full read, with a mode
+ * switch, each time, and sees no notifications. Keep the Headset (or
+ * hsc_headset_t) open between polls.
  */
 class RazerBlackSharkV2ProPS : public HIDDevice {
 public:
@@ -229,7 +231,6 @@ public:
         if (dongle_lock.recovered()) {
             // The previous holder died mid-conversation and may have left the dongle in remote mode
             voltage_cache_.erase(device_handle);
-            mode_checked_.erase(device_handle);
         }
         // Every open handle receives every reply, so while we waited for the
         // lock, other processes' replies piled up here; one with a sequence
@@ -254,13 +255,14 @@ public:
             bool restored       = true;
             const auto previous = cached == voltage_cache_.end() ? std::nullopt : std::optional(cached->second.read_at);
             auto voltage        = readVoltageInRemoteMode(device_handle, restored, previous);
-            cached              = voltage_cache_.insert_or_assign(device_handle, CachedVoltage { voltage, now() }).first;
+            cached              = voltage_cache_.insert_or_assign(device_handle, CachedVoltage { voltage, now(), !restored }).first;
             mode_checked_.insert_or_assign(device_handle, now());
-            if (!restored) {
-                return voltage.error(); // retried after FAILURE_BACKOFF, or by the next mode check
-            }
         } else {
             checkMode(device_handle);
+        }
+        if (cached->second.stuck_remote) {
+            // Reported until the next read (after FAILURE_BACKOFF) puts it back, figures or not
+            return cached->second.voltage.error();
         }
         if (!cached->second.voltage) {
             // The headset's own figures do not need the voltage
@@ -333,6 +335,7 @@ private:
     struct CachedVoltage {
         Result<uint16_t> voltage; // the last read, successful or not
         std::chrono::steady_clock::time_point read_at;
+        bool stuck_remote = false; // the dongle could not be switched back to local mode
     };
 
     // Last values the headset reported, asked for or not, and when
@@ -414,7 +417,8 @@ private:
             // confirmed since the previous read is forgotten, so that it
             // neither claims charging nor steers the percent filter.
             if (voltage) {
-                if (!customGet(device_handle, IND_CHARGING)) {
+                // One retry: a lost reply would otherwise forget a charger that is there
+                if (!customGet(device_handle, IND_CHARGING) && !customGet(device_handle, IND_CHARGING)) {
                     auto& reported = reported_[device_handle];
                     if (previous && reported.charge_at <= *previous) {
                         reported.charge_state.reset();
@@ -676,10 +680,11 @@ private:
                 return std::vector<uint8_t>(reply.begin() + REPLY_STATUS, reply.begin() + end);
             }
             if (reply[0] == REPORT_ID && reply[2] == 0x50 && reply[3] == 0x49) {
-                const std::span<const uint8_t> frame(reply.data(), end);
-                noteIndication(device_handle, frame);
-                if (custom_id && isCustomFrame(frame) && frame[12] == *custom_id && frame[13] == CUSTOM_REPLY) {
-                    return std::vector<uint8_t>(frame.begin() + 12, frame.end());
+                const std::span<const uint8_t> received(reply.data(), end);
+                noteIndication(device_handle, received);
+                if (custom_id && isCustomFrame(received) && received[12] == *custom_id
+                    && received[13] == CUSTOM_REPLY) {
+                    return std::vector<uint8_t>(received.begin() + 12, received.end());
                 }
             }
         }
