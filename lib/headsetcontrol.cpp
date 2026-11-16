@@ -145,6 +145,7 @@ public:
         hid_device* handle = hid_open_path(path->c_str());
         if (handle) {
             connections_[key] = handle;
+            device_->onConnectionOpened(handle, *path);
             product_name_.refine(*device_, handle);
         }
 

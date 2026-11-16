@@ -635,7 +635,7 @@ The test device implements all capabilities and returns predictable values, maki
 - Individual `Headset` objects are NOT thread-safe
 - Use external synchronization if accessing the same headset from multiple threads
 - Each thread should have its own `Headset` object if possible
-- Keep a `Headset` (or `hsc_headset_t`) open between polls rather than discovering for every poll: some devices keep state per open device, such as a cache that spares the device a slow request on every poll, or notifications the device pushes between polls (the Razer BlackShark V2 Pro for PlayStation switches its dongle's mode on every read without it)
+- Keep a `Headset` (or `hsc_headset_t`) open between polls rather than discovering for every poll: some devices keep state per open device, such as a cache that spares the device a slow request on every poll, or notifications the device pushes between polls (the Razer BlackShark V2 Pro for PlayStation then reads its headset five times as often and misses the charger notifications in between)
 - Some devices serialize a request across processes, because another program talking to the same device at the same time would take their replies. A call can then wait for the other process: the Razer BlackShark V2 Pro for PlayStation waits up to 5 seconds, then returns its recent reading or a timeout, and does not wait again for the next 10 seconds. A read in which the headset stops answering can hold the device for longer (up to about 30 seconds), and calls from other processes meanwhile end that way.
 
 ## Platform Notes

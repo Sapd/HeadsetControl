@@ -20,6 +20,7 @@
 #include <string_view>
 #include <thread>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 using namespace std::string_view_literals;
@@ -113,10 +114,13 @@ namespace headsetcontrol {
  * HeadsetControl while updating the firmware all the same: a session that
  * pauses looks like a leftover. The cache is kept per device handle, so two
  * dongles do not share it, and is dropped whenever the headset is seen
- * unlinked. It lives with the handle: a frontend that opens the device for
- * every poll (or starts headsetcontrol for it) gets a full read, with a mode
- * switch, each time, and sees no notifications. Keep the Headset (or
- * hsc_headset_t) open between polls.
+ * unlinked. A frontend that closes the device after every poll gets it back
+ * on the next handle for the same device path (within STALE_AFTER), but it
+ * misses the notifications in between, so for it the voltage and the
+ * headset's figures are re-read once per REOPENED_CACHE. Keep the Headset
+ * (or hsc_headset_t) open between polls. The cache lives in the process: a
+ * frontend that starts headsetcontrol for every poll gets a full read, with
+ * a mode switch, each time.
  */
 class RazerBlackSharkV2ProPS : public HIDDevice {
 public:
@@ -150,6 +154,7 @@ public:
     static constexpr uint16_t MIN_VOLTAGE  = 2500;
     static constexpr uint16_t MAX_VOLTAGE  = 4500;
     static constexpr std::chrono::seconds VOLTAGE_CACHE { 300 };
+    static constexpr std::chrono::seconds REOPENED_CACHE { 60 };
     static constexpr std::chrono::seconds FAILURE_BACKOFF { 10 };
     static constexpr std::chrono::seconds MODE_CHECK { 10 };
     static constexpr std::chrono::seconds STALE_AFTER { 3 * VOLTAGE_CACHE };
@@ -250,7 +255,7 @@ public:
 
         auto cached        = voltage_cache_.find(device_handle);
         const bool expired = cached == voltage_cache_.end()
-            || now() - cached->second.read_at >= (cached->second.voltage ? VOLTAGE_CACHE : FAILURE_BACKOFF);
+            || now() - cached->second.read_at >= (cached->second.voltage ? refreshInterval(device_handle) : FAILURE_BACKOFF);
         if (expired) {
             bool restored       = true;
             const auto previous = cached == voltage_cache_.end() ? std::nullopt : std::optional(cached->second.read_at);
@@ -274,13 +279,57 @@ public:
         return *makeResult(device_handle, *cached->second.voltage, start);
     }
 
+    void onConnectionOpened(hid_device* device_handle, std::string_view path) const override
+    {
+        const std::lock_guard lock(mutex_);
+        forget(device_handle); // a reused handle address
+        paths_.insert_or_assign(device_handle, std::string(path));
+        const auto parked = parked_.find(std::string(path));
+        if (parked == parked_.end()) {
+            return;
+        }
+        // The same dongle, closed and opened again by a frontend that does so for every poll
+        if (now() - parked->second.closed_at < STALE_AFTER) {
+            auto& state = parked->second;
+            if (state.voltage) {
+                voltage_cache_.insert_or_assign(device_handle, *state.voltage);
+            }
+            if (state.reported) {
+                reported_.insert_or_assign(device_handle, *state.reported);
+            }
+            if (state.mode_checked) {
+                mode_checked_.insert_or_assign(device_handle, *state.mode_checked);
+            }
+            if (state.busy_until) {
+                busy_until_.insert_or_assign(device_handle, *state.busy_until);
+            }
+            reopened_.insert(device_handle);
+        }
+        parked_.erase(parked);
+    }
+
     void onConnectionClosed(hid_device* device_handle) const override
     {
         const std::lock_guard lock(mutex_);
-        voltage_cache_.erase(device_handle);
-        reported_.erase(device_handle);
-        mode_checked_.erase(device_handle);
-        busy_until_.erase(device_handle);
+        if (const auto path = paths_.find(device_handle); path != paths_.end()) {
+            // Kept for the next handle on the same device path
+            Parked state { .closed_at = now() };
+            if (auto it = voltage_cache_.find(device_handle); it != voltage_cache_.end()) {
+                state.voltage = it->second;
+            }
+            if (auto it = reported_.find(device_handle); it != reported_.end()) {
+                state.reported = it->second;
+            }
+            if (auto it = mode_checked_.find(device_handle); it != mode_checked_.end()) {
+                state.mode_checked = it->second;
+            }
+            if (auto it = busy_until_.find(device_handle); it != busy_until_.end()) {
+                state.busy_until = it->second;
+            }
+            std::erase_if(parked_, [&](const auto& entry) { return now() - entry.second.closed_at >= STALE_AFTER; });
+            parked_.insert_or_assign(path->second, std::move(state));
+        }
+        forget(device_handle);
     }
 
     /// CRC16-CCITT (poly 0x1021, init 0, no reflection)
@@ -353,6 +402,34 @@ private:
     mutable std::unordered_map<hid_device*, Reported> reported_;
     mutable std::unordered_map<hid_device*, std::chrono::steady_clock::time_point> mode_checked_;
     mutable std::unordered_map<hid_device*, std::chrono::steady_clock::time_point> busy_until_;
+
+    // State of closed handles, by device path, for the next handle on the same dongle
+    struct Parked {
+        std::optional<CachedVoltage> voltage;
+        std::optional<Reported> reported;
+        std::optional<std::chrono::steady_clock::time_point> mode_checked;
+        std::optional<std::chrono::steady_clock::time_point> busy_until;
+        std::chrono::steady_clock::time_point closed_at;
+    };
+    mutable std::unordered_map<hid_device*, std::string> paths_;
+    mutable std::unordered_map<std::string, Parked> parked_;
+    mutable std::unordered_set<hid_device*> reopened_; // its frontend reopens it for every poll
+
+    void forget(hid_device* device_handle) const
+    {
+        voltage_cache_.erase(device_handle);
+        reported_.erase(device_handle);
+        mode_checked_.erase(device_handle);
+        busy_until_.erase(device_handle);
+        paths_.erase(device_handle);
+        reopened_.erase(device_handle);
+    }
+
+    /// A handle that is closed between polls misses the notifications, so it re-reads more often
+    std::chrono::seconds refreshInterval(hid_device* device_handle) const
+    {
+        return reopened_.contains(device_handle) ? REOPENED_CACHE : VOLTAGE_CACHE;
+    }
 
     /// The headset's own figures while they are recent, else the voltage estimate; nullopt if neither
     std::optional<BatteryResult> makeResult(

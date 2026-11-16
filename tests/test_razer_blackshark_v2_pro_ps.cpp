@@ -1111,6 +1111,46 @@ void testBlackSharkCachePerHandle()
     BLACKSHARK_ASSERT(kept.hasValue() && kept->voltage_mv == 3700, "and only its own");
 }
 
+void testBlackSharkReopenedEveryPoll()
+{
+    // A frontend that discovers, reads and frees the headset on every poll
+    BlackSharkMockHID hid;
+    TestableBlackShark device(hid);
+    auto* const first  = reinterpret_cast<hid_device*>(0x11);
+    auto* const second = reinterpret_cast<hid_device*>(0x12);
+    const auto poll    = [&](hid_device* handle, const char* path) {
+        device.onConnectionOpened(handle, path);
+        auto result = device.getBattery(handle);
+        device.onConnectionClosed(handle);
+        return result;
+    };
+    const auto reads = [&] { return hid.count(Device::TYPE_OTA, { Device::GET_BATTERY }); };
+
+    BLACKSHARK_ASSERT(poll(first, "dongle-a").hasValue() && reads() == 1, "first poll reads");
+    hid.voltage_mv = 3700;
+    device.clock += std::chrono::seconds { 1 };
+    auto cached = poll(second, "dongle-a");
+    BLACKSHARK_ASSERT(cached.hasValue() && cached->voltage_mv == 3948 && reads() == 1, "the next handle gets the cache");
+    device.clock += Device::REOPENED_CACHE;
+    auto fresh = poll(first, "dongle-a");
+    BLACKSHARK_ASSERT(fresh.hasValue() && fresh->voltage_mv == 3700 && reads() == 2, "re-read once per REOPENED_CACHE");
+
+    // Another dongle does not get it
+    device.clock += std::chrono::seconds { 1 };
+    BLACKSHARK_ASSERT(poll(second, "dongle-b").hasValue() && reads() == 3, "another path reads");
+
+    // Nor does the same one after STALE_AFTER
+    device.clock += Device::STALE_AFTER;
+    BLACKSHARK_ASSERT(poll(first, "dongle-a").hasValue() && reads() == 4, "too old");
+
+    // A handle kept open uses the full window
+    device.onConnectionOpened(first, "dongle-c");
+    BLACKSHARK_ASSERT(device.getBattery(first).hasValue() && reads() == 5, "kept open");
+    device.clock += Device::REOPENED_CACHE;
+    BLACKSHARK_ASSERT(device.getBattery(first).hasValue() && reads() == 5, "not re-read within VOLTAGE_CACHE");
+    device.onConnectionClosed(first);
+}
+
 void testBlackSharkVoltageCurve()
 {
     BLACKSHARK_ASSERT(voltageToPercent(4200, Device::CALIBRATION) == 100, "full");
@@ -1157,6 +1197,7 @@ void runAllRazerBlackSharkV2ProPSTests()
     testBlackSharkSkipsOtherReplies();
     testBlackSharkCachesVoltage();
     testBlackSharkCachePerHandle();
+    testBlackSharkReopenedEveryPoll();
     testBlackSharkVoltageCurve();
     removeLockFile(TEST_LOCK);
     std::cout << "  Razer BlackShark V2 Pro (PlayStation) tests passed" << std::endl;
