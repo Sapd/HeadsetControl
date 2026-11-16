@@ -1143,11 +1143,32 @@ void testBlackSharkReopenedEveryPoll()
     device.clock += Device::STALE_AFTER;
     BLACKSHARK_ASSERT(poll(first, "dongle-a").hasValue() && reads() == 4, "too old");
 
+    // What the headset notified survives a reopen
+    device.clock += std::chrono::seconds { 1 };
+    hid.indicate(Device::IND_CHARGING, 1);
+    hid.indicate(Device::IND_BATTERY, 42);
+    BLACKSHARK_ASSERT(poll(second, "dongle-a")->level_percent == 42, "notified");
+    device.clock += std::chrono::seconds { 1 };
+    auto kept = poll(first, "dongle-a");
+    BLACKSHARK_ASSERT(kept->level_percent == 42 && kept->status == BATTERY_CHARGING, "kept across the reopen");
+
+    // With the headset off, the mode is still checked once per MODE_CHECK, not on every reopen
+    hid.link_status         = 0x13;
+    const auto queries      = [&] { return hid.count(Device::TYPE_LINK, { Device::GET_MODE }); };
+    const size_t before_off = queries();
+    for (int i = 0; i < 30; ++i) {
+        device.clock += std::chrono::seconds { 1 };
+        BLACKSHARK_ASSERT(poll(i % 2 ? first : second, "dongle-a").hasValue(), "headset off");
+    }
+    BLACKSHARK_ASSERT(queries() - before_off <= 3, "mode checked once per MODE_CHECK across reopens");
+    hid.link_status = 0x1b;
+
     // A handle kept open uses the full window
     device.onConnectionOpened(first, "dongle-c");
-    BLACKSHARK_ASSERT(device.getBattery(first).hasValue() && reads() == 5, "kept open");
+    const size_t before_kept = reads();
+    BLACKSHARK_ASSERT(device.getBattery(first).hasValue() && reads() == before_kept + 1, "kept open");
     device.clock += Device::REOPENED_CACHE;
-    BLACKSHARK_ASSERT(device.getBattery(first).hasValue() && reads() == 5, "not re-read within VOLTAGE_CACHE");
+    BLACKSHARK_ASSERT(device.getBattery(first).hasValue() && reads() == before_kept + 1, "not re-read within VOLTAGE_CACHE");
     device.onConnectionClosed(first);
 }
 

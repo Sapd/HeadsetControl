@@ -236,6 +236,7 @@ public:
         if (dongle_lock.recovered()) {
             // The previous holder died mid-conversation and may have left the dongle in remote mode
             voltage_cache_.erase(device_handle);
+            mode_checked_.erase(device_handle);
         }
         // Every open handle receives every reply, so while we waited for the
         // lock, other processes' replies piled up here; one with a sequence
@@ -262,6 +263,7 @@ public:
             auto voltage        = readVoltageInRemoteMode(device_handle, restored, previous);
             cached              = voltage_cache_.insert_or_assign(device_handle, CachedVoltage { voltage, now(), !restored }).first;
             mode_checked_.insert_or_assign(device_handle, now());
+            reopened_.erase(device_handle); // until the next adoption: a handle that stays open sees the notifications
         } else {
             checkMode(device_handle);
         }
@@ -304,8 +306,10 @@ public:
                 busy_until_.insert_or_assign(device_handle, *state.busy_until);
             }
             reopened_.insert(device_handle);
+        } else {
+            parked_.erase(parked);
         }
-        parked_.erase(parked);
+        // Otherwise left parked, for a second handle on the same path; the next close replaces it
     }
 
     void onConnectionClosed(hid_device* device_handle) const override
@@ -501,7 +505,9 @@ private:
                         reported.charge_state.reset();
                     }
                 }
-                (void)customGet(device_handle, IND_BATTERY);
+                if (!customGet(device_handle, IND_BATTERY)) {
+                    (void)customGet(device_handle, IND_BATTERY);
+                }
             }
         }
 

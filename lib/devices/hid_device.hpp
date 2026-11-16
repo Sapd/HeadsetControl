@@ -150,7 +150,7 @@ public:
     }
 
     /**
-     * @brief Told when a HID handle is opened, with the device path it was opened on.
+     * @brief Told when the library's Headset opens a HID handle, with the device path it was opened on.
      *
      * Optional. Lets a device recognise the same physical device behind a new
      * handle, for frontends that close and reopen it between requests.
