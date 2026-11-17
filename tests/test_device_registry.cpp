@@ -239,7 +239,7 @@ void testLookupLogitechProX2Lightspeed()
 
 void testLookupJabraLink390()
 {
-    std::cout << "  Testing lookup of Jabra Link 390 (0x2e57, 0x2e51)..." << std::endl;
+    std::cout << "  Testing lookup of Jabra Link 390 variants..." << std::endl;
 
     auto& registry = DeviceRegistry::instance();
     registry.initialize();
@@ -256,9 +256,16 @@ void testLookupJabraLink390()
     ASSERT_NOT_NULL(flex, "Evolve2 65 Flex (USB) should be found");
     ASSERT_EQ(device->getCapabilities(), flex->getCapabilities(), "Dongle and USB headset share the GNP feature set");
 
-    auto* variant = registry.getDevice(0x0b0e, 0x2e51);
-    ASSERT_NOT_NULL(variant, "Jabra Link 390 (0x2e51) should be found");
-    ASSERT_EQ(std::string(device->getDeviceName()), std::string(variant->getDeviceName()), "Both Link 390 PIDs map to the same device");
+    for (uint16_t pid : { 0x2e50, 0x2e51, 0x2e56 }) {
+        auto* variant = registry.getDevice(0x0b0e, pid);
+        ASSERT_NOT_NULL(variant, "Every Link 390 variant should be found");
+        ASSERT_EQ(std::string(device->getDeviceName()), std::string(variant->getDeviceName()), "Link 390 variants map to the same device");
+    }
+    for (uint16_t pid : { 0x2517, 0x2518 }) {
+        auto* variant = registry.getDevice(0x0b0e, pid);
+        ASSERT_NOT_NULL(variant, "Every Evolve2 65 Flex variant should be found");
+        ASSERT_EQ(std::string(flex->getDeviceName()), std::string(variant->getDeviceName()), "Evolve2 65 Flex variants map to the same device");
+    }
     ASSERT_TRUE((device->getSupportedPlatforms() & PLATFORM_WINDOWS) != 0, "Link 390 should be supported on Windows");
 
     std::cout << "    PASS" << std::endl;
@@ -314,7 +321,7 @@ void testSonyINZONEInterfaceSelection()
 
 void testLookupJabraLink380()
 {
-    std::cout << "  Testing lookup of Jabra Link 380 (0x24c7)..." << std::endl;
+    std::cout << "  Testing lookup of Jabra Link 380 variants..." << std::endl;
 
     auto& registry = DeviceRegistry::instance();
     registry.initialize();
@@ -326,6 +333,12 @@ void testLookupJabraLink380()
     ASSERT_TRUE((device->getCapabilities() & B(CAP_BATTERY_STATUS)) != 0, "Link 380 should expose battery capability");
     ASSERT_TRUE((device->getCapabilities() & B(CAP_LIGHTS)) != 0, "Link 380 should expose lights capability");
     ASSERT_TRUE((device->getCapabilities() & B(CAP_INACTIVE_TIME)) != 0, "Link 380 should expose inactive time capability");
+
+    for (uint16_t pid : { 0x24c8, 0x24c9, 0x24ca }) {
+        auto* variant = registry.getDevice(0x0b0e, pid);
+        ASSERT_NOT_NULL(variant, "Every Link 380 variant should be found");
+        ASSERT_EQ(std::string(device->getDeviceName()), std::string(variant->getDeviceName()), "Link 380 variants map to the same device");
+    }
 
     auto* link390 = registry.getDevice(0x0b0e, 0x2e57);
     ASSERT_NOT_NULL(link390, "Jabra Link 390 should be found");
