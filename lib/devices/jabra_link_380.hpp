@@ -16,10 +16,13 @@ namespace headsetcontrol {
  * 0x04 and the dongle's vendor collection (usage page 0xFF00) carries report 5
  * on usage 0x01. Verified on Linux with a Link 380 (0x24c7, fw 1.16) paired
  * with a Jabra Evolve2 65.
+ *
+ * PIDs: 0x24C7 380a UC, 0x24C8 380a MS, 0x24C9 380c UC, 0x24CA 380c MS, as listed by
+ * Jabra Direct. Only 0x24C7 is tested.
  */
 class JabraLink380 : public protocols::JabraGNPDevice<0x04, 0x01> {
 public:
-    static constexpr std::array<uint16_t, 1> PRODUCT_IDS { 0x24C7 };
+    static constexpr std::array<uint16_t, 4> PRODUCT_IDS { 0x24C7, 0x24C8, 0x24C9, 0x24CA };
 
     constexpr std::vector<uint16_t> getProductIds() const override
     {
