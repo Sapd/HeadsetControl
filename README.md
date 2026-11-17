@@ -199,6 +199,7 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 | Jabra Link 380 (paired headset) | L/M | x | x |   | x | x |   | x |   |   |   |   |   |   | x |   |   |   | x |   |   |   |   |   |   |   |
 | Jabra Link 390 (paired headset) | All | x | x |   | x | x |   | x |   |   |   |   |   |   | x |   |   |   | x |   |   |   |   |   |   |   |
 | Jabra Evolve2 65 Flex (USB) | L/M | x | x |   | x | x |   | x |   |   |   |   |   |   | x |   |   |   | x |   |   |   |   |   |   |   |
+| Jabra Evolve3 75 (USB) | All | x | x |   | x | x |   | x |   |   |   |   |   |   | x |   |   |   | x |   |   |   |   |   |   |   |
 | FIFINE HT6 Wireless | L/W |   | x |   | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   | x |
 | Sony INZONE Buds | All |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | Sony INZONE H5 | All | x | x |   |   |   | x |   |   |   |   |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |

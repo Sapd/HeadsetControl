@@ -64,6 +64,7 @@
 
 // Jabra devices
 #include "devices/jabra_evolve2_65_flex.hpp"
+#include "devices/jabra_evolve3_75.hpp"
 #include "devices/jabra_link_380.hpp"
 #include "devices/jabra_link_390.hpp"
 
@@ -190,6 +191,7 @@ void DeviceRegistry::initialize()
         registerDevice(std::make_unique<JabraLink380>());
         registerDevice(std::make_unique<JabraLink390>());
         registerDevice(std::make_unique<JabraEvolve265Flex>());
+        registerDevice(std::make_unique<JabraEvolve375>());
 
         // FIFINE devices
         registerDevice(std::make_unique<FifineHT6>());

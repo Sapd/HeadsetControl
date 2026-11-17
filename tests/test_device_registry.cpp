@@ -266,6 +266,13 @@ void testLookupJabraLink390()
         ASSERT_NOT_NULL(variant, "Every Evolve2 65 Flex variant should be found");
         ASSERT_EQ(std::string(flex->getDeviceName()), std::string(variant->getDeviceName()), "Evolve2 65 Flex variants map to the same device");
     }
+    for (uint16_t pid : { 0x2546, 0x2547, 0x2548 }) {
+        auto* evolve3 = registry.getDevice(0x0b0e, pid);
+        ASSERT_NOT_NULL(evolve3, "Every Evolve3 75 (USB) variant should be found");
+        ASSERT_EQ("Jabra Evolve3 75 (USB)", std::string(evolve3->getDeviceName()), "Evolve3 75 name should match");
+        ASSERT_EQ(device->getCapabilities(), evolve3->getCapabilities(), "Evolve3 75 shares the GNP feature set");
+        ASSERT_EQ(0x0005, evolve3->getCapabilityDetail(CAP_BATTERY_STATUS).usageid, "Evolve3 75 GNP collection is usage 0x05");
+    }
     ASSERT_TRUE((device->getSupportedPlatforms() & PLATFORM_WINDOWS) != 0, "Link 390 should be supported on Windows");
 
     std::cout << "    PASS" << std::endl;
