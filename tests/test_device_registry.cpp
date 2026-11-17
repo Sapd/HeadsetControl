@@ -239,7 +239,7 @@ void testLookupLogitechProX2Lightspeed()
 
 void testLookupJabraLink390()
 {
-    std::cout << "  Testing lookup of Jabra Link 390 (0x2e57)..." << std::endl;
+    std::cout << "  Testing lookup of Jabra Link 390 (0x2e57, 0x2e51)..." << std::endl;
 
     auto& registry = DeviceRegistry::instance();
     registry.initialize();
@@ -255,6 +255,11 @@ void testLookupJabraLink390()
     auto* flex = registry.getDevice(0x0b0e, 0x2519);
     ASSERT_NOT_NULL(flex, "Evolve2 65 Flex (USB) should be found");
     ASSERT_EQ(device->getCapabilities(), flex->getCapabilities(), "Dongle and USB headset share the GNP feature set");
+
+    auto* variant = registry.getDevice(0x0b0e, 0x2e51);
+    ASSERT_NOT_NULL(variant, "Jabra Link 390 (0x2e51) should be found");
+    ASSERT_EQ(std::string(device->getDeviceName()), std::string(variant->getDeviceName()), "Both Link 390 PIDs map to the same device");
+    ASSERT_TRUE((device->getSupportedPlatforms() & PLATFORM_WINDOWS) != 0, "Link 390 should be supported on Windows");
 
     std::cout << "    PASS" << std::endl;
 }
