@@ -31,6 +31,7 @@ void runAllHyperXCloudAlpha2WirelessTests();
 void runAllHyperXCloudAlphaSTests();
 void runAllSonyPulse3DTests();
 void runAllSennheiserGSP370Tests();
+void runAllEposH3ProHybridTests();
 void runAllCorsairVirtuosoTests();
 void runAllRazerBlackSharkV2ProPSTests();
 void runAllMchoseTests();
@@ -83,6 +84,7 @@ int main()
 
         headsetcontrol::testing::runAllSonyPulse3DTests();
         headsetcontrol::testing::runAllSennheiserGSP370Tests();
+        headsetcontrol::testing::runAllEposH3ProHybridTests();
         headsetcontrol::testing::runAllCorsairVirtuosoTests();
         headsetcontrol::testing::runAllRazerBlackSharkV2ProPSTests();
         headsetcontrol::testing::runAllMchoseTests();

@@ -195,6 +195,7 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 | Lenovo Wireless VoIP Headset | All | x | x |   |   | x |   | x | x | x |   |   | x |   | x |   |   |   |   |   |   |   |   |   |   |   |
 | Plantronics Voyager 8200 UC (BT600) | L/W | x | x |   | x |   |   | x |   |   |   |   |   |   | x |   |   |   |   |   |   |   |   |   |   |   |
 | Sennheiser GSP 370 | L | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
+| EPOS H3PRO Hybrid | All | r | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   | x | x |   |   |   |   |   |   |   |
 | Jabra Link 380 (paired headset) | L/M | x | x |   | x | x |   | x |   |   |   |   |   |   | x |   |   |   | x |   |   |   |   |   |   |   |
 | Jabra Link 390 (paired headset) | L/M | x | x |   | x | x |   | x |   |   |   |   |   |   | x |   |   |   | x |   |   |   |   |   |   |   |
 | Jabra Evolve2 65 Flex (USB) | L/M | x | x |   | x | x |   | x |   |   |   |   |   |   | x |   |   |   | x |   |   |   |   |   |   |   |
@@ -217,6 +218,8 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 > **Note:** HyperX Cloud Alpha 2 Wireless - while HyperX NGENUITY is running, changing any audio setting in it (sidetone, game/chat balance, equalizer preset, ...) makes NGENUITY write *all* of them back from its own saved values, which can undo changes made with HeadsetControl. Close NGENUITY, or make the change in NGENUITY instead.
 
 > **Note:** Sennheiser GSP 370 - settings go over the dongle's USB serial port, so install the udev rules from `headsetcontrol -u` for access without root. Sidetone is only audible while the microphone is in use, and its level cannot be read back.
+
+> **Note:** EPOS H3PRO Hybrid - works through its dongle or with the headset plugged in by cable. The headset reports its battery in steps of 20%. The microphone noise filter is either off (0) or on (1); the noise cancellation slider on the headset is separate and cannot be set.
 
 ## Usage
 
