@@ -5,8 +5,12 @@
 #include "../hid_device.hpp"
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cstdint>
+#include <cstdlib>
+#include <format>
 #include <initializer_list>
+#include <map>
 #include <span>
 #include <string>
 #include <string_view>
@@ -24,8 +28,8 @@ namespace headsetcontrol::protocols {
  * address of the headset differs (0x08 for a headset on USB, 0x04 for the headset paired
  * to a dongle).
  *
- * Frames are 64 bytes on HID report ID 0x05 in the vendor collection usage page 0xFF00 /
- * usage 0x05, zero padded:
+ * Frames are 64 bytes on HID report ID 0x05 in the vendor collection on usage page 0xFF00
+ * (usage 0x05 or 0x01 depending on the product, see GNP_USAGES), zero padded:
  *
  *   05 <dst> <src> <seq> <type<<6 | len> <cmd> <sub> <payload...>
  *
@@ -48,12 +52,11 @@ namespace headsetcontrol::protocols {
  *   13/90 INACTIVITY_INTERVAL  GET/SET [units of 5 minutes, 0 = never]
  *   13/01 INTELLITONE_LEVEL    GET/SET [00 PeakStop only, 03 IntelliTone, 05 G616]
  *
- * @tparam HeadsetAddress GNP address of the headset: 0x04 behind a dongle, 0x08 on USB
- * @tparam GnpUsage Usage of the vendor collection (page 0xFF00) carrying report 5:
- *         0x05 on the Link 390, 0x01 on the Evolve2 65 Flex
+ * JabraGNPBase holds the protocol and finds the GNP collection; the subclass says where
+ * the headset is with headsetAddress(). JabraGeneric (jabra_generic.hpp) works that out
+ * at runtime.
  */
-template <uint8_t HeadsetAddress, uint16_t GnpUsage>
-class JabraGNPDevice : public HIDDevice {
+class JabraGNPBase : public HIDDevice {
 public:
     static constexpr size_t MSG_SIZE   = 64;
     static constexpr uint8_t REPORT_ID = 0x05;
@@ -66,8 +69,70 @@ public:
     static constexpr size_t OFF_SUB     = 6;
     static constexpr size_t OFF_PAYLOAD = 7;
 
-private:
-    static constexpr uint8_t ADDR_HOST = 0x00;
+    static constexpr uint8_t ADDR_HOST       = 0x00;
+    static constexpr uint8_t ADDR_DONGLE_HS  = 0x04;
+    static constexpr uint8_t ADDR_USB_HS     = 0x08;
+    static constexpr uint16_t GNP_USAGE_PAGE = 0xFF00;
+
+    static constexpr uint16_t VENDOR_JABRA = 0x0B0E;
+
+    /// Usages of the GNP collection (page 0xFF00), in order of preference
+    static constexpr std::array<uint16_t, 2> GNP_USAGES { 0x05, 0x01 };
+
+    static constexpr bool isGnpCollection(const hid_device_info& info)
+    {
+        return info.usage_page == GNP_USAGE_PAGE
+            && std::find(GNP_USAGES.begin(), GNP_USAGES.end(), info.usage) != GNP_USAGES.end();
+    }
+
+    constexpr capability_detail getCapabilityDetail([[maybe_unused]] enum capabilities cap) const override
+    {
+        return { .usagepage = GNP_USAGE_PAGE, .usageid = GNP_USAGES.front(), .interface_id = 0x03 };
+    }
+
+    /**
+     * @brief The GNP collection of a connected product, looked up once per product.
+     *
+     * Products differ (0x05 on the Link 390, 0x01 on the Evolve2 65 Flex); this matters
+     * on Windows, where every collection is its own HID path. Falls back to
+     * getCapabilityDetail() while the product is not connected or its collections are
+     * not reported.
+     */
+    capability_detail resolveCapabilityDetail(uint16_t product_id, enum capabilities cap) const override
+    {
+        if (auto it = collections_.find(product_id); it != collections_.end()) {
+            return it->second;
+        }
+
+        hid_device_info* devs        = hid_enumerate(VENDOR_JABRA, product_id);
+        const hid_device_info* found = nullptr;
+        for (auto* cur = devs; cur; cur = cur->next) {
+            if (isGnpCollection(*cur) && (!found || cur->usage == GNP_USAGES.front())) {
+                found = cur;
+                if (found->usage == GNP_USAGES.front()) {
+                    break;
+                }
+            }
+        }
+        capability_detail detail = getCapabilityDetail(cap);
+        if (found) {
+            detail                   = { .usagepage = GNP_USAGE_PAGE, .usageid = found->usage, .interface_id = found->interface_number };
+            collections_[product_id] = detail;
+        }
+        hid_free_enumeration(devs);
+        return detail;
+    }
+
+    constexpr uint16_t getVendorId() const override
+    {
+        return VENDOR_JABRA;
+    }
+
+protected:
+    /**
+     * @brief GNP address the headset answers at on this handle (0x04 or 0x08).
+     */
+    virtual Result<uint8_t> headsetAddress(hid_device* device_handle) = 0;
 
     static constexpr uint8_t TYPE_GET      = 0x01;
     static constexpr uint8_t TYPE_SET      = 0x02;
@@ -86,6 +151,59 @@ private:
     static constexpr uint8_t IDENT_NAME   = 0x00;
     static constexpr uint8_t IDENT_SERIAL = 0x01;
 
+    using Frame = std::array<uint8_t, MSG_SIZE>;
+
+    /**
+     * @brief Send one GET/SET to a GNP address and return its response, NACKs included.
+     *
+     * Unsolicited events and stale replies (sequence mismatch) are skipped. A read
+     * timeout is returned as DeviceError::timeout().
+     */
+    Result<Frame> exchange(hid_device* device_handle, uint8_t address, uint8_t type, uint8_t cmd, uint8_t sub,
+        std::span<const uint8_t> payload = {}, int timeout_ms = hsc_device_timeout)
+    {
+        const uint8_t seq = sequence_++;
+        if (auto result = writeHID(device_handle, makeFrame(address, type, cmd, sub, seq, payload)); !result) {
+            return result.error();
+        }
+
+        // One deadline for the whole request: events in between do not extend it
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
+        while (true) {
+            const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
+                deadline - std::chrono::steady_clock::now())
+                                       .count();
+            if (remaining <= 0) {
+                return DeviceError::timeout("No reply for the requested command");
+            }
+            Frame response {};
+            if (auto read_result = readHIDTimeout(device_handle, response, static_cast<int>(remaining)); !read_result) {
+                return read_result.error();
+            }
+            if (isReplyTo(response, address, type, cmd, sub, seq)) {
+                return response;
+            }
+        }
+    }
+
+    /**
+     * @brief Whether @p response answers the request: addressed to the host, from the
+     * address asked, same sequence number, and either a NACK, an ACK to a SET, or the
+     * requested command echoed. Anything else (events, other requests) is skipped.
+     */
+    static constexpr bool isReplyTo(const Frame& response, uint8_t address, uint8_t type, uint8_t cmd, uint8_t sub,
+        uint8_t seq)
+    {
+        if (response[0] != REPORT_ID || response[OFF_DST] != ADDR_HOST || response[OFF_SRC] != address
+            || response[OFF_SEQ] != seq || (response[OFF_LEN] >> 6) != TYPE_RESPONSE) {
+            return false;
+        }
+        const uint8_t reply_cmd = response[OFF_CMD];
+        return reply_cmd == CMD_NACK || (type == TYPE_SET && reply_cmd == CMD_ACK)
+            || (reply_cmd == cmd && response[OFF_SUB] == sub);
+    }
+
+private:
     static constexpr uint8_t CMD_STATUS        = 0x12;
     static constexpr uint8_t STATUS_HS_BATTERY = 0x02;
     static constexpr uint8_t STATUS_BUSY_STATE = 0x08;
@@ -105,30 +223,43 @@ private:
     static constexpr uint8_t INTELLITONE_ON       = 0x03;
 
     static constexpr uint8_t INACTIVITY_STEP_MIN = 5;
+    /// Timer values Jabra offers (never, 15 min, 30 min, 1 h, 2 h, 4 h); a model may offer fewer
+    static constexpr std::array<uint8_t, 6> INACTIVITY_MINUTES { 0, 15, 30, 60, 120, 240 };
 
+    /// Levels written; the Evolve2 and Evolve3 models seen here offer exactly these
     static constexpr std::array<int8_t, 6> SIDETONE_DB { -9, -6, -3, 0, 3, 6 };
-    static constexpr std::array<std::string_view, 6> SIDETONE_NAMES {
-        "-9 dB"sv, "-6 dB"sv, "-3 dB"sv, "0 dB"sv, "+3 dB"sv, "+6 dB"sv
-    };
+    /// Levels a headset may report (Jabra's catalog also has -4, -2, +2 and +4 dB)
+    static constexpr std::array<int8_t, 10> SIDETONE_DB_KNOWN { -9, -6, -4, -3, -2, 0, 2, 3, 4, 6 };
     static constexpr uint8_t SIDETONE_MUTED   = 0x01;
     static constexpr uint8_t SIDETONE_UNMUTED = 0x00;
 
     struct SidetoneState {
         bool muted;
-        uint8_t index;
+        int8_t db; // as reported, kept when only the mute flag changes
+        uint8_t index; // nearest step of SIDETONE_DB
     };
 
-    static constexpr int MAX_READ_ATTEMPTS = 16;
+    static constexpr uint8_t nearestSidetoneStep(int8_t db)
+    {
+        uint8_t best = 0;
+        for (uint8_t i = 1; i < SIDETONE_DB.size(); ++i) {
+            if (std::abs(SIDETONE_DB[i] - db) < std::abs(SIDETONE_DB[best] - db)) {
+                best = i;
+            }
+        }
+        return best;
+    }
 
     uint8_t sequence_ = 0;
 
-    using Frame = std::array<uint8_t, MSG_SIZE>;
+    // GNP collection found per product ID, so it is enumerated once, not on every request
+    mutable std::map<uint16_t, capability_detail> collections_;
 
-    static Frame makeFrame(uint8_t type, uint8_t cmd, uint8_t sub, uint8_t seq, std::span<const uint8_t> payload)
+    static Frame makeFrame(uint8_t address, uint8_t type, uint8_t cmd, uint8_t sub, uint8_t seq, std::span<const uint8_t> payload)
     {
         Frame f {};
         f[0]       = REPORT_ID;
-        f[OFF_DST] = HeadsetAddress;
+        f[OFF_DST] = address;
         f[OFF_SRC] = ADDR_HOST;
         f[OFF_SEQ] = seq;
         f[OFF_LEN] = static_cast<uint8_t>((type << 6) | (6 + payload.size()));
@@ -162,38 +293,29 @@ private:
     /**
      * @brief Send one GET/SET to the headset and wait for its response.
      *
-     * Unsolicited events and stale replies (sequence mismatch) are skipped. A NACK for
-     * "no device at that address" or "peer offline" is reported as device-offline.
+     * A NACK for "no device at that address" or "peer offline", or no reply at all,
+     * is reported as device-offline.
      *
      * @return The reply frame (payload starts at OFF_PAYLOAD); for ACKs the payload is empty.
      */
     Result<Frame> request(hid_device* device_handle, uint8_t type, uint8_t cmd, uint8_t sub,
         std::span<const uint8_t> payload = {})
     {
-        const uint8_t seq = sequence_++;
-        if (auto result = writeHID(device_handle, makeFrame(type, cmd, sub, seq, payload)); !result) {
-            return result.error();
+        auto address = headsetAddress(device_handle);
+        if (!address) {
+            return address.error();
         }
-
-        for (int attempt = 0; attempt < MAX_READ_ATTEMPTS; ++attempt) {
-            Frame response {};
-            auto read_result = readHIDTimeout(device_handle, response, hsc_device_timeout);
-            if (!read_result) {
-                if (read_result.error().code == DeviceError::Code::Timeout) {
-                    return DeviceError::deviceOffline("No reply from the Jabra dongle");
-                }
-                return read_result.error();
+        auto response = exchange(device_handle, *address, type, cmd, sub, payload);
+        if (!response) {
+            if (response.error().code == DeviceError::Code::Timeout) {
+                return DeviceError::deviceOffline("No reply from the Jabra device");
             }
-            if (response[0] != REPORT_ID || (response[OFF_LEN] >> 6) != TYPE_RESPONSE
-                || response[OFF_SEQ] != seq) {
-                continue;
-            }
-            if (response[OFF_CMD] == CMD_NACK) {
-                return nackError(response[OFF_SUB]);
-            }
-            return response;
+            return response.error();
         }
-        return DeviceError::protocolError("No reply for the requested command");
+        if ((*response)[OFF_CMD] == CMD_NACK) {
+            return nackError((*response)[OFF_SUB]);
+        }
+        return response;
     }
 
     Result<Frame> get(hid_device* device_handle, uint8_t cmd, uint8_t sub, std::span<const uint8_t> payload = {})
@@ -225,21 +347,21 @@ private:
         if (payloadLength(*reply) < 2) {
             return DeviceError::protocolError("Unexpected Jabra sidetone reply format");
         }
-        const auto db   = static_cast<int8_t>((*reply)[OFF_PAYLOAD + 1]);
-        const auto step = std::find(SIDETONE_DB.begin(), SIDETONE_DB.end(), db);
-        if (step == SIDETONE_DB.end()) {
+        const auto db = static_cast<int8_t>((*reply)[OFF_PAYLOAD + 1]);
+        if (std::find(SIDETONE_DB_KNOWN.begin(), SIDETONE_DB_KNOWN.end(), db) == SIDETONE_DB_KNOWN.end()) {
             return DeviceError::protocolError("Invalid Jabra sidetone value");
         }
         return SidetoneState {
             .muted = (*reply)[OFF_PAYLOAD] == SIDETONE_MUTED,
-            .index = static_cast<uint8_t>(step - SIDETONE_DB.begin())
+            .db    = db,
+            .index = nearestSidetoneStep(db)
         };
     }
 
     Result<void> writeSidetone(hid_device* device_handle, const SidetoneState& state)
     {
         return set(device_handle, CMD_CONFIG, CONFIG_DSP_SIDETONE,
-            { state.muted ? SIDETONE_MUTED : SIDETONE_UNMUTED, static_cast<uint8_t>(SIDETONE_DB[state.index]) });
+            { state.muted ? SIDETONE_MUTED : SIDETONE_UNMUTED, static_cast<uint8_t>(state.db) });
     }
 
     static SidetoneResult toSidetoneResult(const SidetoneState& state)
@@ -252,25 +374,15 @@ private:
             .device_max    = SIDETONE_DB.size() - 1,
             .is_muted      = state.muted,
             .device_level  = state.index,
-            .level_name    = std::string(state.muted ? "muted"sv : SIDETONE_NAMES[state.index])
+            .level_name    = state.muted ? std::string("muted") : (state.db == 0 ? std::string("0 dB") : std::format("{:+} dB", state.db))
         };
     }
 
 public:
-    constexpr uint16_t getVendorId() const override
-    {
-        return 0x0B0E;
-    }
-
     constexpr int getCapabilities() const override
     {
         return B(CAP_SIDETONE) | B(CAP_SIDETONE_STATUS) | B(CAP_BATTERY_STATUS) | B(CAP_LIGHTS)
             | B(CAP_VOICE_PROMPTS) | B(CAP_INACTIVE_TIME) | B(CAP_VOLUME_LIMITER);
-    }
-
-    constexpr capability_detail getCapabilityDetail([[maybe_unused]] enum capabilities cap) const override
-    {
-        return { .usagepage = 0xFF00, .usageid = GnpUsage, .interface_id = 0x03 };
     }
 
     /**
@@ -287,18 +399,21 @@ public:
             return DeviceError::protocolError("Empty string reply");
         }
         std::string_view text(reinterpret_cast<const char*>(reply->data() + OFF_PAYLOAD), len);
-        if (static_cast<uint8_t>(text.front()) == len - 1) {
-            text.remove_prefix(1);
+        // The first byte is the string length; the payload may be padded beyond it
+        const size_t text_len = static_cast<uint8_t>(text.front());
+        if (text_len == 0 || text_len > len - 1) {
+            return DeviceError::protocolError("Invalid string reply");
         }
+        text = text.substr(1, text_len);
         return std::string(text.substr(0, text.find('\0')));
     }
 
     /**
      * @brief Report the paired headset, not the dongle, as the product.
      *
-     * The Link 390 pairs with any Jabra Bluetooth headset, so the model behind the dongle
-     * is only known at runtime: IDENT name/serial at address 0x04. If the headset is off
-     * the dongle's own HID strings are kept.
+     * A Link dongle pairs with any Jabra Bluetooth headset, so the model behind it is only
+     * known at runtime: IDENT name/serial at headsetAddress(). A headset on USB reports its
+     * own name the same way. If the headset is off the device's own HID strings are kept.
      */
     Result<DeviceMetadata> getMetadata(hid_device* device_handle) override
     {
@@ -327,8 +442,12 @@ public:
         const uint8_t flags = (*reply)[OFF_PAYLOAD];
         const uint8_t level = (*reply)[OFF_PAYLOAD + 1];
 
+        if (level > 100) {
+            return DeviceError::protocolError("Invalid Jabra battery level");
+        }
+
         BatteryResult battery {};
-        battery.level_percent = std::min<int>(100, level);
+        battery.level_percent = level;
         battery.status        = (flags & BATTERY_FLAG_CHARGING) ? BATTERY_CHARGING : BATTERY_AVAILABLE;
         battery.raw_data      = std::vector<uint8_t>(reply->begin(), reply->begin() + static_cast<long>(OFF_PAYLOAD + payloadLength(*reply)));
         return battery;
@@ -343,6 +462,7 @@ public:
         state->muted = level == 0;
         if (!state->muted) {
             state->index = mapSidetoneToDiscrete<SIDETONE_DB.size()>(level);
+            state->db    = SIDETONE_DB[state->index];
         }
         if (auto result = writeSidetone(device_handle, *state); !result) {
             return result.error();
@@ -377,14 +497,21 @@ public:
 
     Result<InactiveTimeResult> setInactiveTime(hid_device* device_handle, uint8_t minutes) override
     {
-        const uint8_t units = static_cast<uint8_t>((minutes + INACTIVITY_STEP_MIN / 2) / INACTIVITY_STEP_MIN);
+        // Only the timer values Jabra offers are written: the nearest one, ties to the shorter
+        uint8_t chosen = INACTIVITY_MINUTES.front();
+        for (uint8_t offered : INACTIVITY_MINUTES) {
+            if (std::abs(offered - minutes) < std::abs(chosen - minutes)) {
+                chosen = offered;
+            }
+        }
+        const auto units = static_cast<uint8_t>(chosen / INACTIVITY_STEP_MIN);
         if (auto result = set(device_handle, CMD_CONFIG, CONFIG_INACTIVITY, { units }); !result) {
             return result.error();
         }
         return InactiveTimeResult {
-            .minutes     = static_cast<uint8_t>(units * INACTIVITY_STEP_MIN),
+            .minutes     = chosen,
             .min_minutes = 0,
-            .max_minutes = 255 / INACTIVITY_STEP_MIN * INACTIVITY_STEP_MIN
+            .max_minutes = INACTIVITY_MINUTES.back()
         };
     }
 

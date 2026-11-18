@@ -196,10 +196,7 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 | Plantronics Voyager 8200 UC (BT600) | L/W | x | x |   | x |   |   | x |   |   |   |   |   |   | x |   |   |   |   |   |   |   |   |   |   |   |
 | Sennheiser GSP 370 | L | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | EPOS H3PRO Hybrid | All | r | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   | x | x |   |   |   |   |   |   |   |
-| Jabra Link 380 (paired headset) | L/M | x | x |   | x | x |   | x |   |   |   |   |   |   | x |   |   |   | x |   |   |   |   |   |   |   |
-| Jabra Link 390 (paired headset) | All | x | x |   | x | x |   | x |   |   |   |   |   |   | x |   |   |   | x |   |   |   |   |   |   |   |
-| Jabra Evolve2 65 Flex (USB) | L/M | x | x |   | x | x |   | x |   |   |   |   |   |   | x |   |   |   | x |   |   |   |   |   |   |   |
-| Jabra Evolve3 75 (USB) | All | x | x |   | x | x |   | x |   |   |   |   |   |   | x |   |   |   | x |   |   |   |   |   |   |   |
+| Jabra (GN Protocol) | All | x | x |   | x | x |   | x |   |   |   |   |   |   | x |   |   |   | x |   |   |   |   |   |   |   |
 | FIFINE HT6 Wireless | L/W |   | x |   | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   | x |
 | Sony INZONE Buds | All |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | Sony INZONE H5 | All | x | x |   |   |   | x |   |   |   |   |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |
@@ -221,6 +218,8 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 > **Note:** Sennheiser GSP 370 - settings go over the dongle's USB serial port, so install the udev rules from `headsetcontrol -u` for access without root. Sidetone is only audible while the microphone is in use, and its level cannot be read back.
 
 > **Note:** EPOS H3PRO Hybrid - works through its dongle or with the headset plugged in by cable. The headset reports its battery in steps of 20%. The microphone noise filter is either off (0) or on (1); the noise cancellation slider on the headset is separate and cannot be set.
+
+> **Note:** Jabra - one driver handles every Jabra headset and Link dongle that speaks the GN Protocol, such as the Evolve2 and Evolve3 series, whether the headset is on its USB cable or behind a Link dongle; through a dongle it shows the name of the paired headset. Verified with the Link 380, Link 390, Evolve2 65 Flex and Evolve3 75. Settings a model lacks are reported as not supported.
 
 ## Usage
 

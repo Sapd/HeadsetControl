@@ -55,6 +55,9 @@ public:
 
     /**
      * @brief Get list of supported USB product IDs
+     *
+     * Empty for a generic driver that matches by HID interface instead
+     * (matchesUnlistedInterface()).
      */
     virtual std::vector<uint16_t> getProductIds() const = 0;
 
@@ -148,6 +151,26 @@ public:
         // Default: interface 0, no usage page/id (C++20 designated initializers)
         return { .usagepage = 0, .usageid = 0, .interface_id = 0 };
     }
+
+    /**
+     * @brief Capability details for one concrete product, used to pick the HID path to open.
+     *
+     * Defaults to getCapabilityDetail(). A generic driver, which has no fixed product list,
+     * overrides this to look up which collection the given product actually exposes.
+     */
+    virtual capability_detail resolveCapabilityDetail([[maybe_unused]] uint16_t product_id, enum capabilities cap) const
+    {
+        return getCapabilityDetail(cap);
+    }
+
+    /**
+     * @brief Whether this driver handles an HID interface of a product no device lists.
+     *
+     * For a generic driver that serves a whole protocol family instead of listed product
+     * IDs (getProductIds() is then empty). DeviceRegistry::findDevice() asks every device
+     * once no device lists the product ID.
+     */
+    virtual bool matchesUnlistedInterface([[maybe_unused]] const hid_device_info& info) const { return false; }
 
     /**
      * @brief Told when the library's Headset opens a HID handle, with the device path it was opened on.
