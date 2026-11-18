@@ -226,6 +226,11 @@ public:
             if (!backing_off) {
                 busy_until_.insert_or_assign(device_handle, now() + BUSY_BACKOFF);
             }
+            // A dongle we could not switch back stays reported, as it does with the lock
+            if (const auto cached = voltage_cache_.find(device_handle);
+                cached != voltage_cache_.end() && cached->second.stuck_remote) {
+                return cached->second.voltage.error();
+            }
             // Another process is in a long conversation, or stuck in one: what we read lately is the best we have
             if (auto known = lastKnown(device_handle, start)) {
                 return *known;
@@ -250,7 +255,7 @@ public:
         if ((*link & LINK_HEADSET) == 0) {
             voltage_cache_.erase(device_handle);
             reported_.erase(device_handle);
-            checkMode(device_handle);
+            (void)checkMode(device_handle);
             return BatteryResult { .level_percent = -1, .status = BATTERY_UNAVAILABLE };
         }
 
@@ -264,8 +269,10 @@ public:
             cached              = voltage_cache_.insert_or_assign(device_handle, CachedVoltage { voltage, now(), !restored }).first;
             mode_checked_.insert_or_assign(device_handle, now());
             reopened_.erase(device_handle); // until the next adoption: a handle that stays open sees the notifications
-        } else {
-            checkMode(device_handle);
+        } else if (!checkMode(device_handle)) {
+            // Reported like a failed switch back after a read, and retried by the next one
+            const auto error = DeviceError::protocolError("Could not switch the dongle back to local mode");
+            cached->second   = CachedVoltage { error, now(), true };
         }
         if (cached->second.stuck_remote) {
             // Reported until the next read (after FAILURE_BACKOFF) puts it back, figures or not
@@ -526,19 +533,21 @@ private:
      * a read) is put back, at most once per MODE_CHECK, even when there is
      * nothing to read: with the headset off, or between voltage reads. A
      * remote mode another program is using is left alone.
+     *
+     * @return false when the dongle is in remote mode and could not be put back
      */
-    void checkMode(hid_device* device_handle)
+    bool checkMode(hid_device* device_handle)
     {
         const auto checked = mode_checked_.find(device_handle);
         if (checked != mode_checked_.end() && now() - checked->second < MODE_CHECK) {
-            return;
+            return true;
         }
         mode_checked_.insert_or_assign(device_handle, now());
         auto mode = getLinkValue(device_handle, GET_MODE);
         if (!mode || *mode != MODE_REMOTE || foreignSession(device_handle)) {
-            return; // local, a mode this driver does not touch, or someone else's session
+            return true; // local, a mode this driver does not touch, or someone else's session
         }
-        (void)restoreLocal(device_handle);
+        return restoreLocal(device_handle);
     }
 
     /**

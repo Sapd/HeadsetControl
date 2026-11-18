@@ -977,6 +977,46 @@ void testBlackSharkReportsStuckRemote()
         "restore failure wins over the read timeout");
 }
 
+void testBlackSharkStuckRemoteStaysReported()
+{
+    // The periodic mode check cannot switch a leftover remote mode back either
+    BlackSharkMockHID hid;
+    TestableBlackShark device(hid);
+    BLACKSHARK_ASSERT(device.getBattery(TEST_HANDLE).hasValue(), "first read");
+    hid.mode         = Device::MODE_REMOTE;
+    hid.ignore_local = true;
+    device.clock += Device::MODE_CHECK;
+    auto stuck = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(stuck.hasError() && stuck.error().code == DeviceError::Code::ProtocolError,
+        "a failed switch back is reported, not hidden behind the cached voltage");
+
+    hid.ignore_local = false;
+    device.clock += Device::FAILURE_BACKOFF;
+    BLACKSHARK_ASSERT(device.getBattery(TEST_HANDLE).hasValue(), "read again after the backoff");
+    BLACKSHARK_ASSERT(hid.mode == Device::MODE_LOCAL, "and restores local mode");
+
+    // A busy lock does not turn it into a success with the headset's own figures
+    BlackSharkMockHID hid2;
+    hid2.ignore_local   = true;
+    hid2.custom_percent = 64;
+    TestableBlackShark device2(hid2);
+    BLACKSHARK_ASSERT(device2.getBattery(TEST_HANDLE).hasError(), "left in remote mode");
+
+    std::promise<void> held, release;
+    auto release_future = release.get_future();
+    std::thread other([&] {
+        ProcessLock lock(TEST_LOCK, std::chrono::seconds { 10 });
+        held.set_value();
+        release_future.wait();
+    });
+    held.get_future().wait();
+    auto busy = device2.getBattery(TEST_HANDLE);
+    release.set_value();
+    other.join();
+    BLACKSHARK_ASSERT(busy.hasError() && busy.error().code == DeviceError::Code::ProtocolError,
+        "still reported while another process holds the lock");
+}
+
 void testBlackSharkBacksOffAfterFailure()
 {
     BlackSharkMockHID hid;
@@ -1211,6 +1251,7 @@ void runAllRazerBlackSharkV2ProPSTests()
     testBlackSharkRetriesBattery();
     testBlackSharkRestoresLocalAfterFailure();
     testBlackSharkReportsStuckRemote();
+    testBlackSharkStuckRemoteStaysReported();
     testBlackSharkUnplugged();
     testBlackSharkBacksOffAfterFailure();
     testBlackSharkUnknownMode();
