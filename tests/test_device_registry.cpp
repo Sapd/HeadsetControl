@@ -237,47 +237,6 @@ void testLookupLogitechProX2Lightspeed()
     std::cout << "    OK lookup Logitech PRO X2 LIGHTSPEED" << std::endl;
 }
 
-void testLookupJabraLink390()
-{
-    std::cout << "  Testing lookup of Jabra Link 390 variants..." << std::endl;
-
-    auto& registry = DeviceRegistry::instance();
-    registry.initialize();
-
-    auto* device = registry.getDevice(0x0b0e, 0x2e57);
-    ASSERT_NOT_NULL(device, "Jabra Link 390 should be found");
-    ASSERT_EQ("Jabra Link 390 (paired headset)", std::string(device->getDeviceName()), "Device name should match");
-    ASSERT_TRUE((device->getCapabilities() & B(CAP_SIDETONE)) != 0, "Link 390 should expose sidetone capability");
-    ASSERT_TRUE((device->getCapabilities() & B(CAP_BATTERY_STATUS)) != 0, "Link 390 should expose battery capability");
-    ASSERT_TRUE((device->getCapabilities() & B(CAP_LIGHTS)) != 0, "Link 390 should expose lights capability");
-    ASSERT_TRUE((device->getCapabilities() & B(CAP_INACTIVE_TIME)) != 0, "Link 390 should expose inactive time capability");
-
-    auto* flex = registry.getDevice(0x0b0e, 0x2519);
-    ASSERT_NOT_NULL(flex, "Evolve2 65 Flex (USB) should be found");
-    ASSERT_EQ(device->getCapabilities(), flex->getCapabilities(), "Dongle and USB headset share the GNP feature set");
-
-    for (uint16_t pid : { 0x2e50, 0x2e51, 0x2e56 }) {
-        auto* variant = registry.getDevice(0x0b0e, pid);
-        ASSERT_NOT_NULL(variant, "Every Link 390 variant should be found");
-        ASSERT_EQ(std::string(device->getDeviceName()), std::string(variant->getDeviceName()), "Link 390 variants map to the same device");
-    }
-    for (uint16_t pid : { 0x2517, 0x2518 }) {
-        auto* variant = registry.getDevice(0x0b0e, pid);
-        ASSERT_NOT_NULL(variant, "Every Evolve2 65 Flex variant should be found");
-        ASSERT_EQ(std::string(flex->getDeviceName()), std::string(variant->getDeviceName()), "Evolve2 65 Flex variants map to the same device");
-    }
-    for (uint16_t pid : { 0x2546, 0x2547, 0x2548 }) {
-        auto* evolve3 = registry.getDevice(0x0b0e, pid);
-        ASSERT_NOT_NULL(evolve3, "Every Evolve3 75 (USB) variant should be found");
-        ASSERT_EQ("Jabra Evolve3 75 (USB)", std::string(evolve3->getDeviceName()), "Evolve3 75 name should match");
-        ASSERT_EQ(device->getCapabilities(), evolve3->getCapabilities(), "Evolve3 75 shares the GNP feature set");
-        ASSERT_EQ(0x0005, evolve3->getCapabilityDetail(CAP_BATTERY_STATUS).usageid, "Evolve3 75 GNP collection is usage 0x05");
-    }
-    ASSERT_TRUE((device->getSupportedPlatforms() & PLATFORM_WINDOWS) != 0, "Link 390 should be supported on Windows");
-
-    std::cout << "    PASS" << std::endl;
-}
-
 void testLookupSonyINZONEH9II()
 {
     std::cout << "  Testing lookup of Sony INZONE H9 II (0x0fa8)..." << std::endl;
@@ -324,34 +283,6 @@ void testSonyINZONEInterfaceSelection()
     ASSERT_EQ(5, h9ii_detail.interface_id, "H9 II control collection is on interface 5");
 
     std::cout << "    OK Sony INZONE interface selection" << std::endl;
-}
-
-void testLookupJabraLink380()
-{
-    std::cout << "  Testing lookup of Jabra Link 380 variants..." << std::endl;
-
-    auto& registry = DeviceRegistry::instance();
-    registry.initialize();
-
-    auto* device = registry.getDevice(0x0b0e, 0x24c7);
-    ASSERT_NOT_NULL(device, "Jabra Link 380 should be found");
-    ASSERT_EQ("Jabra Link 380 (paired headset)", std::string(device->getDeviceName()), "Device name should match");
-    ASSERT_TRUE((device->getCapabilities() & B(CAP_SIDETONE)) != 0, "Link 380 should expose sidetone capability");
-    ASSERT_TRUE((device->getCapabilities() & B(CAP_BATTERY_STATUS)) != 0, "Link 380 should expose battery capability");
-    ASSERT_TRUE((device->getCapabilities() & B(CAP_LIGHTS)) != 0, "Link 380 should expose lights capability");
-    ASSERT_TRUE((device->getCapabilities() & B(CAP_INACTIVE_TIME)) != 0, "Link 380 should expose inactive time capability");
-
-    for (uint16_t pid : { 0x24c8, 0x24c9, 0x24ca }) {
-        auto* variant = registry.getDevice(0x0b0e, pid);
-        ASSERT_NOT_NULL(variant, "Every Link 380 variant should be found");
-        ASSERT_EQ(std::string(device->getDeviceName()), std::string(variant->getDeviceName()), "Link 380 variants map to the same device");
-    }
-
-    auto* link390 = registry.getDevice(0x0b0e, 0x2e57);
-    ASSERT_NOT_NULL(link390, "Jabra Link 390 should be found");
-    ASSERT_EQ(device->getCapabilities(), link390->getCapabilities(), "Link 380 and Link 390 share the GNP feature set");
-
-    std::cout << "    PASS" << std::endl;
 }
 
 void testLookupPlantronicsBT600()
@@ -522,6 +453,9 @@ void testDeviceProductIds()
 
     for (const auto& device : devices) {
         auto product_ids = device->getProductIds();
+        if (product_ids.empty() && device->getDeviceName() == "Jabra (GN Protocol)") {
+            continue; // matched by HID collection, not by product ID
+        }
 
         // Each device should have at least one product ID
         ASSERT_TRUE(product_ids.size() >= 1, "Device should have at least one product ID");
@@ -711,8 +645,6 @@ void runAllDeviceRegistryTests()
     runTest("Lookup Sony INZONE H9 II", testLookupSonyINZONEH9II);
     runTest("Sony INZONE Interface Selection", testSonyINZONEInterfaceSelection);
     runTest("Lookup Plantronics BT600", testLookupPlantronicsBT600);
-    runTest("Lookup Jabra Link 390", testLookupJabraLink390);
-    runTest("Lookup Jabra Link 380", testLookupJabraLink380);
     runTest("Lookup Non-Existent", testLookupNonExistentDevice);
     runTest("Lookup Wrong Product ID", testLookupWithWrongProductId);
     runTest("Lookup Wrong Vendor ID", testLookupWithWrongVendorId);
