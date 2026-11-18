@@ -150,6 +150,14 @@ public:
     }
 
     /**
+     * @brief Told when the library's Headset opens a HID handle, with the device path it was opened on.
+     *
+     * Optional. Lets a device recognise the same physical device behind a new
+     * handle, for frontends that close and reopen it between requests.
+     */
+    virtual void onConnectionOpened(hid_device* /*device_handle*/, std::string_view /*path*/) const { }
+
+    /**
      * @brief Release per-connection protocol state when a HID handle is closed.
      *
      * Optional. Devices that keep per-handle state recover on their own if this is

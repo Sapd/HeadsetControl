@@ -1,15 +1,20 @@
 #include "device_registry.hpp"
 #include "devices/razer_blackshark_v2_pro_ps.hpp"
+#include "lock_test_utils.hpp"
 
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <deque>
+#include <format>
+#include <future>
 #include <iostream>
 #include <optional>
+#include <random>
 #include <span>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace headsetcontrol::testing {
@@ -52,7 +57,14 @@ public:
     uint8_t ack                = Device::ACK_OK;
     bool send_noise            = false;
     bool ignore_local          = false; // acks the switch to local mode but stays in remote
-    size_t fail_writes_from    = SIZE_MAX; // writes from this index on fail, as if unplugged
+    bool ignore_remote         = false; // acks the switch to remote mode but stays local
+    bool foreign_session       = false; // another program talks to the dongle: its replies keep coming
+    int lost_custom_replies    = 0; // customer GET replies to drop
+    // Delivered right after the reply to the next mode query; 0xff in [13] becomes our sequence number
+    std::deque<Bytes> after_mode_query;
+    // Delivered before the reply to the next write, with the same substitution
+    std::deque<Bytes> before_next_reply;
+    size_t fail_writes_from = SIZE_MAX; // writes from this index on fail, as if unplugged
     std::optional<uint8_t> custom_percent; // answer to the customer GET 0x21, in remote mode
     std::optional<uint8_t> custom_charge; // answer to the customer GET 0x2a, in remote mode
 
@@ -75,8 +87,18 @@ public:
             bad_crc = true;
         }
 
+        for (Bytes f : before_next_reply) {
+            if (f.size() > Device::REPLY_SEQUENCE && f[Device::REPLY_SEQUENCE] == 0xff)
+                f[Device::REPLY_SEQUENCE] = static_cast<uint8_t>(0x80 | frame[8]);
+            pending.push_back(f);
+        }
+        before_next_reply.clear();
         if (scripted.empty()) {
             respond(frame);
+            if (frame[7] == Device::TYPE_LINK && frame[10] == Device::GET_MODE) {
+                pending.insert(pending.end(), after_mode_query.begin(), after_mode_query.end());
+                after_mode_query.clear();
+            }
         } else {
             // Replayed with the sequence number of the request it answers
             Bytes r = scripted.front();
@@ -95,6 +117,8 @@ public:
 
     Result<size_t> readTimeout(hid_device*, std::span<uint8_t> data, int) override
     {
+        if (pending.empty() && foreign_session) // a reply to the other program's OTA request
+            pending.push_back({ 0x02, 0x0d, 0x50, 0x49, 0x01, 0xc0, 0, 0, 0, 0x02, 0x03, 0x00, Device::TYPE_OTA, 0xf5, 0x00 });
         if (pending.empty())
             return DeviceError::timeout("Simulated timeout");
         Bytes report = padded(pending.front());
@@ -141,6 +165,14 @@ public:
             value });
     }
 
+    size_t count(uint8_t type, Bytes body) const
+    {
+        return static_cast<size_t>(std::count_if(writes.begin(), writes.end(), [&](const Bytes& f) {
+            const size_t at = f[7] == Device::TYPE_OTA ? 11 : 10;
+            return f[7] == type && std::equal(body.begin(), body.end(), f.begin() + at);
+        }));
+    }
+
 private:
     void reply(uint8_t type, uint8_t seq, Bytes data)
     {
@@ -163,7 +195,8 @@ private:
             const std::optional<uint8_t> value = id == Device::IND_BATTERY ? custom_percent
                 : id == Device::IND_CHARGING                               ? custom_charge
                                                                            : std::nullopt;
-            if (mode == Device::MODE_REMOTE && value && ack == Device::ACK_OK) // format captured on hardware
+            if (mode == Device::MODE_REMOTE && value && ack == Device::ACK_OK && lost_custom_replies-- <= 0)
+                // format captured on hardware
                 pending.push_back({ 0x02, 0x0e, 0x50, 0x49, 0x08, 0xe5, 0x30, 0x0a, 0x2d, 0x00, 0x04, 0x00, id, 0x01,
                     0x01, *value });
             return;
@@ -171,7 +204,7 @@ private:
         if (type == Device::TYPE_LINK) {
             const uint8_t id = f[10];
             if (id == Device::SET_MODE) {
-                if (!(ignore_local && f[11] == Device::MODE_LOCAL))
+                if (!(ignore_local && f[11] == Device::MODE_LOCAL) && !(ignore_remote && f[11] == Device::MODE_REMOTE))
                     mode = f[11];
                 reply(type, seq, {});
                 return;
@@ -190,6 +223,10 @@ private:
     }
 };
 
+// Not the real device's lock, and not shared with another test run: a running
+// HeadsetControl or a second checkout must not make the tests flaky
+const std::string TEST_LOCK = std::format("selftest-blackshark-{}", std::random_device {}());
+
 class TestableBlackShark final : public RazerBlackSharkV2ProPS {
 public:
     explicit TestableBlackShark(BlackSharkMockHID& hid)
@@ -201,9 +238,13 @@ protected:
     HIDInterface& getHIDInterface() const override { return hid_; }
     void settle(std::chrono::milliseconds) const override { }
     std::chrono::steady_clock::time_point now() const override { return clock; }
+    uint8_t firstSequence() const override { return 0; } // the capture started at 1
+    std::chrono::milliseconds lockTimeout() const override { return std::chrono::milliseconds { 100 }; }
+    std::string lockName() const override { return lock_name; }
 
 public:
     std::chrono::steady_clock::time_point clock {};
+    std::string lock_name = TEST_LOCK;
 
 private:
     BlackSharkMockHID& hid_;
@@ -353,9 +394,55 @@ void testBlackSharkRestoresLocalWhileUnlinked()
     device2.clock += std::chrono::seconds { 1 };
     BLACKSHARK_ASSERT(device2.getBattery(TEST_HANDLE).hasValue(), "headset off");
     BLACKSHARK_ASSERT(switches() == Device::ATTEMPTS, "not again within the backoff");
-    device2.clock += Device::FAILURE_BACKOFF;
+    device2.clock += Device::MODE_CHECK;
     BLACKSHARK_ASSERT(device2.getBattery(TEST_HANDLE).hasValue(), "headset off");
     BLACKSHARK_ASSERT(switches() == 2 * Device::ATTEMPTS, "retried after it");
+}
+
+void testBlackSharkIgnoresStaleReplies()
+{
+    // Another process's reply to its first request (sequence 1, "headset off"),
+    // queued on our handle while we waited for the lock
+    BlackSharkMockHID hid;
+    hid.pending.push_back({ 0x02, 0x19, 0x50, 0x49, 0x01, 0xc0, 0, 0, 0, 0x02, 0x03, 0x00, Device::TYPE_LINK, 0x81, 0x00,
+        0x50, 0x49, 0x0e, 0xe0, 0, 0, 0, 0, 0x02, 0x00, Device::LINK_STATUS, 0x13 });
+    hid.indicate(Device::IND_CHARGING, 1); // queued alongside it
+    TestableBlackShark device(hid);
+
+    auto result = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(result.hasValue() && result->status == BATTERY_CHARGING, "stale reply skipped, notification kept");
+    BLACKSHARK_ASSERT(result->voltage_mv == 3948, "a full read follows");
+}
+
+void testBlackSharkBusyLock()
+{
+    BlackSharkMockHID hid;
+    TestableBlackShark device(hid);
+    BLACKSHARK_ASSERT(device.getBattery(TEST_HANDLE).hasValue(), "first read");
+    const size_t writes = hid.writes.size();
+
+    // Another process in a long conversation on the same dongle
+    std::promise<void> held, release;
+    auto release_future = release.get_future();
+    std::thread other([&] {
+        ProcessLock lock(TEST_LOCK, std::chrono::seconds { 10 });
+        held.set_value();
+        release_future.wait();
+    });
+    held.get_future().wait();
+
+    auto busy = device.getBattery(TEST_HANDLE);
+    BlackSharkMockHID hid2;
+    TestableBlackShark fresh(hid2);
+    auto none = fresh.getBattery(TEST_HANDLE);
+    release.set_value();
+    other.join();
+
+    BLACKSHARK_ASSERT(busy.hasValue() && busy->voltage_mv == 3948, "the last read is returned while busy");
+    BLACKSHARK_ASSERT(hid.writes.size() == writes, "nothing is sent without the lock");
+    BLACKSHARK_ASSERT(none.hasError() && none.error().code == DeviceError::Code::Timeout, "busy without a cache");
+    BLACKSHARK_ASSERT(hid2.writes.empty(), "nothing sent there either");
+    BLACKSHARK_ASSERT(device.getBattery(TEST_HANDLE).hasValue(), "works again once released");
 }
 
 void testBlackSharkCustomGets()
@@ -457,7 +544,7 @@ void testBlackSharkIndications()
     BLACKSHARK_ASSERT(charging->level_percent == 45, "the headset's own level wins over the voltage");
     BLACKSHARK_ASSERT(charging->voltage_mv == 4070, "voltage still reported");
 
-    // Picked up by the cheap link query alone, between voltage reads
+    // Picked up between voltage reads, at the start of the next call
     hid.indicate(Device::IND_CHARGING, 0);
     device.clock += std::chrono::seconds { 1 };
     const size_t before = hid.writes.size();
@@ -492,18 +579,333 @@ void testBlackSharkIndications()
 
 void testBlackSharkAlreadyRemote()
 {
+    // Left over from a process killed mid-read: silent
     BlackSharkMockHID hid;
-    hid.mode = Device::MODE_REMOTE;
+    hid.mode           = Device::MODE_REMOTE;
+    hid.custom_percent = 70;
     TestableBlackShark device(hid);
 
     auto result = device.getBattery(TEST_HANDLE);
     BLACKSHARK_ASSERT(result.hasValue() && result->voltage_mv == 3948, "reads the battery directly");
+    BLACKSHARK_ASSERT(result->level_percent == 70, "and the headset's own figures");
     BLACKSHARK_ASSERT(!hid.sent(Device::TYPE_LINK, { Device::SET_MODE, Device::MODE_REMOTE }), "no switch to remote");
     BLACKSHARK_ASSERT(hid.mode == Device::MODE_LOCAL, "left in local mode afterwards");
-    BLACKSHARK_ASSERT(!hid.sent(Device::FRAME_CUSTOM, { Device::IND_CHARGING })
-            && !hid.sent(Device::FRAME_CUSTOM, { Device::IND_BATTERY }),
-        "no customer requests into a remote mode someone else set up");
+
+    // Another program's session: replies keep coming, and nothing is touched
+    BlackSharkMockHID busy;
+    busy.mode            = Device::MODE_REMOTE;
+    busy.foreign_session = true;
+    TestableBlackShark device2(busy);
+    auto foreign = device2.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(foreign.hasError() && foreign.error().code == DeviceError::Code::ProtocolError, "in use");
+    BLACKSHARK_ASSERT(!busy.sent(Device::TYPE_LINK, { Device::SET_MODE }), "no mode switch");
+    BLACKSHARK_ASSERT(!busy.sent(Device::TYPE_OTA, { Device::GET_BATTERY }), "no request to the headset");
+    BLACKSHARK_ASSERT(busy.mode == Device::MODE_REMOTE, "still remote");
+
+    // Spontaneous dongle frames and notifications are not another program's session
+    BlackSharkMockHID quiet;
+    quiet.mode = Device::MODE_REMOTE;
+    quiet.after_mode_query.push_back({ 0x02, 0x1b, 0x50, 0x49, 0x01, 0xc0, 0xc2, 0x90, 0x09, 0x00, 0x03, 0x00, 0x11,
+        0xbb, 0x1c, 0x50, 0x49, 0x11, 0xca, 0xc2, 0x90, 0x09, 0x00, 0x04, 0x00, 0x04, 0x01, 0xd1, 0x32 });
+    quiet.after_mode_query.push_back(
+        { 0x02, 0x0e, 0x50, 0x49, 0x08, 0xd7, 0xb6, 0x43, 0x1b, 0x00, 0x04, 0x00, 0x2a, 0x02, 0x01, 0x00 });
+    TestableBlackShark device4(quiet);
+    BLACKSHARK_ASSERT(device4.getBattery(TEST_HANDLE).hasValue(), "read");
+    BLACKSHARK_ASSERT(quiet.mode == Device::MODE_LOCAL, "a leftover, put back");
+
+    // A customer reply nobody here asked for is
+    BlackSharkMockHID cust;
+    cust.mode = Device::MODE_REMOTE;
+    cust.after_mode_query.push_back(
+        { 0x02, 0x0e, 0x50, 0x49, 0x08, 0xe5, 0x30, 0x0a, 0x2d, 0x00, 0x04, 0x00, 0x21, 0x01, 0x01, 0x3b });
+    TestableBlackShark device5(cust);
+    auto overheard = device5.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(overheard.hasValue() && overheard->level_percent == 59, "the reply is still the headset's figure");
+    BLACKSHARK_ASSERT(!cust.sent(Device::TYPE_LINK, { Device::SET_MODE }), "no mode switch");
+    BLACKSHARK_ASSERT(!cust.sent(Device::TYPE_OTA, { Device::GET_BATTERY }), "no request to the headset");
+    BLACKSHARK_ASSERT(cust.mode == Device::MODE_REMOTE, "left alone");
+
+    // The same with the headset off
+    BlackSharkMockHID off;
+    off.link_status     = 0x13;
+    off.mode            = Device::MODE_REMOTE;
+    off.foreign_session = true;
+    TestableBlackShark device3(off);
+    BLACKSHARK_ASSERT(device3.getBattery(TEST_HANDLE).hasValue(), "headset off");
+    BLACKSHARK_ASSERT(!off.sent(Device::TYPE_LINK, { Device::SET_MODE }) && off.mode == Device::MODE_REMOTE,
+        "left alone");
 }
+
+void testBlackSharkModeCheck()
+{
+    // A process killed mid-read left the dongle in remote mode while our cache was warm
+    BlackSharkMockHID hid;
+    TestableBlackShark device(hid);
+    BLACKSHARK_ASSERT(device.getBattery(TEST_HANDLE).hasValue(), "first read");
+    hid.mode = Device::MODE_REMOTE;
+
+    device.clock += std::chrono::seconds { 1 };
+    BLACKSHARK_ASSERT(device.getBattery(TEST_HANDLE).hasValue(), "cached");
+    BLACKSHARK_ASSERT(hid.mode == Device::MODE_REMOTE, "not checked on every call");
+
+    device.clock += Device::MODE_CHECK;
+    const size_t switches = hid.count(Device::TYPE_LINK, { Device::SET_MODE, Device::MODE_REMOTE });
+    BLACKSHARK_ASSERT(device.getBattery(TEST_HANDLE).hasValue(), "cached");
+    BLACKSHARK_ASSERT(hid.mode == Device::MODE_LOCAL, "put back within MODE_CHECK");
+    BLACKSHARK_ASSERT(hid.count(Device::TYPE_LINK, { Device::SET_MODE, Device::MODE_REMOTE }) == switches,
+        "without a read");
+
+    // Another program's session is left alone
+    hid.mode            = Device::MODE_REMOTE;
+    hid.foreign_session = true;
+    device.clock += Device::MODE_CHECK;
+    BLACKSHARK_ASSERT(device.getBattery(TEST_HANDLE).hasValue(), "cached");
+    BLACKSHARK_ASSERT(hid.mode == Device::MODE_REMOTE, "left alone");
+}
+
+void testBlackSharkFilterEscape()
+{
+    // A change nobody saw: charged while the process was not asking
+    BlackSharkMockHID hid;
+    hid.custom_charge  = Device::CHARGE_NONE;
+    hid.custom_percent = 35;
+    TestableBlackShark device(hid);
+    BLACKSHARK_ASSERT(device.getBattery(TEST_HANDLE)->level_percent == 35, "first reading");
+    hid.custom_percent = 100;
+    device.clock += Device::VOLTAGE_CACHE;
+    BLACKSHARK_ASSERT(device.getBattery(TEST_HANDLE)->level_percent == 100, "a jump past the jitter is taken");
+    hid.custom_percent = 99;
+    device.clock += Device::VOLTAGE_CACHE;
+    BLACKSHARK_ASSERT(device.getBattery(TEST_HANDLE)->level_percent == 99, "falls off the charger");
+    hid.custom_percent = 100;
+    device.clock += Device::VOLTAGE_CACHE;
+    BLACKSHARK_ASSERT(device.getBattery(TEST_HANDLE)->level_percent == 99, "jitter is still filtered");
+    hid.custom_percent = 89;
+    device.clock += Device::VOLTAGE_CACHE;
+    BLACKSHARK_ASSERT(device.getBattery(TEST_HANDLE)->level_percent == 89, "falls by exactly the limit");
+    hid.custom_percent = 99;
+    device.clock += Device::VOLTAGE_CACHE;
+    BLACKSHARK_ASSERT(device.getBattery(TEST_HANDLE)->level_percent == 89, "a rise of exactly the limit is filtered");
+    hid.custom_percent = 100;
+    device.clock += Device::VOLTAGE_CACHE;
+    BLACKSHARK_ASSERT(device.getBattery(TEST_HANDLE)->level_percent == 100, "one more is taken");
+}
+
+void testBlackSharkStaleFigures()
+{
+    // The headset stops answering the customer GETs: its last figures expire
+    BlackSharkMockHID hid;
+    hid.voltage_mv     = 3809;
+    hid.custom_charge  = Device::CHARGE_CHARGING;
+    hid.custom_percent = 64;
+    TestableBlackShark device(hid);
+    auto first = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(first->level_percent == 64 && first->status == BATTERY_CHARGING, "own figures");
+
+    hid.custom_charge.reset();
+    hid.custom_percent.reset();
+    device.clock += Device::VOLTAGE_CACHE;
+    auto unconfirmed = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(unconfirmed->status == BATTERY_AVAILABLE, "an unconfirmed charge state is forgotten");
+    BLACKSHARK_ASSERT(unconfirmed->level_percent == 64, "the percent is kept for a while");
+
+    device.clock += Device::STALE_AFTER;
+    auto stale = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(stale->level_percent == 50, "then the voltage estimate");
+
+    // A notification between reads confirms the charge state, and a single lost reply is asked again
+    BlackSharkMockHID hid3;
+    hid3.custom_charge  = Device::CHARGE_CHARGING;
+    hid3.custom_percent = 50;
+    TestableBlackShark device3(hid3);
+    BLACKSHARK_ASSERT(device3.getBattery(TEST_HANDLE)->status == BATTERY_CHARGING, "charging");
+    hid3.custom_charge.reset();
+    device3.clock += std::chrono::seconds { 10 };
+    hid3.indicate(Device::IND_CHARGING, 1);
+    BLACKSHARK_ASSERT(device3.getBattery(TEST_HANDLE)->status == BATTERY_CHARGING, "notified");
+    device3.clock += Device::VOLTAGE_CACHE;
+    BLACKSHARK_ASSERT(device3.getBattery(TEST_HANDLE)->status == BATTERY_CHARGING, "confirmed since the last read");
+    hid3.custom_charge       = Device::CHARGE_CHARGING;
+    hid3.lost_custom_replies = 1;
+    device3.clock += Device::VOLTAGE_CACHE;
+    device3.clock += Device::VOLTAGE_CACHE;
+    BLACKSHARK_ASSERT(device3.getBattery(TEST_HANDLE)->status == BATTERY_CHARGING, "a lost reply is asked again");
+
+    // An unconfirmed charge state does not steer the filter either
+    BlackSharkMockHID hid2;
+    hid2.custom_charge  = Device::CHARGE_CHARGING;
+    hid2.custom_percent = 80;
+    TestableBlackShark device2(hid2);
+    BLACKSHARK_ASSERT(device2.getBattery(TEST_HANDLE)->level_percent == 80, "on the charger");
+    hid2.custom_charge.reset(); // unplugged; the notification was missed and the GET lost
+    hid2.custom_percent = 76;
+    device2.clock += Device::VOLTAGE_CACHE;
+    auto unplugged = device2.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(unplugged->level_percent == 76 && unplugged->status == BATTERY_AVAILABLE, "follows the GET");
+}
+
+void testBlackSharkOwnFiguresWithoutVoltage()
+{
+    BlackSharkMockHID hid;
+    hid.silent_battery_replies = 99;
+    hid.indicate(Device::IND_CHARGING, 1);
+    hid.indicate(Device::IND_BATTERY, 64);
+    TestableBlackShark device(hid);
+    auto result = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(result.hasValue() && result->level_percent == 64, "the headset's own percent");
+    BLACKSHARK_ASSERT(result->status == BATTERY_CHARGING && !result->voltage_mv, "without a voltage");
+    BLACKSHARK_ASSERT(hid.mode == Device::MODE_LOCAL, "back in local mode");
+}
+
+void testBlackSharkBusyBounds()
+{
+    BlackSharkMockHID hid;
+    TestableBlackShark device(hid);
+    BLACKSHARK_ASSERT(device.getBattery(TEST_HANDLE).hasValue(), "first read");
+
+    std::promise<void> held, release;
+    auto release_future = release.get_future();
+    std::thread other([&] {
+        ProcessLock lock(TEST_LOCK, std::chrono::seconds { 10 });
+        held.set_value();
+        release_future.wait();
+    });
+    held.get_future().wait();
+
+    // Waits once, then not again within BUSY_BACKOFF
+    using clock      = std::chrono::steady_clock;
+    auto t0          = clock::now();
+    auto busy        = device.getBattery(TEST_HANDLE);
+    const auto first = clock::now() - t0;
+    t0               = clock::now();
+    device.clock += std::chrono::seconds { 1 };
+    auto again        = device.getBattery(TEST_HANDLE);
+    const auto second = clock::now() - t0;
+    // A reading older than STALE_AFTER is not served
+    device.clock += Device::STALE_AFTER;
+    auto stale = device.getBattery(TEST_HANDLE);
+    release.set_value();
+    other.join();
+
+    BLACKSHARK_ASSERT(busy.hasValue() && again.hasValue(), "recent reading served");
+    BLACKSHARK_ASSERT(first >= std::chrono::milliseconds { 90 } && second < first, "the second call does not wait");
+    BLACKSHARK_ASSERT(stale.hasError() && stale.error().code == DeviceError::Code::Timeout, "too old");
+}
+
+void testBlackSharkLockUnavailable()
+{
+    // An object of another kind at the lock's name makes the lock unavailable; the read goes on without it
+    BlackSharkMockHID hid;
+    TestableBlackShark device(hid);
+    device.lock_name   = TEST_LOCK + "-blocked";
+    const auto blocker = blockLockName(device.lock_name);
+    BLACKSHARK_ASSERT(ProcessLock(device.lock_name, std::chrono::milliseconds { 0 }).status()
+            == ProcessLock::Status::Unavailable,
+        "the lock is unavailable");
+    auto result = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(result.hasValue() && result->voltage_mv == 3948, "read without the lock");
+    BLACKSHARK_ASSERT(hid.mode == Device::MODE_LOCAL, "back in local mode");
+}
+
+void testBlackSharkDrainsEverything()
+{
+    // Two of another process's replies queued; the second has our first sequence number
+    BlackSharkMockHID hid;
+    hid.pending.push_back({ 0x02, 0x19, 0x50, 0x49, 0x01, 0xc0, 0, 0, 0, 0x02, 0x03, 0x00, Device::TYPE_LINK, 0x85, 0x00,
+        0x50, 0x49, 0x0e, 0xe0, 0, 0, 0, 0, 0x02, 0x00, Device::LINK_STATUS, 0x13 });
+    hid.pending.push_back({ 0x02, 0x19, 0x50, 0x49, 0x01, 0xc0, 0, 0, 0, 0x02, 0x03, 0x00, Device::TYPE_LINK, 0x81, 0x00,
+        0x50, 0x49, 0x0e, 0xe0, 0, 0, 0, 0, 0x02, 0x00, Device::LINK_STATUS, 0x13 });
+    TestableBlackShark device(hid);
+    auto result = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(result.hasValue() && result->voltage_mv == 3948, "both discarded");
+}
+
+void testBlackSharkRejectsLookalikes()
+{
+    BlackSharkMockHID hid;
+    hid.voltage_mv = 3809;
+    TestableBlackShark device(hid);
+    // Malformed customer frames: wrong length field, wrong value length, direction 0, two values
+    hid.pending.push_back({ 0x02, 0x0e, 0x50, 0x49, 0x08, 0, 0, 0, 0, 0x00, 0x05, 0x00, Device::IND_BATTERY, 0x02, 0x01,
+        10 });
+    hid.pending.push_back({ 0x02, 0x0e, 0x50, 0x49, 0x08, 0, 0, 0, 0, 0x00, 0x04, 0x00, Device::IND_BATTERY, 0x02, 0x02,
+        11 });
+    hid.pending.push_back({ 0x02, 0x0e, 0x50, 0x49, 0x08, 0, 0, 0, 0, 0x00, 0x04, 0x00, Device::IND_BATTERY, 0x00, 0x01,
+        12 });
+    hid.pending.push_back({ 0x02, 0x0f, 0x50, 0x49, 0x08, 0, 0, 0, 0, 0x00, 0x05, 0x00, Device::IND_BATTERY, 0x02, 0x02,
+        13, 14 });
+    auto result = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(result.hasValue() && result->level_percent == 50, "none of them is a percent");
+
+    // While the link query waits: a reply with our sequence number but another
+    // type, or another event byte, saying "headset off", is not ours
+    BlackSharkMockHID odd;
+    TestableBlackShark device2(odd);
+    odd.before_next_reply.push_back({ 0x02, 0x19, 0x50, 0x49, 0x01, 0xc0, 0, 0, 0, 0x02, 0x03, 0x00, Device::TYPE_OTA,
+        0xff, 0x00, 0x50, 0x49, 0x0e, 0xe0, 0, 0, 0, 0, 0x02, 0x00, Device::LINK_STATUS, 0x13 });
+    odd.before_next_reply.push_back({ 0x02, 0x19, 0x50, 0x49, 0x02, 0xc0, 0, 0, 0, 0x02, 0x03, 0x00, Device::TYPE_LINK,
+        0xff, 0x00, 0x50, 0x49, 0x0e, 0xe0, 0, 0, 0, 0, 0x02, 0x00, Device::LINK_STATUS, 0x13 });
+    auto first = device2.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(first.hasValue() && first->status != BATTERY_UNAVAILABLE, "both skipped");
+
+    // Malformed customer frames arriving while a command waits are not figures either
+    BlackSharkMockHID late;
+    late.voltage_mv = 3809;
+    TestableBlackShark device3(late);
+    late.before_next_reply.push_back(
+        { 0x02, 0x0e, 0x50, 0x49, 0x08, 0, 0, 0, 0, 0x00, 0x05, 0x00, Device::IND_BATTERY, 0x02, 0x01, 10 });
+    late.before_next_reply.push_back(
+        { 0x02, 0x0e, 0x50, 0x49, 0x08, 0, 0, 0, 0, 0x00, 0x04, 0x00, Device::IND_BATTERY, 0x00, 0x01, 12 });
+    BLACKSHARK_ASSERT(device3.getBattery(TEST_HANDLE)->level_percent == 50, "ignored");
+}
+
+void testBlackSharkSequenceWraps()
+{
+    BlackSharkMockHID hid;
+    TestableBlackShark device(hid);
+    for (int i = 0; i < 40; ++i) {
+        device.clock += Device::VOLTAGE_CACHE;
+        BLACKSHARK_ASSERT(device.getBattery(TEST_HANDLE).hasValue(), "read");
+    }
+    BLACKSHARK_ASSERT(hid.writes.size() > 254, "past two wraps");
+    for (const auto& f : hid.writes) {
+        BLACKSHARK_ASSERT(f[8] >= 1 && f[8] <= 127, "sequence numbers stay in 1..127");
+    }
+}
+
+void testBlackSharkRemoteNotEntered()
+{
+    BlackSharkMockHID hid;
+    hid.ignore_remote = true;
+    TestableBlackShark device(hid);
+    auto result = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(result.hasError() && result.error().code == DeviceError::Code::ProtocolError, "not remote");
+    BLACKSHARK_ASSERT(!hid.sent(Device::TYPE_OTA, { Device::GET_BATTERY }), "nothing asked of the headset");
+    BLACKSHARK_ASSERT(hid.mode == Device::MODE_LOCAL, "still local");
+
+    // Unlinked in a mode this driver does not know: left alone
+    BlackSharkMockHID odd;
+    odd.link_status = 0x13;
+    odd.mode        = 0x05;
+    TestableBlackShark device2(odd);
+    BLACKSHARK_ASSERT(device2.getBattery(TEST_HANDLE).hasValue(), "headset off");
+    BLACKSHARK_ASSERT(!odd.sent(Device::TYPE_LINK, { Device::SET_MODE }), "not switched");
+}
+
+#ifdef _WIN32
+void testBlackSharkRecoveredLock()
+{
+    // A holder that died mid-conversation: the cache is dropped and the mode checked at once
+    BlackSharkMockHID hid;
+    TestableBlackShark device(hid);
+    BLACKSHARK_ASSERT(device.getBattery(TEST_HANDLE).hasValue(), "first read");
+    hid.mode = Device::MODE_REMOTE;
+    std::thread([] { new ProcessLock(TEST_LOCK, std::chrono::seconds { 1 }); }).join(); // exits holding it
+    device.clock += std::chrono::seconds { 1 };
+    BLACKSHARK_ASSERT(device.getBattery(TEST_HANDLE).hasValue(), "read");
+    BLACKSHARK_ASSERT(hid.mode == Device::MODE_LOCAL, "put back at once");
+}
+#endif
 
 void testBlackSharkRetriesBattery()
 {
@@ -537,7 +939,8 @@ void testBlackSharkRestoresLocalAfterFailure()
 void testBlackSharkReportsStuckRemote()
 {
     BlackSharkMockHID hid;
-    hid.ignore_local = true;
+    hid.ignore_local   = true;
+    hid.custom_percent = 64; // the headset's own figures do not hide it
     TestableBlackShark device(hid);
 
     auto result = device.getBattery(TEST_HANDLE);
@@ -550,10 +953,18 @@ void testBlackSharkReportsStuckRemote()
     BLACKSHARK_ASSERT(hid.writes.back()[10] == Device::GET_MODE, "the last switch is verified too");
     BLACKSHARK_ASSERT(hid.sent(Device::TYPE_OTA, { Device::GET_BATTERY }), "the voltage was asked for");
 
+    // Not retried on every poll
+    const size_t writes = hid.writes.size();
+    device.clock += std::chrono::seconds { 1 };
+    auto again = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(again.hasError() && again.error().code == DeviceError::Code::ProtocolError, "still failed");
+    BLACKSHARK_ASSERT(hid.writes.size() == writes + 1, "only the link status is queried");
+
     hid.ignore_local = false;
     hid.voltage_mv   = 3900;
-    auto retry       = device.getBattery(TEST_HANDLE);
-    BLACKSHARK_ASSERT(retry.hasValue() && retry->voltage_mv == 3900, "the next call reads again");
+    device.clock += Device::FAILURE_BACKOFF;
+    auto retry = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(retry.hasValue() && retry->voltage_mv == 3900, "read again after the backoff");
     BLACKSHARK_ASSERT(hid.mode == Device::MODE_LOCAL, "and restores local mode");
 
     // A failed restore is reported in preference to a failed read
@@ -564,6 +975,46 @@ void testBlackSharkReportsStuckRemote()
     auto failed = device2.getBattery(TEST_HANDLE);
     BLACKSHARK_ASSERT(failed.hasError() && failed.error().code == DeviceError::Code::ProtocolError,
         "restore failure wins over the read timeout");
+}
+
+void testBlackSharkStuckRemoteStaysReported()
+{
+    // The periodic mode check cannot switch a leftover remote mode back either
+    BlackSharkMockHID hid;
+    TestableBlackShark device(hid);
+    BLACKSHARK_ASSERT(device.getBattery(TEST_HANDLE).hasValue(), "first read");
+    hid.mode         = Device::MODE_REMOTE;
+    hid.ignore_local = true;
+    device.clock += Device::MODE_CHECK;
+    auto stuck = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(stuck.hasError() && stuck.error().code == DeviceError::Code::ProtocolError,
+        "a failed switch back is reported, not hidden behind the cached voltage");
+
+    hid.ignore_local = false;
+    device.clock += Device::FAILURE_BACKOFF;
+    BLACKSHARK_ASSERT(device.getBattery(TEST_HANDLE).hasValue(), "read again after the backoff");
+    BLACKSHARK_ASSERT(hid.mode == Device::MODE_LOCAL, "and restores local mode");
+
+    // A busy lock does not turn it into a success with the headset's own figures
+    BlackSharkMockHID hid2;
+    hid2.ignore_local   = true;
+    hid2.custom_percent = 64;
+    TestableBlackShark device2(hid2);
+    BLACKSHARK_ASSERT(device2.getBattery(TEST_HANDLE).hasError(), "left in remote mode");
+
+    std::promise<void> held, release;
+    auto release_future = release.get_future();
+    std::thread other([&] {
+        ProcessLock lock(TEST_LOCK, std::chrono::seconds { 10 });
+        held.set_value();
+        release_future.wait();
+    });
+    held.get_future().wait();
+    auto busy = device2.getBattery(TEST_HANDLE);
+    release.set_value();
+    other.join();
+    BLACKSHARK_ASSERT(busy.hasError() && busy.error().code == DeviceError::Code::ProtocolError,
+        "still reported while another process holds the lock");
 }
 
 void testBlackSharkBacksOffAfterFailure()
@@ -587,9 +1038,9 @@ void testBlackSharkBacksOffAfterFailure()
     BLACKSHARK_ASSERT(later.hasValue() && later->voltage_mv == 3948, "retried after the backoff");
     const size_t after_retry = hid.writes.size();
 
-    device.clock += Device::FAILURE_BACKOFF;
+    device.clock += std::chrono::seconds { 5 };
     BLACKSHARK_ASSERT(device.getBattery(TEST_HANDLE).hasValue(), "a good read");
-    BLACKSHARK_ASSERT(hid.writes.size() == after_retry + 1, "is then cached for the full window");
+    BLACKSHARK_ASSERT(hid.writes.size() == after_retry + 1, "is then cached");
 }
 
 void testBlackSharkUnknownMode()
@@ -616,7 +1067,8 @@ void testBlackSharkUnplugged()
     hid.fail_writes_from = SIZE_MAX;
     hid.mode             = Device::MODE_LOCAL;
     hid.voltage_mv       = 3700;
-    auto replugged       = device.getBattery(TEST_HANDLE);
+    device.clock += Device::FAILURE_BACKOFF;
+    auto replugged = device.getBattery(TEST_HANDLE);
     BLACKSHARK_ASSERT(replugged.hasValue() && replugged->voltage_mv == 3700, "no stale voltage after the failure");
 }
 
@@ -651,12 +1103,17 @@ void testBlackSharkCachesVoltage()
     const size_t full_read = hid.writes.size();
 
     hid.voltage_mv = 3700;
-    device.clock += std::chrono::seconds { 30 };
+    device.clock += std::chrono::seconds { 5 };
     auto cached = device.getBattery(TEST_HANDLE);
     BLACKSHARK_ASSERT(cached.hasValue() && cached->voltage_mv == 3948, "voltage is reused within the cache window");
     BLACKSHARK_ASSERT(hid.writes.size() == full_read + 1, "only the link status is queried");
 
-    device.clock += std::chrono::seconds { 31 };
+    device.clock += Device::VOLTAGE_CACHE / 2;
+    auto later = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(later.hasValue() && later->voltage_mv == 3948, "still cached");
+    BLACKSHARK_ASSERT(hid.writes.size() == full_read + 3, "the link status, and the mode once per MODE_CHECK");
+
+    device.clock += Device::VOLTAGE_CACHE / 2;
     auto fresh = device.getBattery(TEST_HANDLE);
     BLACKSHARK_ASSERT(fresh.hasValue() && fresh->voltage_mv == 3700, "re-read after the cache window");
     BLACKSHARK_ASSERT(hid.mode == Device::MODE_LOCAL, "back in local mode");
@@ -694,6 +1151,67 @@ void testBlackSharkCachePerHandle()
     BLACKSHARK_ASSERT(kept.hasValue() && kept->voltage_mv == 3700, "and only its own");
 }
 
+void testBlackSharkReopenedEveryPoll()
+{
+    // A frontend that discovers, reads and frees the headset on every poll
+    BlackSharkMockHID hid;
+    TestableBlackShark device(hid);
+    auto* const first  = reinterpret_cast<hid_device*>(0x11);
+    auto* const second = reinterpret_cast<hid_device*>(0x12);
+    const auto poll    = [&](hid_device* handle, const char* path) {
+        device.onConnectionOpened(handle, path);
+        auto result = device.getBattery(handle);
+        device.onConnectionClosed(handle);
+        return result;
+    };
+    const auto reads = [&] { return hid.count(Device::TYPE_OTA, { Device::GET_BATTERY }); };
+
+    BLACKSHARK_ASSERT(poll(first, "dongle-a").hasValue() && reads() == 1, "first poll reads");
+    hid.voltage_mv = 3700;
+    device.clock += std::chrono::seconds { 1 };
+    auto cached = poll(second, "dongle-a");
+    BLACKSHARK_ASSERT(cached.hasValue() && cached->voltage_mv == 3948 && reads() == 1, "the next handle gets the cache");
+    device.clock += Device::REOPENED_CACHE;
+    auto fresh = poll(first, "dongle-a");
+    BLACKSHARK_ASSERT(fresh.hasValue() && fresh->voltage_mv == 3700 && reads() == 2, "re-read once per REOPENED_CACHE");
+
+    // Another dongle does not get it
+    device.clock += std::chrono::seconds { 1 };
+    BLACKSHARK_ASSERT(poll(second, "dongle-b").hasValue() && reads() == 3, "another path reads");
+
+    // Nor does the same one after STALE_AFTER
+    device.clock += Device::STALE_AFTER;
+    BLACKSHARK_ASSERT(poll(first, "dongle-a").hasValue() && reads() == 4, "too old");
+
+    // What the headset notified survives a reopen
+    device.clock += std::chrono::seconds { 1 };
+    hid.indicate(Device::IND_CHARGING, 1);
+    hid.indicate(Device::IND_BATTERY, 42);
+    BLACKSHARK_ASSERT(poll(second, "dongle-a")->level_percent == 42, "notified");
+    device.clock += std::chrono::seconds { 1 };
+    auto kept = poll(first, "dongle-a");
+    BLACKSHARK_ASSERT(kept->level_percent == 42 && kept->status == BATTERY_CHARGING, "kept across the reopen");
+
+    // With the headset off, the mode is still checked once per MODE_CHECK, not on every reopen
+    hid.link_status         = 0x13;
+    const auto queries      = [&] { return hid.count(Device::TYPE_LINK, { Device::GET_MODE }); };
+    const size_t before_off = queries();
+    for (int i = 0; i < 30; ++i) {
+        device.clock += std::chrono::seconds { 1 };
+        BLACKSHARK_ASSERT(poll(i % 2 ? first : second, "dongle-a").hasValue(), "headset off");
+    }
+    BLACKSHARK_ASSERT(queries() - before_off <= 3, "mode checked once per MODE_CHECK across reopens");
+    hid.link_status = 0x1b;
+
+    // A handle kept open uses the full window
+    device.onConnectionOpened(first, "dongle-c");
+    const size_t before_kept = reads();
+    BLACKSHARK_ASSERT(device.getBattery(first).hasValue() && reads() == before_kept + 1, "kept open");
+    device.clock += Device::REOPENED_CACHE;
+    BLACKSHARK_ASSERT(device.getBattery(first).hasValue() && reads() == before_kept + 1, "not re-read within VOLTAGE_CACHE");
+    device.onConnectionClosed(first);
+}
+
 void testBlackSharkVoltageCurve()
 {
     BLACKSHARK_ASSERT(voltageToPercent(4200, Device::CALIBRATION) == 100, "full");
@@ -714,10 +1232,26 @@ void runAllRazerBlackSharkV2ProPSTests()
     testBlackSharkIndications();
     testBlackSharkCustomGets();
     testBlackSharkPercentFilter();
+    testBlackSharkIgnoresStaleReplies();
+    testBlackSharkBusyLock();
     testBlackSharkAlreadyRemote();
+    testBlackSharkModeCheck();
+    testBlackSharkFilterEscape();
+    testBlackSharkStaleFigures();
+    testBlackSharkOwnFiguresWithoutVoltage();
+    testBlackSharkBusyBounds();
+    testBlackSharkLockUnavailable();
+    testBlackSharkDrainsEverything();
+    testBlackSharkRejectsLookalikes();
+    testBlackSharkSequenceWraps();
+    testBlackSharkRemoteNotEntered();
+#ifdef _WIN32
+    testBlackSharkRecoveredLock();
+#endif
     testBlackSharkRetriesBattery();
     testBlackSharkRestoresLocalAfterFailure();
     testBlackSharkReportsStuckRemote();
+    testBlackSharkStuckRemoteStaysReported();
     testBlackSharkUnplugged();
     testBlackSharkBacksOffAfterFailure();
     testBlackSharkUnknownMode();
@@ -725,7 +1259,9 @@ void runAllRazerBlackSharkV2ProPSTests()
     testBlackSharkSkipsOtherReplies();
     testBlackSharkCachesVoltage();
     testBlackSharkCachePerHandle();
+    testBlackSharkReopenedEveryPoll();
     testBlackSharkVoltageCurve();
+    removeLockFile(TEST_LOCK);
     std::cout << "  Razer BlackShark V2 Pro (PlayStation) tests passed" << std::endl;
 }
 
