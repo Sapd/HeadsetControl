@@ -42,7 +42,10 @@ namespace headsetcontrol {
  *            CC CC = CRC16-CCITT (poly 0x1021, init 0) of all 64 bytes with
  *            the CRC field zeroed, little endian
  *   ack:     input report 0x02 fetched over the control pipe; byte 1 is
- *            'O' (0x4F) when the frame was accepted, 'F' (0x46) when not
+ *            'O' (0x4F) when the frame was accepted, 'F' (0x46) when not.
+ *            After an idle gap of about half a second the dongle may reject
+ *            the next frame without acting on it, so a rejected frame is
+ *            sent again after each of RESEND_DELAYS_MS
  *   reply:   02 LL 50 49 .. .. .. .. .. .. .. .. TT RR SS <data>
  *            TT = command type, RR = 0x80 | sequence number of the request,
  *            SS = status (0 = OK); LL counts the bytes after itself
@@ -117,8 +120,9 @@ namespace headsetcontrol {
  * unlinked. A frontend that closes the device after every poll gets it back
  * on the next handle for the same device path (within STALE_AFTER), but it
  * misses the notifications in between, so for it the voltage and the
- * headset's figures are re-read once per REOPENED_CACHE. Keep the Headset
- * (or hsc_headset_t) open between polls. The cache lives in the process: a
+ * headset's figures are re-read once per REOPENED_CACHE. Kept open, the
+ * Headset (or hsc_headset_t) sees the notifications and re-reads once per
+ * VOLTAGE_CACHE; either way works. The cache lives in the process: a
  * frontend that starts headsetcontrol for every poll gets a full read, with
  * a mode switch, each time.
  */
@@ -148,11 +152,17 @@ public:
     static constexpr uint8_t LINK_HEADSET  = 0x08;
     static constexpr uint8_t GET_BATTERY   = 0x31;
     static constexpr int REPLY_TIMEOUT_MS  = 1500;
-    static constexpr int IOCTL_TIMEOUT_MS  = 2500;
-    static constexpr int MODE_SETTLE_MS    = 300;
-    static constexpr int ATTEMPTS          = 3;
-    static constexpr uint16_t MIN_VOLTAGE  = 2500;
-    static constexpr uint16_t MAX_VOLTAGE  = 4500;
+    // The dongle answers its own link queries within milliseconds; a reply
+    // not there by then is waited for no longer before asking again
+    static constexpr int LINK_FIRST_TIMEOUT_MS = 300;
+    static constexpr int IOCTL_TIMEOUT_MS      = 2500;
+    static constexpr int MODE_SETTLE_MS        = 300;
+    // Waits before resending a frame the dongle rejected (see the ack in the
+    // description above); the second covers a coarse OS timer
+    static constexpr std::array<int, 2> RESEND_DELAYS_MS { 20, 60 };
+    static constexpr int ATTEMPTS         = 3;
+    static constexpr uint16_t MIN_VOLTAGE = 2500;
+    static constexpr uint16_t MAX_VOLTAGE = 4500;
     static constexpr std::chrono::seconds VOLTAGE_CACHE { 300 };
     static constexpr std::chrono::seconds REOPENED_CACHE { 60 };
     static constexpr std::chrono::seconds FAILURE_BACKOFF { 10 };
@@ -704,7 +714,12 @@ private:
     /// Link-layer GET; the reply data echoes a "PI" frame with the id at [10] and the value at [11]
     Result<uint8_t> getLinkValue(hid_device* device_handle, uint8_t id)
     {
-        auto reply = command(device_handle, TYPE_LINK, std::array<uint8_t, 1> { id }, REPLY_TIMEOUT_MS);
+        auto reply = command(device_handle, TYPE_LINK, std::array<uint8_t, 1> { id }, LINK_FIRST_TIMEOUT_MS);
+        if (!reply && reply.error().code == DeviceError::Code::Timeout) {
+            // An accepted query whose reply never came (seen on hardware, rarely);
+            // it is a read answered by the dongle itself, so it is asked once more
+            reply = command(device_handle, TYPE_LINK, std::array<uint8_t, 1> { id }, REPLY_TIMEOUT_MS);
+        }
         if (!reply) {
             return reply.error();
         }
@@ -737,15 +752,23 @@ private:
         }
         payload.insert(payload.end(), body.begin(), body.end());
 
+        // After about half a second without frames the dongle may reject the
+        // next one ('F') without acting on it; the same frame sent again a
+        // little later goes through, so a rejected frame is resent
         const auto frame = buildFrame(payload);
-        if (auto result = writeHID(device_handle, frame); !result) {
-            return result.error();
-        }
-
         std::array<uint8_t, REPORT_SIZE> ack {};
-        ack[0] = REPORT_ID;
-        if (auto result = getInputReport(device_handle, ack); !result) {
-            return result.error();
+        for (size_t copy = 0; copy <= RESEND_DELAYS_MS.size() && ack[1] != ACK_OK; ++copy) {
+            if (copy > 0) {
+                settle(std::chrono::milliseconds { RESEND_DELAYS_MS[copy - 1] });
+            }
+            if (auto result = writeHID(device_handle, frame); !result) {
+                return result.error();
+            }
+            ack.fill(0);
+            ack[0] = REPORT_ID;
+            if (auto result = getInputReport(device_handle, ack); !result) {
+                return result.error();
+            }
         }
         if (ack[1] != ACK_OK) {
             return DeviceError::protocolError(std::format("Dongle rejected command 0x{:02x}", type));
