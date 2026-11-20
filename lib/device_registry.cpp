@@ -128,6 +128,7 @@ void DeviceRegistry::initialize()
 
         // Logitech devices
         registerDevice(std::make_unique<LogitechAstroA20X>());
+        registerDevice(std::make_unique<LogitechAstroA20XWireless>());
         registerDevice(std::make_unique<LogitechAstroA50Gen4>());
         registerDevice(std::make_unique<LogitechAstroA50>());
 

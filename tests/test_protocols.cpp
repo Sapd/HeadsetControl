@@ -1735,6 +1735,33 @@ void testCenturionConnectionStatusHelpers()
     std::cout << "    [OK] Logitech Centurion connection status helpers verified" << std::endl;
 }
 
+// Replies captured from an ASTRO A20 X wireless transmitter (046d:0b35, "A20 X HID").
+class TestableA20XWireless : public LogitechAstroA20XWireless {
+public:
+    mutable ScriptedHIDInterface hid;
+    auto getHIDInterface() const -> HIDInterface& override { return hid; }
+};
+
+void testLogitechAstroA20XWirelessCapturedTraffic()
+{
+    const auto prefix = LogitechAstroA20XWireless::FRAME_PREFIX;
+    TestableA20XWireless dev;
+    dev.hid.replies.push_back(centurionFrame(prefix, { 0x00, 0x01, 0x03, 0x00, 0x01 })); // Root.getFeature(bridge) -> 3
+    queueBridgeReply(dev.hid, prefix, 0x00, { 0x06, 0x00, 0x03 }); // sub Root.getFeature(0x0104) -> 6
+    queueBridgeReply(dev.hid, prefix, 0x06, { 0x4e, 0x50, 0x00 }); // 78%, not charging
+    auto battery = dev.getBattery(nullptr);
+    ASSERT_TRUE(battery.hasValue(), "Captured A20 X wireless battery reply should parse");
+    ASSERT_EQ(78, battery->level_percent, "A20 X wireless battery percentage");
+    ASSERT_EQ(BATTERY_AVAILABLE, battery->status, "A20 X wireless battery status");
+    ASSERT_EQ(3u, dev.hid.writes.size(), "Bridge lookup, bridged feature lookup, battery request");
+    assertFrame(dev.hid.writes[0], { 0x50, 0x23, 0x05, 0x00, 0x00, 0x01, 0x00, 0x03 }, "A20 X wireless bridge lookup");
+    assertFrame(dev.hid.writes[1], { 0x50, 0x23, 0x0a, 0x00, 0x03, 0x11, 0x00, 0x05, 0x00, 0x00, 0x01, 0x01, 0x04 },
+        "A20 X wireless bridged Root.getFeature(0x0104)");
+    assertFrame(dev.hid.writes[2], { 0x50, 0x23, 0x08, 0x00, 0x03, 0x11, 0x00, 0x03, 0x00, 0x06, 0x01 },
+        "A20 X wireless bridged battery request");
+    ASSERT_TRUE(dev.hid.replies.empty(), "Captured replies consumed");
+}
+
 // Replies captured from an ASTRO A20 X (046d:0b2e, "A20 X - USB wired mode").
 class TestableA20X : public LogitechAstroA20X {
 public:
@@ -2971,6 +2998,7 @@ void runAllProtocolTests()
     runTest("Logitech Centurion Connection Status", testCenturionConnectionStatusHelpers);
     runTest("Logitech G PRO X 3 Captured Traffic", testLogitechProX3CapturedTraffic);
     runTest("Logitech ASTRO A20 X Captured Traffic", testLogitechAstroA20XCapturedTraffic);
+    runTest("Logitech ASTRO A20 X Wireless Captured Traffic", testLogitechAstroA20XWirelessCapturedTraffic);
     runTest("Logitech G522 Battery Wire", testCenturionG522BatteryWire);
     runTest("Logitech G522 Offline Detection", testCenturionG522Offline);
     runTest("Logitech G522 Sidetone And Auto-Sleep Parsing", testG522SidetoneAndAutoSleepParsing);
