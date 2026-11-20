@@ -13,6 +13,7 @@
 #include "devices/audeze_maxwell.hpp"
 #include "devices/audeze_maxwell2.hpp"
 #include "devices/corsair_device.hpp"
+#include "devices/logitech_astro_a20x.hpp"
 #include "devices/logitech_astro_a50.hpp"
 #include "devices/logitech_astro_a50_gen4.hpp"
 #include "devices/logitech_g522_lightspeed.hpp"
@@ -1734,6 +1735,45 @@ void testCenturionConnectionStatusHelpers()
     std::cout << "    [OK] Logitech Centurion connection status helpers verified" << std::endl;
 }
 
+// Replies captured from an ASTRO A20 X (046d:0b2e, "A20 X - USB wired mode").
+class TestableA20X : public LogitechAstroA20X {
+public:
+    mutable ScriptedHIDInterface hid;
+    auto getHIDInterface() const -> HIDInterface& override { return hid; }
+};
+
+void testLogitechAstroA20XCapturedTraffic()
+{
+    const auto prefix = LogitechAstroA20X::FRAME_PREFIX;
+    TestableA20X dev;
+    dev.hid.replies.push_back(centurionFrame(prefix, { 0x00, 0x01, 0x06, 0x00, 0x03 })); // Root.getFeature(0x0104) -> 6
+    dev.hid.replies.push_back(centurionFrame(prefix, { 0x06, 0x01, 0x46, 0x46, 0x02 })); // 70%, charging
+    auto battery = dev.getBattery(nullptr);
+    ASSERT_TRUE(battery.hasValue(), "Captured A20 X battery reply should parse");
+    ASSERT_EQ(70, battery->level_percent, "A20 X battery percentage");
+    ASSERT_EQ(BATTERY_CHARGING, battery->status, "A20 X charging state 2");
+    ASSERT_EQ(2u, dev.hid.writes.size(), "Direct lookup plus one battery request");
+    assertFrame(dev.hid.writes[0], { 0x50, 0x23, 0x05, 0x00, 0x00, 0x01, 0x01, 0x04 }, "A20 X direct Root.getFeature(0x0104)");
+    assertFrame(dev.hid.writes[1], { 0x50, 0x23, 0x03, 0x00, 0x06, 0x01 }, "A20 X direct battery request");
+
+    // The cached index is reused, and a stale reply for another function is skipped.
+    dev.hid.replies.push_back(centurionFrame(prefix, { 0x06, 0x11, 0x0f, 0x39 }));
+    dev.hid.replies.push_back(centurionFrame(prefix, { 0x06, 0x01, 0x2d, 0x2d, 0x00 }));
+    auto discharging = dev.getBattery(nullptr);
+    ASSERT_TRUE(discharging.hasValue(), "Second A20 X battery request should succeed");
+    ASSERT_EQ(45, discharging->level_percent, "A20 X second battery percentage");
+    ASSERT_EQ(BATTERY_AVAILABLE, discharging->status, "A20 X not charging");
+    ASSERT_EQ(3u, dev.hid.writes.size(), "Cached lookup: only the battery request is sent");
+    ASSERT_TRUE(dev.hid.replies.empty(), "Captured replies consumed");
+
+    // A feature the headset lacks (Root.getFeature returns index 0) is not supported.
+    TestableA20X missing;
+    missing.hid.replies.push_back(centurionFrame(prefix, { 0x00, 0x01, 0x00, 0x00, 0x00 }));
+    auto unsupported = missing.getBattery(nullptr);
+    ASSERT_TRUE(unsupported.hasError(), "Missing feature should fail");
+    ASSERT_TRUE(unsupported.error().code == DeviceError::Code::NotSupported, "Missing feature is not supported");
+}
+
 void testCenturionG522BatteryWire()
 {
     std::cout << "  Testing Logitech G522 battery request on the wire..." << std::endl;
@@ -2930,6 +2970,7 @@ void runAllProtocolTests()
     runTest("Logitech Centurion G522 Frame Prefix", testCenturionG522FramePrefix);
     runTest("Logitech Centurion Connection Status", testCenturionConnectionStatusHelpers);
     runTest("Logitech G PRO X 3 Captured Traffic", testLogitechProX3CapturedTraffic);
+    runTest("Logitech ASTRO A20 X Captured Traffic", testLogitechAstroA20XCapturedTraffic);
     runTest("Logitech G522 Battery Wire", testCenturionG522BatteryWire);
     runTest("Logitech G522 Offline Detection", testCenturionG522Offline);
     runTest("Logitech G522 Sidetone And Auto-Sleep Parsing", testG522SidetoneAndAutoSleepParsing);
