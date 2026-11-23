@@ -24,7 +24,7 @@ namespace headsetcontrol {
  */
 class AudezeMaxwell2 : public AudezeMaxwellDevice {
 public:
-    static constexpr std::array<uint16_t, 2> SUPPORTED_PRODUCT_IDS {
+    static constexpr std::array<uint16_t, 3> SUPPORTED_PRODUCT_IDS {
         0x4b29, // Maxwell 2 (PlayStation/PC version)
         0x4b28, // Maxwell 2 (Xbox version)
         0x4ba9 // Maxwell 2 ANC (PlayStation dongle)
