@@ -374,17 +374,39 @@ void testDongleWithoutHeadsetUsbOrder()
     JABRA_ASSERT((hid.addressesWritten() == std::vector<uint8_t> { 0x08, 0x04 }), "no request after the NACK at 0x04");
 }
 
-void testNackFromOtherAddressSkipped()
+void testNackFromOtherAddressAccepted()
 {
-    // The Link 390 sends its NACK for an address from that address; a NACK with the same
-    // sequence number from anywhere else is not the reply
+    // A dongle may NACK from its own address (0x01) for a headset it cannot reach. That
+    // NACK is the reply: dropping it would make every request wait the full timeout.
+    JabraMockHID named_hid;
+    named_hid.peers[0x04] = { .nack = 0 }; // the headset itself never answers
+    named_hid.inject      = { JabraMockHID::frame(0x01, 0x00, 0xFE, 0xF4, {}) };
+    TestableJabraLink390 named(named_hid);
+
+    auto battery = named.getBattery(FAKE_HANDLE);
+    JABRA_ASSERT(!battery && battery.error().code == DeviceError::Code::DeviceOffline, "named driver: offline from the NACK");
+    JABRA_ASSERT(named_hid.read_timeouts.size() == 1, "named driver: no wait after the NACK");
+
+    // The fallback's probe stops on it too, without asking 0x08
     JabraMockHID hid;
-    hid.peers[0x04] = { .name = "Jabra Evolve3 75" };
+    hid.peers[0x04] = { .nack = 0 };
     hid.inject      = { JabraMockHID::frame(0x01, 0x00, 0xFE, 0xF4, {}) };
     TestableJabraGeneric device(hid, true);
 
-    auto name = device.getString(FAKE_HANDLE, 0x02, 0x00);
-    JABRA_ASSERT(name && *name == "Jabra Evolve3 75", "NACK from 0x01 is skipped");
+    battery = device.getBattery(FAKE_HANDLE);
+    JABRA_ASSERT(!battery && battery.error().code == DeviceError::Code::DeviceOffline, "fallback: offline from the NACK");
+    JABRA_ASSERT((hid.addressesWritten() == std::vector<uint8_t> { 0x04 }), "fallback: 0x08 is not asked");
+
+    // Only NACKs: an answer to the command itself must come from the address asked
+    JabraMockHID usb_hid;
+    usb_hid.peers[0x08]                        = { .name = "Jabra Evolve2 85" };
+    usb_hid.peers[0x08].values[{ 0x12, 0x02 }] = { 0x00, 0x50 };
+    TestableJabraGeneric usb(usb_hid);
+    (void)usb.getString(FAKE_HANDLE, 0x02, 0x00); // probe
+    const uint8_t next_seq = static_cast<uint8_t>(usb_hid.writes.back()[JabraGNPBase::OFF_SEQ] + 1);
+    usb_hid.inject         = { JabraMockHID::frame(0x01, next_seq, 0x12, 0x02, { 0x00, 0x10 }) };
+    auto level             = usb.getBattery(FAKE_HANDLE);
+    JABRA_ASSERT(level && level->level_percent == 80, "a non-NACK reply from another address is skipped");
 }
 
 void testNamedDriverFixedAddress()
@@ -465,7 +487,7 @@ void testPaddedStringReply()
     JABRA_ASSERT(!device.getString(FAKE_HANDLE, 0x02, 0x01), "length beyond the payload is rejected");
 }
 
-void testBatteryAbove100Rejected()
+void testBatteryAbove100Clamped()
 {
     JabraMockHID hid;
     hid.peers[0x08]                        = { .name = "Jabra Evolve2 85" };
@@ -473,7 +495,7 @@ void testBatteryAbove100Rejected()
     TestableJabraGeneric device(hid);
 
     auto battery = device.getBattery(FAKE_HANDLE);
-    JABRA_ASSERT(!battery && battery.error().code == DeviceError::Code::ProtocolError, "200 % is bad data");
+    JABRA_ASSERT(battery && battery->level_percent == 100, "200 % is clamped to 100 %, as on master");
 
     hid.peers[0x08].values[{ 0x12, 0x02 }] = { 0x01, 0x64 };
     battery                                = device.getBattery(FAKE_HANDLE);
@@ -507,7 +529,7 @@ void testSidetoneLevels()
     JABRA_ASSERT(!device.getSidetone(FAKE_HANDLE), "unknown dB value is rejected");
 }
 
-void testInactivityOfferedValues()
+void testInactivityFiveMinuteSteps()
 {
     JabraMockHID hid;
     hid.peers[0x08] = { .name = "Jabra Evolve2 85" };
@@ -518,14 +540,14 @@ void testInactivityOfferedValues()
     struct Case {
         uint8_t asked, minutes, units;
     };
-    for (auto [asked, minutes, units] : { Case { 0, 0, 0 }, Case { 1, 15, 3 }, Case { 7, 15, 3 }, Case { 22, 15, 3 },
-             Case { 23, 30, 6 }, Case { 45, 30, 6 }, Case { 50, 60, 12 }, Case { 90, 60, 12 }, Case { 200, 240, 48 },
-             Case { 255, 240, 48 } }) {
+    for (auto [asked, minutes, units] : { Case { 0, 0, 0 }, Case { 1, 5, 1 }, Case { 2, 5, 1 }, Case { 7, 5, 1 },
+             Case { 8, 10, 2 }, Case { 45, 45, 9 }, Case { 47, 45, 9 }, Case { 48, 50, 10 }, Case { 90, 90, 18 },
+             Case { 255, 255, 51 } }) {
         auto result = device.setInactiveTime(FAKE_HANDLE, asked);
-        JABRA_ASSERT(result && result->minutes == minutes, "nearest offered timer value");
+        JABRA_ASSERT(result && result->minutes == minutes, "nearest 5-minute step");
         JABRA_ASSERT(asked == 0 || units != 0, "a non-zero value never becomes never");
         JABRA_ASSERT((timer == std::vector<uint8_t> { units }), "written in units of 5 minutes");
-        JABRA_ASSERT(result->max_minutes == 240, "longest offered value");
+        JABRA_ASSERT(result->max_minutes == 255, "longest 5-minute step");
     }
 }
 
@@ -625,14 +647,14 @@ void runAllJabraGnpTests()
     testPickGnpCollection();
     testDongleWithoutHeadset();
     testDongleWithoutHeadsetUsbOrder();
-    testNackFromOtherAddressSkipped();
+    testNackFromOtherAddressAccepted();
     testNamedDriverFixedAddress();
     testStrayRepliesSkipped();
     testTruncatedReplyRejected();
     testPaddedStringReply();
-    testBatteryAbove100Rejected();
+    testBatteryAbove100Clamped();
     testSidetoneLevels();
-    testInactivityOfferedValues();
+    testInactivityFiveMinuteSteps();
     testRegistryMatchesGnpCollection();
     testVerifiedDevicesKeepNamedDrivers();
     testListedProductsWinOverGenericDriver();

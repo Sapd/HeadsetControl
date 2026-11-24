@@ -164,23 +164,28 @@ protected:
     }
 
     /**
-     * @brief Whether @p response answers the request: addressed to the host, from the
-     * address asked, same sequence number, and either a NACK, an ACK to a SET, or the
-     * requested command echoed. Anything else (events, other requests) is skipped.
+     * @brief Whether @p response answers the request: addressed to the host, same sequence
+     * number, and either a NACK, or from the address asked an ACK to a SET or the requested
+     * command echoed. Anything else (events, other requests) is skipped.
      *
-     * A Link dongle sends its NACKs for an address from that address too: captured on a
-     * Link 390 (0x2E51) with the Evolve3 75 off, F4 from 0x04 and F5 from 0x08.
+     * A NACK is accepted from any address. The Link 390 (0x2E51) sends its NACKs from the
+     * address asked (captured with the Evolve3 75 off: F4 from 0x04, F5 from 0x08); other
+     * dongles may answer from their own address (0x01), and dropping that NACK would make
+     * every request wait for the full timeout.
      */
     static constexpr bool isReplyTo(const Frame& response, uint8_t address, uint8_t type, uint8_t cmd, uint8_t sub,
         uint8_t seq)
     {
-        if (response[0] != REPORT_ID || response[OFF_DST] != ADDR_HOST || response[OFF_SRC] != address
-            || response[OFF_SEQ] != seq || (response[OFF_LEN] >> 6) != TYPE_RESPONSE) {
+        if (response[0] != REPORT_ID || response[OFF_DST] != ADDR_HOST || response[OFF_SEQ] != seq
+            || (response[OFF_LEN] >> 6) != TYPE_RESPONSE) {
             return false;
         }
         const uint8_t reply_cmd = response[OFF_CMD];
-        return reply_cmd == CMD_NACK || (type == TYPE_SET && reply_cmd == CMD_ACK)
-            || (reply_cmd == cmd && response[OFF_SUB] == sub);
+        if (reply_cmd == CMD_NACK) {
+            return true;
+        }
+        return response[OFF_SRC] == address
+            && ((type == TYPE_SET && reply_cmd == CMD_ACK) || (reply_cmd == cmd && response[OFF_SUB] == sub));
     }
 
 private:
@@ -203,9 +208,6 @@ private:
     static constexpr uint8_t INTELLITONE_ON       = 0x03;
 
     static constexpr uint8_t INACTIVITY_STEP_MIN = 5;
-    /// Sleep timers Jabra Direct offers that fit the 0-255 minute range of setInactiveTime()
-    /// (it also offers 6 h and 8 h); 0 = never
-    static constexpr std::array<uint8_t, 5> INACTIVITY_MINUTES { 15, 30, 60, 120, 240 };
 
     /// Levels written; the Evolve2 and Evolve3 models seen here offer exactly these
     static constexpr std::array<int8_t, 6> SIDETONE_DB { -9, -6, -3, 0, 3, 6 };
@@ -421,12 +423,8 @@ public:
         const uint8_t flags = (*reply)[OFF_PAYLOAD];
         const uint8_t level = (*reply)[OFF_PAYLOAD + 1];
 
-        if (level > 100) {
-            return DeviceError::protocolError("Invalid Jabra battery level");
-        }
-
         BatteryResult battery {};
-        battery.level_percent = level;
+        battery.level_percent = std::min<int>(100, level);
         battery.status        = (flags & BATTERY_FLAG_CHARGING) ? BATTERY_CHARGING : BATTERY_AVAILABLE;
         battery.raw_data      = std::vector<uint8_t>(reply->begin(), reply->begin() + static_cast<long>(OFF_PAYLOAD + payloadLength(*reply)));
         return battery;
@@ -476,25 +474,18 @@ public:
 
     Result<InactiveTimeResult> setInactiveTime(hid_device* device_handle, uint8_t minutes) override
     {
-        // 0 is "never". Anything else goes to the nearest timer Jabra Direct offers (ties to
-        // the shorter one), so a non-zero request never turns into "never".
-        uint8_t chosen = 0;
-        if (minutes > 0) {
-            chosen = INACTIVITY_MINUTES.front();
-            for (uint8_t offered : INACTIVITY_MINUTES) {
-                if (std::abs(offered - minutes) < std::abs(chosen - minutes)) {
-                    chosen = offered;
-                }
-            }
+        // Nearest 5-minute step. 0 is "never", so 1-2 minutes round up to 5 instead.
+        auto units = static_cast<uint8_t>((minutes + INACTIVITY_STEP_MIN / 2) / INACTIVITY_STEP_MIN);
+        if (minutes > 0 && units == 0) {
+            units = 1;
         }
-        const auto units = static_cast<uint8_t>(chosen / INACTIVITY_STEP_MIN);
         if (auto result = set(device_handle, CMD_CONFIG, CONFIG_INACTIVITY, { units }); !result) {
             return result.error();
         }
         return InactiveTimeResult {
-            .minutes     = chosen,
+            .minutes     = static_cast<uint8_t>(units * INACTIVITY_STEP_MIN),
             .min_minutes = 0,
-            .max_minutes = INACTIVITY_MINUTES.back()
+            .max_minutes = 255 / INACTIVITY_STEP_MIN * INACTIVITY_STEP_MIN
         };
     }
 
