@@ -5,6 +5,9 @@ on:
     branches: [master]
   pull_request:
 
+permissions:
+  contents: read
+
 # Cancel in-progress runs when a new commit is pushed
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -84,6 +87,11 @@ jobs:
           configurePreset: 'default'
           buildPreset: 'default'
           testPreset: 'default'
+
+      # The README device table is generated; a device change must come with its new output
+      - name: Check the README device table
+        if: runner.os == 'Linux'
+        run: .github/scripts/check-readme-table.sh build/headsetcontrol README.md
 
       # Windows: Build with MSYS2
       - name: Build and test (Windows)
