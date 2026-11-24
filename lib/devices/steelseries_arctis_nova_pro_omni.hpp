@@ -3,6 +3,7 @@
 #include "../result_types.hpp"
 #include "protocols/steelseries_protocol.hpp"
 #include <array>
+#include <chrono>
 #include <string_view>
 #include <vector>
 
@@ -21,8 +22,11 @@ namespace headsetcontrol {
  *     explicitly (see getCapabilityDetail), or writes hit the wrong collection.
  *
  * Verified empirically on firmware rev 0x0132 (Sep 2026):
- *   - Battery: `01 B0` -> reply[6] = headset battery % (0-100, fw caps at 99),
+ *   - Battery: `01 B0` -> reply[6] = headset battery % (0-100),
  *     reply[15] = status (0x01 offline, 0x02 cable charging, 0x08 online).
+ *     While the headset is connected the hub also sends unsolicited reports
+ *     with report ID 0x07 on the same collection (seen on Linux), so the
+ *     reply is the first report that starts with 01 B0.
  *   - Sidetone: `01 38 <enable> <level>`, enable 1=on/0=muted, level 0-10.
  *     Write-only: the hub reports no sidetone state anywhere, so there is no
  *     getSidetone (confirmed against the status poll, the config feature
@@ -70,13 +74,22 @@ public:
             return result.error();
         }
 
+        // Skip the hub's unsolicited reports (report ID 0x07) until the reply arrives
+        using clock         = std::chrono::steady_clock;
+        const auto deadline = clock::now() + std::chrono::milliseconds { hsc_device_timeout };
         std::vector<uint8_t> response(STATUS_BUF_SIZE);
-        auto read_result = this->readHIDTimeout(device_handle, response, hsc_device_timeout);
-        if (!read_result) {
-            return read_result.error();
-        }
-        if (*read_result < 16) {
-            return DeviceError::protocolError("Response too short");
+        while (true) {
+            const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - clock::now());
+            if (remaining <= std::chrono::milliseconds::zero()) {
+                return DeviceError::timeout("No status reply from the hub");
+            }
+            auto read_result = this->readHIDTimeout(device_handle, response, static_cast<int>(remaining.count()));
+            if (!read_result) {
+                return read_result.error();
+            }
+            if (*read_result >= 16 && response[0] == 0x01 && response[1] == 0xb0) {
+                break;
+            }
         }
 
         // reply[0]=0x01 (report id), reply[1]=0xb0, reply[6]=battery%,
@@ -94,10 +107,10 @@ public:
             status = BATTERY_CHARGING;
         }
 
-        // Firmware fuel gauge caps at 99; present that as full.
         int level = response[6];
-        if (level > 100)
-            level = 100;
+        if (level > 100) {
+            return DeviceError::protocolError("Invalid battery level");
+        }
 
         return BatteryResult {
             .level_percent = level,
@@ -120,7 +133,7 @@ public:
         }
 
         return SidetoneResult {
-            .current_level = level,
+            .current_level = static_cast<uint8_t>(map(mapped, 0, SIDETONE_MAX, 0, 128)),
             .min_level     = 0,
             .max_level     = 128,
             .device_min    = 0,

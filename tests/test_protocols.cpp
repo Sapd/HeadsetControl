@@ -25,6 +25,7 @@
 #include "devices/protocols/logitech_centurion_protocol.hpp"
 #include "devices/protocols/steelseries_protocol.hpp"
 #include "devices/steelseries_arctis_nova_3p_wireless.hpp"
+#include "devices/steelseries_arctis_nova_pro_omni.hpp"
 #include "result_types.hpp"
 #include "utility.hpp"
 
@@ -847,6 +848,91 @@ void testSteelSeriesNova3PMicVolumeMapping()
             ASSERT_EQ(0x09, dev.hid.writes[1][1], "Save command should use opcode 0x09");
         }
     }
+}
+
+class TestableNovaProOmni : public SteelSeriesArctisNovaProOmni {
+public:
+    mutable ScriptedHIDInterface hid;
+
+    HIDInterface& getHIDInterface() const override { return hid; }
+};
+
+/// A 64-byte Omni hub report starting with the given bytes
+static std::vector<uint8_t> omniReport(std::initializer_list<uint8_t> head)
+{
+    std::vector<uint8_t> report(64, 0);
+    std::copy(head.begin(), head.end(), report.begin());
+    return report;
+}
+
+void testSteelSeriesNovaProOmniBattery()
+{
+    // Captured on Linux: two unsolicited 07 reports arrive before the 01 B0 reply
+    const auto reply = omniReport({ 0x01, 0xb0, 0x00, 0x00, 0x04, 0x01, 0x30, 0x3c, 0x08, 0x01, 0x00, 0x0a, 0x05, 0x00, 0x08, 0x08, 0x03 });
+    TestableNovaProOmni dev;
+    dev.hid.replies.push_back(omniReport({ 0x07, 0x19 }));
+    dev.hid.replies.push_back(omniReport({ 0x07, 0x27 }));
+    dev.hid.replies.push_back(reply);
+    auto battery = dev.getBattery(nullptr);
+    ASSERT_TRUE(battery.hasValue(), "Omni battery should skip the 07 reports");
+    ASSERT_EQ(0x30, battery->level_percent, "Omni battery level is reply[6]");
+    ASSERT_EQ(BATTERY_AVAILABLE, battery->status, "Omni status 0x08 is not charging");
+    ASSERT_EQ(1u, dev.hid.writes.size(), "One status request");
+    ASSERT_EQ(64u, dev.hid.writes[0].size(), "Omni commands are 64-byte reports");
+    ASSERT_EQ(0x01, dev.hid.writes[0][0], "Omni commands use report ID 1");
+    ASSERT_EQ(0xb0, dev.hid.writes[0][1], "Status request opcode");
+    ASSERT_TRUE(dev.hid.replies.empty(), "All reports consumed");
+
+    // Only 07 reports: a timeout, not a battery read from an event
+    TestableNovaProOmni events;
+    events.hid.replies.push_back(omniReport({ 0x07, 0x19 }));
+    auto none = events.getBattery(nullptr);
+    ASSERT_TRUE(none.hasError() && none.error().code == DeviceError::Code::Timeout, "Events alone are no reply");
+
+    TestableNovaProOmni charging;
+    auto cable = reply;
+    cable[15]  = 0x02;
+    charging.hid.replies.push_back(cable);
+    auto on_cable = charging.getBattery(nullptr);
+    ASSERT_TRUE(on_cable.hasValue() && on_cable->status == BATTERY_CHARGING, "Status 0x02 is charging");
+
+    TestableNovaProOmni offline;
+    auto off = reply;
+    off[15]  = 0x01;
+    offline.hid.replies.push_back(off);
+    auto gone = offline.getBattery(nullptr);
+    ASSERT_TRUE(gone.hasError() && gone.error().code == DeviceError::Code::DeviceOffline, "Status 0x01 is offline");
+
+    TestableNovaProOmni invalid;
+    auto bad = reply;
+    bad[6]   = 101;
+    invalid.hid.replies.push_back(bad);
+    auto out_of_range = invalid.getBattery(nullptr);
+    ASSERT_TRUE(out_of_range.hasError() && out_of_range.error().code == DeviceError::Code::ProtocolError, "Level above 100 is rejected");
+}
+
+void testSteelSeriesNovaProOmniSidetone()
+{
+    TestableNovaProOmni dev;
+    auto loud = dev.setSidetone(nullptr, 128);
+    ASSERT_TRUE(loud.hasValue(), "Sidetone write should succeed");
+    ASSERT_EQ(1u, dev.hid.writes.size(), "One sidetone command");
+    ASSERT_EQ(0x01, dev.hid.writes[0][0], "Report ID 1");
+    ASSERT_EQ(0x38, dev.hid.writes[0][1], "Sidetone opcode");
+    ASSERT_EQ(0x01, dev.hid.writes[0][2], "Enabled");
+    ASSERT_EQ(10, dev.hid.writes[0][3], "Highest level");
+    ASSERT_EQ(128, loud->current_level, "Full level reported");
+
+    // 30 maps to device level 2, which is reported back as the level actually set
+    auto low = dev.setSidetone(nullptr, 30);
+    ASSERT_TRUE(low.hasValue(), "Sidetone write should succeed");
+    ASSERT_EQ(2, dev.hid.writes[1][3], "30 of 128 is level 2");
+    ASSERT_EQ(25, low->current_level, "Level 2 of 10 is reported as 25 of 128");
+
+    auto off = dev.setSidetone(nullptr, 0);
+    ASSERT_TRUE(off.hasValue() && off->is_muted, "0 mutes");
+    ASSERT_EQ(0x00, dev.hid.writes[2][2], "Disabled");
+    ASSERT_EQ(0, dev.hid.writes[2][3], "Level 0");
 }
 
 class TestableAstroA50Gen4 : public LogitechAstroA50Gen4 {
@@ -3034,6 +3120,8 @@ void runAllProtocolTests()
     runTest("SteelSeries Chatmix Mapping", testSteelSeriesChatmixMapping);
     runTest("SteelSeries Sidetone Mapping", testSteelSeriesSidetoneMapping);
     runTest("SteelSeries Nova 3P/3X Microphone Volume Mapping", testSteelSeriesNova3PMicVolumeMapping);
+    runTest("SteelSeries Nova Pro Omni Battery", testSteelSeriesNovaProOmniBattery);
+    runTest("SteelSeries Nova Pro Omni Sidetone", testSteelSeriesNovaProOmniSidetone);
 
     std::cout << "\n=== Corsair Protocol ===" << std::endl;
     runTest("Corsair Sidetone Mapping", testCorsairSidetoneMapping);

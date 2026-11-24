@@ -33,8 +33,8 @@
 #include "devices/steelseries_arctis_nova_5.hpp"
 #include "devices/steelseries_arctis_nova_7.hpp"
 #include "devices/steelseries_arctis_nova_7p.hpp"
-#include "devices/steelseries_arctis_nova_pro_wireless.hpp"
 #include "devices/steelseries_arctis_nova_pro_omni.hpp"
+#include "devices/steelseries_arctis_nova_pro_wireless.hpp"
 #include "devices/steelseries_arctis_pro_wireless.hpp"
 
 // HyperX devices
