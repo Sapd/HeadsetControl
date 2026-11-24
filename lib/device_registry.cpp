@@ -6,6 +6,7 @@
 #include "devices/corsair_void_v2w.hpp"
 
 // Logitech devices
+#include "devices/logitech_astro_a20x.hpp"
 #include "devices/logitech_astro_a50.hpp"
 #include "devices/logitech_astro_a50_gen4.hpp"
 
@@ -126,6 +127,8 @@ void DeviceRegistry::initialize()
         // Each device is managed by a unique_ptr for automatic cleanup
 
         // Logitech devices
+        registerDevice(std::make_unique<LogitechAstroA20X>());
+        registerDevice(std::make_unique<LogitechAstroA20XWireless>());
         registerDevice(std::make_unique<LogitechAstroA50Gen4>());
         registerDevice(std::make_unique<LogitechAstroA50>());
 
