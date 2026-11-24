@@ -14,7 +14,7 @@ namespace headsetcontrol {
  *
  * Features:
  * - Sidetone (10 levels)
- * - Microphone volume (14 levels)
+ * - Microphone volume (0-15)
  * - Inactive time
  * - Battery status
  * - Equalizer (10 bands)
@@ -261,7 +261,7 @@ public:
 
     Result<MicVolumeResult> setMicVolume(hid_device* device_handle, uint8_t volume) override
     {
-        uint8_t mapped = map<uint8_t>(volume, 0, 128, 0, 0x0e);
+        uint8_t mapped = map<uint8_t>(volume, 0, 128, 0, 0x0f);
 
         std::array<uint8_t, 3> cmd { 0x00, 0x37, mapped };
         if (auto result = writeHID(device_handle, cmd, MSG_SIZE); !result) {

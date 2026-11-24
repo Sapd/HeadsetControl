@@ -70,7 +70,7 @@ public:
     OutputData data;
     data.name           = "HeadsetControl";
     data.version        = "1.0.0-test";
-    data.api_version    = "1.5";
+    data.api_version    = "1.9";
     data.hidapi_version = "0.15.0";
 
     DeviceData dev;
@@ -236,6 +236,32 @@ void testYamlArrayFormat()
     ASSERT_CONTAINS(result, "- sidetone", "Should have second item with dash");
 
     std::cout << "    ✓ YAML array format is correct" << std::endl;
+}
+
+void testEmptyArrays()
+{
+    std::cout << "  Testing empty arrays..." << std::endl;
+
+    const std::vector<std::string> empty;
+
+    std::ostringstream json_out;
+    JsonSerializer json(json_out);
+    json.beginDocument();
+    json.writeArray("readable_capabilities", empty);
+    json.write("device_count", 1);
+    json.endDocument();
+    ASSERT_CONTAINS(json_out.str(), "\"readable_capabilities\": [],", "JSON should write an empty array as []");
+
+    // A bare "key:" would parse as null in YAML
+    std::ostringstream yaml_out;
+    YamlSerializer yaml(yaml_out);
+    yaml.beginDocument();
+    yaml.writeArray("readable_capabilities", empty);
+    yaml.write("device_count", 1);
+    yaml.endDocument();
+    ASSERT_CONTAINS(yaml_out.str(), "readable_capabilities: []\ndevice_count: 1", "YAML should write an empty array as []");
+
+    std::cout << "    ✓ Empty arrays are correct" << std::endl;
 }
 
 void testYamlArrayOfObjectsIndentation()
@@ -453,6 +479,48 @@ void testBatteryDataSerialization()
     std::cout << "    ✓ BatteryData serialization is correct" << std::endl;
 }
 
+void testActionDataValue()
+{
+    std::cout << "  Testing ActionData value and color..." << std::endl;
+
+    auto serialize = [](const ActionData& action) {
+        std::ostringstream out;
+        JsonSerializer s(out);
+        s.beginDocument();
+        s.beginArray("actions");
+        action.serialize(s);
+        s.endArray();
+        s.endDocument();
+        return out.str();
+    };
+
+    // Black packs to 0 but is still the value that was set
+    ActionData black;
+    black.capability   = "CAP_LIGHT_COLOR";
+    black.value        = 0;
+    black.color        = "#000000";
+    std::string result = serialize(black);
+    ASSERT_CONTAINS(result, "\"value\": 0", "Black should keep its value");
+    ASSERT_CONTAINS(result, "\"color\": \"#000000\"", "Black should have a color");
+
+    // Without a color, 0 still means "nothing to report" (e.g. the equalizer)
+    ActionData plain;
+    plain.capability = "CAP_EQUALIZER";
+    plain.value      = 0;
+    result           = serialize(plain);
+    ASSERT_TRUE(result.find("\"value\"") == std::string::npos, "Zero value without a color should be omitted");
+    ASSERT_TRUE(result.find("\"color\"") == std::string::npos, "No color key without a color");
+
+    // A failed action never reports its value
+    ActionData failed = black;
+    failed.status     = STATUS_FAILURE;
+    failed.value      = -1;
+    result            = serialize(failed);
+    ASSERT_TRUE(result.find("\"value\"") == std::string::npos, "Failed action should omit value");
+
+    std::cout << "    ✓ ActionData value and color are correct" << std::endl;
+}
+
 // ============================================================================
 // Test Runner
 // ============================================================================
@@ -488,6 +556,7 @@ void runAllOutputFormatTests()
     runTest("YAML Array Format", testYamlArrayFormat);
     runTest("YAML Array of Objects Indentation", testYamlArrayOfObjectsIndentation);
     runTest("YAML Nested Arrays", testYamlNestedArrays);
+    runTest("Empty Arrays", testEmptyArrays);
 
     std::cout << "\n=== ENV Format Tests ===" << std::endl;
     runTest("ENV Basic Format", testEnvBasicFormat);
@@ -496,6 +565,7 @@ void runAllOutputFormatTests()
     std::cout << "\n=== Integration Tests ===" << std::endl;
     runTest("Full JSON Output", testFullJsonOutput);
     runTest("BatteryData Serialization", testBatteryDataSerialization);
+    runTest("ActionData Value", testActionDataValue);
 
     std::cout << "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" << std::endl;
     std::cout << "Output Format Tests: " << passed << " passed, " << failed << " failed" << std::endl;

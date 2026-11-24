@@ -11,6 +11,7 @@
 
 #include "device_registry.hpp"
 #include "devices/headsetcontrol_test.hpp"
+#include "feature_handlers.hpp"
 
 #include <cstdint>
 #include <format>
@@ -211,17 +212,34 @@ void testLookupLogitechProX2Lightspeed()
     auto* device = registry.getDevice(0x046d, 0x0af7);
     ASSERT_NOT_NULL(device, "Logitech PRO X2 LIGHTSPEED should be found");
     ASSERT_EQ("Logitech G PRO X 2 LIGHTSPEED", std::string(device->getDeviceName()), "Device name should match");
-    ASSERT_TRUE((device->getCapabilities() & B(CAP_SIDETONE)) != 0, "G PRO X2 should expose sidetone capability");
-    ASSERT_TRUE((device->getCapabilities() & B(CAP_EQUALIZER_PRESET)) != 0, "G PRO X2 should expose equalizer preset capability");
-    ASSERT_TRUE((device->getCapabilities() & B(CAP_EQUALIZER)) != 0, "G PRO X2 should expose equalizer capability");
-    ASSERT_TRUE((device->getCapabilities() & B(CAP_PARAMETRIC_EQUALIZER)) != 0, "G PRO X2 should expose parametric equalizer capability");
+    const int caps = device->getAdvertisedCapabilities();
+    ASSERT_TRUE((caps & B(CAP_SIDETONE)) != 0, "G PRO X2 should expose sidetone capability");
+    ASSERT_TRUE((caps & B(CAP_EQUALIZER_PRESET)) != 0, "G PRO X2 should expose equalizer preset capability");
+    ASSERT_TRUE((caps & B(CAP_EQUALIZER)) != 0, "G PRO X2 should expose equalizer capability");
+    ASSERT_EQ(0, caps & B(CAP_PARAMETRIC_EQUALIZER), "G PRO X2 should omit parametric equalizer capability");
+
+    const EqualizerPresets expected { {
+        { "Flat", { 0, 0, 0, 0, 0 } },
+        { "Bass Boost", { 4, 2, 0, 0, 0 } },
+        { "Team Chat", { -1, 2, 1, 3, 3 } },
+        { "Shooter", { -1, -1, 4, 3, 2 } },
+        { "MOBA", { 0, 1, 1, 2, 4 } },
+    } };
+    const auto presets = device->getEqualizerPresets();
+    ASSERT_TRUE(presets.has_value(), "G PRO X2 should list its equalizer presets");
+    ASSERT_EQ(expected.count(), device->getEqualizerPresetsCount(), "G PRO X2 advertised preset count");
+    ASSERT_EQ(expected.count(), presets->count(), "G PRO X2 listed preset count");
+    for (size_t i = 0; i < expected.presets.size(); ++i) {
+        ASSERT_EQ(expected.presets[i].name, presets->presets[i].name, "G PRO X2 preset name");
+        ASSERT_TRUE(expected.presets[i].values == presets->presets[i].values, "G PRO X2 preset gains");
+    }
 
     std::cout << "    OK lookup Logitech PRO X2 LIGHTSPEED" << std::endl;
 }
 
 void testLookupJabraLink390()
 {
-    std::cout << "  Testing lookup of Jabra Link 390 (0x2e57)..." << std::endl;
+    std::cout << "  Testing lookup of Jabra Link 390 variants..." << std::endl;
 
     auto& registry = DeviceRegistry::instance();
     registry.initialize();
@@ -237,6 +255,101 @@ void testLookupJabraLink390()
     auto* flex = registry.getDevice(0x0b0e, 0x2519);
     ASSERT_NOT_NULL(flex, "Evolve2 65 Flex (USB) should be found");
     ASSERT_EQ(device->getCapabilities(), flex->getCapabilities(), "Dongle and USB headset share the GNP feature set");
+
+    for (uint16_t pid : { 0x2e50, 0x2e51, 0x2e56 }) {
+        auto* variant = registry.getDevice(0x0b0e, pid);
+        ASSERT_NOT_NULL(variant, "Every Link 390 variant should be found");
+        ASSERT_EQ(std::string(device->getDeviceName()), std::string(variant->getDeviceName()), "Link 390 variants map to the same device");
+    }
+    for (uint16_t pid : { 0x2517, 0x2518 }) {
+        auto* variant = registry.getDevice(0x0b0e, pid);
+        ASSERT_NOT_NULL(variant, "Every Evolve2 65 Flex variant should be found");
+        ASSERT_EQ(std::string(flex->getDeviceName()), std::string(variant->getDeviceName()), "Evolve2 65 Flex variants map to the same device");
+    }
+    for (uint16_t pid : { 0x2546, 0x2547, 0x2548 }) {
+        auto* evolve3 = registry.getDevice(0x0b0e, pid);
+        ASSERT_NOT_NULL(evolve3, "Every Evolve3 75 (USB) variant should be found");
+        ASSERT_EQ("Jabra Evolve3 75 (USB)", std::string(evolve3->getDeviceName()), "Evolve3 75 name should match");
+        ASSERT_EQ(device->getCapabilities(), evolve3->getCapabilities(), "Evolve3 75 shares the GNP feature set");
+        ASSERT_EQ(0x0005, evolve3->getCapabilityDetail(CAP_BATTERY_STATUS).usageid, "Evolve3 75 GNP collection is usage 0x05");
+    }
+    ASSERT_TRUE((device->getSupportedPlatforms() & PLATFORM_WINDOWS) != 0, "Link 390 should be supported on Windows");
+
+    std::cout << "    PASS" << std::endl;
+}
+
+void testLookupSonyINZONEH9II()
+{
+    std::cout << "  Testing lookup of Sony INZONE H9 II (0x0fa8)..." << std::endl;
+
+    auto& registry = DeviceRegistry::instance();
+    registry.initialize();
+
+    auto* device = registry.getDevice(0x054c, 0x0fa8);
+    ASSERT_NOT_NULL(device, "Sony INZONE H9 II should be found");
+    ASSERT_EQ("Sony INZONE H9 II", std::string(device->getDeviceName()), "Device name should match");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_BATTERY_STATUS)) != 0, "H9 II should expose battery capability");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_CHATMIX_STATUS)) != 0, "H9 II should expose chatmix capability");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_SIDETONE)) != 0, "H9 II should expose sidetone capability");
+    ASSERT_FALSE((device->getCapabilities() & B(CAP_MICROPHONE_VOLUME)) != 0, "H9 II should not expose direct headset microphone volume");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_MICROPHONE_MUTE_STATUS)) != 0, "H9 II should expose microphone mute status capability");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_ANC_BUTTON_MODES)) != 0, "H9 II should expose ANC button modes capability");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_INACTIVE_TIME)) != 0, "H9 II should expose inactive time capability");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_VOICE_PROMPTS)) != 0, "H9 II should expose voice prompts capability");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_BT_WHEN_POWERED_ON)) != 0, "H9 II should expose Bluetooth power-on capability");
+
+    std::cout << "    OK lookup Sony INZONE H9 II" << std::endl;
+}
+
+void testSonyINZONEInterfaceSelection()
+{
+    std::cout << "  Testing Sony INZONE HID interface selection..." << std::endl;
+
+    auto& registry = DeviceRegistry::instance();
+    registry.initialize();
+
+    // H5: interface_id 0 means "first match" on Linux/macOS; the dongle relies on it.
+    auto* h5 = registry.getDevice(0x054c, 0x0ebf);
+    ASSERT_NOT_NULL(h5, "Sony INZONE H5 should be found");
+    auto h5_detail = h5->getCapabilityDetail(CAP_BATTERY_STATUS);
+    ASSERT_EQ(0xFF04, h5_detail.usagepage, "H5 usage page");
+    ASSERT_EQ(0x0002, h5_detail.usageid, "H5 usage id");
+    ASSERT_EQ(0, h5_detail.interface_id, "H5 must select the first matching interface");
+
+    auto* h9ii = registry.getDevice(0x054c, 0x0fa8);
+    ASSERT_NOT_NULL(h9ii, "Sony INZONE H9 II should be found");
+    auto h9ii_detail = h9ii->getCapabilityDetail(CAP_BATTERY_STATUS);
+    ASSERT_EQ(0xFF04, h9ii_detail.usagepage, "H9 II usage page");
+    ASSERT_EQ(0x0001, h9ii_detail.usageid, "H9 II usage id");
+    ASSERT_EQ(5, h9ii_detail.interface_id, "H9 II control collection is on interface 5");
+
+    std::cout << "    OK Sony INZONE interface selection" << std::endl;
+}
+
+void testLookupJabraLink380()
+{
+    std::cout << "  Testing lookup of Jabra Link 380 variants..." << std::endl;
+
+    auto& registry = DeviceRegistry::instance();
+    registry.initialize();
+
+    auto* device = registry.getDevice(0x0b0e, 0x24c7);
+    ASSERT_NOT_NULL(device, "Jabra Link 380 should be found");
+    ASSERT_EQ("Jabra Link 380 (paired headset)", std::string(device->getDeviceName()), "Device name should match");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_SIDETONE)) != 0, "Link 380 should expose sidetone capability");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_BATTERY_STATUS)) != 0, "Link 380 should expose battery capability");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_LIGHTS)) != 0, "Link 380 should expose lights capability");
+    ASSERT_TRUE((device->getCapabilities() & B(CAP_INACTIVE_TIME)) != 0, "Link 380 should expose inactive time capability");
+
+    for (uint16_t pid : { 0x24c8, 0x24c9, 0x24ca }) {
+        auto* variant = registry.getDevice(0x0b0e, pid);
+        ASSERT_NOT_NULL(variant, "Every Link 380 variant should be found");
+        ASSERT_EQ(std::string(device->getDeviceName()), std::string(variant->getDeviceName()), "Link 380 variants map to the same device");
+    }
+
+    auto* link390 = registry.getDevice(0x0b0e, 0x2e57);
+    ASSERT_NOT_NULL(link390, "Jabra Link 390 should be found");
+    ASSERT_EQ(device->getCapabilities(), link390->getCapabilities(), "Link 380 and Link 390 share the GNP feature set");
 
     std::cout << "    PASS" << std::endl;
 }
@@ -339,6 +452,65 @@ void testRegisteredDeviceCapabilities()
     std::cout << "    OK registered device capabilities" << std::endl;
 }
 
+void testReadableCapabilities()
+{
+    std::cout << "  Testing readable capabilities..." << std::endl;
+
+    auto& registry = DeviceRegistry::instance();
+    registry.initialize();
+    const auto& handlers = FeatureHandlerRegistry::instance();
+
+    // Every capability has a handler for its own direction, and every capability
+    // a device can read back has a read handler
+    for (int i = 0; i < NUM_CAPABILITIES; i++) {
+        auto cap = static_cast<capabilities>(i);
+        ASSERT_TRUE(handlers.hasHandler(cap, getCapabilityDescriptor(cap).type),
+            std::format("{} should have a handler", capability_to_string(cap)));
+    }
+    for (const auto& device : registry.getAllDevices()) {
+        ASSERT_EQ(0, device->getReadableCapabilities() & ~device->getCapabilities(),
+            std::format("{} can only read back capabilities it lists", device->getDeviceName()));
+        for (int i = 0; i < NUM_CAPABILITIES; i++) {
+            auto cap = static_cast<capabilities>(i);
+            if (device->canRead(cap)) {
+                ASSERT_TRUE(handlers.hasHandler(cap, CAPABILITYTYPE_INFO),
+                    std::format("{} is readable but has no read handler", capability_to_string(cap)));
+            }
+        }
+    }
+
+    auto* test_device = registry.getDevice(0xF00B, 0xA00C);
+    ASSERT_TRUE(test_device != nullptr, "Test device should be registered");
+    ASSERT_TRUE(test_device->canRead(CAP_HEADSET_VOLUME), "Test device should read back headset volume");
+    ASSERT_TRUE(test_device->canRead(CAP_SIDETONE), "Test device should read back sidetone");
+    ASSERT_FALSE(test_device->canRead(CAP_LIGHTS), "Test device can't read back lights");
+    ASSERT_TRUE(test_device->supports(CAP_HEADSET_VOLUME, CAPABILITYTYPE_INFO), "Headset volume read is supported");
+    ASSERT_TRUE(test_device->supports(CAP_BATTERY_STATUS, CAPABILITYTYPE_INFO), "Info capabilities are read by nature");
+
+    // CAP_SIDETONE_STATUS is derived from the readable mask, not listed
+    ASSERT_FALSE((test_device->getCapabilities() & B(CAP_SIDETONE_STATUS)) != 0,
+        "Test device should not list CAP_SIDETONE_STATUS itself");
+    ASSERT_TRUE((test_device->getAdvertisedCapabilities() & B(CAP_SIDETONE_STATUS)) != 0,
+        "Readable sidetone should advertise CAP_SIDETONE_STATUS");
+
+    auto volume = handlers.execute(CAP_HEADSET_VOLUME, CAPABILITYTYPE_INFO, test_device, nullptr, std::monostate {});
+    ASSERT_TRUE(volume.hasValue(), "Headset volume read should succeed");
+    ASSERT_EQ(77, volume->value, "Headset volume read should be normalised");
+    ASSERT_EQ(15, static_cast<int>(volume->headset_volume->device_volume), "Headset volume read should keep the device level");
+
+    auto set = handlers.execute(CAP_HEADSET_VOLUME, CAPABILITYTYPE_ACTION, test_device, nullptr, 64);
+    ASSERT_TRUE(set.hasValue(), "Headset volume set should succeed");
+    ASSERT_EQ(64, set->value, "Headset volume set should report the level");
+
+    auto* a50 = registry.getDevice(0x046d, 0x0b1c);
+    ASSERT_TRUE(a50 != nullptr, "ASTRO A50 Gen 5 should be registered");
+    ASSERT_TRUE(a50->supports(CAP_HEADSET_VOLUME, CAPABILITYTYPE_ACTION), "A50 Gen 5 sets headset volume");
+    ASSERT_TRUE(a50->supports(CAP_HEADSET_VOLUME, CAPABILITYTYPE_INFO), "A50 Gen 5 reads headset volume back");
+    ASSERT_FALSE(a50->supports(CAP_SIDETONE, CAPABILITYTYPE_INFO), "A50 Gen 5 can't read sidetone back");
+
+    std::cout << "    OK readable capabilities" << std::endl;
+}
+
 void testDeviceProductIds()
 {
     std::cout << "  Testing device product IDs..." << std::endl;
@@ -354,12 +526,12 @@ void testDeviceProductIds()
         // Each device should have at least one product ID
         ASSERT_TRUE(product_ids.size() >= 1, "Device should have at least one product ID");
 
-        // All product IDs should be non-zero (typically)
+        // Product ID 0 is never valid for a real device. It also shows up when a
+        // std::array of product IDs is declared larger than the list it holds.
         for (auto pid : product_ids) {
-            // Allow zero for test purposes, but real devices should have non-zero
             if (device->getVendorId() != 0xF00B) {
-                ASSERT_TRUE(pid != 0 || product_ids.size() > 1,
-                    "Real devices should have non-zero product ID");
+                ASSERT_TRUE(pid != 0,
+                    std::format("{} lists product ID 0x0000", device->getDeviceName()));
             }
         }
     }
@@ -536,8 +708,11 @@ void runAllDeviceRegistryTests()
     std::cout << "\n=== Device Lookup Tests ===" << std::endl;
     runTest("Lookup Test Device", testLookupTestDevice);
     runTest("Lookup Logitech PRO X2 LIGHTSPEED", testLookupLogitechProX2Lightspeed);
+    runTest("Lookup Sony INZONE H9 II", testLookupSonyINZONEH9II);
+    runTest("Sony INZONE Interface Selection", testSonyINZONEInterfaceSelection);
     runTest("Lookup Plantronics BT600", testLookupPlantronicsBT600);
     runTest("Lookup Jabra Link 390", testLookupJabraLink390);
+    runTest("Lookup Jabra Link 380", testLookupJabraLink380);
     runTest("Lookup Non-Existent", testLookupNonExistentDevice);
     runTest("Lookup Wrong Product ID", testLookupWithWrongProductId);
     runTest("Lookup Wrong Vendor ID", testLookupWithWrongVendorId);
@@ -546,6 +721,7 @@ void runAllDeviceRegistryTests()
     runTest("Enumerate All Devices", testEnumerateAllDevices);
     runTest("Vendor Distribution", testDeviceVendorDistribution);
     runTest("Device Capabilities", testRegisteredDeviceCapabilities);
+    runTest("Readable Capabilities", testReadableCapabilities);
     runTest("Product IDs", testDeviceProductIds);
     runTest("Unique Product IDs", testUniqueProductIds);
 

@@ -6,6 +6,13 @@
 #include <optional>
 #include <string>
 
+#ifdef __linux__
+#include <filesystem>
+#include <format>
+#include <fstream>
+#include <system_error>
+#endif
+
 namespace headsetcontrol {
 
 std::optional<std::string> get_hid_path(uint16_t vid, uint16_t pid, int iid, uint16_t usagepageid, uint16_t usageid)
@@ -25,11 +32,10 @@ std::optional<std::string> get_hid_path(uint16_t vid, uint16_t pid, int iid, uin
     iid = 0;
 #endif
 
-    // usageid is more specific to interface id, so we try it first
-    // It is a good idea, to do it on all platforms, however googling shows
-    //      that older versions of hidapi have a bug where the value is not correctly
-    //      set on non-Windows.
-#if defined(WIN32) || defined(_WIN32) || defined(__WIN32)
+    // usageid is more specific to interface id, so we try it first.
+    // Older hidapi versions on non-Windows did not populate usage_page/usage, so
+    // we only trust the match when both values are actually present; otherwise
+    // we fall through to the interface_number fallback below.
     if (usageid && usagepageid) // ignore when one of them 0
     {
         struct hid_device_info* cur_dev = devs;
@@ -42,11 +48,6 @@ std::optional<std::string> get_hid_path(uint16_t vid, uint16_t pid, int iid, uin
             cur_dev = cur_dev->next;
         }
     }
-#else
-    // ignore unused parameter warning
-    (void)(usageid);
-    (void)(usagepageid);
-#endif
 
     if (!result) // only when we didn't yet find something
     {
@@ -64,6 +65,39 @@ std::optional<std::string> get_hid_path(uint16_t vid, uint16_t pid, int iid, uin
     hid_free_enumeration(devs);
 
     return result;
+}
+
+std::optional<std::string> get_serial_path([[maybe_unused]] uint16_t vid, [[maybe_unused]] uint16_t pid)
+{
+#ifdef __linux__
+    namespace fs = std::filesystem;
+
+    auto read_attribute = [](const fs::path& path) {
+        std::ifstream file(path);
+        std::string value;
+        file >> value;
+        return value;
+    };
+
+    const auto vendor  = std::format("{:04x}", vid);
+    const auto product = std::format("{:04x}", pid);
+
+    // Each tty links to its USB interface, whose parent is the USB device
+    std::error_code error;
+    for (const auto& entry : fs::directory_iterator("/sys/class/tty", error)) {
+        auto interface = fs::canonical(entry.path() / "device", error);
+        if (error) {
+            error.clear();
+            continue;
+        }
+        if (read_attribute(interface.parent_path() / "idVendor") == vendor
+            && read_attribute(interface.parent_path() / "idProduct") == product) {
+            return "/dev/" + entry.path().filename().string();
+        }
+    }
+#endif
+
+    return std::nullopt;
 }
 
 void close_hid_device(hid_device* handle)

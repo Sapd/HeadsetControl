@@ -12,6 +12,7 @@
 
 // Forward declarations
 struct ParametricEqualizerSettings;
+struct LightColorSettings;
 
 namespace headsetcontrol {
 
@@ -100,6 +101,75 @@ ParametricEqualizerSettings parse_parametric_equalizer_settings(std::string_view
  * @return pair of IDs if successful, nullopt otherwise
  */
 std::optional<std::pair<int, int>> parse_two_ids(std::string_view input, int default_base = 10);
+
+/**
+ * @brief Parse a color written as "RRGGBB" or "#RRGGBB"
+ *
+ * Exactly six hex digits, in either case. "000000" is a valid color.
+ *
+ * @param input string to parse
+ * @return the color if successful, nullopt otherwise
+ */
+std::optional<LightColorSettings> parse_light_color(std::string_view input);
+
+/**
+ * @brief Lock shared between processes on this machine, held for its lifetime
+ *
+ * For devices whose protocol is a conversation that another process can
+ * interleave with, such as a mode switch around a request: a tray app and a
+ * one-off CLI call on the same dongle would otherwise read each other's
+ * replies. The OS releases the lock if the holder dies.
+ *
+ * - Windows: a named mutex, "Global\HeadsetControl-<name>", which every
+ *   signed-in user may wait on, so that sessions (a console login and an SSH
+ *   session) and users share it.
+ * - Elsewhere: flock() on /tmp/headsetcontrol-<name>.lock. The path does not
+ *   depend on the environment, so sudo, cron and a desktop session agree; a
+ *   sandbox with a private /tmp (Flatpak, systemd PrivateTmp) has its own.
+ *   The file is opened without following symlinks and must be a plain file
+ *   with one link; only the process that creates it changes its mode.
+ *
+ * Do not take the same name twice in one process: a Windows mutex is
+ * recursive per thread, flock() is not. Destroy it on the thread that
+ * created it: a Windows mutex can only be released by its owner thread.
+ * Names map to [A-Za-z0-9._-]; keep them short and lowercase, since case
+ * and long names behave differently across platforms. The timeout is
+ * clamped to [0, 1 h].
+ *
+ * If the OS facility fails, status() is Unavailable and the caller should
+ * carry on without the lock: losing the lock is better than losing the
+ * device.
+ */
+class ProcessLock {
+public:
+    enum class Status {
+        Held, ///< ours until destruction
+        Busy, ///< another holder kept it past the timeout
+        Unavailable, ///< the OS facility failed; nothing is locked
+    };
+
+    /// @param name short identifier; characters outside [A-Za-z0-9._-] become '_'
+    ProcessLock(std::string_view name, std::chrono::milliseconds timeout);
+    ~ProcessLock();
+    ProcessLock(const ProcessLock&)            = delete;
+    ProcessLock& operator=(const ProcessLock&) = delete;
+    ProcessLock(ProcessLock&&)                 = delete;
+    ProcessLock& operator=(ProcessLock&&)      = delete;
+
+    [[nodiscard]] Status status() const { return status_; }
+
+    /// Held, and the previous holder died while holding it (Windows only)
+    [[nodiscard]] bool recovered() const { return recovered_; }
+
+private:
+    Status status_  = Status::Unavailable;
+    bool recovered_ = false;
+#ifdef _WIN32
+    void* handle_ = nullptr;
+#else
+    int fd_ = -1;
+#endif
+};
 
 /**
  * @brief Cross-platform sleep for milliseconds

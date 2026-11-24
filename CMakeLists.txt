@@ -271,6 +271,11 @@ else()
     target_link_libraries(headsetcontrol_lib PUBLIC m ${HIDAPI_LIBRARIES})
 endif()
 
+# ProcessLock (lib/utility.cpp) builds the named mutex's DACL with advapi32
+if(WIN32)
+    target_link_libraries(headsetcontrol_lib PUBLIC advapi32)
+endif()
+
 # hidapi's macOS backend needs these frameworks. They are pulled in transitively
 # when linking the shared library, but not when linking hidapi statically (which
 # is what the portable release builds do).
@@ -327,8 +332,10 @@ if(PROJECT_IS_TOP_LEVEL)
     # On Windows, include the resource file for the application icon
     if(WIN32)
         set(WIN_RESOURCES ${CMAKE_CURRENT_SOURCE_DIR}/assets/headsetcontrol.rc)
-        # Ensure resource compiler can find the icon file
-        set(CMAKE_RC_FLAGS "${CMAKE_RC_FLAGS} -I${CMAKE_CURRENT_SOURCE_DIR}/assets")
+        # Ensure resource compiler can find the icon file. A source property
+        # (not CMAKE_RC_FLAGS) so CMake quotes the path when it has spaces.
+        set_source_files_properties(${WIN_RESOURCES} PROPERTIES
+            INCLUDE_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}/assets)
     endif()
 
     add_executable(headsetcontrol ${CLI_SOURCES} ${WIN_RESOURCES})

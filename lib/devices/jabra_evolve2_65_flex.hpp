@@ -15,10 +15,13 @@ namespace headsetcontrol {
  * Same features and protocol as through the Link 390 dongle; the headset answers at
  * GNP address 0x08 when it is on USB itself, and its vendor collection uses usage 0x01.
  * Verified on Linux and macOS with an Evolve2 65 Flex (0x2519, fw 1.2.14).
+ *
+ * PIDs: 0x2517 UC, 0x2518 Data, 0x2519 MS. Jabra Direct lists all three with the same
+ * firmware (DFU PID 0x2517); only 0x2519 is tested.
  */
 class JabraEvolve265Flex : public protocols::JabraGNPDevice<0x08, 0x01> {
 public:
-    static constexpr std::array<uint16_t, 1> PRODUCT_IDS { 0x2519 };
+    static constexpr std::array<uint16_t, 3> PRODUCT_IDS { 0x2517, 0x2518, 0x2519 };
 
     constexpr std::vector<uint16_t> getProductIds() const override
     {

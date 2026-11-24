@@ -211,57 +211,30 @@ public:
                 "Reading sidetone is only verified for the Arctis Nova 7 Gen 2");
         }
 
-        constexpr std::array<uint8_t, 2> REQUEST { 0x00, 0x20 };
-        if (auto result = sendCommand(device_handle, REQUEST); !result) {
-            return result.error();
+        auto reply = readAudioSettings(device_handle);
+        if (!reply) {
+            return reply.error();
         }
 
-        // Status reports (0xb0) can arrive asynchronously on this interface.
-        // Ignore those while waiting for the requested audio settings report.
-        constexpr int MAX_REPORTS = 8;
-        for (int report = 0; report < MAX_REPORTS; ++report) {
-            std::array<uint8_t, MSG_SIZE> response {};
-            auto read_result = readHIDTimeout(device_handle, response, hsc_device_timeout);
-            if (!read_result) {
-                return read_result.error();
-            }
-
-            const size_t bytes_read = *read_result;
-            if (bytes_read == 0) {
-                return DeviceError::timeout("No SteelSeries settings response received");
-            }
-
-            // A short 0xb0 report is still one to skip, not a bad response.
-            if (response[0] == 0xb0) {
-                continue;
-            }
-
-            if (bytes_read < 4) {
-                return DeviceError::protocolError("SteelSeries settings response too short");
-            }
-
-            if (response[0] != 0x20) {
-                return DeviceError::protocolError("Unexpected SteelSeries settings response");
-            }
-
-            const uint8_t raw_level = response[2];
-            if (raw_level >= SIDETONE_LEVELS.size()) {
-                return DeviceError::protocolError("Invalid SteelSeries sidetone value");
-            }
-
-            return SidetoneResult {
-                .current_level = SIDETONE_LEVELS[raw_level],
-                .min_level     = 0,
-                .max_level     = 128,
-                .device_min    = 0,
-                .device_max    = 3,
-                .is_muted      = raw_level == 0,
-                .device_level  = raw_level,
-                .level_name    = std::string(sidetoneLevelName(raw_level))
-            };
+        if (reply->bytes_read < 4) {
+            return DeviceError::protocolError("SteelSeries settings response too short");
         }
 
-        return DeviceError::protocolError("No SteelSeries settings response received");
+        const uint8_t raw_level = reply->data[2];
+        if (raw_level >= SIDETONE_LEVELS.size()) {
+            return DeviceError::protocolError("Invalid SteelSeries sidetone value");
+        }
+
+        return SidetoneResult {
+            .current_level = SIDETONE_LEVELS[raw_level],
+            .min_level     = 0,
+            .max_level     = 128,
+            .device_min    = 0,
+            .device_max    = 3,
+            .is_muted      = raw_level == 0,
+            .device_level  = raw_level,
+            .level_name    = std::string(sidetoneLevelName(raw_level))
+        };
     }
 
     Result<InactiveTimeResult> setInactiveTime(hid_device* device_handle, uint8_t minutes) override

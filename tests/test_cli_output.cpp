@@ -307,7 +307,7 @@ void testCliActionOnlyOmitsUnrequestedInfo()
 
     // -s (sidetone) is an action; battery/chatmix were not asked for, so an
     // extended-format invocation should not pay for reading them.
-    std::string output = exec(HEADSETCONTROL_EXE " --test-device -s 20 -o json 2>&1");
+    std::string output = exec(HEADSETCONTROL_EXE " --test-device -d 0xf00b:0xa00c -s 20 -o json 2>&1");
 
     ASSERT_CONTAINS(output, "\"actions\":", "Should have actions array");
     ASSERT_NOT_CONTAINS(output, "\"battery\":", "Battery info should be omitted when not requested");
@@ -322,7 +322,7 @@ void testCliActionWithExplicitInfoKeepsOnlyThat()
 
     // -b is explicitly requested alongside the -s action; chatmix was not
     // asked for and should still be omitted.
-    std::string output = exec(HEADSETCONTROL_EXE " --test-device -b -s 20 -o json 2>&1");
+    std::string output = exec(HEADSETCONTROL_EXE " --test-device -d 0xf00b:0xa00c -b -s 20 -o json 2>&1");
 
     ASSERT_CONTAINS(output, "\"actions\":", "Should have actions array");
     ASSERT_CONTAINS(output, "\"battery\":", "Explicitly requested battery info should be present");
@@ -343,6 +343,41 @@ void testCliPureQueryStillReturnsAllInfo()
     ASSERT_CONTAINS(output, "\"chatmix\":", "Pure query should still report chatmix");
 
     std::cout << "    ✓ Pure query still returns all extended info" << std::endl;
+}
+
+// ============================================================================
+// Device Selection Tests
+// ============================================================================
+
+void testCliActionWithoutDeviceFilter()
+{
+    std::cout << "  Testing action without -d is refused only when several devices are found..." << std::endl;
+
+    // --test-device adds a single mock, so CI only sees the one-device case.
+    // With a real headset attached the action has to be refused for every
+    // device instead of being set on all of them.
+    std::string output   = exec(HEADSETCONTROL_EXE " --test-device -l 1 -o json 2>&1");
+    std::string standard = exec(HEADSETCONTROL_EXE " --test-device -l 1 2>&1");
+
+    auto actions_start = output.find("\"actions\":");
+    auto actions_end   = output.find("\"device_count\":");
+    ASSERT_TRUE(actions_start != std::string::npos && actions_end != std::string::npos && actions_start < actions_end,
+        "Should have an actions array before device_count");
+    std::string actions = output.substr(actions_start, actions_end - actions_start);
+
+    if (output.find("\"device_count\": 1,") != std::string::npos) {
+        ASSERT_CONTAINS(actions, "\"status\": \"success\"", "A single device should not need -d");
+        ASSERT_CONTAINS(standard, "Successfully set lights!", "A single device should not need -d");
+        std::cout << "    ✓ Action without -d runs on a single device" << std::endl;
+        return;
+    }
+
+    ASSERT_CONTAINS(actions, "Multiple devices, specify with -d", "Action should be refused without -d");
+    ASSERT_NOT_CONTAINS(actions, "\"status\": \"success\"", "No device should be set without -d");
+    ASSERT_CONTAINS(standard, "Multiple devices, specify with -d", "Standard output should report the refusal");
+    ASSERT_NOT_CONTAINS(standard, "Successfully set", "No device should be set without -d");
+
+    std::cout << "    ✓ Action without -d is refused on multiple devices" << std::endl;
 }
 
 // ============================================================================
@@ -381,6 +416,34 @@ void testCliStandardBatteryDetails()
     std::cout << "    ✓ CLI standard battery details are correct" << std::endl;
 }
 
+void testCliStandardChargingWithoutLevel()
+{
+    std::cout << "  Testing CLI standard output for charging with no level..." << std::endl;
+
+    // Profile 8 charges without having reported a level, as the Sony PULSE 3D
+    // and the two HyperX devices do. -1 is not a reading, so no Level line.
+    //
+    // -d restricts this to the test device. Without it a real headset plugged
+    // into the machine running the suite is enumerated too and prints its own
+    // Level line, which this asserts the absence of.
+    std::string output = exec(HEADSETCONTROL_EXE " --test-device 8 -d 0xf00b:0xa00c -b 2>&1");
+
+    ASSERT_CONTAINS(output, "BATTERY_CHARGING", "Charging status should still be shown");
+    ASSERT_NOT_CONTAINS(output, "Level:", "An unknown level should not be printed");
+    ASSERT_NOT_CONTAINS(output, "-1", "-1 should never reach the output");
+
+    // A charging headset that does report a level still prints it
+    std::string with_level = exec(HEADSETCONTROL_EXE " --test-device 2 -d 0xf00b:0xa00c -b 2>&1");
+    ASSERT_CONTAINS(with_level, "BATTERY_CHARGING", "Profile 2 is charging too");
+    ASSERT_CONTAINS(with_level, "Level: 50%", "A known level is still printed");
+
+    // The structured formats keep -1 as the sentinel, so consumers are unaffected
+    std::string json = exec(HEADSETCONTROL_EXE " --test-device 8 -d 0xf00b:0xa00c -b -o json 2>&1");
+    ASSERT_CONTAINS(json, "\"level\": -1", "JSON keeps the -1 sentinel");
+
+    std::cout << "    ✓ Charging without a level omits the level line" << std::endl;
+}
+
 void testCliStandardNoArgs()
 {
     std::cout << "  Testing CLI standard output with no args..." << std::endl;
@@ -394,6 +457,31 @@ void testCliStandardNoArgs()
     ASSERT_CONTAINS(output, "-h", "Should hint about help");
 
     std::cout << "    ✓ CLI standard no-args output is correct" << std::endl;
+}
+
+void testCliMicStatusOutputs()
+{
+    std::cout << "  Testing microphone status in all output formats..." << std::endl;
+
+    const std::string base = HEADSETCONTROL_EXE " --test-device -d 0xf00b:0xa00c --microphone-attachment-status --microphone-mute-status -o ";
+
+    std::string json = exec((base + "json 2>&1").c_str());
+    ASSERT_CONTAINS(json, "\"mic_attached\": 1", "JSON should have mic_attached");
+    ASSERT_CONTAINS(json, "\"mic_muted\": 0", "JSON should have mic_muted");
+
+    std::string yaml = exec((base + "yaml 2>&1").c_str());
+    ASSERT_CONTAINS(yaml, "mic_attached: 1", "YAML should have mic_attached");
+    ASSERT_CONTAINS(yaml, "mic_muted: 0", "YAML should have mic_muted");
+
+    std::string env = exec((base + "env 2>&1").c_str());
+    ASSERT_CONTAINS(env, "DEVICE_0_MIC_ATTACHED=1", "ENV should have mic_attached");
+    ASSERT_CONTAINS(env, "DEVICE_0_MIC_MUTED=0", "ENV should have mic_muted");
+
+    std::string standard = exec(HEADSETCONTROL_EXE " --test-device -d 0xf00b:0xa00c --microphone-attachment-status --microphone-mute-status 2>&1");
+    ASSERT_CONTAINS(standard, "Mic: attached", "standard output should show attachment status");
+    ASSERT_CONTAINS(standard, "Mic mute: unmuted", "standard output should show mute status");
+
+    std::cout << "    OK microphone status outputs" << std::endl;
 }
 
 void testCliSidetoneStatusOutputs()
@@ -441,6 +529,106 @@ void testCliSidetoneStatusOutputs()
         "help should not expose a separate sidetone status option");
 
     std::cout << "    ✓ Sidetone status output is correct" << std::endl;
+}
+
+void testCliHeadsetVolumeOutputs()
+{
+    std::cout << "  Testing headset volume in all output formats..." << std::endl;
+
+    // -d keeps the set requests below away from any real headset that is connected
+    const std::string base = HEADSETCONTROL_EXE " --test-device -d 0xf00b:0xa00c --volume -o ";
+
+    std::string json = exec((base + "json 2>&1").c_str());
+    ASSERT_CONTAINS(json, "\"headset_volume\": {", "JSON should have headset_volume object");
+    ASSERT_CONTAINS(json, "\"level\": 77", "JSON should have normalized level");
+    ASSERT_CONTAINS(json, "\"device_level\": 15", "JSON should have native level");
+    ASSERT_CONTAINS(json, "\"readable_capabilities\": [", "JSON should list readable capabilities");
+    ASSERT_CONTAINS(json, "\"CAP_HEADSET_VOLUME\"", "JSON should list headset volume as readable");
+
+    std::string yaml = exec((base + "yaml 2>&1").c_str());
+    ASSERT_CONTAINS(yaml, "headset_volume:", "YAML should have headset_volume object");
+    ASSERT_CONTAINS(yaml, "device_level: 15", "YAML should have native level");
+    ASSERT_CONTAINS(yaml, "readable_capabilities:", "YAML should list readable capabilities");
+
+    std::string env = exec((base + "env 2>&1").c_str());
+    ASSERT_CONTAINS(env, "DEVICE_0_HEADSET_VOLUME_LEVEL=77", "ENV should have normalized level");
+    ASSERT_CONTAINS(env, "DEVICE_0_HEADSET_VOLUME_DEVICE_LEVEL=15", "ENV should have native level");
+    ASSERT_CONTAINS(env, "DEVICE_0_READABLE_CAPABILITIES_AMOUNT=2", "ENV should count readable capabilities");
+
+    std::string standard = exec(HEADSETCONTROL_EXE " --test-device -d 0xf00b:0xa00c --volume 2>&1");
+    ASSERT_CONTAINS(standard, "Headset volume: 77 (device level 15)",
+        "volume option without a value should query");
+
+    std::string set = exec(HEADSETCONTROL_EXE " --test-device -d 0xf00b:0xa00c --volume 20 2>&1");
+    ASSERT_CONTAINS(set, "Successfully set headset volume!", "volume option with a value should set");
+
+    std::string set_json = exec(HEADSETCONTROL_EXE " --test-device -d 0xf00b:0xa00c --volume 20 -o json 2>&1");
+    ASSERT_NOT_CONTAINS(set_json, "\"headset_volume\":", "a set should not also read the volume back");
+
+    std::string query = exec(HEADSETCONTROL_EXE " --test-device -d 0xf00b:0xa00c -o json 2>&1");
+    ASSERT_CONTAINS(query, "\"headset_volume\": {", "a pure query should read readable capabilities");
+
+    std::string limited = exec(HEADSETCONTROL_EXE " --test-device 10 -d 0xf00b:0xa00c --volume 2>&1");
+    ASSERT_CONTAINS(limited, "doesn't support volume", "a device without the capability should say so");
+
+    std::string write_only = exec(HEADSETCONTROL_EXE " --test-device 6 -d 0xf00b:0xa00c --volume 2>&1");
+    ASSERT_CONTAINS(write_only, "can't read back volume", "a write-only capability should say it can't be read");
+
+    std::string write_only_set = exec(HEADSETCONTROL_EXE " --test-device 6 -d 0xf00b:0xa00c --volume 20 2>&1");
+    ASSERT_CONTAINS(write_only_set, "Successfully set headset volume!", "a write-only capability should still set");
+
+    std::string write_only_query = exec(HEADSETCONTROL_EXE " --test-device 6 -d 0xf00b:0xa00c -o json 2>&1");
+    ASSERT_NOT_CONTAINS(write_only_query, "\"headset_volume\":", "a pure query should skip unreadable capabilities");
+
+    std::string write_only_env = exec(HEADSETCONTROL_EXE " --test-device 6 -d 0xf00b:0xa00c -o env 2>&1");
+    ASSERT_CONTAINS(write_only_env, "DEVICE_0_READABLE_CAPABILITIES_AMOUNT=1", "only sidetone should be listed as readable");
+
+    std::cout << "    OK headset volume outputs" << std::endl;
+}
+
+void testCliLightColorOutputs()
+{
+    std::cout << "  Testing light color in all output formats..." << std::endl;
+
+    const std::string base = HEADSETCONTROL_EXE " --test-device -d 0xf00b:0xa00c --light-color 000000 -o ";
+
+    // Black packs to 0, and every format must still report it
+    std::string json = exec((base + "json 2>&1").c_str());
+    ASSERT_CONTAINS(json, "\"capability\": \"CAP_LIGHT_COLOR\"", "JSON should have the light color action");
+    ASSERT_CONTAINS(json, "\"value\": 0", "JSON should keep black's value");
+    ASSERT_CONTAINS(json, "\"color\": \"#000000\"", "JSON should have the color");
+
+    std::string yaml = exec((base + "yaml 2>&1").c_str());
+    ASSERT_CONTAINS(yaml, "value: 0", "YAML should keep black's value");
+    ASSERT_CONTAINS(yaml, "color: \"#000000\"", "YAML should have the color");
+
+    std::string env = exec((base + "env 2>&1").c_str());
+    ASSERT_CONTAINS(env, "ACTION_0_VALUE=0", "ENV should keep black's value");
+    ASSERT_CONTAINS(env, "ACTION_0_COLOR=\"#000000\"", "ENV should have the color");
+
+    std::string standard = exec(HEADSETCONTROL_EXE " --test-device -d 0xf00b:0xa00c --light-color ff8000 2>&1");
+    ASSERT_CONTAINS(standard, "Successfully set light color!", "standard output should confirm");
+
+    // With -l on the same command line, the color is applied last
+    std::string both = exec(HEADSETCONTROL_EXE " --test-device -d 0xf00b:0xa00c -l 0 --light-color \"#FF8000\" -o json 2>&1");
+    ASSERT_CONTAINS(both, "\"value\": 16744448", "value should pack 0xRRGGBB");
+    ASSERT_CONTAINS(both, "\"color\": \"#ff8000\"", "color should be normalised to lower case");
+    const auto lights_at = both.find("\"CAP_LIGHTS\"");
+    const auto color_at  = both.find("\"CAP_LIGHT_COLOR\"");
+    ASSERT_TRUE(lights_at != std::string::npos && color_at != std::string::npos && lights_at < color_at,
+        "-l should run before --light-color");
+
+    // -l on its own keeps its existing output: no value for 0
+    std::string lights_off = exec(HEADSETCONTROL_EXE " --test-device -d 0xf00b:0xa00c -l 0 -o json 2>&1");
+    ASSERT_NOT_CONTAINS(lights_off, "\"value\"", "-l 0 should still omit value");
+
+    std::string invalid = exec(HEADSETCONTROL_EXE " --test-device --light-color 12345 2>&1");
+    ASSERT_CONTAINS(invalid, "format: RRGGBB or #RRGGBB", "invalid color should be rejected");
+
+    std::string help = exec(HEADSETCONTROL_EXE " --help-all 2>&1");
+    ASSERT_CONTAINS(help, "--light-color <RRGGBB>", "help should document --light-color");
+
+    std::cout << "    ✓ Light color output is correct" << std::endl;
 }
 
 // ============================================================================
@@ -573,11 +761,18 @@ void runAllCliOutputTests()
     runTest("Action With Explicit Info", testCliActionWithExplicitInfoKeepsOnlyThat);
     runTest("Pure Query Still Returns All Info", testCliPureQueryStillReturnsAllInfo);
 
+    std::cout << "\n=== Device Selection Tests ===" << std::endl;
+    runTest("Action Without Device Filter", testCliActionWithoutDeviceFilter);
+
     std::cout << "\n=== Standard Output Tests ===" << std::endl;
     runTest("Standard Output", testCliStandardOutput);
     runTest("Standard Battery Details", testCliStandardBatteryDetails);
+    runTest("Standard Charging Without Level", testCliStandardChargingWithoutLevel);
     runTest("Standard No Args", testCliStandardNoArgs);
     runTest("Sidetone Status Outputs", testCliSidetoneStatusOutputs);
+    runTest("Mic Status Outputs", testCliMicStatusOutputs);
+    runTest("Headset Volume Outputs", testCliHeadsetVolumeOutputs);
+    runTest("Light Color Outputs", testCliLightColorOutputs);
 
     std::cout << "\n=== Short Output Tests ===" << std::endl;
     runTest("Short Output", testCliShortOutput);

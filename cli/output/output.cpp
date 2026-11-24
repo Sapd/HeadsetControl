@@ -26,7 +26,16 @@ using namespace headsetcontrol::serializers;
 // 1.5: an invocation that performs an action no longer reports info it was not
 // explicitly asked for, and structured output gained an additive "sidetone"
 // field for devices that support reading it back.
-constexpr std::string_view API_VERSION = "1.5";
+// 1.6: structured output gained the additive "mic_attached" and "mic_muted"
+// fields, and the capability list grew by the ANC family plus the two
+// microphone status capabilities.
+// 1.7: the capability list grew by CAP_HEADSET_VOLUME.
+// 1.8: structured output gained the additive "readable_capabilities" list and a
+// "headset_volume" field for devices that support reading it back.
+// 1.9: the capability list grew by CAP_LIGHT_COLOR, and action entries gained
+// an additive "color" field ("#rrggbb") for it, whose "value" packs 0xRRGGBB and
+// is reported even for black.
+constexpr std::string_view API_VERSION = "1.9";
 constexpr std::string_view APP_NAME    = "HeadsetControl";
 
 // ============================================================================
@@ -88,6 +97,39 @@ void processSidetoneResult(const FeatureResult& result, DeviceData& dev)
     }
 }
 
+void processHeadsetVolumeResult(const FeatureResult& result, DeviceData& dev)
+{
+    if (result.status == FEATURE_SUCCESS || result.status == FEATURE_INFO) {
+        dev.headset_volume = HeadsetVolumeData {
+            .level        = result.value,
+            .device_level = result.headset_volume_device_level.value_or(0)
+        };
+    } else if (result.status == FEATURE_ERROR) {
+        dev.errors.emplace_back(capability_to_string(CAP_HEADSET_VOLUME), result.message);
+        dev.status = STATUS_PARTIAL;
+    }
+}
+
+void processMicAttachmentStatusResult(const FeatureResult& result, DeviceData& dev)
+{
+    if (result.status == FEATURE_SUCCESS || result.status == FEATURE_INFO) {
+        dev.mic_attached = (result.value != 0);
+    } else if (result.status == FEATURE_ERROR) {
+        dev.errors.emplace_back(capability_to_string(CAP_MICROPHONE_ATTACHMENT_STATUS), result.message);
+        dev.status = STATUS_PARTIAL;
+    }
+}
+
+void processMicMuteStatusResult(const FeatureResult& result, DeviceData& dev)
+{
+    if (result.status == FEATURE_SUCCESS || result.status == FEATURE_INFO) {
+        dev.mic_muted = (result.value != 0);
+    } else if (result.status == FEATURE_ERROR) {
+        dev.errors.emplace_back(capability_to_string(CAP_MICROPHONE_MUTE_STATUS), result.message);
+        dev.status = STATUS_PARTIAL;
+    }
+}
+
 // Process action capability result and add to device actions
 void processActionResult(const FeatureRequest& req, DeviceData& dev, std::string_view device_name)
 {
@@ -98,6 +140,10 @@ void processActionResult(const FeatureRequest& req, DeviceData& dev, std::string
     action.status         = req.result.status == FEATURE_SUCCESS ? STATUS_SUCCESS : STATUS_FAILURE;
     action.value          = req.result.value;
     action.error_message  = req.result.message;
+    if (req.result.light_color) {
+        const auto& c = *req.result.light_color;
+        action.color  = std::format("#{:02x}{:02x}{:02x}", c.r, c.g, c.b);
+    }
     dev.actions.push_back(std::move(action));
 }
 
@@ -118,6 +164,12 @@ void processFeatureRequest(const FeatureRequest& req, DeviceData& dev, std::stri
         processChatmixResult(req.result, dev);
     } else if (req.cap == CAP_SIDETONE_STATUS) {
         processSidetoneResult(req.result, dev);
+    } else if (req.cap == CAP_MICROPHONE_ATTACHMENT_STATUS) {
+        processMicAttachmentStatusResult(req.result, dev);
+    } else if (req.cap == CAP_MICROPHONE_MUTE_STATUS) {
+        processMicMuteStatusResult(req.result, dev);
+    } else if (req.cap == CAP_HEADSET_VOLUME && req.type == CAPABILITYTYPE_INFO) {
+        processHeadsetVolumeResult(req.result, dev);
     } else if (req.type == CAPABILITYTYPE_ACTION) {
         processActionResult(req, dev, device_name);
     }
@@ -162,12 +214,16 @@ void processFeatureRequest(const FeatureRequest& req, DeviceData& dev, std::stri
             dev.product_name = deviceList[i].product_name;
 
         // Capabilities
-        int device_caps = hid_device->getCapabilities();
+        int device_caps = hid_device->getAdvertisedCapabilities();
         for (int j = 0; j < NUM_CAPABILITIES; ++j) {
             if (device_caps & B(j)) {
                 dev.caps.emplace_back(capability_to_enum_string(static_cast<capabilities>(j)));
                 dev.caps_str.emplace_back(capability_to_string(static_cast<capabilities>(j)));
                 dev.caps_enum.emplace_back(static_cast<enum capabilities>(j));
+            }
+            if (hid_device->canRead(static_cast<capabilities>(j))) {
+                dev.readable_caps.emplace_back(capability_to_enum_string(static_cast<capabilities>(j)));
+                dev.readable_caps_str.emplace_back(capability_to_string(static_cast<capabilities>(j)));
             }
         }
 
@@ -251,8 +307,10 @@ void outputYaml(const OutputData& data)
                 s.pushIndent(1); // Align subsequent keys with "capability" after "- "
                 s.write("device", action.device);
                 s.write("status", statusToString(action.status));
-                if (action.value > 0)
+                if (action.hasValue())
                     s.write("value", action.value);
+                if (action.color)
+                    s.write("color", *action.color);
                 if (!action.error_message.empty())
                     s.write("error_message", action.error_message);
                 s.popIndent(1);
@@ -276,6 +334,8 @@ void outputYaml(const OutputData& data)
 
             s.writeArray("capabilities", dev.caps);
             s.writeArray("capabilities_str", dev.caps_str);
+            s.writeArray("readable_capabilities", dev.readable_caps);
+            s.writeArray("readable_capabilities_str", dev.readable_caps_str);
 
             if (dev.battery.has_value()) {
                 dev.battery->serialize(s);
@@ -313,6 +373,18 @@ void outputYaml(const OutputData& data)
 
             if (dev.sidetone.has_value()) {
                 dev.sidetone->serialize(s);
+            }
+
+            if (dev.headset_volume.has_value()) {
+                dev.headset_volume->serialize(s);
+            }
+
+            if (dev.mic_attached.has_value()) {
+                s.write("mic_attached", *dev.mic_attached);
+            }
+
+            if (dev.mic_muted.has_value()) {
+                s.write("mic_muted", *dev.mic_muted);
             }
 
             if (!dev.errors.empty()) {
@@ -357,8 +429,11 @@ void outputEnv(const OutputData& data)
             s.write(prefix + "_CAPABILITY", action.capability);
             s.write(prefix + "_DEVICE", action.device);
             s.write(prefix + "_STATUS", statusToString(action.status));
-            if (action.value > 0) {
+            if (action.hasValue()) {
                 s.write(prefix + "_VALUE", action.value);
+            }
+            if (action.color) {
+                s.write(prefix + "_COLOR", *action.color);
             }
             if (!action.error_message.empty()) {
                 s.write(prefix + "_ERROR_MESSAGE", action.error_message);
@@ -378,6 +453,11 @@ void outputEnv(const OutputData& data)
 
         for (size_t j = 0; j < dev.caps.size(); ++j) {
             s.write(std::format("{}_CAPABILITY_{}", prefix, j), dev.caps[j]);
+        }
+
+        s.write(prefix + "_READABLE_CAPABILITIES_AMOUNT", static_cast<int>(dev.readable_caps.size()));
+        for (size_t j = 0; j < dev.readable_caps.size(); ++j) {
+            s.write(std::format("{}_READABLE_CAPABILITY_{}", prefix, j), dev.readable_caps[j]);
         }
 
         if (dev.battery.has_value()) {
@@ -434,6 +514,19 @@ void outputEnv(const OutputData& data)
             }
         }
 
+        if (dev.headset_volume.has_value()) {
+            s.write(prefix + "_HEADSET_VOLUME_LEVEL", dev.headset_volume->level);
+            s.write(prefix + "_HEADSET_VOLUME_DEVICE_LEVEL", dev.headset_volume->device_level);
+        }
+
+        if (dev.mic_attached.has_value()) {
+            s.write(prefix + "_MIC_ATTACHED", *dev.mic_attached ? 1 : 0);
+        }
+
+        if (dev.mic_muted.has_value()) {
+            s.write(prefix + "_MIC_MUTED", *dev.mic_muted ? 1 : 0);
+        }
+
         s.write(prefix + "_ERROR_COUNT", static_cast<int>(dev.errors.size()));
         for (size_t j = 0; j < dev.errors.size(); ++j) {
             s.write(std::format("{}_ERROR_{}_SOURCE", prefix, j + 1), dev.errors[j].source);
@@ -481,7 +574,11 @@ void outputStandard(const OutputData& data, bool print_capabilities)
         if (dev.battery.has_value()) {
             s.println("Battery:");
             s.println("\tStatus: {}", batteryStatusToString(dev.battery->status));
-            if (dev.battery->status != BATTERY_UNAVAILABLE) {
+            // A level below 0 means it is not known: the headset is off, or it is
+            // charging and has not reported one yet. Printing it as "-1%" reads as
+            // a real reading, so the line is left out like it is for an
+            // unavailable battery. The structured formats keep -1 as the sentinel.
+            if (dev.battery->status != BATTERY_UNAVAILABLE && dev.battery->level >= 0) {
                 s.println("\tLevel: {}%", dev.battery->level);
             }
             if (dev.battery->voltage_mv.has_value()) {
@@ -508,6 +605,21 @@ void outputStandard(const OutputData& data, bool print_capabilities)
                 s.println("Sidetone: {} ({}; device level {})", dev.sidetone->name,
                     dev.sidetone->level, dev.sidetone->device_level);
             }
+            outputted = true;
+        }
+
+        if (dev.headset_volume.has_value()) {
+            s.println("Headset volume: {} (device level {})", dev.headset_volume->level, dev.headset_volume->device_level);
+            outputted = true;
+        }
+
+        if (dev.mic_attached.has_value()) {
+            s.println("Mic: {}", *dev.mic_attached ? "attached" : "detached");
+            outputted = true;
+        }
+
+        if (dev.mic_muted.has_value()) {
+            s.println("Mic mute: {}", *dev.mic_muted ? "muted" : "unmuted");
             outputted = true;
         }
 
@@ -587,6 +699,8 @@ void outputShort(const OutputData& data, bool print_capabilities)
             s.printValue(*dev.chatmix);
         } else if (dev.sidetone.has_value()) {
             s.printValue(dev.sidetone->level);
+        } else if (dev.headset_volume.has_value()) {
+            s.printValue(dev.headset_volume->level);
         }
     }
 

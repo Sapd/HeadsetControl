@@ -1,0 +1,65 @@
+name: Bump winget manifest
+
+# Called by release.yml once a release is published: submit a pull request to
+# microsoft/winget-pkgs updating Sapd.HeadsetControl to the new version.
+#
+# The package is published as InstallerType: portable, pointing at the plain
+# headsetcontrol-windows-x86_64.exe rather than the NSIS -setup.exe. winget
+# always installs silently, and for a portable package it manages the PATH entry
+# itself, so a command-line tool ends up callable without relying on the
+# installer's "Add to PATH" page being honoured in silent mode.
+#
+# Requirements, both one-time and outside this repository:
+#   * microsoft/winget-pkgs forked under the Sapd account
+#   * repository secret WINGET_TOKEN: a *classic* PAT with `public_repo` and
+#     `workflow` scope. Fine-grained tokens are not supported by the action, and
+#     without `workflow` the fork sync fails intermittently.
+#
+# The action can only update a package that already exists in winget-pkgs, so
+# the very first version has to be submitted by hand once. Until WINGET_TOKEN is
+# configured this job logs that it is skipping and succeeds, so it never fails a
+# release.
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: "Release tag to publish (e.g. 4.2.0)"
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish (e.g. 4.2.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check whether a token is configured
+        id: gate
+        env:
+          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+        run: |
+          if [ -z "${WINGET_TOKEN}" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "WINGET_TOKEN is not set - skipping the winget submission."
+            echo "See the header of this workflow for the one-time setup."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Submit to winget-pkgs
+        if: steps.gate.outputs.configured == 'true'
+        uses: vedantmgoyal9/winget-releaser@b7370d4d152efdce803a26cc6ca9eee58cb2ad54 # v2
+        with:
+          identifier: Sapd.HeadsetControl
+          version: ${{ inputs.tag }}
+          # The portable binary only: this must not pick up the NSIS -setup.exe
+          # or the detached .asc signatures that sit next to it.
+          installers-regex: 'headsetcontrol-windows-x86_64\.exe$'
+          token: ${{ secrets.WINGET_TOKEN }}

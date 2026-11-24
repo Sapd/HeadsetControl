@@ -14,7 +14,7 @@ namespace headsetcontrol {
  * @brief SteelSeries Arctis Nova 5/5X Gaming Headset
  *
  * Features:
- * - Sidetone (10 levels)
+ * - Sidetone (11 levels, readable)
  * - Battery status
  * - Chatmix
  * - Microphone mute LED brightness
@@ -43,6 +43,17 @@ public:
     static constexpr int EQUALIZER_FREQ_MIN       = 20;
     static constexpr int EQUALIZER_FREQ_MAX       = 20000;
     static constexpr int EQUALIZER_FREQ_DISABLED  = 20001;
+
+    // Where the sidetone level sits in the audio settings frame (0x20), and
+    // the normalised value to report for each of the eleven device steps.
+    // Level 0 is "off" and reports 0; every other entry sits inside the
+    // bucket mapSidetoneToDiscrete<11>() produces for that step, so a value
+    // read here goes back to the same step through setSidetone(); the top
+    // step reports full scale rather than its bucket's midpoint.
+    static constexpr size_t SIDETONE_OFFSET = 62;
+    static constexpr std::array<uint8_t, 11> SIDETONE_LEVELS {
+        0, 16, 27, 38, 49, 60, 71, 82, 93, 104, 128
+    };
 
     // EQ band frequencies used in default presets (little-endian)
     static constexpr std::array<uint16_t, EQUALIZER_BANDS> BAND_FREQUENCIES {
@@ -96,6 +107,18 @@ public:
     {
         // All capabilities use interface 3
         return { .usagepage = 0xffc0, .usageid = 0x1, .interface_id = 3 };
+    }
+
+    /// Sidetone is read back out of the 0x20 audio settings frame (see
+    /// getSidetone). Advertised through getAdvertisedCapabilities(), which
+    /// turns this into CAP_SIDETONE_STATUS.
+    ///
+    /// Not gated per product ID, unlike the Nova 7 Gen 2: the 5X descriptor
+    /// (0x2253) includes the 5's base descriptor, so both variants share the
+    /// audio_settings struct this reads — sidetone at offset 62.
+    constexpr int getReadableCapabilities() const override
+    {
+        return B(CAP_SIDETONE);
     }
 
     std::optional<EqualizerInfo> getEqualizerInfo() const override
@@ -222,6 +245,40 @@ public:
             .max_level     = 128,
             .device_min    = 0x00,
             .device_max    = 0x0a
+        };
+    }
+
+    Result<SidetoneResult> getSidetone(hid_device* device_handle) override
+    {
+        // 0x39 is write-only on this family, so the level comes out of the
+        // audio settings frame: ten 6-byte EQ bands at offset 1, then
+        // mic_volume (61), sidetone (62) and volume_limiter (63).
+        //
+        // No connection check on purpose: with the headset switched off the
+        // dongle still answers 0x20 from its own cache, so this reports the
+        // stored level rather than failing — the same choice as getChatmix().
+        auto reply = readAudioSettings(device_handle);
+        if (!reply) {
+            return reply.error();
+        }
+
+        if (reply->bytes_read < SIDETONE_OFFSET + 1) {
+            return DeviceError::protocolError("SteelSeries settings response too short");
+        }
+
+        const uint8_t raw_level = reply->data[SIDETONE_OFFSET];
+        if (raw_level >= SIDETONE_LEVELS.size()) {
+            return DeviceError::protocolError("Invalid SteelSeries sidetone value");
+        }
+
+        return SidetoneResult {
+            .current_level = SIDETONE_LEVELS[raw_level],
+            .min_level     = 0,
+            .max_level     = 128,
+            .device_min    = 0x00,
+            .device_max    = 0x0a,
+            .is_muted      = raw_level == 0,
+            .device_level  = raw_level
         };
     }
 

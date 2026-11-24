@@ -28,6 +28,20 @@ namespace headsetcontrol {
 std::optional<std::string> get_hid_path(uint16_t vid, uint16_t pid, int iid, uint16_t usagepageid, uint16_t usageid);
 
 /**
+ *  @brief Helper fetching the serial port path of a USB device.
+ *
+ *  Looks for a tty belonging to the USB device described in the parameters,
+ *  such as its CDC ACM interface. Only implemented on Linux.
+ *
+ *  @param vid The device vendor ID.
+ *  @param pid The device product ID.
+ *
+ *  @return Serial port path string such as /dev/ttyACM0, or nullopt if none
+ *          was found
+ */
+std::optional<std::string> get_serial_path(uint16_t vid, uint16_t pid);
+
+/**
  *  @brief Helper closing a HID device handle.
  */
 void close_hid_device(hid_device* handle);

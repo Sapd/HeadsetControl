@@ -46,7 +46,7 @@ public:
 
     constexpr int getCapabilities() const override
     {
-        return B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_INACTIVE_TIME);
+        return B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_INACTIVE_TIME) | B(CAP_MICROPHONE_MUTE_STATUS);
     }
 
     // Override capability as this device needs the interface_id = 4
@@ -127,18 +127,8 @@ public:
         // Get the microphone mute state
         // These headsets physically flip the boom mic up to mute, so we map muted as MICROPHONE_UP
         enum microphone_status mic_status = MICROPHONE_UNKNOWN;
-
-        // Send mic status request
-        std::array<uint8_t, MSG_SIZE_WRITE> mic_request {
-            0x00, 0x02, HEADSET_ENDPOINT, 0x02, 0xa6
-        };
-
-        if (auto write_result = writeHID(device_handle, mic_request, MSG_SIZE_WRITE); write_result) {
-            std::array<uint8_t, MSG_SIZE_READ> mic_response {};
-            if (auto mic_read = readHIDTimeout(device_handle, mic_response, hsc_device_timeout);
-                mic_read && mic_response[4] == 0x01) { // muted
-                mic_status = MICROPHONE_UP;
-            }
+        if (auto mic = readMicMuteStatus(device_handle); mic && mic->muted) {
+            mic_status = MICROPHONE_UP;
         }
 
         // Build result
@@ -149,6 +139,22 @@ public:
             .raw_data      = std::vector<uint8_t>(battery_response.begin(), battery_response.end()),
         };
         return result;
+    }
+
+    Result<MicMuteStatusResult> getMicMuteStatus(hid_device* device_handle) override
+    {
+        // Same handshake as the battery query, which does not take over audio control
+        auto init_result = wakeDevice(device_handle);
+        if (init_result.valueOr(0) == 0) {
+            return DeviceError::deviceOffline(
+                "Headset not connected to wireless receiver");
+        }
+
+        if (auto result = flushHIDBuffer(device_handle); !result) {
+            return result.error();
+        }
+
+        return readMicMuteStatus(device_handle);
     }
 
     Result<SidetoneResult> setSidetone(hid_device* device_handle, uint8_t level) override
@@ -366,6 +372,23 @@ private:
         std::array<uint8_t, MSG_SIZE_READ> heartbeat_response {};
         auto read_headset_result = readHIDTimeout(device_handle, heartbeat_response, hsc_device_timeout);
         return read_headset_result;
+    }
+
+    Result<MicMuteStatusResult> readMicMuteStatus(hid_device* device_handle) const
+    {
+        std::array<uint8_t, MSG_SIZE_WRITE> mic_request {
+            0x00, 0x02, HEADSET_ENDPOINT, 0x02, 0xa6
+        };
+        if (auto result = writeHID(device_handle, mic_request, MSG_SIZE_WRITE); !result) {
+            return result.error();
+        }
+
+        std::array<uint8_t, MSG_SIZE_READ> mic_response {};
+        if (auto result = readHIDTimeout(device_handle, mic_response, hsc_device_timeout); !result) {
+            return result.error();
+        }
+
+        return MicMuteStatusResult { .muted = mic_response[4] == 0x01 };
     }
 
     Result<void> flushHIDBuffer(hid_device* device_handle) const

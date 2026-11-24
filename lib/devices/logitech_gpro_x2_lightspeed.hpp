@@ -22,12 +22,15 @@ namespace headsetcontrol {
 class LogitechGProX2Lightspeed : public protocols::LogitechCenturionProtocol {
 public:
     static constexpr std::array<uint16_t, 1> SUPPORTED_PRODUCT_IDS { 0x0af7 };
-    static constexpr size_t PACKET_SIZE                                        = 64;
-    static constexpr uint8_t REPORT_PREFIX                                     = 0x51;
-    static constexpr uint8_t SIDETONE_DEVICE_MAX                               = 100;
-    static constexpr uint8_t SIDETONE_MIC_ID                                   = 0x01;
-    static constexpr uint8_t PLAYBACK_DIRECTION                                = 0x00;
-    static constexpr uint8_t EQUALIZER_PRESETS_COUNT                           = 5;
+    static constexpr size_t PACKET_SIZE              = 64;
+    static constexpr uint8_t REPORT_PREFIX           = 0x51;
+    static constexpr uint8_t SIDETONE_DEVICE_MAX     = 100;
+    static constexpr uint8_t SIDETONE_MIC_ID         = 0x01;
+    static constexpr uint8_t EQUALIZER_PRESETS_COUNT = 5;
+
+    // Logitech specifies 50 hours: https://support.logi.com/hc/en-001/articles/11491199246615
+    // A linear estimate matches the observed G HUB value of 47 hours at 94%.
+    static constexpr int RATED_BATTERY_LIFE_MIN = 50 * 60;
 
     constexpr uint16_t getVendorId() const override
     {
@@ -48,7 +51,7 @@ public:
     {
         return B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS) | B(CAP_INACTIVE_TIME)
             | B(CAP_EQUALIZER_PRESET)
-            | B(CAP_EQUALIZER) | B(CAP_PARAMETRIC_EQUALIZER);
+            | B(CAP_EQUALIZER);
     }
 
     uint8_t getEqualizerPresetsCount() const override
@@ -84,26 +87,6 @@ public:
         };
     }
 
-    std::optional<ParametricEqualizerInfo> getParametricEqualizerInfo() const override
-    {
-        if (!has_cached_equalizer_info_) {
-            return std::nullopt;
-        }
-
-        return ParametricEqualizerInfo {
-            .bands_count  = cached_band_count_,
-            .gain_base    = 0.0f,
-            .gain_step    = 1.0f,
-            .gain_min     = static_cast<float>(cached_gain_min_),
-            .gain_max     = static_cast<float>(cached_gain_max_),
-            .q_factor_min = 1.0f,
-            .q_factor_max = 1.0f,
-            .freq_min     = 20,
-            .freq_max     = 20000,
-            .filter_types = B(static_cast<int>(EqualizerFilterType::Peaking))
-        };
-    }
-
     constexpr capability_detail getCapabilityDetail(enum capabilities cap) const override
     {
         switch (cap) {
@@ -112,7 +95,6 @@ public:
         case CAP_INACTIVE_TIME:
         case CAP_EQUALIZER_PRESET:
         case CAP_EQUALIZER:
-        case CAP_PARAMETRIC_EQUALIZER:
             return { .usagepage = 0xffa0, .usageid = 0x0001, .interface_id = 3 };
         default:
             return HIDDevice::getCapabilityDetail(cap);
@@ -122,7 +104,7 @@ public:
     Result<BatteryResult> getBattery(hid_device* device_handle) override
     {
         auto centurion_start_time = std::chrono::steady_clock::now();
-        auto centurion_battery = sendCenturionFeatureRequest(
+        auto centurion_battery    = sendCenturionFeatureRequest(
             device_handle,
             static_cast<uint16_t>(protocols::CenturionFeature::CenturionBatterySoc),
             0x00);
@@ -130,7 +112,11 @@ public:
             if (!shouldUseLegacyBatteryFallback(centurion_battery.error().code)) {
                 return centurion_battery.error();
             }
-            return getLegacyBattery(device_handle, centurion_start_time);
+            auto legacy_battery = getLegacyBattery(device_handle, centurion_start_time);
+            if (legacy_battery) {
+                estimateBatteryRuntime(*legacy_battery);
+            }
+            return legacy_battery;
         }
 
         auto battery_result = parseCenturionBatteryResponse(*centurion_battery);
@@ -138,11 +124,19 @@ public:
             return battery_result.error();
         }
 
+        estimateBatteryRuntime(*battery_result);
         battery_result->raw_data       = *centurion_battery;
         auto centurion_end_time        = std::chrono::steady_clock::now();
         battery_result->query_duration = std::chrono::duration_cast<std::chrono::milliseconds>(
             centurion_end_time - centurion_start_time);
         return *battery_result;
+    }
+
+    static void estimateBatteryRuntime(BatteryResult& battery)
+    {
+        if (battery.status == BATTERY_AVAILABLE && battery.level_percent > 0) {
+            battery.time_to_empty_min = battery.level_percent * RATED_BATTERY_LIFE_MIN / 100;
+        }
     }
 
     static constexpr bool shouldUseLegacyBatteryFallback(DeviceError::Code code)
@@ -189,7 +183,7 @@ public:
 
     Result<EqualizerResult> setEqualizer(hid_device* device_handle, const EqualizerSettings& settings) override
     {
-        auto descriptor = readEqualizerDescriptor(device_handle);
+        auto descriptor = readOnboardEqDescriptor(device_handle);
         if (!descriptor) {
             return descriptor.error();
         }
@@ -198,7 +192,7 @@ public:
             return DeviceError::invalidParameter("Equalizer requires one gain value per playback band");
         }
 
-        std::vector<AdvancedEqBand> bands;
+        std::vector<OnboardEqBand> bands;
         bands.reserve(descriptor->bands.size());
 
         for (size_t i = 0; i < descriptor->bands.size(); ++i) {
@@ -207,13 +201,13 @@ public:
                 return DeviceError::invalidParameter("Equalizer gain is outside the supported range");
             }
 
-            bands.push_back(AdvancedEqBand {
+            bands.push_back(OnboardEqBand {
                 .frequency = descriptor->bands[i].frequency,
-                .gain_db   = encodeGain(gain)
-            });
+                .gain_db   = encodeGain(gain),
+                .q_factor  = descriptor->bands[i].q_factor });
         }
 
-        if (auto write_result = writePlaybackAdvancedEq(device_handle, *descriptor, bands); !write_result) {
+        if (auto write_result = writeOnboardEq(device_handle, *descriptor, bands); !write_result) {
             return write_result.error();
         }
 
@@ -248,53 +242,6 @@ public:
         };
     }
 
-    Result<ParametricEqualizerResult> setParametricEqualizer(
-        hid_device* device_handle,
-        const ParametricEqualizerSettings& settings) override
-    {
-        auto descriptor = readEqualizerDescriptor(device_handle);
-        if (!descriptor) {
-            return descriptor.error();
-        }
-
-        if (settings.size() != static_cast<int>(descriptor->bands.size())) {
-            return DeviceError::invalidParameter("Parametric equalizer requires exactly one entry per playback band");
-        }
-
-        std::vector<AdvancedEqBand> bands;
-        bands.reserve(descriptor->bands.size());
-
-        for (const auto& band : settings.bands) {
-            if (band.type != EqualizerFilterType::Peaking) {
-                return DeviceError::invalidParameter("This headset only supports peaking EQ bands");
-            }
-
-            if (std::fabs(band.q_factor - 1.0f) > 0.001f) {
-                return DeviceError::invalidParameter("This headset uses a fixed Q factor of 1.0");
-            }
-
-            if (band.frequency < 20.0f || band.frequency > 20000.0f) {
-                return DeviceError::invalidParameter("Frequency must be between 20 Hz and 20000 Hz");
-            }
-
-            if (band.gain < descriptor->gain_min || band.gain > descriptor->gain_max) {
-                return DeviceError::invalidParameter("Gain is outside the supported range");
-            }
-
-            bands.push_back(AdvancedEqBand {
-                .frequency = static_cast<uint16_t>(band.frequency),
-                .gain_db   = encodeGain(band.gain),
-                .q_factor  = static_cast<uint8_t>(std::clamp<long>(std::lround(band.q_factor), 1, 255))
-            });
-        }
-
-        if (auto write_result = writePlaybackAdvancedEq(device_handle, *descriptor, bands); !write_result) {
-            return write_result.error();
-        }
-
-        return ParametricEqualizerResult {};
-    }
-
     Result<InactiveTimeResult> setInactiveTime(hid_device* device_handle, uint8_t minutes) override
     {
         if (auto write_result = sendCenturionFeatureRequest(
@@ -313,35 +260,18 @@ public:
         };
     }
 
-    static Result<BatteryResult> parseCenturionBatteryResponse(std::span<const uint8_t> packet)
+protected:
+    protocols::CenturionOptions centurionOptions() const override
     {
-        if (packet.empty()) {
-            return DeviceError::protocolError("Empty Centurion battery response");
-        }
-
-        auto level = static_cast<int>(packet[0]);
-        if (level < 0 || level > 100) {
-            return DeviceError::protocolError("Centurion battery percentage out of range");
-        }
-
-        auto charging_state = packet.size() >= 3 ? packet[2] : 0;
-        // Centurion battery replies use states 1 and 2 for charging; the legacy packet parser only treats 0x02 as charging.
-        auto status         = (charging_state == 1 || charging_state == 2)
-            ? BATTERY_CHARGING
-            : BATTERY_AVAILABLE;
-
-        return BatteryResult {
-            .level_percent = level,
-            .status        = status,
+        return {
+            .exact_direct_length      = true,
+            .detect_connection_events = true,
+            .probe_offline_on_timeout = true,
+            .lookup_features_by_id    = true,
         };
     }
 
 private:
-    enum class EqualizerBackend {
-        AdvancedParametric,
-        Onboard
-    };
-
     // These presets match the values shown in Logitech G Hub for the 5-band
     // playback EQ at 80, 240, 750, 2200, and 6600 Hz.
     static constexpr std::array<float, 5> PRESET_FLAT { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
@@ -444,18 +374,17 @@ private:
         return request;
     }
 
-    struct AdvancedEqBand {
+    struct OnboardEqBand {
         uint16_t frequency = 0;
         int8_t gain_db     = 0;
         uint8_t q_factor   = 1;
     };
 
-    struct AdvancedEqDescriptor {
-        EqualizerBackend backend = EqualizerBackend::AdvancedParametric;
+    struct OnboardEqDescriptor {
         uint8_t active_slot = 0;
         float gain_min      = -12.0f;
         float gain_max      = 12.0f;
-        std::vector<AdvancedEqBand> bands;
+        std::vector<OnboardEqBand> bands;
     };
 
 public:
@@ -463,14 +392,13 @@ public:
         uint8_t slot,
         const std::vector<std::tuple<uint16_t, int8_t, uint8_t>>& bands)
     {
-        std::vector<AdvancedEqBand> converted;
+        std::vector<OnboardEqBand> converted;
         converted.reserve(bands.size());
         for (const auto& [frequency, gain_db, q_factor] : bands) {
-            converted.push_back(AdvancedEqBand {
+            converted.push_back(OnboardEqBand {
                 .frequency = frequency,
                 .gain_db   = gain_db,
-                .q_factor  = q_factor
-            });
+                .q_factor  = q_factor });
         }
         return buildOnboardEqPayload(slot, converted);
     }
@@ -481,18 +409,12 @@ public:
     }
 
 private:
-
-    void cacheEqualizerInfo(const AdvancedEqDescriptor& descriptor) const
+    void cacheEqualizerInfo(const OnboardEqDescriptor& descriptor) const
     {
-        cached_band_count_      = static_cast<int>(descriptor.bands.size());
-        cached_gain_min_        = static_cast<int>(descriptor.gain_min);
-        cached_gain_max_        = static_cast<int>(descriptor.gain_max);
+        cached_band_count_         = static_cast<int>(descriptor.bands.size());
+        cached_gain_min_           = static_cast<int>(descriptor.gain_min);
+        cached_gain_max_           = static_cast<int>(descriptor.gain_max);
         has_cached_equalizer_info_ = true;
-    }
-
-    static constexpr std::array<uint8_t, 2> buildPlaybackEqSelector(uint8_t slot)
-    {
-        return { PLAYBACK_DIRECTION, slot };
     }
 
     static constexpr int8_t decodeSignedByte(uint8_t value)
@@ -508,11 +430,11 @@ private:
     static std::array<double, 5> buildPeakingEqBiquad(double frequency, double gain_db, double q_factor, double sample_rate)
     {
         constexpr double pi = 3.14159265358979323846;
-        double amplitude = std::pow(10.0, gain_db / 40.0);
-        double w0        = 2.0 * pi * frequency / sample_rate;
-        double cos_w0    = std::cos(w0);
-        double alpha     = std::sin(w0) / (2.0 * q_factor);
-        double a0        = 1.0 + alpha / amplitude;
+        double amplitude    = std::pow(10.0, gain_db / 40.0);
+        double w0           = 2.0 * pi * frequency / sample_rate;
+        double cos_w0       = std::cos(w0);
+        double alpha        = std::sin(w0) / (2.0 * q_factor);
+        double a0           = 1.0 + alpha / amplitude;
 
         return {
             (1.0 + alpha * amplitude) / a0,
@@ -548,7 +470,7 @@ private:
     }
 
     static std::vector<uint8_t> buildOnboardEqCoefficientSection(
-        const std::vector<AdvancedEqBand>& bands,
+        const std::vector<OnboardEqBand>& bands,
         double sample_rate,
         uint8_t section_type)
     {
@@ -607,7 +529,7 @@ private:
         return section;
     }
 
-    static std::vector<uint8_t> buildOnboardEqPayload(uint8_t slot, const std::vector<AdvancedEqBand>& bands)
+    static std::vector<uint8_t> buildOnboardEqPayload(uint8_t slot, const std::vector<OnboardEqBand>& bands)
     {
         std::vector<uint8_t> payload {
             slot,
@@ -633,71 +555,7 @@ private:
         return payload;
     }
 
-    Result<AdvancedEqDescriptor> readAdvancedEqDescriptor(hid_device* device_handle) const
-    {
-        auto info_reply = sendCenturionFeatureRequest(
-            device_handle,
-            static_cast<uint16_t>(protocols::CenturionFeature::HeadsetAdvancedParaEQ),
-            0x00);
-        if (!info_reply) {
-            return info_reply.error();
-        }
-
-        if (info_reply->size() < 5) {
-            return DeviceError::protocolError("Advanced EQ info response was too short");
-        }
-
-        auto active_slot_reply = sendCenturionFeatureRequest(
-            device_handle,
-            static_cast<uint16_t>(protocols::CenturionFeature::HeadsetAdvancedParaEQ),
-            0x30,
-            std::array<uint8_t, 1> { PLAYBACK_DIRECTION });
-        if (!active_slot_reply) {
-            return active_slot_reply.error();
-        }
-        if (active_slot_reply->empty()) {
-            return DeviceError::protocolError("Advanced EQ active slot response was empty");
-        }
-
-        auto params_reply = sendCenturionFeatureRequest(
-            device_handle,
-            static_cast<uint16_t>(protocols::CenturionFeature::HeadsetAdvancedParaEQ),
-            0x10,
-            buildPlaybackEqSelector((*active_slot_reply)[0]));
-        if (!params_reply) {
-            return params_reply.error();
-        }
-
-        AdvancedEqDescriptor descriptor {
-            .backend     = EqualizerBackend::AdvancedParametric,
-            .active_slot = (*active_slot_reply)[0],
-            .gain_min    = static_cast<float>(decodeSignedByte((*info_reply)[3])),
-            .gain_max    = static_cast<float>(decodeSignedByte((*info_reply)[4])),
-        };
-
-        for (size_t offset = 0; offset + 2 < params_reply->size(); offset += 3) {
-            auto frequency = static_cast<uint16_t>(
-                (static_cast<uint16_t>((*params_reply)[offset]) << 8)
-                | static_cast<uint16_t>((*params_reply)[offset + 1]));
-            if (frequency == 0) {
-                break;
-            }
-
-            descriptor.bands.push_back(AdvancedEqBand {
-                .frequency = frequency,
-                .gain_db   = decodeSignedByte((*params_reply)[offset + 2])
-            });
-        }
-
-        if (descriptor.bands.empty()) {
-            return DeviceError::protocolError("Advanced EQ band response was empty");
-        }
-
-        cacheEqualizerInfo(descriptor);
-        return descriptor;
-    }
-
-    Result<AdvancedEqDescriptor> readOnboardEqDescriptor(hid_device* device_handle) const
+    Result<OnboardEqDescriptor> readOnboardEqDescriptor(hid_device* device_handle) const
     {
         auto info_reply = sendCenturionFeatureRequest(
             device_handle,
@@ -724,8 +582,7 @@ private:
             return DeviceError::protocolError("Onboard EQ parameter response was too short");
         }
 
-        AdvancedEqDescriptor descriptor {
-            .backend     = EqualizerBackend::Onboard,
+        OnboardEqDescriptor descriptor {
             .active_slot = 0x00,
             .gain_min    = -12.0f,
             .gain_max    = 12.0f,
@@ -734,11 +591,10 @@ private:
         uint8_t band_count = (*params_reply)[1];
         size_t offset      = 2;
         for (uint8_t band = 0; band < band_count && offset + 3 < params_reply->size(); ++band) {
-            descriptor.bands.push_back(AdvancedEqBand {
+            descriptor.bands.push_back(OnboardEqBand {
                 .frequency = static_cast<uint16_t>((static_cast<uint16_t>((*params_reply)[offset]) << 8) | (*params_reply)[offset + 1]),
                 .gain_db   = decodeSignedByte((*params_reply)[offset + 2]),
-                .q_factor  = (*params_reply)[offset + 3]
-            });
+                .q_factor  = (*params_reply)[offset + 3] });
             offset += 4;
         }
 
@@ -750,44 +606,11 @@ private:
         return descriptor;
     }
 
-    Result<AdvancedEqDescriptor> readEqualizerDescriptor(hid_device* device_handle) const
-    {
-        if (auto advanced = readAdvancedEqDescriptor(device_handle); advanced) {
-            return advanced;
-        }
-
-        return readOnboardEqDescriptor(device_handle);
-    }
-
-    Result<void> writePlaybackAdvancedEq(
+    Result<void> writeOnboardEq(
         hid_device* device_handle,
-        const AdvancedEqDescriptor& descriptor,
-        const std::vector<AdvancedEqBand>& bands) const
+        const OnboardEqDescriptor& descriptor,
+        const std::vector<OnboardEqBand>& bands) const
     {
-        if (descriptor.backend == EqualizerBackend::AdvancedParametric) {
-            std::vector<uint8_t> payload;
-            payload.reserve(2 + bands.size() * 3);
-            payload.push_back(PLAYBACK_DIRECTION);
-            payload.push_back(descriptor.active_slot);
-
-            for (const auto& band : bands) {
-                payload.push_back(static_cast<uint8_t>((band.frequency >> 8) & 0xFF));
-                payload.push_back(static_cast<uint8_t>(band.frequency & 0xFF));
-                payload.push_back(static_cast<uint8_t>(band.gain_db));
-            }
-
-            if (auto write_reply = sendCenturionFeatureRequest(
-                    device_handle,
-                    static_cast<uint16_t>(protocols::CenturionFeature::HeadsetAdvancedParaEQ),
-                    0x20,
-                    payload);
-                !write_reply) {
-                return write_reply.error();
-            }
-
-            return {};
-        }
-
         auto payload = buildOnboardEqPayload(descriptor.active_slot, bands);
         if (auto write_reply = sendCenturionFeatureRequest(
                 device_handle,

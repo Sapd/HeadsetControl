@@ -146,6 +146,14 @@ public:
         return B(CAP_SIDETONE) | B(CAP_BATTERY_STATUS);
     }
 
+    // Optional: capabilities from getCapabilities() that can also be read back.
+    // Implement the matching getter (CAP_SIDETONE -> getSidetone()). A device
+    // with CAP_SIDETONE here reports CAP_SIDETONE_STATUS automatically.
+    int getReadableCapabilities() const override
+    {
+        return B(CAP_SIDETONE);
+    }
+
     // Override capability details if your device needs specific HID interface/usage
     constexpr capability_detail getCapabilityDetail(enum capabilities cap) const override
     {
@@ -156,6 +164,12 @@ public:
 
     // Implement the features your device supports...
     Result<SidetoneResult> setSidetone(hid_device* device_handle, uint8_t level) override
+    {
+        // Your implementation here
+    }
+
+    // Needed because CAP_SIDETONE is in getReadableCapabilities()
+    Result<SidetoneResult> getSidetone(hid_device* device_handle) override
     {
         // Your implementation here
     }
@@ -337,6 +351,18 @@ make
 ./headsetcontrol --test-device -b
 ```
 
+## Step 6: Tests and README
+
+- Add a test in `tests/` that replays the traffic you captured through a mock `HIDInterface`
+  (see `tests/test_protocols.cpp` or a device test file such as `tests/test_fifine.cpp`). A new
+  test file must be listed in `tests/CMakeLists.txt` and its `runAll...Tests()` called from
+  `tests/test_runner.cpp`. Run them with `make check` (configure with `-DBUILD_UNIT_TESTS=ON`).
+- Regenerate the device table with `./headsetcontrol --readme-helper` and replace the table in
+  `README.md` with its output. CI fails when the two differ. A limitation users will notice
+  (a setting the vendor software overrides, a variant without a feature) goes in a note below
+  the table.
+- In the pull request, name the headset, its USB ID and the OS you tested on.
+
 ## Helper Utilities
 
 HeadsetControl provides utilities in `lib/devices/device_utils.hpp`:
@@ -382,6 +408,15 @@ return makeCapabilityDetail(0xffc0, 0x1, 3);
 | `CAP_VOLUME_LIMITER` | Action | Volume limiter toggle |
 | `CAP_BT_WHEN_POWERED_ON` | Action | Bluetooth auto-connect |
 | `CAP_BT_CALL_VOLUME` | Action | Bluetooth call volume |
+| `CAP_NOISE_FILTER` | Action | Microphone noise filter |
+| `CAP_SIDETONE_STATUS` | Info | Current sidetone level (derived from `CAP_SIDETONE` in `getReadableCapabilities()`; don't list it in new devices) |
+| `CAP_ANC` | Action | Active noise cancellation mode |
+| `CAP_ANC_STARTUP_MODE` | Action | ANC mode used at power-on |
+| `CAP_ANC_BUTTON_MODES` | Action | ANC modes the headset's ANC button cycles through |
+| `CAP_MICROPHONE_ATTACHMENT_STATUS` | Info | Detachable boom mic attachment status |
+| `CAP_MICROPHONE_MUTE_STATUS` | Info | Microphone mute status |
+| `CAP_HEADSET_VOLUME` | Action | Headset hardware (output) volume; readable via `getHeadsetVolume()` |
+| `CAP_LIGHT_COLOR` | Action | Set the light color (implies lights on) |
 
 ## Example: Complete Device Implementation
 

@@ -84,7 +84,20 @@ struct ActionData {
     std::string device;
     Status status = STATUS_SUCCESS;
     int value     = 0;
+    std::optional<std::string> color; // "#rrggbb", only for CAP_LIGHT_COLOR
     std::string error_message;
+
+    /**
+     * @brief Whether value carries information worth printing
+     *
+     * Most actions report 0 when they have nothing to say (the equalizer always
+     * does) and -1 on failure, so only positive values are shown. A color is the
+     * exception: black packs to 0 and is still the value that was set.
+     */
+    [[nodiscard]] bool hasValue() const
+    {
+        return value > 0 || (color.has_value() && status == STATUS_SUCCESS);
+    }
 
     void serialize(Serializer& s) const
     {
@@ -92,8 +105,11 @@ struct ActionData {
         s.write("capability", capability);
         s.write("device", device);
         s.write("status", statusToString(status));
-        if (value > 0) {
+        if (hasValue()) {
             s.write("value", value);
+        }
+        if (color) {
+            s.write("color", *color);
         }
         if (!error_message.empty()) {
             s.write("error_message", error_message);
@@ -115,6 +131,19 @@ struct SidetoneData {
         if (!name.empty()) {
             s.write("name", name);
         }
+        s.endObject();
+    }
+};
+
+struct HeadsetVolumeData {
+    int level        = 0;
+    int device_level = 0;
+
+    void serialize(Serializer& s) const
+    {
+        s.beginObject("headset_volume");
+        s.write("level", level);
+        s.write("device_level", device_level);
         s.endObject();
     }
 };
@@ -192,10 +221,15 @@ struct DeviceData {
     std::vector<std::string> caps;
     std::vector<std::string> caps_str;
     std::vector<enum capabilities> caps_enum;
+    std::vector<std::string> readable_caps;
+    std::vector<std::string> readable_caps_str;
 
     std::optional<BatteryData> battery;
     std::optional<int> chatmix;
     std::optional<SidetoneData> sidetone;
+    std::optional<HeadsetVolumeData> headset_volume;
+    std::optional<bool> mic_attached;
+    std::optional<bool> mic_muted;
     std::optional<EqualizerData> equalizer;
     std::optional<int> equalizer_presets_count;
     std::optional<std::vector<EqualizerPresetData>> equalizer_presets;
@@ -216,6 +250,8 @@ struct DeviceData {
 
         s.writeArray("capabilities", caps);
         s.writeArray("capabilities_str", caps_str);
+        s.writeArray("readable_capabilities", readable_caps);
+        s.writeArray("readable_capabilities_str", readable_caps_str);
 
         if (battery.has_value()) {
             battery->serialize(s);
@@ -253,6 +289,18 @@ struct DeviceData {
 
         if (sidetone.has_value()) {
             sidetone->serialize(s);
+        }
+
+        if (headset_volume.has_value()) {
+            headset_volume->serialize(s);
+        }
+
+        if (mic_attached.has_value()) {
+            s.write("mic_attached", *mic_attached);
+        }
+
+        if (mic_muted.has_value()) {
+            s.write("mic_muted", *mic_muted);
         }
 
         if (!errors.empty()) {

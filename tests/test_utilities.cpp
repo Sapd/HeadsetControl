@@ -13,16 +13,26 @@
 
 #include "devices/device_utils.hpp"
 #include "feature_utils.hpp"
+#include "lock_test_utils.hpp"
+#ifndef _WIN32
+#include <fcntl.h>
+#endif
 #include "output/output_data.hpp"
 #include "result_types.hpp"
 #include "string_utils.hpp"
 #include "utility.hpp"
 
+#include <chrono>
 #include <cmath>
+#include <format>
+#include <future>
 #include <iostream>
+#include <optional>
+#include <random>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <thread>
 
 namespace headsetcontrol::testing {
 
@@ -518,6 +528,41 @@ void testParseTwoIds()
     std::cout << "    ✓ parse_two_ids works correctly" << std::endl;
 }
 
+void testParseLightColor()
+{
+    std::cout << "  Testing parse_light_color..." << std::endl;
+
+    auto plain = parse_light_color("ff8000");
+    ASSERT_TRUE(plain.has_value(), "Should parse RRGGBB");
+    ASSERT_EQ(0xff, plain->r, "Red should be 0xff");
+    ASSERT_EQ(0x80, plain->g, "Green should be 0x80");
+    ASSERT_EQ(0x00, plain->b, "Blue should be 0x00");
+
+    auto hashed = parse_light_color("#12AbeF");
+    ASSERT_TRUE(hashed.has_value(), "Should parse #RRGGBB in mixed case");
+    ASSERT_EQ(0x12, hashed->r, "Red should be 0x12");
+    ASSERT_EQ(0xab, hashed->g, "Green should be 0xab");
+    ASSERT_EQ(0xef, hashed->b, "Blue should be 0xef");
+
+    // Black is a real color, not "unset"
+    auto black = parse_light_color("000000");
+    ASSERT_TRUE(black.has_value(), "Black should parse");
+    ASSERT_EQ(0, black->r + black->g + black->b, "Black should be all zero");
+
+    ASSERT_FALSE(parse_light_color("").has_value(), "Empty should fail");
+    ASSERT_FALSE(parse_light_color("#").has_value(), "Bare # should fail");
+    ASSERT_FALSE(parse_light_color("fff").has_value(), "Shorthand should fail");
+    ASSERT_FALSE(parse_light_color("1234567").has_value(), "Seven digits should fail");
+    ASSERT_FALSE(parse_light_color("12345G").has_value(), "Non-hex digit should fail");
+    ASSERT_FALSE(parse_light_color("0xff00").has_value(), "0x prefix should fail");
+    ASSERT_FALSE(parse_light_color("+fffff").has_value(), "Sign should fail");
+    ASSERT_FALSE(parse_light_color("-fffff").has_value(), "Negative should fail");
+    ASSERT_FALSE(parse_light_color("##ff00ff").has_value(), "Double # should fail");
+    ASSERT_FALSE(parse_light_color("ff 000").has_value(), "Embedded space should fail");
+
+    std::cout << "    ✓ parse_light_color works correctly" << std::endl;
+}
+
 // ============================================================================
 // result_types.hpp Tests
 // ============================================================================
@@ -783,6 +828,179 @@ void testBatteryStatusToString()
 // Test Runner
 // ============================================================================
 
+void testProcessLock()
+{
+    // A name of its own, so neither a running HeadsetControl nor another test run interferes
+    const std::string name = std::format("selftest-{}", std::random_device {}());
+
+    std::promise<void> held, release;
+    auto release_future = release.get_future();
+    std::thread holder([&] {
+        ProcessLock lock(name, std::chrono::milliseconds(1000));
+        held.set_value();
+        release_future.wait();
+    });
+    held.get_future().wait();
+
+    const auto busy = ProcessLock(name, std::chrono::milliseconds(50)).status();
+    release.set_value();
+    holder.join();
+    ASSERT_TRUE(busy == ProcessLock::Status::Busy, "a held lock is busy until the timeout");
+
+    ProcessLock lock(name, std::chrono::milliseconds(1000));
+    ASSERT_TRUE(lock.status() == ProcessLock::Status::Held, "a released lock is held");
+    ASSERT_FALSE(lock.recovered(), "released normally, not abandoned");
+
+    const auto odd = ProcessLock(name + "../sel ftest/x", std::chrono::milliseconds(1000)).status();
+    removeLockFile(name);
+    removeLockFile(name + ".._sel_ftest_x");
+    ASSERT_TRUE(odd == ProcessLock::Status::Held, "unusual characters are replaced, not rejected");
+}
+
+void testProcessLockHandOver()
+{
+    const std::string name = std::format("selftest-{}", std::random_device {}());
+
+    // Released while another thread waits for it: the waiter gets it, released
+    // (not abandoned: the holder thread lives on until the waiter has it)
+    std::promise<void> held, got;
+    auto got_future = got.get_future();
+    std::thread holder([&] {
+        {
+            ProcessLock lock(name, std::chrono::milliseconds(1000));
+            held.set_value();
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+        got_future.wait();
+    });
+    held.get_future().wait();
+    std::optional<ProcessLock> waiter;
+    waiter.emplace(name, std::chrono::milliseconds(2000));
+    const bool handed_over = waiter->status() == ProcessLock::Status::Held && !waiter->recovered();
+    waiter.reset();
+    got.set_value();
+    holder.join();
+    ASSERT_TRUE(handed_over, "a waiter gets a released lock");
+
+    // The name is sanitized, not ignored: "a/b" and "a_b" are one lock
+    std::promise<void> taken, done;
+    auto done_future = done.get_future();
+    std::thread first([&] {
+        ProcessLock lock(name + "/x", std::chrono::milliseconds(0));
+        taken.set_value();
+        done_future.wait();
+    });
+    taken.get_future().wait();
+    const auto clash = ProcessLock(name + "_x", std::chrono::milliseconds(0)).status();
+    done.set_value();
+    first.join();
+    ASSERT_TRUE(clash == ProcessLock::Status::Busy, "\"x/y\" and \"x_y\" are the same lock");
+
+    // A negative timeout does not wait
+    {
+        std::promise<void> busy_held, busy_release;
+        auto busy_release_future = busy_release.get_future();
+        std::thread busy_holder([&] {
+            ProcessLock lock(name + "-neg", std::chrono::milliseconds(1000));
+            busy_held.set_value();
+            busy_release_future.wait();
+        });
+        busy_held.get_future().wait();
+        const auto t0       = std::chrono::steady_clock::now();
+        const auto negative = ProcessLock(name + "-neg", std::chrono::milliseconds(-1)).status();
+        const auto waited   = std::chrono::steady_clock::now() - t0;
+        busy_release.set_value();
+        busy_holder.join();
+        ASSERT_TRUE(negative == ProcessLock::Status::Busy, "busy");
+        ASSERT_TRUE(waited < std::chrono::milliseconds(500), "without waiting");
+    }
+
+    // Another kind of object at the name: Unavailable, and no hang
+    {
+        const auto blocker = blockLockName(name + "-blocked");
+        ProcessLock blocked(name + "-blocked", std::chrono::milliseconds(100));
+        ASSERT_TRUE(blocked.status() == ProcessLock::Status::Unavailable, "unavailable");
+    }
+
+#ifdef _WIN32
+    // A holder that exits without releasing: the next holder is told
+    std::thread([&] { new ProcessLock(name + "-dead", std::chrono::milliseconds(1000)); }).join();
+    ProcessLock recovered(name + "-dead", std::chrono::milliseconds(1000));
+    ASSERT_TRUE(recovered.status() == ProcessLock::Status::Held && recovered.recovered(), "abandoned is recovered");
+#endif
+
+    for (const char* suffix : { "", "_x", "-neg" }) {
+        removeLockFile(name + suffix);
+    }
+    std::cout << "    ✓ ProcessLock hands over, sanitizes names and fails safe" << std::endl;
+}
+
+#ifndef _WIN32
+void testProcessLockFiles()
+{
+    const std::string name = std::format("selftest-{}", std::random_device {}());
+    const std::string path = "/tmp/headsetcontrol-" + name + ".lock";
+    const auto mode        = [&](const std::string& p) {
+        struct stat st { };
+        return stat(p.c_str(), &st) == 0 ? (st.st_mode & 0777) : 0u;
+    };
+    const auto status = [&] { return ProcessLock(name, std::chrono::milliseconds(100)).status(); };
+
+    // Created readable for everyone whatever the umask
+    const mode_t old_umask = umask(077);
+    const auto created     = status();
+    umask(old_umask);
+    ASSERT_TRUE(created == ProcessLock::Status::Held && mode(path) == 0644, "created 0644 under umask 077");
+
+    // An existing file keeps its mode: only the creator changes it
+    chmod(path.c_str(), 0600);
+    ASSERT_TRUE(status() == ProcessLock::Status::Held && mode(path) == 0600, "existing file not chmodded");
+    unlink(path.c_str());
+
+    // Not a plain file with one link: refused, and the target is untouched
+    const std::string target = path + ".target";
+    close(open(target.c_str(), O_CREAT | O_WRONLY, 0600));
+    symlink(target.c_str(), path.c_str());
+    ASSERT_TRUE(status() == ProcessLock::Status::Unavailable && mode(target) == 0600, "symlink refused");
+    unlink(path.c_str());
+    link(target.c_str(), path.c_str());
+    ASSERT_TRUE(status() == ProcessLock::Status::Unavailable && mode(target) == 0600, "second hard link refused");
+    unlink(path.c_str());
+    unlink(target.c_str());
+    mkfifo(path.c_str(), 0644);
+    const auto t0   = std::chrono::steady_clock::now();
+    const auto fifo = status();
+    ASSERT_TRUE(fifo == ProcessLock::Status::Unavailable, "FIFO refused");
+    ASSERT_TRUE(std::chrono::steady_clock::now() - t0 < std::chrono::milliseconds(500), "without blocking");
+    unlink(path.c_str());
+
+    // Removed while a waiter waits: the waiter takes the file that is there now
+    std::promise<void> held, release;
+    auto release_future = release.get_future();
+    std::thread holder([&] {
+        ProcessLock lock(name, std::chrono::milliseconds(1000));
+        held.set_value();
+        release_future.wait();
+    });
+    held.get_future().wait();
+    std::thread remover([&] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        unlink(path.c_str());
+        release.set_value();
+    });
+    std::optional<ProcessLock> waiter;
+    waiter.emplace(name, std::chrono::milliseconds(2000));
+    const bool held_existing = waiter->status() == ProcessLock::Status::Held && mode(path) == 0644;
+    waiter.reset();
+    remover.join();
+    holder.join();
+    unlink(path.c_str());
+    ASSERT_TRUE(held_existing, "the waiter holds the file now at the path");
+
+    std::cout << "    ✓ ProcessLock refuses odd files and survives a removal" << std::endl;
+}
+#endif
+
 void runAllUtilityTests()
 {
     std::cout << "\n╔══════════════════════════════════════════════════════╗" << std::endl;
@@ -830,6 +1048,12 @@ void runAllUtilityTests()
     runTest("parse_float_data", testParseFloatData);
     runTest("parse_parametric_eq", testParseParametricEqualizerSettings);
     runTest("parse_two_ids", testParseTwoIds);
+    runTest("parse_light_color", testParseLightColor);
+    runTest("ProcessLock", testProcessLock);
+    runTest("ProcessLock hand-over", testProcessLockHandOver);
+#ifndef _WIN32
+    runTest("ProcessLock files", testProcessLockFiles);
+#endif
 
     std::cout << "\n=== result_types.hpp Tests ===" << std::endl;
     runTest("Result<T> success", testResultSuccess);

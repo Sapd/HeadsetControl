@@ -6,7 +6,9 @@
 #include "devices/corsair_void_v2w.hpp"
 
 // Logitech devices
+#include "devices/logitech_astro_a20x.hpp"
 #include "devices/logitech_astro_a50.hpp"
+#include "devices/logitech_astro_a50_gen4.hpp"
 
 // Logitech devices with HIDPPDevice protocol template
 #include "devices/logitech_g432.hpp"
@@ -17,6 +19,7 @@
 #include "devices/logitech_g930.hpp"
 #include "devices/logitech_gpro.hpp"
 #include "devices/logitech_gpro_x2_lightspeed.hpp"
+#include "devices/logitech_gpro_x3_lightspeed.hpp"
 #include "devices/logitech_zone_wired.hpp"
 
 // SteelSeries devices with SteelSeries protocol templates
@@ -38,6 +41,8 @@
 #include "devices/hyperx_cloud_2_wireless.hpp"
 #include "devices/hyperx_cloud_2_wireless_kingston.hpp"
 #include "devices/hyperx_cloud_3.hpp"
+#include "devices/hyperx_cloud_alpha_2_wireless.hpp"
+#include "devices/hyperx_cloud_alpha_s.hpp"
 #include "devices/hyperx_cloud_alpha_wireless.hpp"
 #include "devices/hyperx_cloud_flight.hpp"
 
@@ -55,16 +60,31 @@
 // Plantronics / Poly devices
 #include "devices/plantronics_bt600.hpp"
 
+// Sennheiser / EPOS devices
+#include "devices/epos_h3pro_hybrid.hpp"
+#include "devices/sennheiser_gsp370.hpp"
+
 // Jabra devices
 #include "devices/jabra_evolve2_65_flex.hpp"
+#include "devices/jabra_evolve3_75.hpp"
+#include "devices/jabra_link_380.hpp"
 #include "devices/jabra_link_390.hpp"
+
+// FIFINE devices
+#include "devices/fifine_ht6.hpp"
 
 // Sony devices
 #include "devices/sony_inzone_buds.hpp"
 #include "devices/sony_inzone_h5.hpp"
+#include "devices/sony_inzone_h9_ii.hpp"
+#include "devices/sony_pulse_3d.hpp"
 
 // MCHOSE devices
+#include "devices/mchose_v9_pro.hpp"
 #include "devices/mchose_x9.hpp"
+
+// Razer devices
+#include "devices/razer_blackshark_v2_pro_ps.hpp"
 
 // Test device
 #include "devices/headsetcontrol_test.hpp"
@@ -108,6 +128,9 @@ void DeviceRegistry::initialize()
         // Each device is managed by a unique_ptr for automatic cleanup
 
         // Logitech devices
+        registerDevice(std::make_unique<LogitechAstroA20X>());
+        registerDevice(std::make_unique<LogitechAstroA20XWireless>());
+        registerDevice(std::make_unique<LogitechAstroA50Gen4>());
         registerDevice(std::make_unique<LogitechAstroA50>());
 
         // Logitech devices (using HIDPPDevice protocol template)
@@ -118,6 +141,7 @@ void DeviceRegistry::initialize()
         registerDevice(std::make_unique<LogitechG432>());
         registerDevice(std::make_unique<LogitechG930>());
         registerDevice(std::make_unique<LogitechGProX2Lightspeed>());
+        registerDevice(std::make_unique<LogitechGProX3Lightspeed>());
         registerDevice(std::make_unique<LogitechGPro>());
         registerDevice(std::make_unique<LogitechZoneWired>());
 
@@ -143,6 +167,8 @@ void DeviceRegistry::initialize()
 
         // HyperX devices
         registerDevice(std::make_unique<HyperXCloudAlphaWireless>());
+        registerDevice(std::make_unique<HyperXCloudAlpha2Wireless>());
+        registerDevice(std::make_unique<HyperXCloudAlphaS>());
         registerDevice(std::make_unique<HyperXCloudFlight>());
         registerDevice(std::make_unique<HyperXCloud2Wireless>());
         registerDevice(std::make_unique<HyperXCloud2WirelessKingston>());
@@ -162,16 +188,31 @@ void DeviceRegistry::initialize()
         // Plantronics / Poly devices
         registerDevice(std::make_unique<PlantronicsBT600>());
 
+        // Sennheiser / EPOS devices
+        registerDevice(std::make_unique<SennheiserGSP370>());
+        registerDevice(std::make_unique<EposH3ProHybrid>());
+
         // Jabra devices
+        registerDevice(std::make_unique<JabraLink380>());
         registerDevice(std::make_unique<JabraLink390>());
         registerDevice(std::make_unique<JabraEvolve265Flex>());
+        registerDevice(std::make_unique<JabraEvolve375>());
+
+        // FIFINE devices
+        registerDevice(std::make_unique<FifineHT6>());
 
         // Sony devices
         registerDevice(std::make_unique<SonyINZONEBuds>());
         registerDevice(std::make_unique<SonyINZONEH5>());
+        registerDevice(std::make_unique<SonyINZONEH9II>());
+        registerDevice(std::make_unique<SonyPulse3D>());
 
         // MCHOSE devices
         registerDevice(std::make_unique<MchoseX9>());
+        registerDevice(std::make_unique<MchoseV9Pro>());
+
+        // Razer devices
+        registerDevice(std::make_unique<RazerBlackSharkV2ProPS>());
 
         // Test device
         registerDevice(std::make_unique<HeadsetControlTest>());

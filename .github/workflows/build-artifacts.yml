@@ -95,12 +95,12 @@ jobs:
         if: matrix.build_type == 'msvc'
         uses: lukka/run-vcpkg@b1a0dd252f06b9e25b3c022a9a03bd7a427fb6a2 # v11.6
         with:
-          vcpkgGitCommitId: '84bab45d415d22042bd0b9081aea57f362da3f35'  # 2025.12.12
+          vcpkgGitCommitId: '9e593bb18ea69cc5095e012465dcd675a822ed0d'  # 2026.07.29
           vcpkgJsonGlob: 'vcpkg.json'
 
       - name: Setup CMake and Ninja (Windows)
         if: matrix.build_type == 'msvc'
-        uses: lukka/get-cmake@e6906078ebd1ccb8ce51ab4626ac46a1b5a517e3 # v4.4.0
+        uses: lukka/get-cmake@a1a8216777d3cbbf5602c73b9ddd3e98257ecdc4 # v4.5.1
 
       - name: Install NSIS with Large Strings (Windows)
         if: matrix.build_type == 'msvc'
@@ -136,7 +136,7 @@ jobs:
       # =========== Unix Setup ===========
       - name: Setup CMake and Ninja (Unix)
         if: matrix.build_type == 'unix'
-        uses: lukka/get-cmake@e6906078ebd1ccb8ce51ab4626ac46a1b5a517e3 # v4.4.0
+        uses: lukka/get-cmake@a1a8216777d3cbbf5602c73b9ddd3e98257ecdc4 # v4.5.1
 
       # =========== macOS Setup ===========
       # The released macOS binary has to be self-contained. Linking Homebrew's
@@ -309,7 +309,7 @@ jobs:
       # =========== Upload ===========
       - name: Upload artifacts (Linux)
         if: matrix.os_name == 'linux'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: headsetcontrol-${{ matrix.os_name }}
           path: |
@@ -325,7 +325,7 @@ jobs:
 
       - name: Upload artifacts (macOS)
         if: matrix.os_name == 'macos'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: headsetcontrol-${{ matrix.os_name }}
           path: |
@@ -335,7 +335,7 @@ jobs:
 
       - name: Upload artifacts (Windows)
         if: matrix.build_type == 'msvc'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: headsetcontrol-${{ matrix.os_name }}
           path: |

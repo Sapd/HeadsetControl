@@ -1,0 +1,41 @@
+name: Review State Signal
+
+# Does nothing on purpose.
+#
+# On a pull request from a fork, GitHub hands review events a read-only
+# GITHUB_TOKEN whatever the workflow asks for, so "Label PR Review State"
+# cannot write labels when it is triggered by a review:
+#
+#   pull_request_review (fork PR)   Issues: read   PullRequests: read
+#   pull_request_target             Issues: write  PullRequests: write
+#
+# Nearly every PR here comes from a fork, so every review by the maintainer
+# failed with 403 on the label call and the queue label stayed wrong until the
+# nightly reconcile. This workflow only exists so that finishing it raises a
+# workflow_run event, which "Label PR Review State" listens for: a workflow_run
+# job runs on the default branch in this repository's own context and does get a
+# write token. It carries no PR number, so that run reconciles every open PR,
+# which is the same path the nightly schedule uses.
+#
+# workflow_dispatch is here to test the chain without waiting for a review.
+
+on:
+  pull_request_review:
+    types: [submitted]
+  # Replies inside an existing diff thread are neither an issue_comment nor a
+  # new review, so they need their own event.
+  pull_request_review_comment:
+    types: [created]
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  signal:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report what will be reconciled
+        run: |
+          echo "Event: ${{ github.event_name }}"
+          echo "PR: ${{ github.event.pull_request.number || 'n/a (manual run)' }}"
+          echo "Label PR Review State will reconcile all open PRs via workflow_run."

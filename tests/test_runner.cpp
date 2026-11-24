@@ -27,6 +27,15 @@ void runAllStringEscapingTests();
 void runAllLibraryApiTests();
 void runAllProtocolTests();
 void runAllSteelSeriesSidetoneTests();
+void runAllHyperXCloudAlpha2WirelessTests();
+void runAllHyperXCloudAlphaSTests();
+void runAllSonyPulse3DTests();
+void runAllSennheiserGSP370Tests();
+void runAllEposH3ProHybridTests();
+void runAllCorsairVirtuosoTests();
+void runAllRazerBlackSharkV2ProPSTests();
+void runAllMchoseTests();
+void runAllFifineTests();
 }
 
 int main()
@@ -69,6 +78,17 @@ int main()
         headsetcontrol::testing::runAllProtocolTests();
 
         headsetcontrol::testing::runAllSteelSeriesSidetoneTests();
+
+        headsetcontrol::testing::runAllHyperXCloudAlpha2WirelessTests();
+        headsetcontrol::testing::runAllHyperXCloudAlphaSTests();
+
+        headsetcontrol::testing::runAllSonyPulse3DTests();
+        headsetcontrol::testing::runAllSennheiserGSP370Tests();
+        headsetcontrol::testing::runAllEposH3ProHybridTests();
+        headsetcontrol::testing::runAllCorsairVirtuosoTests();
+        headsetcontrol::testing::runAllRazerBlackSharkV2ProPSTests();
+        headsetcontrol::testing::runAllMchoseTests();
+        headsetcontrol::testing::runAllFifineTests();
 
         std::cout << "\n====================================================================" << std::endl;
         std::cout << "                    All tests passed successfully!                  " << std::endl;
