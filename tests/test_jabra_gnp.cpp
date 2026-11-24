@@ -2,6 +2,7 @@
 #include "devices/jabra_generic.hpp"
 #include "devices/jabra_link_390.hpp"
 
+#include <chrono>
 #include <cstdint>
 #include <deque>
 #include <iostream>
@@ -45,6 +46,8 @@ public:
     std::vector<std::vector<uint8_t>> inject; // queued in front of the next reply
     std::vector<int> read_timeouts;
     size_t truncate_to = 0; // when non-zero, replies are cut to this many bytes
+    bool flood         = false; // every read returns an unsolicited event, never a reply
+    size_t flood_limit = 0; // when non-zero, flooding reads fail after this many reads
 
     static std::vector<uint8_t> frame(uint8_t src, uint8_t seq, uint8_t cmd, uint8_t sub, std::vector<uint8_t> payload,
         uint8_t dst = 0x00, uint8_t type = 3)
@@ -106,6 +109,14 @@ public:
     Result<size_t> readTimeout(hid_device*, std::span<uint8_t> data, int timeout_ms) override
     {
         read_timeouts.push_back(timeout_ms);
+        if (flood) {
+            if (flood_limit != 0 && read_timeouts.size() > flood_limit) {
+                return DeviceError::hidError("Simulated flood limit reached");
+            }
+            const auto event = frame(0x04, 0x00, 0x12, 0x02, { 0x00, 0x30 }, 0x00, 0);
+            std::copy(event.begin(), event.end(), data.begin());
+            return event.size();
+        }
         if (pending.empty())
             return DeviceError::timeout("Simulated timeout");
         auto reply = std::move(pending.front());
@@ -139,6 +150,9 @@ public:
         , dongle_(dongle)
     {
     }
+
+    // An address only a NACK pointed to expires at once, to test the re-probe
+    void expireNackAddressesAtOnce() { nack_address_lifetime_ = std::chrono::milliseconds(0); }
 
 protected:
     HIDInterface& getHIDInterface() const override { return hid_; }
@@ -364,8 +378,144 @@ void testDongleWithoutHeadset()
         // Once the headset comes on, it is found without restarting
         hid.peers[0x04] = { .name = "Jabra Evolve2 65" };
         auto name       = device.getString(FAKE_HANDLE, 0x02, 0x00);
-        JABRA_ASSERT(name.hasValue(), "failed probe is not cached");
+        JABRA_ASSERT(name.hasValue(), "headset found at the remembered 0x04 when it comes on");
     }
+}
+
+void testDongleOffRemembered()
+{
+    // A dongle whose name lacks "Link" (USB order), silent at 0x08, headset off: after
+    // the first probe, requests go straight to 0x04 instead of waiting on 0x08 again
+    JabraMockHID hid;
+    hid.peers[0x04] = { .nack = 0xF4 }; // nothing at all answers at 0x08
+    TestableJabraGeneric device(hid);
+
+    auto battery = device.getBattery(FAKE_HANDLE);
+    JABRA_ASSERT(!battery && battery.error().code == DeviceError::Code::DeviceOffline, "headset off is offline");
+    JABRA_ASSERT((hid.addressesWritten() == std::vector<uint8_t> { 0x08, 0x04 }), "first request probes both");
+
+    hid.writes.clear();
+    battery = device.getBattery(FAKE_HANDLE);
+    JABRA_ASSERT(!battery && battery.error().code == DeviceError::Code::DeviceOffline, "still offline");
+    JABRA_ASSERT((hid.addressesWritten() == std::vector<uint8_t> { 0x04 }), "0x08 is not asked again");
+
+    // Once the headset comes on, the remembered address answers
+    hid.peers[0x04] = { .name = "Jabra Evolve2 65" };
+    auto name       = device.getString(FAKE_HANDLE, 0x02, 0x00);
+    JABRA_ASSERT(name && *name == "Jabra Evolve2 65", "headset found when it comes on");
+}
+
+void testUnknownNameRequestMeansPresent()
+{
+    // A device that does not know the name request (F6) is used when the other address is
+    // empty: the probe asks 0x04 too, then goes back to 0x08
+    JabraMockHID hid;
+    hid.peers[0x08]                        = { .nack = 0xF6 };
+    hid.peers[0x08].values[{ 0x12, 0x02 }] = { 0x00, 0x50 };
+    TestableJabraGeneric device(hid);
+
+    auto battery = device.getBattery(FAKE_HANDLE);
+    JABRA_ASSERT(battery && battery->level_percent == 80, "battery read from the device that NACKed the name");
+    JABRA_ASSERT((hid.addressesWritten() == std::vector<uint8_t> { 0x08, 0x04, 0x08 }), "0x04 asked, 0x08 used");
+
+    hid.writes.clear();
+    (void)device.getBattery(FAKE_HANDLE);
+    JABRA_ASSERT((hid.addressesWritten() == std::vector<uint8_t> { 0x08 }), "0x08 is remembered");
+
+    // A dongle NACKs from the address asked, so an F6 at 0x08 must not win over a headset
+    // that answers at 0x04
+    JabraMockHID dongle_f6;
+    dongle_f6.peers[0x08] = { .nack = 0xF6 };
+    dongle_f6.peers[0x04] = { .name = "Jabra Evolve2 65" };
+    TestableJabraGeneric unnamed_dongle(dongle_f6);
+    auto headset = unnamed_dongle.getString(FAKE_HANDLE, 0x02, 0x00);
+    JABRA_ASSERT(headset && *headset == "Jabra Evolve2 65", "the headset at 0x04 wins over an F6 at 0x08");
+    JABRA_ASSERT((dongle_f6.addressesWritten() == std::vector<uint8_t> { 0x08, 0x04, 0x04 }), "0x04 remembered");
+
+    // Same, with the headset off: the F4 at 0x04 shows a dongle, not the F6 at 0x08
+    JabraMockHID dongle_off;
+    dongle_off.peers[0x08] = { .nack = 0xF6 };
+    dongle_off.peers[0x04] = { .nack = 0xF4 };
+    TestableJabraGeneric off(dongle_off);
+    auto offline = off.getBattery(FAKE_HANDLE);
+    JABRA_ASSERT(!offline && offline.error().code == DeviceError::Code::DeviceOffline, "headset off behind the dongle");
+    JABRA_ASSERT((dongle_off.addressesWritten() == std::vector<uint8_t> { 0x08, 0x04 }), "both probed once");
+    dongle_off.writes.clear();
+    (void)off.getBattery(FAKE_HANDLE);
+    JABRA_ASSERT((dongle_off.addressesWritten() == std::vector<uint8_t> { 0x04 }), "0x04 remembered, not the F6 at 0x08");
+
+    // An F6 from another address than the one asked does not show anything is there
+    JabraMockHID other;
+    other.peers[0x04] = { .nack = 0 }; // the headset itself never answers
+    other.inject      = { JabraMockHID::frame(0x01, 0x00, 0xFE, 0xF6, {}) };
+    TestableJabraGeneric dongle(other, true);
+    auto name = dongle.getString(FAKE_HANDLE, 0x02, 0x00);
+    JABRA_ASSERT(!name && name.error().code == DeviceError::Code::DeviceOffline, "F6 from 0x01 is no answer at 0x04");
+    JABRA_ASSERT((other.addressesWritten() == std::vector<uint8_t> { 0x04, 0x08 }), "the probe went on to 0x08");
+}
+
+void testDeadlineWithEvents()
+{
+    // Events do not extend the deadline: a request that only ever sees events times out
+    const int saved    = hsc_device_timeout;
+    hsc_device_timeout = 50;
+    JabraMockHID hid;
+    hid.peers[0x04] = { .nack = 0 };
+    hid.flood       = true;
+    TestableJabraLink390 device(hid);
+    const auto start   = std::chrono::steady_clock::now();
+    auto battery       = device.getBattery(FAKE_HANDLE);
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+    hsc_device_timeout = saved;
+
+    JABRA_ASSERT(!battery && battery.error().code == DeviceError::Code::DeviceOffline, "only events: offline");
+    // The loop stops once less than a whole millisecond is left, so allow a little short
+    JABRA_ASSERT(elapsed >= std::chrono::milliseconds(40), "waited for the deadline");
+    JABRA_ASSERT(elapsed < std::chrono::seconds(5), "but not longer");
+    JABRA_ASSERT(hid.read_timeouts.size() > 1, "several events read");
+    JABRA_ASSERT(hid.read_timeouts.back() <= hid.read_timeouts.front(), "each read gets what is left");
+}
+
+void testBlockingReadsCapStrayFrames()
+{
+    // With blocking reads there is no deadline, so frames that are not the reply are capped
+    const int saved    = hsc_device_timeout;
+    hsc_device_timeout = -1;
+    JabraMockHID hid;
+    hid.peers[0x04] = { .nack = 0 };
+    hid.flood       = true;
+    hid.flood_limit = 1000; // without the cap, fail here instead of hanging
+    TestableJabraLink390 device(hid);
+    auto battery       = device.getBattery(FAKE_HANDLE);
+    hsc_device_timeout = saved;
+
+    JABRA_ASSERT(!battery && battery.error().code == DeviceError::Code::ProtocolError, "gives up instead of looping");
+    JABRA_ASSERT(hid.read_timeouts.size() == 16, "after 16 frames that are not the reply");
+}
+
+void testNackAddressExpires()
+{
+    // An address only a NACK pointed to is probed again once it expires, so a long-lived
+    // handle is not stuck on it
+    JabraMockHID hid;
+    hid.peers[0x04] = { .nack = 0xF4 }; // nothing at all answers at 0x08
+    TestableJabraGeneric device(hid);
+    device.expireNackAddressesAtOnce();
+
+    (void)device.getBattery(FAKE_HANDLE);
+    JABRA_ASSERT((hid.addressesWritten() == std::vector<uint8_t> { 0x08, 0x04 }), "first probe");
+
+    // The handle turns out to be a headset on USB after all
+    hid.peers[0x08] = { .name = "Jabra Evolve2 85" };
+    hid.writes.clear();
+    auto name = device.getString(FAKE_HANDLE, 0x02, 0x00);
+    JABRA_ASSERT(name && *name == "Jabra Evolve2 85", "re-probe finds the headset at 0x08");
+    JABRA_ASSERT((hid.addressesWritten() == std::vector<uint8_t> { 0x08, 0x08 }), "0x08 probed again and used");
+
+    // A real answer is kept for the handle's life, even with NACK addresses expiring at once
+    hid.writes.clear();
+    (void)device.getString(FAKE_HANDLE, 0x02, 0x00);
+    JABRA_ASSERT((hid.addressesWritten() == std::vector<uint8_t> { 0x08 }), "answered address does not expire");
 }
 
 void testDongleWithoutHeadsetUsbOrder()
@@ -451,7 +601,7 @@ void testStrayRepliesSkipped()
         JabraMockHID::frame(0x04, next_seq, 0x12, 0x02, { 0x00, 0x10 }), // other address
         JabraMockHID::frame(0x08, next_seq, 0x13, 0x7C, { 0x00, 0x00 }), // other command
         JabraMockHID::frame(0x08, next_seq, 0x12, 0x02, { 0x00, 0x20 }, 0x01), // not for the host
-        JabraMockHID::frame(0x08, 0x00, 0x12, 0x02, { 0x00, 0x30 }, 0x00, 0), // event
+        JabraMockHID::frame(0x08, next_seq, 0x12, 0x02, { 0x00, 0x30 }, 0x00, 0), // event
     };
     auto battery = device.getBattery(FAKE_HANDLE);
     JABRA_ASSERT(battery && battery->level_percent == 80, "only the matching reply is used");
@@ -554,16 +704,41 @@ void testInactivityFiveMinuteSteps()
              Case { 255, 255, 51 } }) {
         auto result = device.setInactiveTime(FAKE_HANDLE, asked);
         JABRA_ASSERT(result && result->minutes == minutes, "nearest 5-minute step");
-        JABRA_ASSERT(asked == 0 || units != 0, "a non-zero value never becomes never");
+        JABRA_ASSERT(asked == 0 || timer.front() != 0, "a non-zero value never becomes never");
         JABRA_ASSERT((timer == std::vector<uint8_t> { units }), "written in units of 5 minutes");
         JABRA_ASSERT(result->max_minutes == 255, "longest 5-minute step");
     }
 }
 
+// findDevice() records the matched product ID on the shared drivers; put back what was
+// there before, so these tests do not depend on running last
+class MatchedProductIdRestore {
+public:
+    MatchedProductIdRestore()
+    {
+        for (const auto& device : DeviceRegistry::instance().getAllDevices()) {
+            saved_.push_back(device->getMatchedProductId());
+        }
+    }
+    ~MatchedProductIdRestore()
+    {
+        size_t i = 0;
+        for (const auto& device : DeviceRegistry::instance().getAllDevices()) {
+            device->setMatchedProductId(saved_[i++]);
+        }
+    }
+    MatchedProductIdRestore(const MatchedProductIdRestore&)            = delete;
+    MatchedProductIdRestore& operator=(const MatchedProductIdRestore&) = delete;
+
+private:
+    std::vector<uint16_t> saved_;
+};
+
 void testRegistryMatchesGnpCollection()
 {
     auto& registry = DeviceRegistry::instance();
     registry.initialize();
+    MatchedProductIdRestore restore;
 
     // Any Jabra product with a GNP collection, whether or not it was ever seen here
     auto gnp    = makeInfo(0x0E41, 0xFF00, 0x01); // Evolve2 40
@@ -606,6 +781,7 @@ void testVerifiedDevicesKeepNamedDrivers()
 {
     auto& registry = DeviceRegistry::instance();
     registry.initialize();
+    MatchedProductIdRestore restore;
 
     // The products verified on hardware, with the collection each one exposes; also when
     // hidapi reports no usage page (found through the interface fallback)
@@ -631,6 +807,7 @@ void testListedProductsWinOverGenericDriver()
 {
     auto& registry = DeviceRegistry::instance();
     registry.initialize();
+    MatchedProductIdRestore restore;
 
     // Every device that lists product IDs still gets them; generic drivers only fill gaps
     for (const auto& device : registry.getAllDevices()) {
@@ -655,6 +832,11 @@ void runAllJabraGnpTests()
     testSilentProbeRemembered();
     testPickGnpCollection();
     testDongleWithoutHeadset();
+    testDongleOffRemembered();
+    testUnknownNameRequestMeansPresent();
+    testDeadlineWithEvents();
+    testBlockingReadsCapStrayFrames();
+    testNackAddressExpires();
     testDongleWithoutHeadsetUsbOrder();
     testNackFromOtherAddressAccepted();
     testNamedDriverFixedAddress();

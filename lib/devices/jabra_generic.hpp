@@ -7,6 +7,7 @@
 #include <cwchar>
 #include <map>
 #include <mutex>
+#include <optional>
 #include <string_view>
 #include <vector>
 
@@ -26,8 +27,10 @@ namespace headsetcontrol {
  *   - the headset's GNP address: 0x08 for a headset on its own USB cable, 0x04 for the
  *     headset behind a Link dongle. Both are probed with an IDENT name request (Link
  *     dongles, by their USB product string, are tried at 0x04 first) and the answer
- *     is kept for the open handle. A probe that met silence stands for a few seconds,
- *     so one command line does not wait for it once per setting.
+ *     is kept for the open handle. An address only a NACK points to (a dongle that
+ *     reports its headset off, or a device that does not know the name request) and a
+ *     probe that met silence stand for a few seconds, so one command line does not probe
+ *     once per setting, and a long-lived handle still probes again later.
  *
  * The models it ends up serving are untested, hence its name. The real model name comes
  * from the headset (getMetadata()); settings a model lacks are rejected by the headset
@@ -169,12 +172,15 @@ protected:
     {
         {
             std::lock_guard lock(mutex_);
+            const auto now = std::chrono::steady_clock::now();
             if (auto it = addresses_.find(device_handle); it != addresses_.end()) {
-                return it->second;
+                if (!it->second.until || now < *it->second.until) {
+                    return it->second.address;
+                }
+                addresses_.erase(it); // only a NACK pointed there, and that was a while ago
             }
             // A probe that met silence is slow, so it is not repeated for every request
-            if (auto it = silent_until_.find(device_handle);
-                it != silent_until_.end() && std::chrono::steady_clock::now() < it->second) {
+            if (auto it = silent_until_.find(device_handle); it != silent_until_.end() && now < it->second) {
                 return noHeadsetAnswered();
             }
         }
@@ -191,6 +197,10 @@ protected:
         const int usb_probe_timeout = std::min(full_timeout, PROBE_TIMEOUT_MS);
 
         bool silence = false;
+        // An address that NACKed the name request as unknown (F6, FF): something may be
+        // there, but a dongle NACKs from the address asked too, so it is only used when the
+        // other address turns out empty
+        std::optional<uint8_t> unknown_request_at;
         for (uint8_t address : order) {
             const int timeout = address == ADDR_USB_HS ? usb_probe_timeout : full_timeout;
             auto reply        = exchange(device_handle, address, TYPE_GET, CMD_IDENT, IDENT_NAME, {}, timeout);
@@ -202,21 +212,32 @@ protected:
                 return reply.error();
             }
             if ((*reply)[OFF_CMD] != CMD_NACK) {
-                std::lock_guard lock(mutex_);
-                addresses_[device_handle] = address;
-                silent_until_.erase(device_handle);
+                rememberAddress(device_handle, address);
                 return address;
             }
-            // A dongle reports its paired headset as not connected rather than absent: this
-            // is a dongle, so there is no point asking 0x08. A Link 390 with its Evolve3 75
-            // switched off answers F4 (no child) within ~150 ms; F3 (peer offline) is the
-            // same case.
             const uint8_t reason = (*reply)[OFF_SUB];
+            if ((*reply)[OFF_SRC] == address && (reason == NACK_NO_GROUP || reason == NACK_NO_SUBCMD)) {
+                if (!unknown_request_at) {
+                    unknown_request_at = address;
+                }
+                continue;
+            }
+            // A dongle reports its paired headset as not connected rather than absent: this
+            // is a dongle with its headset at 0x04, so 0x04 is remembered for a few seconds
+            // and 0x08 is not asked again meanwhile. Until the headset comes on, each request
+            // then costs one exchange that ends in the same NACK. A Link 390 with its Evolve3
+            // 75 switched off answers F4 (no child) within ~150 ms; F3 (peer offline) is the
+            // same case.
             if (address == ADDR_DONGLE_HS && (reason == NACK_NO_CHILD || reason == NACK_PEER_OFFLINE)) {
+                rememberAddress(device_handle, address, Certainty::FromNack);
                 return DeviceError::deviceOffline("Headset not connected to the Jabra dongle (powered off or out of range)");
             }
         }
 
+        if (unknown_request_at) {
+            rememberAddress(device_handle, *unknown_request_at, Certainty::FromNack);
+            return *unknown_request_at;
+        }
         if (silence) {
             std::lock_guard lock(mutex_);
             silent_until_[device_handle] = std::chrono::steady_clock::now() + std::chrono::milliseconds(PROBE_RETRY_MS);
@@ -236,6 +257,9 @@ protected:
         return std::wcsstr(product, L"Link") != nullptr;
     }
 
+    /// How long an address that only a NACK pointed to is used before both are probed again
+    std::chrono::milliseconds nack_address_lifetime_ { PROBE_RETRY_MS };
+
 private:
     static constexpr int PROBE_TIMEOUT_MS          = 1000;
     static constexpr int PROBE_BLOCKING_TIMEOUT_MS = 5000;
@@ -249,6 +273,32 @@ private:
         std::chrono::steady_clock::time_point until;
     };
 
+    /// A real answer settles the address for the handle; a NACK only points to it for a while
+    enum class Certainty { Answered,
+        FromNack };
+
+    struct KnownAddress {
+        uint8_t address;
+        std::optional<std::chrono::steady_clock::time_point> until; // unset: for the handle's life
+    };
+
+    void rememberAddress(hid_device* device_handle, uint8_t address, Certainty certainty = Certainty::Answered) const
+    {
+        std::lock_guard lock(mutex_);
+        silent_until_.erase(device_handle);
+        // Another probe on the same handle may have got a real answer meanwhile; a NACK
+        // does not replace that
+        if (auto it = addresses_.find(device_handle);
+            certainty == Certainty::FromNack && it != addresses_.end() && !it->second.until) {
+            return;
+        }
+        KnownAddress known { .address = address, .until = std::nullopt };
+        if (certainty == Certainty::FromNack) {
+            known.until = std::chrono::steady_clock::now() + nack_address_lifetime_;
+        }
+        addresses_[device_handle] = known;
+    }
+
     static DeviceError noHeadsetAnswered()
     {
         return DeviceError::deviceOffline("No Jabra headset answered at GNP address 0x08 or 0x04");
@@ -259,7 +309,7 @@ private:
 
     // Probed headset address per open handle; the registry shares one driver instance
     // between all connected Jabra devices.
-    mutable std::map<hid_device*, uint8_t> addresses_;
+    mutable std::map<hid_device*, KnownAddress> addresses_;
 
     // Handles whose last probe met silence, and until when that result stands
     mutable std::map<hid_device*, std::chrono::steady_clock::time_point> silent_until_;

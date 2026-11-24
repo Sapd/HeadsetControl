@@ -225,7 +225,7 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 
 > **Note:** EPOS H3PRO Hybrid - works through its dongle or with the headset plugged in by cable. The headset reports its battery in steps of 20%. The microphone noise filter is either off (0) or on (1); the noise cancellation slider on the headset is separate and cannot be set.
 
-> **Note:** Jabra (generic, untested model) - a fallback for Jabra headsets and Link dongles that speak the GN Protocol (such as other Evolve2 and Evolve3 models) but are not listed above. It finds out whether the headset is on its USB cable or behind a Link dongle, and through a dongle shows the name of the paired headset. These models are untested; settings a model lacks are reported as not supported.
+> **Note:** Jabra (generic, untested model) - a fallback for Jabra headsets and Link dongles that speak the GN Protocol (such as other Evolve2 and Evolve3 models) but are not listed above. It finds out whether the headset is on its USB cable or behind a Link dongle, and through a dongle shows the name of the paired headset. These models are untested; settings a model lacks are reported as not supported. The fallback needs hidapi to report the usage page of each HID collection (Windows, macOS, and Linux with the hidraw backend of hidapi 0.10 or newer); elsewhere only the Jabra devices listed above are found.
 
 ## Usage
 

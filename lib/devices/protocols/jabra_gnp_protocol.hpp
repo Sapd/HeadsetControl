@@ -116,6 +116,9 @@ protected:
 
     using Frame = std::array<uint8_t, MSG_SIZE>;
 
+    /// With blocking reads, how many frames that are not the reply are read before giving up
+    static constexpr int MAX_STRAY_FRAMES_BLOCKING = 16;
+
     /**
      * @brief Send one GET/SET to a GNP address and return its response, NACKs included.
      *
@@ -133,10 +136,15 @@ protected:
 
         // One deadline for the whole request: events in between do not extend it. The
         // first read always happens, so a timeout of 0 still picks up a queued reply.
-        // A negative timeout means blocking reads, as for readHIDTimeout(): no deadline.
+        // A negative timeout means blocking reads, as for readHIDTimeout(): no deadline,
+        // so the number of other frames is capped instead, as before the deadline existed.
         const bool blocking = timeout_ms < 0;
         const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(blocking ? 0 : timeout_ms);
+        int stray_frames    = 0;
         for (bool first_read = true;; first_read = false) {
+            if (blocking && stray_frames >= MAX_STRAY_FRAMES_BLOCKING) {
+                return DeviceError::protocolError("No reply for the requested command among the frames received");
+            }
             int wait_ms = -1;
             if (!blocking) {
                 const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -154,6 +162,7 @@ protected:
             }
             // Only what was read counts: the rest of the buffer is zeros, not data
             if (*read_result < OFF_PAYLOAD || !isReplyTo(response, address, type, cmd, sub, seq)) {
+                ++stray_frames;
                 continue;
             }
             if (*read_result < OFF_PAYLOAD + payloadLength(response)) {
