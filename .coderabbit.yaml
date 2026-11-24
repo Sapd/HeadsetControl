@@ -36,6 +36,17 @@ reviews:
     issue_assessment:
       mode: "off"
 
+  # No offers to write tests, fixes or merges into the branch; the walkthrough stays a review
+  finishing_touches:
+    unit_tests:
+      enabled: false
+    autofix:
+      enabled: false
+    fix_ci:
+      enabled: false
+    resolve_merge_conflict:
+      enabled: false
+
   tools:
     # CI already runs clang-tidy (cpp-linter) and clang-format
     clang:
