@@ -48,40 +48,105 @@ reviews:
       enabled: false
 
   tools:
-    # CI already runs clang-tidy (cpp-linter) and clang-format
+    # CI checks clang-format only (cpp-linter runs with tidy-checks '-*'). CodeRabbit's sandbox
+    # has no hidapi headers or compile database, so its clang and cppcheck runs would be guesses.
     clang:
       enabled: false
-    # The README device table is generated and checked in CI
+    cppcheck:
+      enabled: false
     markdownlint:
       enabled: false
     languagetool:
       enabled: false
 
   path_instructions:
-    - path: "lib/devices/**"
+    - path: "lib/devices/*.hpp"
       instructions: |
-        Device support. Check that the change is complete for this repository:
-        - A new device header is included and registered with registerDevice() in lib/device_registry.cpp.
-        - Product IDs are not already listed by another device.
-        - getCapabilities() advertises only capabilities whose methods the device implements, and
-          getCapabilityDetail() gives the interface or usage page for each of them.
-        - Every HID call's result is checked and errors are returned as Result<T>
-          (DeviceError::timeout, hidError, protocolError, notSupported, deviceOffline).
-        - Report construction and parsing stay inside the buffer: indexes are checked against the
-          number of bytes actually read, and written reports have the length the device expects.
-        - If a new device adds or removes rows in the README device table, the table must be the
-          output of `headsetcontrol --readme-helper`. Do not suggest editing rows by hand.
+        Device support. CI already fails on: formatting, a product ID claimed by two devices, a
+        readable capability without a getter, and a README device table that differs from
+        `headsetcontrol --readme-helper`. Do not repeat those. Check what CI cannot:
+        - A new device header is included and registered with registerDevice() in
+          lib/device_registry.cpp. A product ID added to an existing device needs no registry change.
+        - The size in `std::array<uint16_t, N> PRODUCT_IDS` equals the number of IDs listed. A larger
+          N compiles and silently registers product ID 0x0000.
+        - getCapabilities() and the overridden methods match: every advertised capability has its
+          method overridden (here or in the protocol base class), and no capability method is
+          overridden without being advertised.
+        - A new device does not list CAP_SIDETONE_STATUS in getCapabilities(); it is derived from
+          getReadableCapabilities(). A setting that can be read back is listed there and has its
+          getter (CAP_SIDETONE -> getSidetone()). Some older devices still list it; leave those alone.
+        - getSupportedPlatforms(): the default is all three platforms. If it is not overridden and
+          the pull request description does not say which OS the device was tested on, ask once.
+          Do not ask to narrow platforms only because one was not tested.
+        - A device with several HID interfaces or collections selects one in getCapabilityDetail()
+          (usagepage/usageid are matched first where hidapi reports them, interface_id is the
+          fallback). The default, interface 0, is valid; do not ask for an override when none is
+          needed.
+        - HID traffic goes through the HIDDevice helpers (writeHID, readHIDTimeout, sendFeatureReport,
+          getFeatureReport, getInputReport), not raw hid_* calls, and every result is checked and
+          returned as a DeviceError (timeout, deviceOffline, protocolError, invalidParameter,
+          notSupported, hidError).
+        - Replies are validated before use: indexes stay below the number of bytes actually read.
+        - Values given by the user are mapped to the device range (map(), mapDiscrete()), not
+          clamped, and the returned result reports the value the device was actually set to.
+        - No leftover debug output, unused members or unreachable branches.
+        - A method copied verbatim from another device file: name the original and say it belongs
+          in the shared protocol template or base class.
+        - A limitation the user will notice (vendor software overriding settings, a variant without
+          a feature) is also written in the README notes, not only in a source comment.
 
-        Do not question protocol bytes, command and report IDs, offsets or value mappings. They come
-        from captures of real hardware that a reviewer cannot check. Only point out a protocol value
-        when the code contradicts itself, for example a constant documented as one value and used as
-        another.
-        Do not suggest new abstractions, refactors of existing protocol templates, or thread-safety
-        changes (a Headset is used from one thread).
+        Do not question protocol bytes, command and report IDs, offsets, timeouts or value mappings.
+        They come from captures of real hardware that a reviewer cannot check. Only point out a
+        protocol value when the code contradicts itself, for example a constant documented as one
+        value and used as another, or a comment that says one unit and code that returns another.
+        Do not suggest thread-safety changes: a Headset is used from one thread. Do not ask to
+        remove the mutexes that guard per-handle state in existing devices either.
+        Do not suggest [[nodiscard]] on methods returning Result<T>, and do not suggest moving code
+        into a .cpp file; device files are header-only.
+    - path: "lib/devices/protocols/**"
+      instructions: |
+        Protocol templates are shared. Every device class that inherits the changed template is
+        affected, including ones the pull request does not mention. List the inheriting devices
+        and flag any default that changed for them (frame prefix, interface_id or usage page in
+        getCapabilityDetail(), timeouts, option flags) unless the description says it is intended.
+        The rules for lib/devices/*.hpp about protocol bytes and thread safety apply here too.
+    - path: "lib/{device.hpp,headsetcontrol_c.h,capability_descriptors.hpp,feature_handlers.hpp,result_types.hpp}"
+      instructions: |
+        Capabilities are C ABI. A new capability is appended at the end of CAPABILITIES_XLIST, never
+        inserted, and mirrored with the same value in hsc_capability_t in lib/headsetcontrol_c.h.
+        It also needs: a descriptor in CAPABILITY_DESCRIPTORS, a handler in
+        FeatureHandlerRegistry::registerAllHandlers(), a virtual method in
+        lib/devices/hid_device.hpp, the CLI option, an implementation in HeadsetControlTest
+        (lib/devices/headsetcontrol_test.hpp), the C and C++ library API, and the capability lists
+        in AGENTS.md and docs/ADDING_A_DEVICE.md. See docs/ADDING_A_CAPABILITY.md.
+        Flag a new *_STATUS capability that only says an existing setting can be read back; that
+        is what getReadableCapabilities() is for.
+        A change to an existing struct or enum value in headsetcontrol_c.h breaks ABI: flag it.
+    - path: "cli/**"
+      instructions: |
+        A change that adds or renames a field in the JSON, YAML or ENV output needs an API_VERSION
+        bump in cli/output/output.cpp and the same field in all three formats. Flag a field that
+        was removed or changed meaning. Option help text comes from CAPABILITY_DESCRIPTORS; flag
+        hardcoded ranges that duplicate it.
     - path: "tests/**"
       instructions: |
         Device tests replay captured traffic through a mock HIDInterface and must not need hardware.
+        A new test file is listed in tests/CMakeLists.txt and its runAll...Tests() is declared and
+        called in tests/test_runner.cpp; otherwise it never runs.
+        Flag a test that cannot fail for the reason its name gives, for example a short-reply case
+        that an earlier check rejects first, or a mock that returns zeros for the bytes under test.
         Flag a test that was weakened or removed to make a change pass.
+        Do not ask for tests of protocol values that no capture documents.
+    - path: "README.md"
+      instructions: |
+        The device table is the output of `headsetcontrol --readme-helper` and CI checks it. Do not
+        review its rows, alignment or wording and do not suggest editing them by hand. Review only
+        the prose around it.
+    - path: "{debian/**,headsetcontrol.spec,vcpkg.json,CMakePresets.json}"
+      instructions: |
+        Packaging is maintained by the maintainer and driven by the release workflows. In a pull
+        request that adds device support, a change to these files is unexpected: say so once and
+        do not review the content.
     - path: ".github/**"
       instructions: |
         Workflows and repository settings are the maintainer's choice. Do not suggest changing
@@ -95,8 +160,12 @@ chat:
 knowledge_base:
   code_guidelines:
     enabled: true
+    # AGENTS.md and CLAUDE.md are read by default
     filePatterns:
-      - "AGENTS.md"
+      - files: "docs/ADDING_A_DEVICE.md,docs/ADDING_A_CORSAIR_DEVICE.md"
+        applyTo: "lib/devices/**,lib/device_registry.cpp"
+      - files: "docs/ADDING_A_CAPABILITY.md"
+        applyTo: "lib/*.hpp,lib/*.h,lib/*.cpp,cli/**"
 
 issue_enrichment:
   planning:
