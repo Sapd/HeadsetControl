@@ -90,11 +90,12 @@ public:
         while (true) {
             int wait = configured;
             if (configured > 0) {
-                const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - clock::now());
-                if (remaining <= std::chrono::milliseconds::zero()) {
+                const auto remaining = deadline - clock::now();
+                if (remaining <= clock::duration::zero()) {
                     return DeviceError::timeout("No status reply from the hub");
                 }
-                wait = static_cast<int>(remaining.count());
+                // Round up, so a fraction of a millisecond left is not a 0 (no wait) read
+                wait = static_cast<int>(std::chrono::ceil<std::chrono::milliseconds>(remaining).count());
             }
             auto read_result = this->readHIDTimeout(device_handle, response, wait);
             if (!read_result) {

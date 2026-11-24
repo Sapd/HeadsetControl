@@ -931,6 +931,15 @@ void testSteelSeriesNovaProOmniBattery()
     ASSERT_TRUE(no_wait.hasValue() && no_wait->level_percent == 0x30, "Timeout 0 still reads what is queued");
     ASSERT_TRUE(immediate.hid.read_timeouts.size() == 2 && immediate.hid.read_timeouts[0] == 0, "Each read is told not to wait");
 
+    // A 1 ms timeout still reads at least once, with a wait of at least 1 ms
+    hsc_device_timeout = 1;
+    TestableNovaProOmni short_timeout;
+    short_timeout.hid.replies.push_back(reply);
+    auto quick         = short_timeout.getBattery(nullptr);
+    hsc_device_timeout = saved_timeout;
+    ASSERT_TRUE(quick.hasValue() && quick->level_percent == 0x30, "A 1 ms timeout still reads the reply");
+    ASSERT_TRUE(short_timeout.hid.read_timeouts.size() == 1 && short_timeout.hid.read_timeouts[0] == 1, "The read waits 1 ms, not 0");
+
     TestableNovaProOmni invalid;
     auto bad = reply;
     bad[6]   = 101;
