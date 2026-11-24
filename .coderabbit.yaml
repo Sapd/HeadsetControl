@@ -1,0 +1,92 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# CodeRabbit reviews pull requests here as a first pass on the contribution checklist.
+# Reference: https://docs.coderabbit.ai/reference/configuration
+language: en-US
+tone_instructions: "Be brief and factual. No praise, no restating what the pull request does, no closing remarks."
+
+reviews:
+  profile: chill
+  auto_review:
+    enabled: true
+    drafts: false
+
+  # Keep the walkthrough comment short and leave the contributor's description alone
+  high_level_summary: false
+  collapse_walkthrough: true
+  changed_files_summary: false
+  sequence_diagrams: false
+  estimate_code_review_effort: false
+  assess_linked_issues: false
+  related_issues: false
+  related_prs: false
+  suggested_labels: false
+  suggested_reviewers: false
+  in_progress_fortune: false
+  poem: false
+  review_info: false
+
+  # Most pull requests come from first-time contributors; do not label or nag them
+  slop_detection:
+    enabled: false
+  pre_merge_checks:
+    title:
+      mode: "off"
+    description:
+      mode: "off"
+    issue_assessment:
+      mode: "off"
+
+  tools:
+    # CI already runs clang-tidy (cpp-linter) and clang-format
+    clang:
+      enabled: false
+    # The README device table is generated and checked in CI
+    markdownlint:
+      enabled: false
+    languagetool:
+      enabled: false
+
+  path_instructions:
+    - path: "lib/devices/**"
+      instructions: |
+        Device support. Check that the change is complete for this repository:
+        - A new device header is included and registered with registerDevice() in lib/device_registry.cpp.
+        - Product IDs are not already listed by another device.
+        - getCapabilities() advertises only capabilities whose methods the device implements, and
+          getCapabilityDetail() gives the interface or usage page for each of them.
+        - Every HID call's result is checked and errors are returned as Result<T>
+          (DeviceError::timeout, hidError, protocolError, notSupported, deviceOffline).
+        - Report construction and parsing stay inside the buffer: indexes are checked against the
+          number of bytes actually read, and written reports have the length the device expects.
+        - If a new device adds or removes rows in the README device table, the table must be the
+          output of `headsetcontrol --readme-helper`. Do not suggest editing rows by hand.
+
+        Do not question protocol bytes, command and report IDs, offsets or value mappings. They come
+        from captures of real hardware that a reviewer cannot check. Only point out a protocol value
+        when the code contradicts itself, for example a constant documented as one value and used as
+        another.
+        Do not suggest new abstractions, refactors of existing protocol templates, or thread-safety
+        changes (a Headset is used from one thread).
+    - path: "tests/**"
+      instructions: |
+        Device tests replay captured traffic through a mock HIDInterface and must not need hardware.
+        Flag a test that was weakened or removed to make a change pass.
+    - path: ".github/**"
+      instructions: |
+        Workflows and repository settings are the maintainer's choice. Do not suggest changing
+        triggers, permissions or which jobs run unless the change breaks something.
+
+chat:
+  # Answer only when mentioned, so replies between the maintainer and the contributor stay theirs
+  auto_reply: false
+  art: false
+
+knowledge_base:
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - "AGENTS.md"
+
+issue_enrichment:
+  planning:
+    enabled: false
