@@ -2,6 +2,7 @@
 
 #include "../result_types.hpp"
 #include "protocols/steelseries_protocol.hpp"
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <string_view>
@@ -21,16 +22,19 @@ namespace headsetcontrol {
  *     channel is the one on usage page 0xFFC0, report ID 1. It must be selected
  *     explicitly (see getCapabilityDetail), or writes hit the wrong collection.
  *
- * Verified empirically on firmware rev 0x0132 (Sep 2026):
+ * Captured on firmware rev 0x0132 (Sep 2026):
  *   - Battery: `01 B0` -> reply[6] = headset battery % (0-100),
- *     reply[15] = status (0x01 offline, 0x02 cable charging, 0x08 online).
+ *     reply[15] = status (0x01 offline, 0x02 cable charging, 0x08 online),
+ *     the same layout as the Nova Pro Wireless. Only 0x08 has been seen on
+ *     this hub so far; reply[14] may be the link state instead (see #584).
  *     While the headset is connected the hub also sends unsolicited reports
- *     with report ID 0x07 on the same collection (seen on Linux), so the
- *     reply is the first report that starts with 01 B0.
+ *     with report ID 0x07 on the same interface (seen on Linux, where hidraw
+ *     has one node per interface), so the reply is the first report that
+ *     starts with 01 B0. Where those reports do not arrive, this changes
+ *     nothing.
  *   - Sidetone: `01 38 <enable> <level>`, enable 1=on/0=muted, level 0-10.
- *     Write-only: the hub reports no sidetone state anywhere, so there is no
- *     getSidetone (confirmed against the status poll, the config feature
- *     report, and the Nova 7's 0x20 query, none of which return it).
+ *     Not read back: a Linux tester found the level in feature report 1
+ *     after `01 20` (see #584), not yet confirmed on a second unit.
  *
  * Features:
  * - Battery status
@@ -74,23 +78,37 @@ public:
             return result.error();
         }
 
-        // Skip the hub's unsolicited reports (report ID 0x07) until the reply arrives
-        using clock         = std::chrono::steady_clock;
-        const auto deadline = clock::now() + std::chrono::milliseconds { hsc_device_timeout };
+        // Skip the hub's unsolicited reports (report ID 0x07) until the reply
+        // arrives. A positive timeout is one deadline for the whole exchange;
+        // 0 (do not wait) and a negative one (wait forever) go to every read
+        // as they are, as hid_read_timeout() takes them.
+        using clock          = std::chrono::steady_clock;
+        const int configured = hsc_device_timeout;
+        const auto deadline  = clock::now() + std::chrono::milliseconds { std::max(configured, 0) };
         std::vector<uint8_t> response(STATUS_BUF_SIZE);
+        size_t received = 0;
         while (true) {
-            const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - clock::now());
-            if (remaining <= std::chrono::milliseconds::zero()) {
-                return DeviceError::timeout("No status reply from the hub");
+            int wait = configured;
+            if (configured > 0) {
+                const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - clock::now());
+                if (remaining <= std::chrono::milliseconds::zero()) {
+                    return DeviceError::timeout("No status reply from the hub");
+                }
+                wait = static_cast<int>(remaining.count());
             }
-            auto read_result = this->readHIDTimeout(device_handle, response, static_cast<int>(remaining.count()));
+            auto read_result = this->readHIDTimeout(device_handle, response, wait);
             if (!read_result) {
                 return read_result.error();
             }
-            if (*read_result >= 16 && response[0] == 0x01 && response[1] == 0xb0) {
+            if (*read_result >= 2 && response[0] == 0x01 && response[1] == 0xb0) {
+                if (*read_result < 16) {
+                    return DeviceError::protocolError("Response too short");
+                }
+                received = *read_result;
                 break;
             }
         }
+        response.resize(received);
 
         // reply[0]=0x01 (report id), reply[1]=0xb0, reply[6]=battery%,
         // reply[15]=status.
@@ -133,7 +151,7 @@ public:
         }
 
         return SidetoneResult {
-            .current_level = static_cast<uint8_t>(map(mapped, 0, SIDETONE_MAX, 0, 128)),
+            .current_level = level,
             .min_level     = 0,
             .max_level     = 128,
             .device_min    = 0,

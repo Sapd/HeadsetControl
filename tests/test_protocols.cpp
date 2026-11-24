@@ -39,6 +39,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -903,12 +904,79 @@ void testSteelSeriesNovaProOmniBattery()
     auto gone = offline.getBattery(nullptr);
     ASSERT_TRUE(gone.hasError() && gone.error().code == DeviceError::Code::DeviceOffline, "Status 0x01 is offline");
 
+    TestableNovaProOmni full;
+    auto hundred = reply;
+    hundred[6]   = 100;
+    full.hid.replies.push_back(hundred);
+    auto full_battery = full.getBattery(nullptr);
+    ASSERT_TRUE(full_battery.hasValue() && full_battery->level_percent == 100, "100 percent is valid");
+
+    // A 01 B0 reply too short to hold the status byte is an error, not a reading
+    TestableNovaProOmni truncated;
+    truncated.hid.replies.push_back(std::vector<uint8_t> { 0x01, 0xb0, 0x00, 0x00, 0x04, 0x01, 0x30 });
+    auto short_reply = truncated.getBattery(nullptr);
+    ASSERT_TRUE(short_reply.hasError() && short_reply.error().code == DeviceError::Code::ProtocolError, "Short reply is rejected");
+
+    // raw_data holds the bytes received, not the rest of the read buffer
+    ASSERT_EQ(64u, battery->raw_data->size(), "raw_data is the reply as received");
+
+    // With timeout 0 (do not wait) the queued reply is still read
+    const int saved_timeout = hsc_device_timeout;
+    hsc_device_timeout      = 0;
+    TestableNovaProOmni immediate;
+    immediate.hid.replies.push_back(omniReport({ 0x07, 0x19 }));
+    immediate.hid.replies.push_back(reply);
+    auto no_wait       = immediate.getBattery(nullptr);
+    hsc_device_timeout = saved_timeout;
+    ASSERT_TRUE(no_wait.hasValue() && no_wait->level_percent == 0x30, "Timeout 0 still reads what is queued");
+    ASSERT_TRUE(immediate.hid.read_timeouts.size() == 2 && immediate.hid.read_timeouts[0] == 0, "Each read is told not to wait");
+
     TestableNovaProOmni invalid;
     auto bad = reply;
     bad[6]   = 101;
     invalid.hid.replies.push_back(bad);
     auto out_of_range = invalid.getBattery(nullptr);
     ASSERT_TRUE(out_of_range.hasError() && out_of_range.error().code == DeviceError::Code::ProtocolError, "Level above 100 is rejected");
+}
+
+/// A hub that never stops sending 07 reports
+class StreamingOmniHID : public ScriptedHIDInterface {
+public:
+    [[nodiscard]] auto readTimeout(hid_device* /*device_handle*/, std::span<uint8_t> data, int timeout_ms)
+        -> Result<size_t> override
+    {
+        read_timeouts.push_back(timeout_ms);
+        std::this_thread::sleep_for(std::chrono::milliseconds { 2 });
+        std::fill(data.begin(), data.end(), 0);
+        data[0] = 0x07;
+        data[1] = 0x19;
+        return std::min<size_t>(64, data.size());
+    }
+};
+
+class StreamingNovaProOmni : public SteelSeriesArctisNovaProOmni {
+public:
+    mutable StreamingOmniHID hid;
+
+    HIDInterface& getHIDInterface() const override { return hid; }
+};
+
+void testSteelSeriesNovaProOmniDeadline()
+{
+    // The whole exchange ends at the configured timeout, however many 07 reports arrive
+    const int saved_timeout = hsc_device_timeout;
+    hsc_device_timeout      = 30;
+    StreamingNovaProOmni dev;
+    const auto started = std::chrono::steady_clock::now();
+    auto result        = dev.getBattery(nullptr);
+    const auto elapsed = std::chrono::steady_clock::now() - started;
+    hsc_device_timeout = saved_timeout;
+
+    ASSERT_TRUE(result.hasError() && result.error().code == DeviceError::Code::Timeout, "A stream of 07 reports ends in a timeout");
+    ASSERT_TRUE(elapsed < std::chrono::seconds { 1 }, "The deadline ends the loop");
+    ASSERT_TRUE(dev.hid.read_timeouts.size() > 1, "Several reports were skipped");
+    ASSERT_TRUE(dev.hid.read_timeouts.front() <= 30, "The first read waits at most the timeout");
+    ASSERT_TRUE(std::is_sorted(dev.hid.read_timeouts.rbegin(), dev.hid.read_timeouts.rend()), "Each read waits only for what is left");
 }
 
 void testSteelSeriesNovaProOmniSidetone()
@@ -927,7 +995,8 @@ void testSteelSeriesNovaProOmniSidetone()
     auto low = dev.setSidetone(nullptr, 30);
     ASSERT_TRUE(low.hasValue(), "Sidetone write should succeed");
     ASSERT_EQ(2, dev.hid.writes[1][3], "30 of 128 is level 2");
-    ASSERT_EQ(25, low->current_level, "Level 2 of 10 is reported as 25 of 128");
+    ASSERT_EQ(30, low->current_level, "The requested level is reported, as other drivers do");
+    ASSERT_EQ(2, low->device_level, "The device level is the one written");
 
     auto off = dev.setSidetone(nullptr, 0);
     ASSERT_TRUE(off.hasValue() && off->is_muted, "0 mutes");
@@ -3121,6 +3190,7 @@ void runAllProtocolTests()
     runTest("SteelSeries Sidetone Mapping", testSteelSeriesSidetoneMapping);
     runTest("SteelSeries Nova 3P/3X Microphone Volume Mapping", testSteelSeriesNova3PMicVolumeMapping);
     runTest("SteelSeries Nova Pro Omni Battery", testSteelSeriesNovaProOmniBattery);
+    runTest("SteelSeries Nova Pro Omni Deadline", testSteelSeriesNovaProOmniDeadline);
     runTest("SteelSeries Nova Pro Omni Sidetone", testSteelSeriesNovaProOmniSidetone);
 
     std::cout << "\n=== Corsair Protocol ===" << std::endl;
