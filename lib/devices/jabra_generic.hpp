@@ -97,28 +97,40 @@ public:
     }
 
     /**
-     * @brief The GNP collection of a connected product, looked up once per product.
+     * @brief The GNP collection of a connected product, looked up again after a few seconds.
      *
      * Products differ (0x05 on the Link 390, 0x01 on the Evolve2 65 Flex); this matters
-     * on Windows, where every collection is its own HID path. Falls back to
+     * on Windows, where every collection is its own HID path. The answer is kept briefly
+     * so a burst of requests enumerates once, but not for the life of the process: a
+     * device that is replugged or updated is looked at again. Falls back to
      * getCapabilityDetail() while the product is not connected or its collections are
      * not reported.
      */
     capability_detail resolveCapabilityDetail(uint16_t product_id, enum capabilities cap) const override
     {
-        std::lock_guard lock(mutex_);
-        if (auto it = collections_.find(product_id); it != collections_.end()) {
-            return it->second;
+        const auto now = std::chrono::steady_clock::now();
+        {
+            std::lock_guard lock(mutex_);
+            if (auto it = collections_.find(product_id); it != collections_.end() && now < it->second.until) {
+                return it->second.detail;
+            }
         }
 
+        // Enumerating can take a while; other handles' requests need not wait for it
         hid_device_info* devs        = hid_enumerate(VENDOR_JABRA, product_id);
         const hid_device_info* found = pickGnpCollection(devs);
         capability_detail detail     = getCapabilityDetail(cap);
         if (found) {
-            detail                   = { .usagepage = GNP_USAGE_PAGE, .usageid = found->usage, .interface_id = found->interface_number };
-            collections_[product_id] = detail;
+            detail = { .usagepage = GNP_USAGE_PAGE, .usageid = found->usage, .interface_id = found->interface_number };
         }
         hid_free_enumeration(devs);
+
+        std::lock_guard lock(mutex_);
+        if (found) {
+            collections_[product_id] = { .detail = detail, .until = now + std::chrono::milliseconds(COLLECTION_CACHE_MS) };
+        } else {
+            collections_.erase(product_id);
+        }
         return detail;
     }
 
@@ -171,18 +183,17 @@ protected:
             ? std::array<uint8_t, 2> { ADDR_DONGLE_HS, ADDR_USB_HS }
             : std::array<uint8_t, 2> { ADDR_USB_HS, ADDR_DONGLE_HS };
 
-        // A wrong first guess of 0x08 may not answer at all, so it gets a short timeout; the
-        // USB headset answers there quickly. 0x04 goes over Bluetooth to the headset behind
-        // the dongle and always gets the full timeout. A probe asks an address that may not
-        // exist, so it never blocks: a negative (blocking) device timeout is replaced.
+        // 0x08 is the USB headset, which answers quickly whenever it is there, so it gets a
+        // short timeout wherever it is in the order. 0x04 goes over Bluetooth to the headset
+        // behind the dongle and always gets the full timeout. A probe asks an address that
+        // may not exist, so it never blocks: a negative (blocking) device timeout is replaced.
         const int full_timeout      = hsc_device_timeout < 0 ? PROBE_BLOCKING_TIMEOUT_MS : hsc_device_timeout;
         const int usb_probe_timeout = std::min(full_timeout, PROBE_TIMEOUT_MS);
 
         bool silence = false;
         for (uint8_t address : order) {
-            const bool short_probe = address == order.front() && address == ADDR_USB_HS;
-            const int timeout      = short_probe ? usb_probe_timeout : full_timeout;
-            auto reply             = exchange(device_handle, address, TYPE_GET, CMD_IDENT, IDENT_NAME, {}, timeout);
+            const int timeout = address == ADDR_USB_HS ? usb_probe_timeout : full_timeout;
+            auto reply        = exchange(device_handle, address, TYPE_GET, CMD_IDENT, IDENT_NAME, {}, timeout);
             if (!reply) {
                 if (reply.error().code == DeviceError::Code::Timeout) {
                     silence = true;
@@ -230,14 +241,21 @@ private:
     static constexpr int PROBE_BLOCKING_TIMEOUT_MS = 5000;
     // How long a probe that met silence stands before the addresses are asked again
     static constexpr int PROBE_RETRY_MS = 5000;
+    // How long a product's chosen collection is used before it is enumerated again
+    static constexpr int COLLECTION_CACHE_MS = 5000;
+
+    struct CachedCollection {
+        capability_detail detail;
+        std::chrono::steady_clock::time_point until;
+    };
 
     static DeviceError noHeadsetAnswered()
     {
         return DeviceError::deviceOffline("No Jabra headset answered at GNP address 0x08 or 0x04");
     }
 
-    // GNP collection found per product ID, so it is enumerated once, not on every request
-    mutable std::map<uint16_t, capability_detail> collections_;
+    // GNP collection found per product ID, so a burst of requests enumerates once
+    mutable std::map<uint16_t, CachedCollection> collections_;
 
     // Probed headset address per open handle; the registry shares one driver instance
     // between all connected Jabra devices.

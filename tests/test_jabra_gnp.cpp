@@ -253,6 +253,15 @@ void testProbeTimeouts()
     TestableJabraGeneric dongle_device(dongle, true);
     (void)dongle_device.getString(FAKE_HANDLE, 0x02, 0x00);
     JABRA_ASSERT(isFullTimeout(dongle.read_timeouts.front()), "0x04 probe gets the full timeout");
+
+    // Dongle order with no headset paired (F5 at 0x04): 0x08 as second guess is short too
+    JabraMockHID unpaired;
+    unpaired.peers[0x04] = { .nack = 0xF5 }; // nothing at all answers at 0x08
+    TestableJabraGeneric unpaired_device(unpaired, true);
+    (void)unpaired_device.getBattery(FAKE_HANDLE);
+    JABRA_ASSERT((unpaired.addressesWritten() == std::vector<uint8_t> { 0x04, 0x08 }), "both addresses asked");
+    JABRA_ASSERT(unpaired.read_timeouts.size() == 2, "one read per address");
+    JABRA_ASSERT(unpaired.read_timeouts[1] <= 1000, "0x08 probe is short as second guess");
 }
 
 void testZeroTimeoutStillReads()
