@@ -5,6 +5,9 @@ on:
     branches: [master]
   pull_request:
 
+permissions:
+  contents: read
+
 # Cancel in-progress runs when a new commit is pushed
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -40,7 +43,7 @@ jobs:
       # Windows: Setup MSYS2
       - name: Setup MSYS2
         if: runner.os == 'Windows'
-        uses: msys2/setup-msys2@66cd2cce69caa17b53920067426061ca1de3a884 # v2.32.0
+        uses: msys2/setup-msys2@3c51bf698df1e37b2261f53cb67797b97761185c # v2.34.0
         with:
           # UCRT64, not MINGW64: MSYS2 is retiring the msvcrt-based
           # environments package by package. On 2026-10-16 hidapi lost mingw64
@@ -57,7 +60,7 @@ jobs:
       # Linux/macOS: Setup CMake and Ninja
       - name: Setup CMake and Ninja
         if: runner.os != 'Windows'
-        uses: lukka/get-cmake@e6906078ebd1ccb8ce51ab4626ac46a1b5a517e3 # v4.4.0
+        uses: lukka/get-cmake@a1a8216777d3cbbf5602c73b9ddd3e98257ecdc4 # v4.5.1
 
       # Linux: pin GCC 13, the oldest version CMakeLists.txt accepts, so CI
       # keeps testing the documented minimum rather than whatever the runner
@@ -85,6 +88,11 @@ jobs:
           buildPreset: 'default'
           testPreset: 'default'
 
+      # The README device table is generated; a device change must come with its new output
+      - name: Check the README device table
+        if: runner.os == 'Linux'
+        run: .github/scripts/check-readme-table.sh build/headsetcontrol README.md
+
       # Windows: Build with MSYS2
       - name: Build and test (Windows)
         if: runner.os == 'Windows'
@@ -102,7 +110,7 @@ jobs:
       # Upload Windows artifact for testing
       - name: Upload Windows artifact
         if: runner.os == 'Windows'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: headsetcontrol-windows-mingw
           path: build/headsetcontrol.exe

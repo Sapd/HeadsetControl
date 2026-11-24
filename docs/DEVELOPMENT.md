@@ -190,7 +190,8 @@ Quick overview:
 4. Register in `lib/device_registry.cpp`
 5. Test and generate docs with `./headsetcontrol --readme-helper` - paste the
    whole table into the README. Capabilities that only some of a device's
-   product IDs report are marked `x*`.
+   product IDs report are marked `x*`. CI fails when the table in the README
+   differs from this output (`.github/scripts/check-readme-table.sh`).
 
 ## Adding a New Capability
 

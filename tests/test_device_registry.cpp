@@ -530,12 +530,12 @@ void testDeviceProductIds()
         // Each device should have at least one product ID
         ASSERT_TRUE(product_ids.size() >= 1, "Device should have at least one product ID");
 
-        // All product IDs should be non-zero (typically)
+        // Product ID 0 is never valid for a real device. It also shows up when a
+        // std::array of product IDs is declared larger than the list it holds.
         for (auto pid : product_ids) {
-            // Allow zero for test purposes, but real devices should have non-zero
             if (device->getVendorId() != 0xF00B) {
-                ASSERT_TRUE(pid != 0 || product_ids.size() > 1,
-                    "Real devices should have non-zero product ID");
+                ASSERT_TRUE(pid != 0,
+                    std::format("{} lists product ID 0x0000", device->getDeviceName()));
             }
         }
     }

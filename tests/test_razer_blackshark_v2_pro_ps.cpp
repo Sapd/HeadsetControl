@@ -55,11 +55,19 @@ public:
     uint16_t voltage_mv        = 3948;
     int silent_battery_replies = 0;
     uint8_t ack                = Device::ACK_OK;
-    bool send_noise            = false;
-    bool ignore_local          = false; // acks the switch to local mode but stays in remote
-    bool ignore_remote         = false; // acks the switch to remote mode but stays local
-    bool foreign_session       = false; // another program talks to the dongle: its replies keep coming
-    int lost_custom_replies    = 0; // customer GET replies to drop
+    int rejected_frames        = 0; // the next frames are rejected with 'F' and not acted on, as after an idle gap
+    bool reject_new_frames     = false; // the first copy of every frame that differs from the previous one is rejected
+    int silent_link_replies    = 0; // link queries accepted but left without a reply
+    int silent_mode_replies    = 0; // the same, for mode queries only
+    int write_attempts         = 0;
+    std::vector<int> read_timeouts; // every wait asked for, in ms
+    uint8_t last_ack = Device::ACK_OK;
+    Bytes last_written;
+    bool send_noise         = false;
+    bool ignore_local       = false; // acks the switch to local mode but stays in remote
+    bool ignore_remote      = false; // acks the switch to remote mode but stays local
+    bool foreign_session    = false; // another program talks to the dongle: its replies keep coming
+    int lost_custom_replies = 0; // customer GET replies to drop
     // Delivered right after the reply to the next mode query; 0xff in [13] becomes our sequence number
     std::deque<Bytes> after_mode_query;
     // Delivered before the reply to the next write, with the same substitution
@@ -75,6 +83,7 @@ public:
 
     Result<void> write(hid_device*, std::span<const uint8_t> data) override
     {
+        ++write_attempts;
         if (writes.size() >= fail_writes_from)
             return DeviceError::hidError("Simulated unplug");
         Bytes frame(data.begin(), data.end());
@@ -93,6 +102,17 @@ public:
             pending.push_back(f);
         }
         before_next_reply.clear();
+        // A rejected frame is not acted on
+        const bool new_frame = reject_new_frames && frame != last_written;
+        last_written         = frame;
+        if (rejected_frames > 0 || new_frame) {
+            rejected_frames = std::max(rejected_frames - 1, 0);
+            last_ack        = 0x46; // 'F'
+            return {};
+        }
+        last_ack = ack;
+        if (ack != Device::ACK_OK)
+            return {};
         if (scripted.empty()) {
             respond(frame);
             if (frame[7] == Device::TYPE_LINK && frame[10] == Device::GET_MODE) {
@@ -115,8 +135,9 @@ public:
         return write(handle, data);
     }
 
-    Result<size_t> readTimeout(hid_device*, std::span<uint8_t> data, int) override
+    Result<size_t> readTimeout(hid_device*, std::span<uint8_t> data, int timeout_ms) override
     {
+        read_timeouts.push_back(timeout_ms);
         if (pending.empty() && foreign_session) // a reply to the other program's OTA request
             pending.push_back({ 0x02, 0x0d, 0x50, 0x49, 0x01, 0xc0, 0, 0, 0, 0x02, 0x03, 0x00, Device::TYPE_OTA, 0xf5, 0x00 });
         if (pending.empty())
@@ -131,7 +152,7 @@ public:
     {
         std::fill(data.begin(), data.end(), 0);
         data[0] = Device::REPORT_ID;
-        data[1] = ack;
+        data[1] = last_ack;
         return data.size();
     }
 
@@ -210,6 +231,13 @@ private:
                 return;
             }
             const uint8_t value = id == Device::LINK_STATUS ? link_status : mode;
+            if (silent_link_replies > 0 || (id == Device::GET_MODE && silent_mode_replies > 0)) {
+                if (silent_link_replies > 0)
+                    --silent_link_replies;
+                else
+                    --silent_mode_replies;
+                return;
+            }
             reply(type, seq, { 0x50, 0x49, 0x0e, 0xe0, 0, 0, 0, 0, 0x02, 0x00, id, value });
             return;
         }
@@ -236,7 +264,7 @@ public:
 
 protected:
     HIDInterface& getHIDInterface() const override { return hid_; }
-    void settle(std::chrono::milliseconds) const override { }
+    void settle(std::chrono::milliseconds delay) const override { settles.push_back(static_cast<int>(delay.count())); }
     std::chrono::steady_clock::time_point now() const override { return clock; }
     uint8_t firstSequence() const override { return 0; } // the capture started at 1
     std::chrono::milliseconds lockTimeout() const override { return std::chrono::milliseconds { 100 }; }
@@ -245,6 +273,7 @@ protected:
 public:
     std::chrono::steady_clock::time_point clock {};
     std::string lock_name = TEST_LOCK;
+    mutable std::vector<int> settles; // every delay asked for, in ms
 
 private:
     BlackSharkMockHID& hid_;
@@ -1080,7 +1109,96 @@ void testBlackSharkRejectedFrame()
 
     auto result = device.getBattery(TEST_HANDLE);
     BLACKSHARK_ASSERT(result.hasError() && result.error().code == DeviceError::Code::ProtocolError, "rejected frame");
-    BLACKSHARK_ASSERT(hid.writes.size() == 1, "stops at the first rejected frame");
+    BLACKSHARK_ASSERT(hid.writes.size() == 1 + Device::RESEND_DELAYS_MS.size(), "resent, then stops at the first rejected frame");
+}
+
+void testBlackSharkResendsRejectedFrame()
+{
+    // After an idle gap the dongle rejects the first frame and acts on nothing; the same frame again goes through
+    BlackSharkMockHID hid;
+    TestableBlackShark device(hid);
+    BLACKSHARK_ASSERT(device.getBattery(TEST_HANDLE).hasValue(), "first read");
+    const size_t before = hid.writes.size();
+    hid.rejected_frames = 1;
+    device.clock += std::chrono::seconds { 1 };
+    auto polled = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(polled.hasValue() && polled->voltage_mv == 3948, "the poll succeeds");
+    BLACKSHARK_ASSERT(hid.writes.size() == before + 2, "the link query was sent twice");
+    BLACKSHARK_ASSERT(hid.writes[before] == hid.writes[before + 1], "the same frame");
+
+    // Rejected twice: the third copy goes through
+    BlackSharkMockHID twice;
+    twice.rejected_frames = 2;
+    TestableBlackShark device2(twice);
+    auto full = device2.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(full.hasValue() && full->voltage_mv == 3948 && twice.mode == Device::MODE_LOCAL, "third copy");
+    BLACKSHARK_ASSERT(std::equal(Device::RESEND_DELAYS_MS.begin(), Device::RESEND_DELAYS_MS.end(), device2.settles.begin()),
+        "waited before each resend");
+
+    // Any frame may be the one after a gap: link, mode switch, ioctl, battery and customer frames alike
+    BlackSharkMockHID gaps;
+    gaps.reject_new_frames = true;
+    gaps.custom_charge     = Device::CHARGE_CHARGING;
+    gaps.custom_percent    = 61;
+    TestableBlackShark device3(gaps);
+    auto every = device3.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(every.hasValue() && every->voltage_mv == 3948 && every->level_percent == 61
+            && every->status == BATTERY_CHARGING && gaps.mode == Device::MODE_LOCAL,
+        "full read with every frame rejected once");
+    BLACKSHARK_ASSERT(gaps.writes.size() == 24, "each of the 12 frames sent twice");
+    for (size_t i = 0; i + 1 < gaps.writes.size(); i += 2)
+        BLACKSHARK_ASSERT(gaps.writes[i] == gaps.writes[i + 1], "the same frame again");
+    const auto resends = std::count(device3.settles.begin(), device3.settles.end(), Device::RESEND_DELAYS_MS[0]);
+    BLACKSHARK_ASSERT(resends == 12 && device3.settles.front() == Device::RESEND_DELAYS_MS[0], "one wait per resend");
+
+    // No wait and no second copy when the frame is accepted
+    BlackSharkMockHID plain;
+    TestableBlackShark device4(plain);
+    BLACKSHARK_ASSERT(device4.getBattery(TEST_HANDLE).hasValue(), "plain read");
+    BLACKSHARK_ASSERT(std::count(device4.settles.begin(), device4.settles.end(), Device::RESEND_DELAYS_MS[0]) == 0,
+        "no resend wait without a rejection");
+}
+
+void testBlackSharkLinkReplyLost()
+{
+    // An accepted link query whose reply never comes is asked once more
+    BlackSharkMockHID hid;
+    TestableBlackShark device(hid);
+    BLACKSHARK_ASSERT(device.getBattery(TEST_HANDLE).hasValue(), "first read");
+    hid.silent_link_replies = 1;
+    hid.read_timeouts.clear();
+    device.clock += std::chrono::seconds { 1 };
+    BLACKSHARK_ASSERT(device.getBattery(TEST_HANDLE).hasValue(), "the poll succeeds");
+    // A short first wait, then the usual one
+    const auto waited = [&](int low, int high) {
+        return std::any_of(hid.read_timeouts.begin(), hid.read_timeouts.end(),
+            [&](int t) { return t > low && t <= high; });
+    };
+    BLACKSHARK_ASSERT(waited(Device::LINK_FIRST_TIMEOUT_MS - 50, Device::LINK_FIRST_TIMEOUT_MS), "short first wait");
+    BLACKSHARK_ASSERT(waited(Device::REPLY_TIMEOUT_MS - 50, Device::REPLY_TIMEOUT_MS), "usual wait for the retry");
+    BLACKSHARK_ASSERT(!waited(Device::LINK_FIRST_TIMEOUT_MS, Device::REPLY_TIMEOUT_MS - 50), "nothing in between");
+
+    hid.silent_link_replies = 2;
+    device.clock += std::chrono::seconds { 1 };
+    auto lost = device.getBattery(TEST_HANDLE);
+    BLACKSHARK_ASSERT(lost.hasError() && lost.error().code == DeviceError::Code::Timeout, "but only once");
+
+    // The mode query is a link query too: a dongle left in remote mode is still put back
+    BlackSharkMockHID mode;
+    TestableBlackShark device2(mode);
+    BLACKSHARK_ASSERT(device2.getBattery(TEST_HANDLE).hasValue(), "first read");
+    mode.mode                = Device::MODE_REMOTE;
+    mode.silent_mode_replies = 1;
+    device2.clock += Device::MODE_CHECK;
+    BLACKSHARK_ASSERT(device2.getBattery(TEST_HANDLE).hasValue(), "poll with the mode check");
+    BLACKSHARK_ASSERT(mode.mode == Device::MODE_LOCAL, "the mode query was asked again and the dongle put back");
+
+    // A HID error is not retried
+    BlackSharkMockHID gone;
+    gone.fail_writes_from = 0;
+    TestableBlackShark device3(gone);
+    BLACKSHARK_ASSERT(device3.getBattery(TEST_HANDLE).hasError(), "unplugged");
+    BLACKSHARK_ASSERT(gone.write_attempts == 1, "sent once");
 }
 
 void testBlackSharkSkipsOtherReplies()
@@ -1256,6 +1374,8 @@ void runAllRazerBlackSharkV2ProPSTests()
     testBlackSharkBacksOffAfterFailure();
     testBlackSharkUnknownMode();
     testBlackSharkRejectedFrame();
+    testBlackSharkResendsRejectedFrame();
+    testBlackSharkLinkReplyLost();
     testBlackSharkSkipsOtherReplies();
     testBlackSharkCachesVoltage();
     testBlackSharkCachePerHandle();
