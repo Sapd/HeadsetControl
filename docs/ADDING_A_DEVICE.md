@@ -351,6 +351,18 @@ make
 ./headsetcontrol --test-device -b
 ```
 
+## Step 6: Tests and README
+
+- Add a test in `tests/` that replays the traffic you captured through a mock `HIDInterface`
+  (see `tests/test_protocols.cpp` or a device test file such as `tests/test_fifine.cpp`). A new
+  test file must be listed in `tests/CMakeLists.txt` and its `runAll...Tests()` called from
+  `tests/test_runner.cpp`. Run them with `make check` (configure with `-DBUILD_UNIT_TESTS=ON`).
+- Regenerate the device table with `./headsetcontrol --readme-helper` and replace the table in
+  `README.md` with its output. CI fails when the two differ. A limitation users will notice
+  (a setting the vendor software overrides, a variant without a feature) goes in a note below
+  the table.
+- In the pull request, name the headset, its USB ID and the OS you tested on.
+
 ## Helper Utilities
 
 HeadsetControl provides utilities in `lib/devices/device_utils.hpp`:

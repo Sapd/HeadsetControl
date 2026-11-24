@@ -9,6 +9,8 @@ reviews:
   auto_review:
     enabled: true
     drafts: false
+    ignore_usernames:
+      - "dependabot[bot]"
 
   # Keep the walkthrough comment short and leave the contributor's description alone
   high_level_summary: false
