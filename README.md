@@ -200,6 +200,7 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 | Jabra Link 390 (paired headset) | All | x | x |   | x | x |   | x |   |   |   |   |   |   | x |   |   |   | x |   |   |   |   |   |   |   |
 | Jabra Evolve2 65 Flex (USB) | L/M | x | x |   | x | x |   | x |   |   |   |   |   |   | x |   |   |   | x |   |   |   |   |   |   |   |
 | Jabra Evolve3 75 (USB) | All | x | x |   | x | x |   | x |   |   |   |   |   |   | x |   |   |   | x |   |   |   |   |   |   |   |
+| Jabra (generic, untested model) | All | x | x |   | x | x |   | x |   |   |   |   |   |   | x |   |   |   | x |   |   |   |   |   |   |   |
 | FIFINE HT6 Wireless | L/W |   | x |   | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   | x |
 | Sony INZONE Buds | All |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | Sony INZONE H5 | All | x | x |   |   |   | x |   |   |   |   |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |
@@ -221,6 +222,8 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 > **Note:** Sennheiser GSP 370 - settings go over the dongle's USB serial port, so install the udev rules from `headsetcontrol -u` for access without root. Sidetone is only audible while the microphone is in use, and its level cannot be read back.
 
 > **Note:** EPOS H3PRO Hybrid - works through its dongle or with the headset plugged in by cable. The headset reports its battery in steps of 20%. The microphone noise filter is either off (0) or on (1); the noise cancellation slider on the headset is separate and cannot be set.
+
+> **Note:** Jabra (generic, untested model) - a fallback for Jabra headsets and Link dongles that speak the GN Protocol (such as other Evolve2 and Evolve3 models) but are not listed above. It finds out whether the headset is on its USB cable or behind a Link dongle, and through a dongle shows the name of the paired headset. These models are untested; settings a model lacks are reported as not supported. On every Jabra device the inactive time is rounded to the timers Jabra Direct offers (15 min, 30 min, 1 h, 2 h, 4 h; 0 = never).
 
 ## Usage
 

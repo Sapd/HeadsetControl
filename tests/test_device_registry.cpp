@@ -522,6 +522,10 @@ void testDeviceProductIds()
 
     for (const auto& device : devices) {
         auto product_ids = device->getProductIds();
+        if (device->isFallbackDriver()) {
+            ASSERT_TRUE(product_ids.empty(), "A fallback driver matches by HID interface, not by product ID");
+            continue;
+        }
 
         // Each device should have at least one product ID
         ASSERT_TRUE(product_ids.size() >= 1, "Device should have at least one product ID");
