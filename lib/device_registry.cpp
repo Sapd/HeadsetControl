@@ -85,6 +85,9 @@
 // Razer devices
 #include "devices/razer_blackshark_v2_pro_ps.hpp"
 
+// Moondrop devices
+#include "devices/moondrop_gm01_pro.hpp"
+
 // Test device
 #include "devices/headsetcontrol_test.hpp"
 
@@ -211,6 +214,9 @@ void DeviceRegistry::initialize()
 
         // Razer devices
         registerDevice(std::make_unique<RazerBlackSharkV2ProPS>());
+
+        // Moondrop devices
+        registerDevice(std::make_unique<MoondropGM01Pro>());
 
         // Test device
         registerDevice(std::make_unique<HeadsetControlTest>());
