@@ -79,23 +79,24 @@ public:
         }
 
         // Skip the hub's unsolicited reports (report ID 0x07) until the reply
-        // arrives. A positive timeout is one deadline for the whole exchange;
-        // 0 (do not wait) and a negative one (wait forever) go to every read
-        // as they are, as hid_read_timeout() takes them.
+        // arrives. A positive timeout is one deadline for the whole exchange,
+        // checked after the first read, so a reply already queued is always
+        // read. 0 (do not wait) and a negative one (wait forever) go to every
+        // read as they are, as hid_read_timeout() takes them.
         using clock          = std::chrono::steady_clock;
         const int configured = hsc_device_timeout;
         const auto deadline  = clock::now() + std::chrono::milliseconds { std::max(configured, 0) };
         std::vector<uint8_t> response(STATUS_BUF_SIZE);
         size_t received = 0;
-        while (true) {
+        for (bool first_read = true;; first_read = false) {
             int wait = configured;
             if (configured > 0) {
                 const auto remaining = deadline - clock::now();
-                if (remaining <= clock::duration::zero()) {
+                if (remaining <= clock::duration::zero() && !first_read) {
                     return DeviceError::timeout("No status reply from the hub");
                 }
-                // Round up, so a fraction of a millisecond left is not a 0 (no wait) read
-                wait = static_cast<int>(std::chrono::ceil<std::chrono::milliseconds>(remaining).count());
+                // At least 1 ms: a positive timeout must not turn into a 0 (do not wait) read
+                wait = std::max(1, static_cast<int>(std::chrono::ceil<std::chrono::milliseconds>(remaining).count()));
             }
             auto read_result = this->readHIDTimeout(device_handle, response, wait);
             if (!read_result) {
