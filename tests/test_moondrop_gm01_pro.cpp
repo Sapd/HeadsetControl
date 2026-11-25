@@ -1,0 +1,182 @@
+#include "device.hpp"
+#include "device_registry.hpp"
+#include "devices/moondrop_gm01_pro.hpp"
+#include "headsetcontrol_c.h"
+#include "hid_interface.hpp"
+#include "result_types.hpp"
+
+#include <cstddef>
+#include <cstdint>
+#include <deque>
+#include <iostream>
+#include <span>
+#include <stdexcept>
+#include <string>
+#include <vector>
+
+namespace headsetcontrol::testing {
+class MdrpGM01ProTestFailure : public std::runtime_error {
+
+public:
+    explicit MdrpGM01ProTestFailure(const std::string& message)
+        : std::runtime_error(message)
+    {
+    }
+};
+
+#define MDRP_GM01_PRO_ASSERT(condition, message)                                     \
+    do {                                                                             \
+        if (!(condition))                                                            \
+            throw std::runtime_error(std::string("Assertion failed: ") + (message)); \
+    } while (false)
+
+using Message = std::vector<uint8_t>;
+
+auto* const MDRP_GM01_PRO_TEST_HANDLE = reinterpret_cast<hid_device*>(0x1);
+
+class MdrpGM01ProMockHID final : public HIDInterface {
+public:
+    bool answer_battery   = true;
+    bool answer_link      = true;
+    uint8_t battery_level = 50;
+    Message battery_reply = { 0x4B, 0x80, 0x27, 0x06, 0x00, 0x00, 0x00, 0x00, 0x01, battery_level };
+    Message link_reply    = { 0x4B, 0x80, 0x31, 0x01, 0x01 };
+    std::vector<Message> writes;
+    std::deque<Message> pending;
+
+    Result<void> write(hid_device*, std::span<const uint8_t> data) override
+    {
+        writes.emplace_back(data.begin(), data.end());
+        if (data.size() >= 2 && data[0] == MoondropGM01Pro::REPORT_ID) {
+            if (data[1] == MoondropGM01Pro::MSG_TYPE_READ) {
+                if (data[2] == MoondropGM01Pro::CMD_BATTERY && answer_battery) {
+                    battery_reply.resize(64, 0);
+                    pending.push_back(battery_reply);
+                } else if (data[2] == MoondropGM01Pro::CMD_LINK && answer_link) {
+                    link_reply.resize(64, 0);
+                    pending.push_back(link_reply);
+                }
+            }
+        }
+
+        return { };
+    }
+
+    Result<void> write(hid_device* device_handle, std::span<const uint8_t> data, size_t size) override
+    {
+        return write(device_handle, data.first(size));
+    }
+
+    Result<size_t> readTimeout(hid_device*, std::span<uint8_t> data, int) override
+    {
+        if (pending.empty())
+            return DeviceError::timeout("Simulated silence");
+        const Message next = pending.front();
+        pending.pop_front();
+        const size_t count = std::min(next.size(), data.size());
+        std::fill(data.begin(), data.end(), 0);
+        std::copy_n(next.begin(), count, data.begin());
+
+        return count;
+    }
+
+    Result<void> sendFeatureReport(hid_device*, std::span<const uint8_t>) override
+    {
+        return DeviceError::notSupported("unused");
+    }
+    Result<void> sendFeatureReport(hid_device*, std::span<const uint8_t>, size_t) override
+    {
+        return DeviceError::notSupported("unused");
+    }
+    Result<size_t> getFeatureReport(hid_device*, std::span<uint8_t>) override
+    {
+        return DeviceError::notSupported("unused");
+    }
+    Result<size_t> getInputReport(hid_device*, std::span<uint8_t>) override
+    {
+        return DeviceError::notSupported("unused");
+    }
+};
+
+class TestableMdrpGM01Pro final : public MoondropGM01Pro {
+public:
+    explicit TestableMdrpGM01Pro(MdrpGM01ProMockHID& hid)
+        : hid_(hid)
+    {
+    }
+
+protected:
+    HIDInterface& getHIDInterface() const override { return hid_; }
+
+private:
+    MdrpGM01ProMockHID& hid_;
+};
+
+void testMdrpGM01ProRegistered()
+{
+    auto* device = DeviceRegistry::instance().getDevice(0x35D8, 0x0133);
+    MDRP_GM01_PRO_ASSERT(device != nullptr, "Moondrop GM01 Pro should be registered");
+    MDRP_GM01_PRO_ASSERT(device->getDeviceName() == "Moondrop GM01 Pro", "device name");
+
+    constexpr int expected = B(CAP_BATTERY_STATUS);
+    MDRP_GM01_PRO_ASSERT(device->getCapabilities() == expected, "capabilities");
+
+    auto detail = device->getCapabilityDetail(CAP_BATTERY_STATUS);
+    MDRP_GM01_PRO_ASSERT(detail.usagepage == 0 && detail.usageid == 0 && detail.interface_id == 3,
+        "should select the vendor collection");
+
+    MDRP_GM01_PRO_ASSERT(DeviceRegistry::instance().getDevice(0x35D8, 0x0123), "wrong product id");
+    MDRP_GM01_PRO_ASSERT(DeviceRegistry::instance().getDevice(0x35D7, 0x0133), "wrong vendor id");
+}
+
+void testMdrpGM01ProBattery()
+{
+    MdrpGM01ProMockHID hid;
+    TestableMdrpGM01Pro device(hid);
+
+    auto battery = device.getBattery(MDRP_GM01_PRO_TEST_HANDLE);
+
+    MDRP_GM01_PRO_ASSERT(battery.hasValue(), "read success");
+    MDRP_GM01_PRO_ASSERT(battery->level_percent == 50, "0x32 is 50%");
+    MDRP_GM01_PRO_ASSERT(battery->status == BATTERY_AVAILABLE, "status available");
+    MDRP_GM01_PRO_ASSERT(battery->raw_data.has_value(), "raw packet is exposed");
+
+    MDRP_GM01_PRO_ASSERT(hid.writes.size() == 1, "one request");
+    const Message& request = hid.writes.front();
+    MDRP_GM01_PRO_ASSERT(request.size() == MoondropGM01Pro::MSG_SIZE, "64-byte request");
+    MDRP_GM01_PRO_ASSERT(request[0] == 0x4B && request[1] == 0x80 && request[2] == 0x27 && request[3] && 0x00,
+        "request is 4B 80 27 00 ...");
+}
+
+void testMdrpGM01ProHeadsetOff()
+{
+    MdrpGM01ProMockHID hid;
+    hid.battery_reply[4] = 0x00;
+    TestableMdrpGM01Pro device(hid);
+
+    auto battery = device.getBattery(MDRP_GM01_PRO_TEST_HANDLE);
+    MDRP_GM01_PRO_ASSERT(battery, "headset is not connected is an error, not 0%");
+    MDRP_GM01_PRO_ASSERT(battery.error().code == DeviceError::Code::DeviceOffline,
+        "reported as offline, not as timeout");
+}
+
+void testMdrpGM01ProNoAnswer()
+{
+    MdrpGM01ProMockHID hid;
+    hid.answer_battery = false;
+    TestableMdrpGM01Pro device(hid);
+
+    MDRP_GM01_PRO_ASSERT(!device.getBattery(MDRP_GM01_PRO_TEST_HANDLE).hasValue(), "silence is an error");
+}
+
+void runAllMdrpGM01ProTests()
+{
+    std::cout << "\n=== Moondrop GM01 Pro Tests ===" << std::endl;
+    testMdrpGM01ProRegistered();
+    testMdrpGM01ProBattery();
+    testMdrpGM01ProHeadsetOff();
+    testMdrpGM01ProNoAnswer();
+    std::cout << "  Moondrop GM01 Pro tests passed" << std::endl;
+}
+
+} // namespace headsetcontrol::testing
