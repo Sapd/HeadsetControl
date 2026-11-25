@@ -7,9 +7,7 @@
 #include <array>
 #include <chrono>
 #include <cstdint>
-#include <format>
 #include <optional>
-#include <string>
 #include <string_view>
 #include <sys/types.h>
 #include <thread>
@@ -33,7 +31,7 @@ public:
     static constexpr std::chrono::milliseconds MIN_GAP_TIME { 50 };
 
     static constexpr uint MSG_SIZE = 64;
-    using Message                  = std::array<uint8_t, MSG_SIZE>;
+    using Message                  = std::vector<uint8_t>;
 
     static constexpr uint OFFSET_REPORT_ID = 0;
     static constexpr uint OFFSET_MSG_TYPE  = 1;
@@ -129,26 +127,22 @@ private:
             return verified;
         }
 
-        int cur_request_data_offset = 4;
-        for (uint8_t byte : data) {
-            request.at(cur_request_data_offset + 4) = byte;
-            cur_request_data_offset++;
-        }
+        request.insert(request.end(), data.begin(), data.end());
+        request.resize(MSG_SIZE, 0);
 
         if (auto result = writeHID(device_handle, request); !result) {
             return false;
         }
+
 
         return verified;
     }
 
     std::optional<Message> receiveMessage(hid_device* device_handle, uint8_t cmd)
     {
-        Message request { REPORT_ID, MSG_TYPE_READ, cmd };
-
         using std::chrono::milliseconds;
         const auto end = clock::now() + milliseconds { hsc_device_timeout };
-        Message response { };
+        Message response(MSG_SIZE);
 
         while (true) {
             const auto remaining = std::chrono::duration_cast<milliseconds>(end - clock::now());
