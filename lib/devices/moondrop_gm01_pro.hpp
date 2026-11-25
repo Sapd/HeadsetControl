@@ -81,7 +81,7 @@ public:
         Message request { REPORT_ID, MSG_TYPE_READ, CMD_BATTERY };
 
         if (!checkLink(device_handle)) {
-          return DeviceError::hidError("Headset is not connected to the dongle");
+          return DeviceError::deviceOffline("Headset is not connected to the dongle");
         }
 
         bool send_msg_result = sendMessage(device_handle, CMD_BATTERY);
