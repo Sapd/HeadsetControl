@@ -55,6 +55,9 @@ public:
 
     /**
      * @brief Get list of supported USB product IDs
+     *
+     * Empty for a fallback driver (isFallbackDriver()), which matches by HID interface
+     * instead (matchesUnlistedInterface()).
      */
     virtual std::vector<uint16_t> getProductIds() const = 0;
 
@@ -148,6 +151,34 @@ public:
         // Default: interface 0, no usage page/id (C++20 designated initializers)
         return { .usagepage = 0, .usageid = 0, .interface_id = 0 };
     }
+
+    /**
+     * @brief Capability details for one concrete product, used to pick the HID path to open.
+     *
+     * Defaults to getCapabilityDetail(). A generic driver, which has no fixed product list,
+     * overrides this to look up which collection the given product actually exposes.
+     */
+    virtual capability_detail resolveCapabilityDetail([[maybe_unused]] uint16_t product_id, enum capabilities cap) const
+    {
+        return getCapabilityDetail(cap);
+    }
+
+    /**
+     * @brief Whether this is a fallback driver for products no other driver lists.
+     *
+     * A fallback driver serves a whole protocol family of one vendor instead of listed
+     * product IDs: getProductIds() is empty, matchesUnlistedInterface() decides, and the
+     * udev rule covers the whole vendor.
+     */
+    virtual bool isFallbackDriver() const { return false; }
+
+    /**
+     * @brief Whether this fallback driver handles an HID interface of a product no device lists.
+     *
+     * DeviceRegistry::findDevice() asks every fallback driver (isFallbackDriver()) once no
+     * device lists the product ID.
+     */
+    virtual bool matchesUnlistedInterface([[maybe_unused]] const hid_device_info& info) const { return false; }
 
     /**
      * @brief Told when the library's Headset opens a HID handle, with the device path it was opened on.

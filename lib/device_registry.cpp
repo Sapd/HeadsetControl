@@ -66,6 +66,7 @@
 // Jabra devices
 #include "devices/jabra_evolve2_65_flex.hpp"
 #include "devices/jabra_evolve3_75.hpp"
+#include "devices/jabra_generic.hpp"
 #include "devices/jabra_link_380.hpp"
 #include "devices/jabra_link_390.hpp"
 
@@ -195,6 +196,8 @@ void DeviceRegistry::initialize()
         registerDevice(std::make_unique<JabraLink390>());
         registerDevice(std::make_unique<JabraEvolve265Flex>());
         registerDevice(std::make_unique<JabraEvolve375>());
+        // Fallback for GN Protocol products none of the above lists
+        registerDevice(std::make_unique<JabraGeneric>());
 
         // FIFINE devices
         registerDevice(std::make_unique<FifineHT6>());
@@ -236,6 +239,22 @@ HIDDevice* DeviceRegistry::getDevice(uint16_t vendor_id, uint16_t product_id)
     }
 
     return nullptr; // Device not found
+}
+
+HIDDevice* DeviceRegistry::findDevice(const hid_device_info& info)
+{
+    if (auto* device = getDevice(info.vendor_id, info.product_id)) {
+        return device;
+    }
+
+    for (auto& device : devices_) {
+        if (device->isFallbackDriver() && device->matchesUnlistedInterface(info)) {
+            device->setMatchedProductId(info.product_id);
+            return device.get();
+        }
+    }
+
+    return nullptr;
 }
 
 const std::vector<std::unique_ptr<HIDDevice>>& DeviceRegistry::getAllDevices() const

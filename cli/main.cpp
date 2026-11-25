@@ -610,7 +610,7 @@ std::vector<DiscoveredDevice> discoverDevices(const Options& opts)
         if (duplicate)
             continue;
 
-        auto* device = registry.getDevice(cur->vendor_id, cur->product_id);
+        auto* device = registry.findDevice(*cur);
         if (!device)
             continue;
 
@@ -649,7 +649,7 @@ static void refineProductName(DiscoveredDevice& dev, hid_device* handle)
 
 hid_device* connectForCapability(HIDConnection& conn, const HIDDevice* device, uint16_t product_id, capabilities cap)
 {
-    auto detail   = device->getCapabilityDetail(cap);
+    auto detail   = device->resolveCapabilityDetail(product_id, cap);
     auto hid_path = headsetcontrol::get_hid_path(device->getVendorId(), product_id, detail.interface_id, detail.usagepage, detail.usageid);
     if (!hid_path)
         return nullptr;
@@ -1070,6 +1070,12 @@ void printUdevRules()
     for (const auto& device_ptr : DeviceRegistry::instance().getAllDevices()) {
         auto* device = device_ptr.get();
         println("# {}", device->getDeviceName());
+        if (device->isFallbackDriver()) {
+            // A fallback driver serves any unlisted product of the vendor, so its rule cannot list product IDs
+            println("KERNEL==\"hidraw*\", SUBSYSTEM==\"hidraw\", "
+                    "ATTRS{{idVendor}}==\"{:04x}\", TAG+=\"uaccess\"",
+                device->getVendorId());
+        }
         for (uint16_t pid : device->getProductIds()) {
             println("KERNEL==\"hidraw*\", SUBSYSTEM==\"hidraw\", "
                     "ATTRS{{idVendor}}==\"{:04x}\", ATTRS{{idProduct}}==\"{:04x}\", TAG+=\"uaccess\"",

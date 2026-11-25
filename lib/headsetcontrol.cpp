@@ -120,7 +120,7 @@ public:
             return nullptr;
         }
 
-        auto detail = device_->getCapabilityDetail(cap);
+        auto detail = device_->resolveCapabilityDetail(product_id_, cap);
 
         // Create cache key from connection parameters
         // Cast interface to uint32_t first to avoid UB with negative values
@@ -525,7 +525,7 @@ std::vector<Headset> discover()
         }
 
         // Check if device is supported
-        HIDDevice* device = registry.getDevice(cur->vendor_id, cur->product_id);
+        HIDDevice* device = registry.findDevice(*cur);
         if (device) {
             found_devices.push_back(key);
             headsets.push_back(Headset(
@@ -558,7 +558,7 @@ std::vector<Headset> discoverAll()
     HIDEnumerationGuard guard(hid_enumerate(0, 0));
 
     for (auto* cur = guard.get(); cur; cur = cur->next) {
-        HIDDevice* device = registry.getDevice(cur->vendor_id, cur->product_id);
+        HIDDevice* device = registry.findDevice(*cur);
         if (device) {
             headsets.push_back(Headset(
                 std::make_unique<HeadsetImpl>(device, cur->product_id,

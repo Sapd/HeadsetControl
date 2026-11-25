@@ -52,6 +52,19 @@ public:
     HIDDevice* getDevice(uint16_t vendor_id, uint16_t product_id);
 
     /**
+     * @brief Find the device implementation for one enumerated HID interface
+     *
+     * Devices that list the product ID win; otherwise the first fallback driver
+     * (HIDDevice::isFallbackDriver()) whose HIDDevice::matchesUnlistedInterface()
+     * accepts the interface is returned. Other devices are not asked.
+     *
+     * @return Pointer to device implementation, or nullptr if not found
+     *
+     * @note Thread-safe after initialize() has completed
+     */
+    HIDDevice* findDevice(const hid_device_info& info);
+
+    /**
      * @brief Get all registered devices
      *
      * @return Vector of all device implementations
