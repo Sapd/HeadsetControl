@@ -8,6 +8,9 @@ name: Label PR Review State
 # Only comments from the maintainer or from the PR author move the labels.
 # Everyone else - people reporting test results on someone else's PR - is
 # ignored, so a drive-by comment does not pull a PR back into the queue.
+# The one exception is a CodeRabbit review with actionable comments: there is
+# something for the author to fix, so it is their turn. A CodeRabbit review
+# with none, and its walkthrough comment, move nothing.
 #
 # The events keep it current, the daily run recomputes everything from scratch
 # so a missed event, a hand-edited label or a PR older than this workflow all
@@ -88,6 +91,14 @@ jobs:
               return true;
             };
 
+            // CodeRabbit opens each review that asks for changes with
+            // "Actionable comments posted: N"; N = 0 means only nitpicks or nothing.
+            const coderabbitWantsChanges = (review) => {
+              if (review.user?.login !== 'coderabbitai[bot]') return false;
+              const match = /Actionable comments posted:\s*(\d+)/.exec(review.body || '');
+              return match !== null && Number(match[1]) > 0;
+            };
+
             // Latest activity that belongs to one of the two sides. A push always
             // means it is our turn: there is new code to look at, whoever pushed it.
             const whoseTurn = async (pr) => {
@@ -123,7 +134,8 @@ jobs:
                 ...context.repo, pull_number: pr.number, per_page: 100,
               });
               for (const r of reviews) {
-                const turn = classify(r.user?.login, r.author_association);
+                const turn = classify(r.user?.login, r.author_association)
+                  || (coderabbitWantsChanges(r) ? AWAITING_AUTHOR : null);
                 if (turn) note(r.submitted_at, turn);
               }
 
