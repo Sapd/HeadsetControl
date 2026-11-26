@@ -109,7 +109,7 @@ private:
     using milliseconds          = std::chrono::milliseconds;
     clock::time_point last_send = clock::now() - MIN_GAP_TIME;
 
-    Result<void> sendMessage(hid_device* device_handle, uint8_t cmd, std::span<const uint8_t> data = { }, uint8_t msg_type = MSG_TYPE_READ)
+    Result<void> sendMessage(hid_device* device_handle, uint8_t cmd, std::span<const uint8_t> data = {}, uint8_t msg_type = MSG_TYPE_READ)
     {
 
         // Check if trying to send payload on MSG_TYPE_READ
@@ -150,7 +150,7 @@ private:
         }
 
         last_send = clock::now();
-        return { };
+        return {};
     }
 
     Result<Message> receiveMessage(hid_device* device_handle, uint8_t cmd)

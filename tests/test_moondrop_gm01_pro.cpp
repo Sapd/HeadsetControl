@@ -36,7 +36,6 @@ auto* const MDRP_GM01_PRO_TEST_HANDLE = reinterpret_cast<hid_device*>(0x1);
 
 class MdrpGM01ProMockHID final : public HIDInterface {
 public:
-
     bool answer_battery   = true;
     bool answer_link      = true;
     uint8_t battery_level = 50;
@@ -61,7 +60,7 @@ public:
             }
         }
 
-        return { };
+        return {};
     }
 
     Result<void> write(hid_device* device_handle, std::span<const uint8_t> data, size_t size) override
