@@ -94,7 +94,12 @@ public:
     {
         Message request { REPORT_ID, MSG_TYPE_READ, CMD_BATTERY };
 
-        if (!checkLink(device_handle).value()) {
+        auto link_result = checkLink(device_handle);
+        if (link_result.hasError()) {
+            return link_result.error();
+        }
+
+        if (!link_result.value()) {
             return DeviceError::deviceOffline("Headset is not connected to the dongle");
         }
 
@@ -164,7 +169,7 @@ private:
         }
 
         last_send = clock::now();
-        return {};
+        return { };
     }
 
     Result<Message> receiveMessage(hid_device* device_handle, uint8_t cmd)
