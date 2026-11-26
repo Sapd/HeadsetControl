@@ -125,8 +125,8 @@ void testMdrpGM01ProRegistered()
     MDRP_GM01_PRO_ASSERT(detail.usagepage == 0 && detail.usageid == 0 && detail.interface_id == 3,
         "should select the vendor collection");
 
-    MDRP_GM01_PRO_ASSERT(DeviceRegistry::instance().getDevice(0x35D8, 0x0123), "wrong product id");
-    MDRP_GM01_PRO_ASSERT(DeviceRegistry::instance().getDevice(0x35D7, 0x0133), "wrong vendor id");
+    MDRP_GM01_PRO_ASSERT(DeviceRegistry::instance().getDevice(0x35D8, 0x0123) == nullptr, "wrong product id");
+    MDRP_GM01_PRO_ASSERT(DeviceRegistry::instance().getDevice(0x35D7, 0x0133) == nullptr, "wrong vendor id");
 }
 
 void testMdrpGM01ProBattery()
@@ -141,21 +141,25 @@ void testMdrpGM01ProBattery()
     MDRP_GM01_PRO_ASSERT(battery->status == BATTERY_AVAILABLE, "status available");
     MDRP_GM01_PRO_ASSERT(battery->raw_data.has_value(), "raw packet is exposed");
 
-    MDRP_GM01_PRO_ASSERT(hid.writes.size() == 1, "one request");
-    const Message& request = hid.writes.front();
-    MDRP_GM01_PRO_ASSERT(request.size() == MoondropGM01Pro::MSG_SIZE, "64-byte request");
-    MDRP_GM01_PRO_ASSERT(request[0] == 0x4B && request[1] == 0x80 && request[2] == 0x27 && request[3] && 0x00,
-        "request is 4B 80 27 00 ...");
+    MDRP_GM01_PRO_ASSERT(hid.writes.size() == 2, "two requests (CMD_LINK and CMD_BATTERY)");
+    const Message& link_request = hid.writes[0];
+    MDRP_GM01_PRO_ASSERT(link_request.size() == MoondropGM01Pro::MSG_SIZE, "64-byte link request");
+    MDRP_GM01_PRO_ASSERT(link_request[0] == 0x4B && link_request[1] == 0x80 && link_request[2] == 0x31 && link_request[3] == 0x00,
+        "request is 4B 80 31 00 (LINK CHECK)...");
+    const Message& battery_request = hid.writes[1];
+    MDRP_GM01_PRO_ASSERT(battery_request.size() == MoondropGM01Pro::MSG_SIZE, "64-byte battery status request");
+    MDRP_GM01_PRO_ASSERT(battery_request[0] == 0x4B && battery_request[1] == 0x80 && battery_request[2] == 0x27 && battery_request[3] == 0x00,
+        "request is 4B 80 27 00 (BATTERY STATUS CHECK)...");
 }
 
 void testMdrpGM01ProHeadsetOff()
 {
     MdrpGM01ProMockHID hid;
-    hid.battery_reply[4] = 0x00;
+    hid.link_reply[4] = 0x00;
     TestableMdrpGM01Pro device(hid);
 
     auto battery = device.getBattery(MDRP_GM01_PRO_TEST_HANDLE);
-    MDRP_GM01_PRO_ASSERT(battery, "headset is not connected is an error, not 0%");
+    MDRP_GM01_PRO_ASSERT(!battery, "headset is not connected is an error, not 0%");
     MDRP_GM01_PRO_ASSERT(battery.error().code == DeviceError::Code::DeviceOffline,
         "reported as offline, not as timeout");
 }
@@ -176,7 +180,6 @@ void runAllMdrpGM01ProTests()
     testMdrpGM01ProBattery();
     testMdrpGM01ProHeadsetOff();
     testMdrpGM01ProNoAnswer();
-    std::cout << "  Moondrop GM01 Pro tests passed" << std::endl;
 }
 
 } // namespace headsetcontrol::testing
