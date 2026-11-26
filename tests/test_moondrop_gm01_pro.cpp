@@ -123,8 +123,8 @@ void testMdrpGM01ProRegistered()
     MDRP_GM01_PRO_ASSERT(device->getCapabilities() == expected, "capabilities");
 
     auto detail = device->getCapabilityDetail(CAP_BATTERY_STATUS);
-    MDRP_GM01_PRO_ASSERT(detail.usagepage == 0 && detail.usageid == 0 && detail.interface_id == 3,
-        "should select the vendor collection");
+    MDRP_GM01_PRO_ASSERT(detail.usagepage == 0x000C && detail.usageid == 0x0001 && detail.interface_id == 3,
+        "should select the consumer collection");
 
     MDRP_GM01_PRO_ASSERT(DeviceRegistry::instance().getDevice(0x35D8, 0x0123) == nullptr, "wrong product id");
     MDRP_GM01_PRO_ASSERT(DeviceRegistry::instance().getDevice(0x35D7, 0x0133) == nullptr, "wrong vendor id");

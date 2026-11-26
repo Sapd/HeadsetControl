@@ -70,7 +70,7 @@ public:
 
     constexpr capability_detail getCapabilityDetail(enum capabilities cap) const override
     {
-        return { .usagepage = 0, .usageid = 0, .interface_id = 3 };
+        return { .usagepage = 0x000C, .usageid = 0x0001, .interface_id = 3 };
     }
 
     Result<BatteryResult> getBattery(hid_device* device_handle) override
