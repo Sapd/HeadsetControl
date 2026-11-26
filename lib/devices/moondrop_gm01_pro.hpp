@@ -4,14 +4,7 @@
 #include "hid_device.hpp"
 #include "hidapi.h"
 #include "result_types.hpp"
-#include <array>
-#include <chrono>
-#include <cstdint>
-#include <format>
-#include <string>
-#include <string_view>
 #include <thread>
-#include <vector>
 
 using namespace std::string_view_literals;
 
