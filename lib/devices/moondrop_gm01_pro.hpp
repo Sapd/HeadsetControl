@@ -126,9 +126,9 @@ private:
         }
 
         // Ensure messages are paced. Will be useful when doing multiple sends
-        milliseconds wait = std::chrono::duration_cast<milliseconds>(MIN_GAP_TIME - (clock::now() - last_send));
-        if (wait > std::chrono::milliseconds::zero())
-            std::this_thread::sleep_for(wait);
+        auto elapsed = clock::now() - last_send;
+        if (elapsed < MIN_GAP_TIME)
+            std::this_thread::sleep_for(std::chrono::duration_cast<milliseconds>(MIN_GAP_TIME - elapsed));
 
         int expected_size = expectedWriteDataSize(cmd);
 
