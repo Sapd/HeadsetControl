@@ -183,8 +183,7 @@ private:
             auto read_result = readHIDTimeout(device_handle, response, static_cast<int>(remaining.count()));
             if (!read_result) {
 
-                std::string error_msg = std::format("Device did not respond with command: {:02X} in time", cmd);
-                return DeviceError::timeout(error_msg);
+                return read_result.error();
             }
 
             bool responded = *read_result == MSG_SIZE && response.at(OFFSET_REPORT_ID) == REPORT_ID
