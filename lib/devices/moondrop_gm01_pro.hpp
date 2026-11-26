@@ -4,17 +4,14 @@
 #include "hid_device.hpp"
 #include "hidapi.h"
 #include "result_types.hpp"
-#include <any>
 #include <array>
 #include <chrono>
 #include <cstdint>
 #include <format>
-#include <optional>
 #include <string>
 #include <string_view>
 #include <sys/types.h>
 #include <thread>
-#include <unordered_map>
 #include <vector>
 
 using namespace std::string_view_literals;
