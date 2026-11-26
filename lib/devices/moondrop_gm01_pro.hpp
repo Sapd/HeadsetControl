@@ -79,6 +79,12 @@ public:
         return B(CAP_BATTERY_STATUS);
     }
 
+    constexpr uint8_t getSupportedPlatforms() const override
+    {
+        // Untested on Windows and Mac
+        return PLATFORM_LINUX;
+    }
+
     constexpr capability_detail getCapabilityDetail(enum capabilities cap) const override
     {
         return { .usagepage = 0, .usageid = 0, .interface_id = 3 };
