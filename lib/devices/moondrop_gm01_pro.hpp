@@ -7,7 +7,9 @@
 #include <array>
 #include <chrono>
 #include <cstdint>
+#include <format>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <sys/types.h>
 #include <thread>
@@ -44,10 +46,16 @@ public:
 
     static constexpr uint8_t CMD_LINK    = 0x31;
     static constexpr uint8_t CMD_BATTERY = 0x27;
+    static constexpr uint8_t CMD_LED     = 0x28;
 
-    const ::std::unordered_map<uint8_t, int> EXPECTED_READ_DATA_SIZES = {
+    const std::unordered_map<uint8_t, int> EXPECTED_READ_DATA_SIZES = {
         { CMD_LINK, 1 },
         { CMD_BATTERY, 6 },
+        { CMD_LED, 1 }
+    };
+
+    const std::unordered_map<uint8_t, int> EXPECTED_WRITE_DATA_SIZES = {
+        { CMD_LED, 1 }
     };
 
     uint16_t getVendorId() const override
@@ -80,23 +88,23 @@ public:
     {
         Message request { REPORT_ID, MSG_TYPE_READ, CMD_BATTERY };
 
-        if (!checkLink(device_handle)) {
+        if (!checkLink(device_handle).value()) {
             return DeviceError::deviceOffline("Headset is not connected to the dongle");
         }
 
-        bool send_msg_result = sendMessage(device_handle, CMD_BATTERY);
+        Result<void> send_msg_result = sendMessage(device_handle, CMD_BATTERY);
 
-        if (!send_msg_result) {
-            return DeviceError::invalidParameter("Battery request message is malformed");
+        if (send_msg_result.hasError()) {
+            return send_msg_result.error();
         }
 
         auto response = receiveMessage(device_handle, CMD_BATTERY);
 
         if (!response) {
-            return DeviceError::timeout("Battery request timed out");
+            return response.error();
         }
 
-        const auto& battery_response = *response;
+        const auto& battery_response = response.value();
         return BatteryResult {
             .level_percent = battery_response.at(9),
             .status        = BATTERY_AVAILABLE,
@@ -109,36 +117,51 @@ private:
     using milliseconds = std::chrono::milliseconds;
     clock::steady_clock::time_point last_send;
 
-    bool sendMessage(hid_device* device_handle, uint8_t cmd, std::span<const uint8_t> data = { }, uint8_t msg_type = MSG_TYPE_READ)
+    Result<void> sendMessage(hid_device* device_handle, uint8_t cmd, std::span<const uint8_t> data = { }, uint8_t msg_type = MSG_TYPE_READ)
     {
+
+        // Check if trying to send payload on MSG_TYPE_READ
+        if (data.size() > 0 && msg_type == MSG_TYPE_READ) {
+            std::string error_msg = std::format("Command {:02x} does not accept data on message type MSG_TYPE_READ", cmd);
+            return DeviceError::invalidParameter(error_msg);
+        }
+
         // Ensure messages are paced. Will be useful when doing multiple sends
         milliseconds wait = std::chrono::duration_cast<milliseconds>(MIN_GAP_TIME - (clock::now() - last_send));
         if (wait > std::chrono::milliseconds::zero())
             std::this_thread::sleep_for(wait);
 
-        int expected_size = EXPECTED_READ_DATA_SIZES.find(cmd)->second;
-        bool verified     = msg_type == MSG_TYPE_READ ? data.empty() : data.size() == expected_size;
+        auto expected = EXPECTED_WRITE_DATA_SIZES.find(cmd);
+
+        if (msg_type == MSG_TYPE_WRITE) {
+
+            if (expected == EXPECTED_WRITE_DATA_SIZES.end() && msg_type == MSG_TYPE_WRITE) {
+                std::string error_msg = std::format("Command {:02x} is not writable", cmd);
+                return DeviceError::invalidParameter(error_msg);
+            }
+
+            if (expected->second != data.size()) {
+                std::string error_msg = std::format("Command {:02x} expects data size {}, got data size {}", cmd, expected->second, data.size());
+                return DeviceError::invalidParameter(error_msg);
+            }
+        }
 
         auto data_size = static_cast<uint8_t>(data.size());
-        Message request { REPORT_ID, msg_type, cmd, data_size };
 
-        // Return early when data verification fails
-        if (!verified) {
-            return verified;
-        }
+        Message request { REPORT_ID, msg_type, cmd, data_size };
 
         request.insert(request.end(), data.begin(), data.end());
         request.resize(MSG_SIZE, 0);
 
         if (auto result = writeHID(device_handle, request); !result) {
-            return false;
+            return result.error();
         }
 
         last_send = clock::now();
-        return verified;
+        return {};
     }
 
-    std::optional<Message> receiveMessage(hid_device* device_handle, uint8_t cmd)
+    Result<Message> receiveMessage(hid_device* device_handle, uint8_t cmd)
     {
         using std::chrono::milliseconds;
         const auto end = clock::now() + milliseconds { hsc_device_timeout };
@@ -147,12 +170,15 @@ private:
         while (true) {
             const auto remaining = std::chrono::duration_cast<milliseconds>(end - clock::now());
             if (remaining <= std::chrono::milliseconds::zero()) {
-                return std::nullopt;
+                std::string error_msg = std::format("Device did not respond with command: {:02X} in time", cmd);
+                return DeviceError::timeout(error_msg);
             }
 
             auto read_result = readHIDTimeout(device_handle, response, static_cast<int>(remaining.count()));
             if (!read_result) {
-                return std::nullopt;
+
+                std::string error_msg = std::format("Device did not respond with command: {:02X} in time", cmd);
+                return DeviceError::timeout(error_msg);
             }
 
             bool responded = *read_result == MSG_SIZE && response.at(OFFSET_REPORT_ID) == REPORT_ID
@@ -165,24 +191,24 @@ private:
         }
     }
 
-    bool checkLink(hid_device* device_handle)
+    Result<bool> checkLink(hid_device* device_handle)
     {
 
-        bool send_verified = sendMessage(device_handle, CMD_LINK);
+        auto send_verified = sendMessage(device_handle, CMD_LINK);
 
-        if (!send_verified) {
-            return false;
+        if (send_verified.hasError()) {
+            return send_verified.error();
         }
 
         auto response = receiveMessage(device_handle, CMD_LINK);
 
         if (!response) {
-            return false;
+            return response.error();
         }
 
-        const auto& link_response = *response;
+        const auto& link_response = response.value();
 
-        return bool(link_response.at(4));
+        return static_cast<bool>(link_response.at(4));
     }
 };
 } // namespace headsetcontrol
