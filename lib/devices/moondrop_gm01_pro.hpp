@@ -30,13 +30,13 @@ public:
 
     static constexpr std::chrono::milliseconds MIN_GAP_TIME { 50 };
 
-    static constexpr uint MSG_SIZE = 64;
-    using Message                  = std::vector<uint8_t>;
+    static constexpr unsigned int MSG_SIZE = 64;
+    using Message                          = std::vector<uint8_t>;
 
-    static constexpr uint OFFSET_REPORT_ID = 0;
-    static constexpr uint OFFSET_MSG_TYPE  = 1;
-    static constexpr uint OFFSET_CMD       = 2;
-    static constexpr uint OFFSET_DATA_LEN  = 3;
+    static constexpr unsigned int OFFSET_REPORT_ID = 0;
+    static constexpr unsigned int OFFSET_MSG_TYPE  = 1;
+    static constexpr unsigned int OFFSET_CMD       = 2;
+    static constexpr unsigned int OFFSET_DATA_LEN  = 3;
 
     static constexpr uint8_t REPORT_ID      = 0x4B;
     static constexpr uint8_t MSG_TYPE_READ  = 0x80;
@@ -81,7 +81,7 @@ public:
         Message request { REPORT_ID, MSG_TYPE_READ, CMD_BATTERY };
 
         if (!checkLink(device_handle)) {
-          return DeviceError::deviceOffline("Headset is not connected to the dongle");
+            return DeviceError::deviceOffline("Headset is not connected to the dongle");
         }
 
         bool send_msg_result = sendMessage(device_handle, CMD_BATTERY);
@@ -134,7 +134,7 @@ private:
             return false;
         }
 
-
+        last_send = clock::now();
         return verified;
     }
 
