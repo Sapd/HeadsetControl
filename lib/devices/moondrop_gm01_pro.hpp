@@ -4,6 +4,7 @@
 #include "hid_device.hpp"
 #include "hidapi.h"
 #include "result_types.hpp"
+#include <any>
 #include <array>
 #include <chrono>
 #include <cstdint>
@@ -40,6 +41,9 @@ public:
     static constexpr unsigned int OFFSET_CMD       = 2;
     static constexpr unsigned int OFFSET_DATA_LEN  = 3;
 
+    static constexpr unsigned int OFFSET_LINK_STATUS   = 4;
+    static constexpr unsigned int OFFSET_BATTERY_LEVEL = 9;
+
     static constexpr uint8_t REPORT_ID      = 0x4B;
     static constexpr uint8_t MSG_TYPE_READ  = 0x80;
     static constexpr uint8_t MSG_TYPE_WRITE = 0x01;
@@ -47,16 +51,6 @@ public:
     static constexpr uint8_t CMD_LINK    = 0x31;
     static constexpr uint8_t CMD_BATTERY = 0x27;
     static constexpr uint8_t CMD_LED     = 0x28;
-
-    const std::unordered_map<uint8_t, int> EXPECTED_READ_DATA_SIZES = {
-        { CMD_LINK, 1 },
-        { CMD_BATTERY, 6 },
-        { CMD_LED, 1 }
-    };
-
-    const std::unordered_map<uint8_t, int> EXPECTED_WRITE_DATA_SIZES = {
-        { CMD_LED, 1 }
-    };
 
     uint16_t getVendorId() const override
     {
@@ -92,8 +86,6 @@ public:
 
     Result<BatteryResult> getBattery(hid_device* device_handle) override
     {
-        Message request { REPORT_ID, MSG_TYPE_READ, CMD_BATTERY };
-
         auto link_result = checkLink(device_handle);
         if (link_result.hasError()) {
             return link_result.error();
@@ -117,23 +109,23 @@ public:
 
         const auto& battery_response = response.value();
         return BatteryResult {
-            .level_percent = battery_response.at(9),
+            .level_percent = battery_response.at(OFFSET_BATTERY_LEVEL),
             .status        = BATTERY_AVAILABLE,
             .raw_data      = std::vector<uint8_t> { battery_response.begin(), battery_response.end() }
         };
     };
 
 private:
-    using clock        = std::chrono::steady_clock;
-    using milliseconds = std::chrono::milliseconds;
-    clock::steady_clock::time_point last_send;
+    using clock                 = std::chrono::steady_clock;
+    using milliseconds          = std::chrono::milliseconds;
+    clock::time_point last_send = clock::now() - MIN_GAP_TIME;
 
     Result<void> sendMessage(hid_device* device_handle, uint8_t cmd, std::span<const uint8_t> data = { }, uint8_t msg_type = MSG_TYPE_READ)
     {
 
         // Check if trying to send payload on MSG_TYPE_READ
         if (data.size() > 0 && msg_type == MSG_TYPE_READ) {
-            std::string error_msg = std::format("Command {:02x} does not accept data on message type MSG_TYPE_READ", cmd);
+            std::string error_msg = std::format("Command {:02X} does not accept data on message type MSG_TYPE_READ", cmd);
             return DeviceError::invalidParameter(error_msg);
         }
 
@@ -142,17 +134,17 @@ private:
         if (wait > std::chrono::milliseconds::zero())
             std::this_thread::sleep_for(wait);
 
-        auto expected = EXPECTED_WRITE_DATA_SIZES.find(cmd);
+        int expected_size = expectedWriteDataSize(cmd);
 
         if (msg_type == MSG_TYPE_WRITE) {
 
-            if (expected == EXPECTED_WRITE_DATA_SIZES.end() && msg_type == MSG_TYPE_WRITE) {
-                std::string error_msg = std::format("Command {:02x} is not writable", cmd);
+            if (expected_size == -1) {
+                std::string error_msg = std::format("Command {:02X} is not writable or unknown", cmd);
                 return DeviceError::invalidParameter(error_msg);
             }
 
-            if (expected->second != data.size()) {
-                std::string error_msg = std::format("Command {:02x} expects data size {}, got data size {}", cmd, expected->second, data.size());
+            if (expected_size != data.size()) {
+                std::string error_msg = std::format("Command {:02X} expects data size {}, got data size {}", cmd, expected_size, data.size());
                 return DeviceError::invalidParameter(error_msg);
             }
         }
@@ -197,6 +189,19 @@ private:
                 continue; // Ignore unsolicited packets
             }
 
+            int expected_size      = expectedReadDataSize(cmd);
+            int response_data_size = static_cast<int>(response.at(OFFSET_DATA_LEN));
+
+            if (expected_size == -1) {
+                std::string error_msg = std::format("Command {:02X} is unknown", cmd);
+                return DeviceError::hidError(error_msg);
+            }
+
+            if (expected_size != response_data_size) {
+                std::string error_msg = std::format("Command {:02X} expected data size is {}, got data size {}", cmd, expected_size, response_data_size);
+                return DeviceError::hidError(error_msg);
+            }
+
             return response;
         }
     }
@@ -218,7 +223,33 @@ private:
 
         const auto& link_response = response.value();
 
-        return static_cast<bool>(link_response.at(4));
+        return static_cast<bool>(link_response.at(OFFSET_LINK_STATUS));
+    }
+
+    static constexpr int expectedWriteDataSize(uint8_t cmd) noexcept
+    {
+        switch (cmd) {
+        case CMD_LED:
+            return 1;
+        default:
+            // Command not writable or unknown command
+            return -1;
+        }
+    }
+
+    static constexpr int expectedReadDataSize(uint8_t cmd) noexcept
+    {
+        switch (cmd) {
+        case CMD_LINK:
+            return 1;
+        case CMD_BATTERY:
+            return 6;
+        case CMD_LED:
+            return 1;
+        default:
+            // Unknown command
+            return -1;
+        }
     }
 };
 } // namespace headsetcontrol
