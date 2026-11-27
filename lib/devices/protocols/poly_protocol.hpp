@@ -3,6 +3,7 @@
 #include "../../result_types.hpp"
 #include "../device_utils.hpp"
 #include "../hid_device.hpp"
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <vector>
@@ -11,9 +12,9 @@ namespace headsetcontrol::protocols {
 
 /**
  * @brief Poly settings protocol, spoken by the Plantronics/Poly USB dongles
- * (BT600) on behalf of the headset paired to them
+ * (BT600, BT700) on behalf of the headset paired to them
  *
- * Features:
+ * Features, the same on every dongle so far:
  * - Sidetone (3 discrete levels: Low / Medium / High)
  * - Battery status (charging state + remaining talk time, reported as an
  *   estimated percentage plus time-to-empty minutes)
@@ -112,9 +113,11 @@ namespace headsetcontrol::protocols {
  *
  * Reverse-engineered from USBPcap/usbmon captures of Plantronics Hub and
  * Poly Studio and validated live against a BT600 with a Voyager 8200 UC
- * (firmware v2120).
+ * (firmware v2120) and a BT700 with a Voyager Focus 2.
  *
- * A device provides its product ids, name and platforms.
+ * A device provides its product ids, name and platforms. Dongles differ in
+ * the size of OUTPUT report 0x07 and in whether they take the 06 01 report;
+ * see getOutputReportSize() and needsSessionNudge().
  */
 class PolyProtocol : public HIDDevice {
 public:
@@ -173,9 +176,11 @@ private:
     // Sidetone device levels
     static constexpr uint8_t SIDETONE_LEVELS = 3; // 0=Low, 1=Medium, 2=High
 
-    // Skip this many non-matching reports (events, catalogue fragments)
-    // before giving up on a reply
-    static constexpr int MAX_READ_ATTEMPTS = 16;
+    // Skip this many non-matching reports (events, catalogue fragments,
+    // 0x9b attention pulses) before giving up on a reply. A headset
+    // catalogue can be 7 fragments (Voyager Focus 2 on a BT700), and each
+    // event comes with a pulse.
+    static constexpr int MAX_READ_ATTEMPTS = 64;
 
     /**
      * @brief Build a request frame.
@@ -212,7 +217,7 @@ private:
             auto read_result = readHIDTimeout(device_handle, response, hsc_device_timeout);
             if (!read_result) {
                 if (read_result.error().code == DeviceError::Code::Timeout) {
-                    return DeviceError::deviceOffline("Headset not connected to BT600 adapter (powered off or out of range)");
+                    return DeviceError::deviceOffline("Headset not connected to its USB adapter (powered off or out of range)");
                 }
                 return read_result.error();
             }
@@ -221,6 +226,21 @@ private:
             }
         }
         return DeviceError::protocolError("No reply for the requested setting");
+    }
+
+    /**
+     * @brief Write a request frame, zero-padded to the dongle's OUTPUT report size.
+     */
+    Result<void> writeFrame(hid_device* device_handle, const std::array<uint8_t, MSG_SIZE>& frame) const
+    {
+        const size_t size = getOutputReportSize();
+        if (size <= frame.size()) {
+            return writeHID(device_handle, frame);
+        }
+
+        std::vector<uint8_t> padded(size, 0);
+        std::copy(frame.begin(), frame.end(), padded.begin());
+        return writeHID(device_handle, padded);
     }
 
     /**
@@ -234,12 +254,14 @@ private:
      */
     Result<void> openSession(hid_device* device_handle) const
     {
-        if (auto result = writeHID(device_handle, SESSION_NUDGE); !result) {
-            return result.error();
+        if (needsSessionNudge()) {
+            if (auto result = writeHID(device_handle, SESSION_NUDGE); !result) {
+                return result.error();
+            }
         }
 
         auto dongle_hello = makeFrame(OP_HELLO, HELLO_ARG1, HELLO_ARG2, 0, ADDR_DONGLE);
-        if (auto result = writeHID(device_handle, dongle_hello); !result) {
+        if (auto result = writeFrame(device_handle, dongle_hello); !result) {
             return result.error();
         }
 
@@ -249,7 +271,7 @@ private:
         }
 
         auto headset_hello = makeFrame(OP_HELLO, HELLO_ARG1, HELLO_ARG2, 0, ADDR_HEADSET);
-        if (auto result = writeHID(device_handle, headset_hello); !result) {
+        if (auto result = writeFrame(device_handle, headset_hello); !result) {
             return result.error();
         }
 
@@ -266,7 +288,7 @@ private:
         }
 
         auto request = makeFrame(OP_SET, grp, item, value);
-        if (auto result = writeHID(device_handle, request); !result) {
+        if (auto result = writeFrame(device_handle, request); !result) {
             return result.error();
         }
 
@@ -274,6 +296,29 @@ private:
         // group/item; without it the write went nowhere (headset off).
         std::array<uint8_t, MSG_SIZE> response {};
         return awaitReply(device_handle, 0, grp, item, response);
+    }
+
+protected:
+    /**
+     * @brief Length of OUTPUT report 0x07 as declared by the dongle's descriptor.
+     *
+     * Request frames are zero-padded to this size (see writeFrame). The
+     * default is the BT600's.
+     */
+    virtual size_t getOutputReportSize() const
+    {
+        return MSG_SIZE;
+    }
+
+    /**
+     * @brief Whether the 06 01 output report must precede the hellos.
+     *
+     * The BT600 needs it. Report 0x06 can sit in another top-level
+     * collection, where Windows refuses the write.
+     */
+    virtual bool needsSessionNudge() const
+    {
+        return true;
     }
 
 public:
@@ -393,7 +438,7 @@ public:
         }
 
         auto request = makeFrame(OP_GET, GRP_BATTERY, ITEM_BATTERY, 0);
-        if (auto result = writeHID(device_handle, request); !result) {
+        if (auto result = writeFrame(device_handle, request); !result) {
             return result.error();
         }
 

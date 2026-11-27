@@ -59,6 +59,7 @@
 
 // Plantronics / Poly devices
 #include "devices/plantronics_bt600.hpp"
+#include "devices/plantronics_bt700.hpp"
 
 // Sennheiser / EPOS devices
 #include "devices/epos_h3pro_hybrid.hpp"
@@ -187,6 +188,7 @@ void DeviceRegistry::initialize()
 
         // Plantronics / Poly devices
         registerDevice(std::make_unique<PlantronicsBT600>());
+        registerDevice(std::make_unique<PlantronicsBT700>());
 
         // Sennheiser / EPOS devices
         registerDevice(std::make_unique<SennheiserGSP370>());

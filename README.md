@@ -197,6 +197,7 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 | Audeze Maxwell 2 | All | x | x |   |   | x | x | x |   | x |   |   |   |   |   |   |   | x | x |   |   |   |   | x |   |   |
 | Lenovo Wireless VoIP Headset | All | x | x |   |   | x |   | x | x | x |   |   | x |   | x |   |   |   |   |   |   |   |   |   |   |   |
 | Plantronics Voyager 8200 UC (BT600) | L/W | x | x |   | x |   |   | x |   |   |   |   |   |   | x |   |   |   |   |   |   |   |   |   |   |   |
+| Poly Voyager Focus 2 (BT700) | L/W | x | x |   | x |   |   | x |   |   |   |   |   |   | x |   |   |   |   |   |   |   |   |   |   |   |
 | Sennheiser GSP 370 | L | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | EPOS H3PRO Hybrid | All | r | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   | x | x |   |   |   |   |   |   |   |
 | Jabra Link 380 (paired headset) | L/M | x | x |   | x | x |   | x |   |   |   |   |   |   | x |   |   |   | x |   |   |   |   |   |   |   |
