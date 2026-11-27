@@ -152,7 +152,6 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 
 ## Supported Devices
 
-
 | Device | Platform | sidetone | battery | notification sound | lights | inactive time | chatmix | voice prompts | rotate to mute | equalizer preset | equalizer | parametric equalizer | microphone mute led brightness | microphone volume | volume limiter | bluetooth when powered on | bluetooth call volume | microphone noise filter | sidetone status | anc | anc startup mode | anc button modes | microphone attachment status | microphone mute status | headset volume | light color |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Logitech ASTRO A20 X (USB wired) | All |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
@@ -213,7 +212,6 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 | Razer BlackShark V2 Pro (PlayStation) | All |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | Moondrop GM01 Pro | L |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | HeadsetControl Test device | All | r | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | r | x |
-
 
 **Platform:** All = Linux, macOS, Windows | L/M = Linux and macOS only | L/W = Linux and Windows only | L = Linux only
 
