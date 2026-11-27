@@ -47,6 +47,9 @@ public:
     size_t out_size    = PlantronicsBT600::MSG_SIZE;
     bool accepts_nudge = true;
     bool headset_on    = true;
+    // Bytes of the battery reply the backend hands over (a short read when
+    // smaller than the report)
+    size_t battery_reply_size = IN_SIZE;
 
     std::vector<Bytes> writes;
     std::deque<Bytes> pending;
@@ -98,6 +101,7 @@ public:
         } else if (op == 0x02 && grp == 0x0a && item == 0x1a) {
             // Battery: level 10 of 11, not charging, 1014 minutes left
             reply({ 0x07, 0x01, 0x01, 0x10, 0x0c, 0x02, 0x00, 0x00, 0x03, 0x0a, 0x1a, 0x0a, 0x0b, 0x00, 0x03, 0xf6, 0x01 });
+            pending.back().resize(battery_reply_size);
         } else if (op == 0x05) {
             // SET: an attention pulse, the "changed" event, then the ack
             reply({ 0x9b, 0x01 });
@@ -231,6 +235,31 @@ void testBT700HeadsetOff()
     PLT_ASSERT(result.error().code == DeviceError::Code::DeviceOffline, "reported as offline");
 }
 
+void testTruncatedBatteryReply()
+{
+    // A reply cut off after the level count must not be completed with the
+    // charging flag and minutes of whatever report was read before it.
+    auto hid               = makeBT700Mock();
+    hid.battery_reply_size = PlantronicsBT600::OFF_BATT_COUNT + 1;
+    TestablePoly<PlantronicsBT700> device(hid);
+
+    auto result = device.getBattery(PLT_TEST_HANDLE);
+    PLT_ASSERT(!result.hasValue(), "a truncated battery reply is not a battery level");
+    PLT_ASSERT(result.error().code == DeviceError::Code::ProtocolError, "reported as a protocol error");
+
+    // One byte short of the minutes is still too short, the full value is not
+    auto hid_short               = makeBT700Mock();
+    hid_short.battery_reply_size = PlantronicsBT600::OFF_BATT_MIN_LO;
+    TestablePoly<PlantronicsBT700> device_short(hid_short);
+    PLT_ASSERT(!device_short.getBattery(PLT_TEST_HANDLE).hasValue(), "one byte short is rejected");
+
+    auto hid_exact               = makeBT700Mock();
+    hid_exact.battery_reply_size = PlantronicsBT600::OFF_BATT_MIN_LO + 1;
+    TestablePoly<PlantronicsBT700> device_exact(hid_exact);
+    auto exact = device_exact.getBattery(PLT_TEST_HANDLE);
+    PLT_ASSERT(exact.hasValue() && exact->time_to_empty_min == 1014, "a reply holding every byte read is accepted");
+}
+
 void testBT600KeepsNudgeAndFrameSize()
 {
     PolyMockHID hid;
@@ -251,6 +280,7 @@ void runAllPlantronicsTests()
     testBT700Battery();
     testBT700Sidetone();
     testBT700HeadsetOff();
+    testTruncatedBatteryReply();
     testBT600KeepsNudgeAndFrameSize();
     std::cout << "  Plantronics / Poly tests passed" << std::endl;
 }

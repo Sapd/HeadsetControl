@@ -210,8 +210,11 @@ private:
      * the headset is not linked to the dongle.
      *
      * @param op Expected reply op, or 0 to accept any solicited reply
+     * @param min_len Bytes the caller reads from the reply. A matching reply
+     *                that was read shorter than this is an error, since the
+     *                rest of the buffer still holds an earlier report.
      */
-    Result<void> awaitReply(hid_device* device_handle, uint8_t op, uint8_t grp, uint8_t item, std::array<uint8_t, MSG_SIZE>& response, uint8_t addr = ADDR_HEADSET_REPLY) const
+    Result<void> awaitReply(hid_device* device_handle, uint8_t op, uint8_t grp, uint8_t item, std::array<uint8_t, MSG_SIZE>& response, uint8_t addr = ADDR_HEADSET_REPLY, size_t min_len = OFF_ITEM + 1) const
     {
         for (int attempt = 0; attempt < MAX_READ_ATTEMPTS; ++attempt) {
             auto read_result = readHIDTimeout(device_handle, response, hsc_device_timeout);
@@ -221,7 +224,16 @@ private:
                 }
                 return read_result.error();
             }
+            // Too short to carry a frame header (e.g. a 0x9b pulse): the
+            // bytes isReplyFor() looks at would be those of an earlier report.
+            const size_t length = *read_result;
+            if (length <= OFF_ITEM) {
+                continue;
+            }
             if (isReplyFor(response, grp, item, addr) && (op == 0 || response[OFF_OP] == op)) {
+                if (length < min_len) {
+                    return DeviceError::protocolError("Truncated reply for the requested setting");
+                }
                 return {};
             }
         }
@@ -443,7 +455,7 @@ public:
         }
 
         std::array<uint8_t, MSG_SIZE> response {};
-        if (auto result = awaitReply(device_handle, OP_GET_REPLY, GRP_BATTERY, ITEM_BATTERY, response); !result) {
+        if (auto result = awaitReply(device_handle, OP_GET_REPLY, GRP_BATTERY, ITEM_BATTERY, response, ADDR_HEADSET_REPLY, OFF_BATT_MIN_LO + 1); !result) {
             return result.error();
         }
 
