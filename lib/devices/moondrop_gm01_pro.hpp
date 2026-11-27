@@ -104,6 +104,7 @@ public:
           return DeviceError::protocolError(error_msg);
         }
 
+        // Battery charging is not reported by the device
         return BatteryResult {
             .level_percent = battery_level,
             .status        = BATTERY_AVAILABLE,
