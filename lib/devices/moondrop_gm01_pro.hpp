@@ -97,8 +97,15 @@ public:
         }
 
         const auto& battery_response = response.value();
+        const auto battery_level = battery_response.at(OFFSET_BATTERY_LEVEL);
+
+        if (battery_level > 100){
+          std::string error_msg = std::format("Invalid battery level: {}%. Is greater than 100%", battery_level);
+          return DeviceError::protocolError(error_msg);
+        }
+
         return BatteryResult {
-            .level_percent = battery_response.at(OFFSET_BATTERY_LEVEL),
+            .level_percent = battery_level,
             .status        = BATTERY_AVAILABLE,
             .raw_data      = std::vector<uint8_t> { battery_response.begin(), battery_response.end() }
         };
