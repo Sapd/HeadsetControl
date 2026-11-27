@@ -28,7 +28,8 @@ namespace headsetcontrol::protocols {
  * ID 0x07 in the vendor collection usage-page 0xFFA2 / usage 0x03 on
  * interface 3. Commands are sent as OUTPUT reports (SET_REPORT via EP0; the
  * interface has no interrupt-OUT endpoint) and answered as INPUT reports on
- * interrupt EP 0x81. Frame layout (64-byte report, zero padded):
+ * interrupt EP 0x81. Frame layout (zero padded to the size of the OUTPUT
+ * report, which is 64 bytes on the BT600 and 504 on the BT700):
  *
  *   07 01 01 10 <len> <addr> 00 00 <op> <grp> <item> <value...>
  *
@@ -45,7 +46,8 @@ namespace headsetcontrol::protocols {
  *
  * The dongle ignores every GET/SET until sessions have been opened, which
  * requires (in this order, as the Windows stack does at device attach): a
- * 2-byte output report 06 01, a HELLO addressed to the dongle (arms the
+ * 2-byte output report 06 01 (BT600 only, the BT700 works without it and
+ * does not get it), a HELLO addressed to the dongle (arms the
  * relay to the headset; without it a freshly powered-on headset never
  * answers), and a HELLO addressed to the headset. Sessions persist until
  * the dongle loses power or the headset reboots, and the sequence is
@@ -152,7 +154,8 @@ private:
     static constexpr uint8_t OP_GET_REPLY       = 0x03;
 
     // Output report that precedes session setup in the Windows attach
-    // sequence; required before a freshly powered-on headset will answer.
+    // sequence; required on the BT600 before a freshly powered-on headset
+    // will answer. Only sent if needsSessionNudge().
     static constexpr std::array<uint8_t, 2> SESSION_NUDGE { 0x06, 0x01 };
 
     // HELLO command payload (sits in the grp/item slots of the frame)
@@ -177,9 +180,18 @@ private:
     static constexpr uint8_t SIDETONE_LEVELS = 3; // 0=Low, 1=Medium, 2=High
 
     // Skip this many non-matching reports (events, catalogue fragments,
-    // 0x9b attention pulses) before giving up on a reply. A headset
-    // catalogue can be 7 fragments (Voyager Focus 2 on a BT700), and each
-    // event comes with a pulse.
+    // 0x9b attention pulses) before giving up on a reply.
+    //
+    // Counted on a BT700 with a Voyager Focus 2 over 215 queries, idle and
+    // during calls and music on both of its Bluetooth links: 8 reports are
+    // skipped before every GET/SET reply (the 7 fragments of the headset's
+    // catalogue and an "attached" event, all still queued behind the HELLO
+    // ack) and 4 before the headset's HELLO ack. Events of a headset in use
+    // (buttons, boom, audio state) added at most 3. The room is needed for
+    // a second program talking to the dongle (Poly's software, a kernel
+    // driver): its HELLO makes the headset send another ack, catalogue and
+    // event to every reader, which gave 17 skipped reports before one
+    // reply. Do not size this to the single-client numbers.
     static constexpr int MAX_READ_ATTEMPTS = 64;
 
     /**
@@ -259,10 +271,10 @@ private:
      * @brief Open the dongle- and headset-side settings sessions.
      *
      * Replays the init the Windows stack performs at device attach: the
-     * 06 01 output report, a HELLO to the dongle (arms the relay to the
-     * headset), and a HELLO to the headset. Required after the dongle
-     * powers up or the headset reboots; idempotent, so it is sent before
-     * every operation.
+     * 06 01 output report (BT600 only), a HELLO to the dongle (arms the
+     * relay to the headset), and a HELLO to the headset. Required after the
+     * dongle powers up or the headset reboots; idempotent, so it is sent
+     * before every operation.
      */
     Result<void> openSession(hid_device* device_handle) const
     {

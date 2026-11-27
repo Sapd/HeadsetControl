@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <deque>
 #include <iostream>
+#include <optional>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -33,8 +34,11 @@ auto* const PLT_TEST_HANDLE = reinterpret_cast<hid_device*>(0x1);
 
 /**
  * Simulated Poly dongle with a headset behind it. The replies are the first
- * bytes of the INPUT reports (63 bytes on the wire) captured from a BT700
- * with a Voyager Focus 2; everything written to it is recorded.
+ * bytes of the INPUT reports captured from a BT700 with a Voyager Focus 2;
+ * everything written to it is recorded. Report 0x07 is 63 bytes on the wire
+ * and the 0x9b attention pulse is 2. As with hidapi, a read only overwrites
+ * the bytes it returns, so the rest of the caller's buffer keeps the
+ * previous report.
  *
  * It is as strict as the real thing: a BT700 stalls an OUTPUT report 0x07
  * that is not 504 bytes, and on Windows report 0x06 cannot be written to the
@@ -51,13 +55,23 @@ public:
     // smaller than the report)
     size_t battery_reply_size = IN_SIZE;
 
+    // When set, the reads that follow a SET, at exactly these lengths
+    std::optional<std::vector<Bytes>> set_replies;
+
     std::vector<Bytes> writes;
     std::deque<Bytes> pending;
 
+    // A report 0x07, padded to its size on the wire
     void reply(Bytes head)
     {
         head.resize(IN_SIZE, 0);
         pending.push_back(std::move(head));
+    }
+
+    // A read of exactly these bytes
+    void replyRaw(Bytes bytes)
+    {
+        pending.push_back(std::move(bytes));
     }
 
     Result<void> write(hid_device*, std::span<const uint8_t> data) override
@@ -102,9 +116,13 @@ public:
             // Battery: level 10 of 11, not charging, 1014 minutes left
             reply({ 0x07, 0x01, 0x01, 0x10, 0x0c, 0x02, 0x00, 0x00, 0x03, 0x0a, 0x1a, 0x0a, 0x0b, 0x00, 0x03, 0xf6, 0x01 });
             pending.back().resize(battery_reply_size);
+        } else if (op == 0x05 && set_replies) {
+            for (const auto& bytes : *set_replies)
+                replyRaw(bytes);
         } else if (op == 0x05) {
-            // SET: an attention pulse, the "changed" event, then the ack
-            reply({ 0x9b, 0x01 });
+            // SET: an attention pulse (a 2-byte report), the "changed"
+            // event, then the ack
+            replyRaw({ 0x9b, 0x01 });
             reply({ 0x07, 0x01, 0x01, 0x10, 0x07, 0x02, 0x00, 0x00, 0x0a, grp, item, packet[PlantronicsBT600::OFF_VALUE] });
             reply({ 0x07, 0x01, 0x01, 0x10, 0x06, 0x02, 0x00, 0x00, 0x06, grp, item });
         }
@@ -122,7 +140,6 @@ public:
             return DeviceError::timeout("Simulated silence");
         const Bytes next = pending.front();
         pending.pop_front();
-        std::fill(data.begin(), data.end(), 0);
         std::copy_n(next.begin(), std::min(next.size(), data.size()), data.begin());
         return std::min(next.size(), data.size());
     }
@@ -183,6 +200,7 @@ void testBT700Registered()
 
     auto detail = bt700->getCapabilityDetail(CAP_BATTERY_STATUS);
     PLT_ASSERT(detail.usagepage == 0xffa2 && detail.usageid == 0x03, "should select the Poly control collection");
+    PLT_ASSERT(detail.interface_id == 0x03, "the collection is on interface 3 (fallback without usage pages)");
 }
 
 void testBT700Battery()
@@ -260,6 +278,29 @@ void testTruncatedBatteryReply()
     PLT_ASSERT(exact.hasValue() && exact->time_to_empty_min == 1014, "a reply holding every byte read is accepted");
 }
 
+void testShortReadsAreSkipped()
+{
+    // The 2-byte pulse that precedes the "changed" event is skipped
+    auto hid = makeBT700Mock();
+    TestablePoly<PlantronicsBT700> device(hid);
+    PLT_ASSERT(device.setLights(PLT_TEST_HANDLE, true).hasValue(), "a SET is acked after a 2-byte pulse");
+    PLT_ASSERT(hid.pending.size() == 1, "stopped at the changed event, the ack is left unread");
+
+    // A read too short to hold a frame header must not be completed by the
+    // report read before it. Here that is an event for the same setting
+    // from the dongle's address, followed by 6 bytes that turn it into one
+    // from the headset.
+    auto hid_stale        = makeBT700Mock();
+    hid_stale.set_replies = std::vector<Bytes> {
+        { 0x07, 0x01, 0x01, 0x10, 0x07, 0x00, 0x00, 0x00, 0x0a, 0x04, 0x09, 0x01 },
+        { 0x07, 0x01, 0x01, 0x10, 0x07, 0x02 },
+    };
+    TestablePoly<PlantronicsBT700> device_stale(hid_stale);
+    auto result = device_stale.setLights(PLT_TEST_HANDLE, true);
+    PLT_ASSERT(!result.hasValue(), "a 6-byte read is not an ack");
+    PLT_ASSERT(result.error().code == DeviceError::Code::DeviceOffline, "nothing else answered: offline");
+}
+
 void testBT600KeepsNudgeAndFrameSize()
 {
     PolyMockHID hid;
@@ -281,6 +322,7 @@ void runAllPlantronicsTests()
     testBT700Sidetone();
     testBT700HeadsetOff();
     testTruncatedBatteryReply();
+    testShortReadsAreSkipped();
     testBT600KeepsNudgeAndFrameSize();
     std::cout << "  Plantronics / Poly tests passed" << std::endl;
 }

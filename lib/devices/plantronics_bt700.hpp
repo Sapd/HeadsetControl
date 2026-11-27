@@ -14,7 +14,9 @@ namespace headsetcontrol {
  *
  * Same features and group/item ids as the BT600: sidetone, battery status,
  * lights (the online indicator), voice prompts and volume limiter. See
- * protocols::PolyProtocol for the wire format. Verified on Linux and
+ * protocols::PolyProtocol for the wire format. The 0xFFA2 collection is on
+ * interface 3 as on the BT600 (the dongle's only HID interface; 0-2 are
+ * audio), so the inherited getCapabilityDetail() fits. Verified on Linux and
  * Windows 11 with a Voyager Focus 2 (dongle firmware 4724, headset 5595).
  *
  * Differences from the BT600:
