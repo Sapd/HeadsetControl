@@ -183,12 +183,12 @@ private:
 
             if (expected_size == -1) {
                 std::string error_msg = std::format("Command {:02X} is unknown", cmd);
-                return DeviceError::hidError(error_msg);
+                return DeviceError::protocolError(error_msg);
             }
 
             if (expected_size != response_data_size) {
                 std::string error_msg = std::format("Command {:02X} expected data size is {}, got data size {}", cmd, expected_size, response_data_size);
-                return DeviceError::hidError(error_msg);
+                return DeviceError::protocolError(error_msg);
             }
 
             return response;
