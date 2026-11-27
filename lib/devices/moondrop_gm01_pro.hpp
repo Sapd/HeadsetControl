@@ -68,7 +68,7 @@ public:
         return PLATFORM_LINUX;
     }
 
-    constexpr capability_detail getCapabilityDetail(enum capabilities cap) const override
+    constexpr capability_detail getCapabilityDetail([[maybe_unused]] enum capabilities cap) const override
     {
         return { .usagepage = 0x000C, .usageid = 0x0001, .interface_id = 3 };
     }
