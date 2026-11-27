@@ -24,10 +24,10 @@ public:
     }
 };
 
-#define MDRP_GM01_PRO_ASSERT(condition, message)                                     \
-    do {                                                                             \
-        if (!(condition))                                                            \
-            throw std::runtime_error(std::string("Assertion failed: ") + (message)); \
+#define MDRP_GM01_PRO_ASSERT(condition, message)                                         \
+    do {                                                                                 \
+        if (!(condition))                                                                \
+            throw MdrpGM01ProTestFailure(std::string("Assertion failed: ") + (message)); \
     } while (false)
 
 using Message = std::vector<uint8_t>;
