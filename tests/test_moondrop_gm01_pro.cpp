@@ -38,8 +38,7 @@ class MdrpGM01ProMockHID final : public HIDInterface {
 public:
     bool answer_battery   = true;
     bool answer_link      = true;
-    uint8_t battery_level = 50;
-    Message battery_reply = { 0x4B, 0x80, 0x27, 0x06, 0x00, 0x00, 0x00, 0x00, 0x01 };
+    Message battery_reply = { 0x4B, 0x80, 0x27, 0x06, 0x00, 0x00, 0x00, 0x00, 0x01, 0x32 };
     Message link_reply    = { 0x4B, 0x80, 0x31, 0x01, 0x01 };
     std::vector<Message> writes;
     std::deque<Message> pending;
@@ -51,7 +50,6 @@ public:
             if (data[1] == MoondropGM01Pro::MSG_TYPE_READ) {
                 if (data[2] == MoondropGM01Pro::CMD_BATTERY && answer_battery) {
                     battery_reply.resize(64, 0);
-                    battery_reply.at(MoondropGM01Pro::OFFSET_BATTERY_LEVEL) = battery_level;
                     pending.push_back(battery_reply);
                 } else if (data[2] == MoondropGM01Pro::CMD_LINK && answer_link) {
                     link_reply.resize(64, 0);
