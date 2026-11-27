@@ -57,6 +57,19 @@ public:
     Result<void> write(hid_device*, std::span<const uint8_t> data) override
     {
         writes.emplace_back(data.begin(), data.end());
+        if (answer_with_unrelated) {
+            /*
+             * Simulate device responding with unrelated packet before target response
+             * link_reply cannot be used as dummy filler reply
+             * because it is called before almost every request
+             */
+            if (data[1] == MoondropGM01Pro::CMD_LED) {
+                pending.push_back(resizeReplyToMsgSize(battery_reply));
+            } else {
+                pending.push_back(resizeReplyToMsgSize(led_reply));
+            }
+        }
+
         if (data.size() >= 2 && data[0] == MoondropGM01Pro::REPORT_ID) {
             if (data[1] == MoondropGM01Pro::MSG_TYPE_READ) {
                 if (data[2] == MoondropGM01Pro::CMD_BATTERY && answer_battery) {
@@ -71,18 +84,6 @@ public:
                         final_reply = resizeReplyToWrongDataSize(final_reply, INVALID_LINK_DATA_SIZE_MSG_SIZE, INVALID_LINK_DATA_SIZE);
                     }
                     pending.push_back(resizeReplyToMsgSize(final_reply, short_link_reply));
-                }
-            }
-            if (answer_with_unrelated) {
-                /*
-                 * Simulate device responding with unrelated packet before target response
-                 * link_reply cannot be used as dummy filler reply
-                 * because it is called before almost every request
-                 */
-                if (data[1] == MoondropGM01Pro::CMD_LED) {
-                    pending.push_back(resizeReplyToMsgSize(battery_reply));
-                } else {
-                    pending.push_back(resizeReplyToMsgSize(led_reply));
                 }
             }
         }
