@@ -100,11 +100,11 @@ public:
         }
 
         const auto& battery_response = response.value();
-        const auto battery_level = battery_response.at(OFFSET_BATTERY_LEVEL);
+        const auto battery_level     = battery_response.at(OFFSET_BATTERY_LEVEL);
 
-        if (battery_level > BATTERY_MAX_LEVEL){
-          std::string error_msg = std::format("Invalid battery level: {}%. Is greater than 100%", battery_level);
-          return DeviceError::protocolError(error_msg);
+        if (battery_level > BATTERY_MAX_LEVEL) {
+            std::string error_msg = std::format("Invalid battery level: {}%. Is greater than 100%", battery_level);
+            return DeviceError::protocolError(error_msg);
         }
 
         // Battery charging is not reported by the device
