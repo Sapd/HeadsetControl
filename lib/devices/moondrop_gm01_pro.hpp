@@ -4,6 +4,7 @@
 #include "hid_device.hpp"
 #include "hidapi.h"
 #include "result_types.hpp"
+#include <cstdint>
 #include <thread>
 
 using namespace std::string_view_literals;
@@ -40,6 +41,8 @@ public:
     static constexpr uint8_t CMD_LINK    = 0x31;
     static constexpr uint8_t CMD_BATTERY = 0x27;
     static constexpr uint8_t CMD_LED     = 0x28;
+
+    static constexpr uint8_t BATTERY_MAX_LEVEL = 100;
 
     uint16_t getVendorId() const override
     {
@@ -99,7 +102,7 @@ public:
         const auto& battery_response = response.value();
         const auto battery_level = battery_response.at(OFFSET_BATTERY_LEVEL);
 
-        if (battery_level > 100){
+        if (battery_level > BATTERY_MAX_LEVEL){
           std::string error_msg = std::format("Invalid battery level: {}%. Is greater than 100%", battery_level);
           return DeviceError::protocolError(error_msg);
         }
