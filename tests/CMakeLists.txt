@@ -23,6 +23,7 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/test_corsair_virtuoso.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/test_razer_blackshark_v2_pro_ps.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/test_mchose.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/test_moondrop_gm01_pro.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/test_fifine.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/test_plantronics.cpp
 )

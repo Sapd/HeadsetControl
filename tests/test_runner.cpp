@@ -35,6 +35,7 @@ void runAllEposH3ProHybridTests();
 void runAllCorsairVirtuosoTests();
 void runAllRazerBlackSharkV2ProPSTests();
 void runAllMchoseTests();
+void runAllMdrpGM01ProTests();
 void runAllFifineTests();
 void runAllPlantronicsTests();
 }
@@ -89,6 +90,7 @@ int main()
         headsetcontrol::testing::runAllCorsairVirtuosoTests();
         headsetcontrol::testing::runAllRazerBlackSharkV2ProPSTests();
         headsetcontrol::testing::runAllMchoseTests();
+        headsetcontrol::testing::runAllMdrpGM01ProTests();
         headsetcontrol::testing::runAllFifineTests();
         headsetcontrol::testing::runAllPlantronicsTests();
 
