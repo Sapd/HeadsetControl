@@ -283,6 +283,18 @@ void testMdrpGM01ProShortRead()
         "(link short reply) error is a Timeout");
 }
 
+void testMdrpGM01ProLevelAbove100()
+{
+    MdrpGM01ProMockHID hid;
+    hid.battery_reply[9] = 0x65; // 101%
+    TestableMdrpGM01Pro device(hid);
+
+    auto battery = device.getBattery(MDRP_GM01_PRO_TEST_HANDLE);
+    MDRP_GM01_PRO_ASSERT(battery.hasError(), "(battery above 100%) is an error");
+    MDRP_GM01_PRO_ASSERT(battery.error().code == DeviceError::Code::ProtocolError,
+        "(battery above 100%) error is a ProtocolError");
+}
+
 void runAllMdrpGM01ProTests()
 {
     std::cout << "\n=== Moondrop GM01 Pro Tests ===" << std::endl;
@@ -293,6 +305,7 @@ void runAllMdrpGM01ProTests()
     testMdrpGM01ProUnrelatedResponse();
     testMdrpGM01ProWrongDataSize();
     testMdrpGM01ProShortRead();
+    testMdrpGM01ProLevelAbove100();
 }
 
 } // namespace headsetcontrol::testing
